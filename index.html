@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Пенальти</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#050a18;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
+  font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+#ui{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom));display:flex;
+  flex-direction:column;gap:10px;align-items:center;pointer-events:none}
+#msg{color:#fff;font-size:17px;line-height:1.3;text-align:center;text-shadow:0 2px 6px #000;max-width:520px}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
+button{font:inherit;font-size:17px;font-weight:700;padding:13px 20px;border-radius:14px;border:0;background:#facc15;color:#111;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);-webkit-tap-highlight-color:transparent}
+button.alt{background:#60a5fa}
+button:active{transform:translateY(1px)}
+#mute{position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;padding:7px 11px;font-size:18px;
+  background:rgba(10,15,30,.75);color:#fff;pointer-events:auto;z-index:2}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="mute" type="button" aria-label="Звук">🔊</button>
+<div id="ui">
+  <div id="msg"></div>
+  <div class="row" id="buttons"></div>
+</div>
+<script>
+'use strict';
+/* Пенальти-дуэль: сцена из-за спины бьющего. Логические координаты W×H, вписываются в экран.
+   Неподвижное (небо, трибуны, газон) рисуется один раз в запасные холсты и потом только копируется.
+   Сейчас — ДЕМО: соперник выбирает случайно, исход считается здесь (см. demoOpponent).
+   В матче исход будет присылать сервер, страница только показывает. */
+const W = 720, H = 1040;
+const GOAL = {x0: 150, x1: 570, y0: 300, y1: 470};      // створ: штанги, перекладина, линия ворот
+const BACK = {x0: 190, x1: 530, y0: 322, y1: 452};      // задняя стенка сетки
+const VP = {x: 360, y: 335};                             // куда «уходит» сетка при ударе
+const SPOT = {x: 360, y: 800};                           // точка пенальти
+const STANDS_Y = 250, BOARDS_Y = 250, PITCH_Y = 282;     // трибуны до 250, щиты 250–282, дальше газон
+const AIMS = ['в левый верхний угол', 'под перекладину', 'в правый верхний угол',
+              'в левый нижний угол', 'низом по центру', 'в правый нижний угол'];
+const DIVES = ['прыгает влево', 'остаётся в центре', 'прыгает вправо'];
+const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+const FONT = '"Trebuchet MS","Segoe UI",sans-serif';
+
+if (!CanvasRenderingContext2D.prototype.roundRect)      // старые Android WebView: скругление — простым прямоугольником
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const msgEl = document.getElementById('msg'), btnEl = document.getElementById('buttons');
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 2.2);
+const easeInOut = t => { t = clamp(t, 0, 1); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function zone(aim) {
+  const c = aim % 3, r = Math.floor(aim / 3);
+  return {x: GOAL.x0 + (GOAL.x1 - GOAL.x0) * (c + .5) / 3, y: GOAL.y0 + (GOAL.y1 - GOAL.y0) * (r + .5) / 2};
+}
+const colX = c => GOAL.x0 + (GOAL.x1 - GOAL.x0) * (c + .5) / 3;
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, gg = n >> 8 & 255, b = n & 255;
+  const f = v => clamp(Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k), 0, 255);
+  return `rgb(${f(r)},${f(gg)},${f(b)})`;
+}
+
+/* ---------------- состояние ---------------- */
+const P = {   // участники (в матче придут от сервера)
+  kicker: {num: 9, name: 'Нападающий', stat: 'Удар 30', shirt: '#dc2626', shorts: '#f5f5f5'},
+  keeper: {num: 1, name: 'Вратарь', stat: 'Вратарство 30', shirt: '#2563eb'},
+};
+let role = null;          // kick | keep
+let phase = 'intro';      // intro | choose | wait | play | done
+let myPick = null, deadline = 0, chooseSec = 15;
+let anim = null;          // {t0, aim, dive, outcome, text}
+let excite = 0, shake = 0, flash = 0;
+const fx = [];
+
+/* ---------------- экран и запасные холсты ---------------- */
+let dpr = 1, sc = 1, ox = 0, oy = 0;
+const BX0 = -260, BY0 = -330, BW = W + 520, BH = H - BY0 + 180;   // область, которую покрывает фон
+let bg = null, bands = [], bgR = 1;
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; }
+function fit() {
+  dpr = Math.min(devicePixelRatio || 1, 3);
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+  // по бокам сцены — только трибуны и газон: на узком экране их можно срезать (видна середина шириной VIS), зато всё крупнее
+  const VIS = 600;
+  sc = Math.min(cv.width / VIS, cv.height / H); ox = (cv.width - W * sc) / 2; oy = (cv.height - H * sc) / 2;
+  bgR = Math.min(sc * 1.2, Math.sqrt(5e6 / (BW * BH)));        // запас резкости под наезд камеры, но не больше ~5 Мпикс
+  buildBackdrop();
+}
+
+/* ---------------- фон: небо, крыша с прожекторами, трибуны, газон (рисуется один раз) ---------------- */
+function buildBackdrop() {
+  bg = mkCanvas(BW * bgR, BH * bgR);
+  const c = bg.getContext('2d'); c.setTransform(bgR, 0, 0, bgR, -BX0 * bgR, -BY0 * bgR);
+  // небо
+  let gr = c.createLinearGradient(0, BY0, 0, 0); gr.addColorStop(0, '#02050f'); gr.addColorStop(1, '#0f1d3d');
+  c.fillStyle = gr; c.fillRect(BX0, BY0, BW, -BY0 + 2);
+  const r = rng(3);
+  c.fillStyle = 'rgba(255,255,255,.7)';
+  for (let i = 0; i < 70; i++) { const x = BX0 + r() * BW, y = BY0 + r() * (-BY0 - 60); c.fillRect(x, y, r() < .2 ? 2 : 1.2, r() < .2 ? 2 : 1.2); }
+  // крыша и прожекторы
+  c.fillStyle = '#0a0f1e'; c.fillRect(BX0, -46, BW, 40);
+  c.fillStyle = '#1c2440'; c.fillRect(BX0, -10, BW, 6);
+  for (let x = BX0 + 30; x < BX0 + BW; x += 26) { c.fillStyle = '#111832'; c.fillRect(x, -46, 3, 36); }
+  c.globalCompositeOperation = 'lighter';
+  for (const lx of [-120, 110, 360, 610, 840]) {
+    const glow = c.createRadialGradient(lx, -30, 2, lx, -30, 190);
+    glow.addColorStop(0, 'rgba(255,250,225,.55)'); glow.addColorStop(.25, 'rgba(255,245,210,.16)'); glow.addColorStop(1, 'rgba(255,245,210,0)');
+    c.fillStyle = glow; c.fillRect(lx - 200, -230, 400, 400);
+    for (let k = -2; k <= 2; k++) { c.fillStyle = '#fffbe6'; c.fillRect(lx + k * 13 - 5, -38, 10, 7); }
+  }
+  c.globalCompositeOperation = 'source-over';
+  // трибуны: ярусы (ряды ниже — крупнее и светлее)
+  gr = c.createLinearGradient(0, 0, 0, STANDS_Y); gr.addColorStop(0, '#0c1326'); gr.addColorStop(1, '#1d2747');
+  c.fillStyle = gr; c.fillRect(BX0, -4, BW, STANDS_Y + 4);
+  const rows = standRows();
+  for (const row of rows) { c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(BX0, row.y + row.h - 3, BW, 3); }
+  // газон: полосы стрижки в двух направлениях
+  let y = PITCH_Y, h = 12, i = 0;
+  while (y < BY0 + BH) { c.fillStyle = i % 2 ? '#1d7a3e' : '#22894a'; c.fillRect(BX0, y, BW, h + 1); y += h; h *= 1.13; i++; }
+  c.save(); c.beginPath(); c.rect(BX0, PITCH_Y, BW, BY0 + BH - PITCH_Y); c.clip();
+  const vx = 360, vy = -900;
+  for (let k = -14; k <= 14; k += 2) {
+    c.fillStyle = 'rgba(255,255,255,.035)';
+    c.beginPath(); c.moveTo(vx, vy); c.lineTo(vx + k * 120, BY0 + BH); c.lineTo(vx + (k + 1) * 120, BY0 + BH); c.fill();
+  }
+  for (let n = 0; n < 9000; n++) {                       // фактура травы
+    const px = BX0 + r() * BW, py = PITCH_Y + Math.pow(r(), .8) * (BY0 + BH - PITCH_Y), s = .8 + (py - PITCH_Y) / 380;
+    c.fillStyle = r() < .5 ? 'rgba(255,255,255,.05)' : 'rgba(0,30,10,.10)'; c.fillRect(px, py, s * 1.4, s * 2.6);
+  }
+  const pool = c.createRadialGradient(360, 520, 40, 360, 520, 620);       // пятно света прожекторов
+  pool.addColorStop(0, 'rgba(255,255,230,.10)'); pool.addColorStop(1, 'rgba(255,255,230,0)');
+  c.fillStyle = pool; c.fillRect(BX0, PITCH_Y, BW, BY0 + BH - PITCH_Y);
+  c.restore();
+  // тень сетки за воротами
+  c.fillStyle = 'rgba(0,0,0,.22)';
+  c.beginPath(); c.moveTo(GOAL.x0 - 4, GOAL.y1); c.lineTo(BACK.x0 - 10, BACK.y1 - 4); c.lineTo(BACK.x1 + 10, BACK.y1 - 4); c.lineTo(GOAL.x1 + 4, GOAL.y1); c.fill();
+  // разметка
+  c.strokeStyle = 'rgba(255,255,255,.88)'; c.lineWidth = 4; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(BX0, GOAL.y1); c.lineTo(BX0 + BW, GOAL.y1);
+  c.moveTo(80, GOAL.y1); c.lineTo(46, 548); c.lineTo(674, 548); c.lineTo(640, GOAL.y1);
+  c.moveTo(BX0, 930); c.lineTo(BX0 + BW, 930); c.stroke();
+  c.save(); c.beginPath(); c.rect(BX0, 930, BW, 400); c.clip();
+  c.lineWidth = 5; c.beginPath(); c.ellipse(SPOT.x, SPOT.y + 10, 230, 190, 0, 0, 7); c.stroke(); c.restore();
+  c.fillStyle = '#fff'; c.beginPath(); c.ellipse(SPOT.x, SPOT.y + 16, 9, 4.5, 0, 0, 7); c.fill();
+  buildCrowd(rows);
+}
+function standRows() {
+  const rows = []; let y = 4;
+  for (let i = 0; i < 12; i++) { const h = lerp(14, 24, i / 11); rows.push({y, h, i}); y += h + 1.6; }
+  const k = (STANDS_Y - 4) / (y - 4); for (const r of rows) { r.y = 4 + (r.y - 4) * k; r.h *= k; }
+  return rows;
+}
+function buildCrowd(rows) {
+  // болельщики четырьмя полосами: при голе полосы подпрыгивают с разной фазой — «волна»
+  bands = [];
+  const r = rng(11);
+  const shirts = ['#dc2626', '#dc2626', '#2563eb', '#2563eb', '#f5f5f5', '#facc15', '#16a34a', '#f97316', '#a855f7', '#111827'];
+  const skins = ['#f1c7a5', '#e8b896', '#c98f6b', '#8d5a3b', '#f5d7bf'];
+  for (let b = 0; b < 4; b++) {
+    const rs = rows.slice(b * 3, b * 3 + 3), y0 = rs[0].y - 14, y1 = rs[rs.length - 1].y + rs[rs.length - 1].h + 2;
+    const cnv = mkCanvas(BW * bgR, (y1 - y0) * bgR), c = cnv.getContext('2d');
+    c.setTransform(bgR, 0, 0, bgR, -BX0 * bgR, -y0 * bgR);
+    for (const row of rs) {
+      const s = row.h, light = .45 + .55 * row.i / 11;
+      for (let x = BX0 + r() * s; x < BX0 + BW; x += s * (.72 + r() * .2)) {
+        if (r() < .06) continue;                                     // пустое кресло
+        const sh = shirts[r() * shirts.length | 0], bx = x + r() * 2, by = row.y + row.h;
+        c.globalAlpha = light;
+        c.fillStyle = sh; c.beginPath(); c.roundRect(bx - s * .3, by - s * .62, s * .6, s * .62, s * .2); c.fill();
+        c.fillStyle = skins[r() * skins.length | 0]; c.beginPath(); c.arc(bx, by - s * .78, s * .2, 0, 7); c.fill();
+        if (r() < .12) { c.fillStyle = r() < .5 ? '#dc2626' : '#f5f5f5'; c.fillRect(bx - s * .5, by - s * 1.18, s, s * .14); }   // шарф над головой
+      }
+    }
+    c.globalAlpha = 1;
+    bands.push({cnv, y0, y1, ph: b * 1.3});
+  }
+}
+
+/* ---------------- звук ---------------- */
+let ac = null, muted = false, noise = null;
+function audioOn() {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  if (ac.state === 'suspended') ac.resume();
+}
+function out(v) { const q = ac.createGain(); q.gain.value = muted ? 0 : v; q.connect(ac.destination); return q; }
+function whistle() {
+  if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), q = out(0);
+  o.frequency.value = 2750; lfo.frequency.value = 38; lg.gain.value = 140; lfo.connect(lg).connect(o.frequency);
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .12, t + .03); q.gain.setValueAtTime(muted ? 0 : .12, t + .38);
+  q.gain.linearRampToValueAtTime(0, t + .45); o.connect(q); o.start(t); lfo.start(t); o.stop(t + .5); lfo.stop(t + .5);
+}
+function thud() {
+  if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), q = out(0);
+  o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+  q.gain.setValueAtTime(muted ? 0 : .7, t); q.gain.exponentialRampToValueAtTime(.001, t + .2); o.connect(q); o.start(t); o.stop(t + .25);
+}
+function crowd(kind) {   // goal — рёв, save — «у-у-у», miss — вздох
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; s.loop = true; f.type = 'bandpass';
+  f.frequency.value = kind === 'goal' ? 900 : kind === 'save' ? 450 : 320; f.Q.value = kind === 'goal' ? .6 : 1.4;
+  const peak = muted ? 0 : (kind === 'goal' ? .55 : .35), len = kind === 'goal' ? 3 : 1.6;
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(peak, t + .18); q.gain.exponentialRampToValueAtTime(.001, t + len);
+  s.connect(f).connect(q); s.start(t); s.stop(t + len + .1);
+}
+document.getElementById('mute').onclick = () => {
+  muted = !muted; document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; audioOn();
+};
+function haptic(kind) {
+  try { if (!TG || !TG.HapticFeedback) return;
+    if (kind === 'tap') TG.HapticFeedback.impactOccurred('light');
+    else if (kind === 'kick') TG.HapticFeedback.impactOccurred('heavy');
+    else TG.HapticFeedback.notificationOccurred(kind); } catch (e) {}
+}
+
+/* ---------------- щиты и ворота (каждый кадр) ---------------- */
+function drawBoards(t) {
+  const goalNow = anim && anim.outcome === 'goal' && excite > .3;
+  const off = (t * (goalNow ? 160 : 40)) % 240;
+  for (let i = -2; i < 6; i++) {
+    const x = i * 240 - off, gold = goalNow && Math.floor(t * 6) % 2 === 0;
+    const gr = g.createLinearGradient(0, BOARDS_Y, 0, BOARDS_Y + 32);
+    const base = gold ? '#eab308' : (i % 2 ? '#1d4ed8' : '#b91c1c');
+    gr.addColorStop(0, shade(base, .18)); gr.addColorStop(1, shade(base, -.3));
+    g.fillStyle = gr; g.fillRect(x, BOARDS_Y, 238, 32);
+    g.save(); g.shadowColor = 'rgba(255,255,255,.8)'; g.shadowBlur = 6;
+    g.fillStyle = gold ? '#111' : '#fff'; g.font = `bold ${goalNow ? 20 : 15}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(goalNow ? 'ГООООЛ!' : 'ФУТБОЛЬНЫЙ МЕНЕДЖЕР', x + 119, BOARDS_Y + 17); g.restore();
+  }
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-300, BOARDS_Y + 32, W + 600, 4);
+}
+function drawNet(bulge) {   // bulge: {x,y,k} — мяч прогибает сетку
+  const inner = g.createLinearGradient(0, GOAL.y0, 0, GOAL.y1);
+  inner.addColorStop(0, 'rgba(0,0,0,.12)'); inner.addColorStop(1, 'rgba(0,0,0,.34)');
+  g.fillStyle = inner; g.fillRect(GOAL.x0, GOAL.y0, GOAL.x1 - GOAL.x0, GOAL.y1 - GOAL.y0);
+  const pt = (u, v) => {
+    let x = lerp(BACK.x0, BACK.x1, u), y = lerp(BACK.y0, BACK.y1, v);
+    if (bulge && bulge.k > 0) { const d = Math.hypot(x - bulge.x, y - bulge.y), f = bulge.k * Math.exp(-d * d / 3500);
+      x += (VP.x - x) * f * .35 + (x - bulge.x) * f * .25; y += (VP.y - y) * f * .35 + (y - bulge.y) * f * .25; }
+    return [x, y];
+  };
+  g.lineWidth = 1.1;
+  for (let i = 0; i <= 34; i++) { g.strokeStyle = 'rgba(236,240,245,.5)'; g.beginPath();
+    for (let j = 0; j <= 14; j++) { const [x, y] = pt(i / 34, j / 14); j ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  for (let j = 0; j <= 14; j++) { g.strokeStyle = `rgba(236,240,245,${.38 + .2 * (1 - j / 14)})`; g.beginPath();
+    for (let i = 0; i <= 34; i++) { const [x, y] = pt(i / 34, j / 14); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+  g.strokeStyle = 'rgba(236,240,245,.4)';
+  for (let i = 0; i <= 34; i++) { const u = i / 34; g.beginPath(); g.moveTo(lerp(GOAL.x0, GOAL.x1, u), GOAL.y0); g.lineTo(lerp(BACK.x0, BACK.x1, u), BACK.y0); g.stroke(); }
+  for (let j = 0; j <= 4; j++) { const v = j / 4; g.beginPath(); g.moveTo(GOAL.x0, lerp(GOAL.y0, BACK.y0, v)); g.lineTo(GOAL.x1, lerp(GOAL.y0, BACK.y0, v)); g.stroke(); }
+  for (const [fx0, bx] of [[GOAL.x0, BACK.x0], [GOAL.x1, BACK.x1]]) {
+    for (let j = 0; j <= 14; j++) { const v = j / 14; g.beginPath(); g.moveTo(fx0, lerp(GOAL.y0, GOAL.y1, v)); g.lineTo(bx, lerp(BACK.y0, BACK.y1, v)); g.stroke(); }
+    for (let k = 1; k < 5; k++) { const t = k / 5, x = lerp(fx0, bx, t); g.beginPath(); g.moveTo(x, lerp(GOAL.y0, BACK.y0, t)); g.lineTo(x, lerp(GOAL.y1, BACK.y1, t)); g.stroke(); }
+  }
+  g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2.4;
+  g.beginPath(); g.moveTo(GOAL.x0, GOAL.y1); g.lineTo(BACK.x0, BACK.y1); g.lineTo(BACK.x1, BACK.y1); g.lineTo(GOAL.x1, GOAL.y1); g.stroke();
+}
+function drawPosts() {
+  for (const x of [GOAL.x0, GOAL.x1]) {
+    const sh = g.createRadialGradient(x + 14, GOAL.y1 + 3, 1, x + 14, GOAL.y1 + 3, 24);
+    sh.addColorStop(0, 'rgba(0,0,0,.4)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(x - 12, GOAL.y1 - 8, 52, 22);
+  }
+  const cyl = (x0, w) => { const gr = g.createLinearGradient(x0, 0, x0 + w, 0);
+    gr.addColorStop(0, '#9aa3ae'); gr.addColorStop(.3, '#ffffff'); gr.addColorStop(.55, '#f1f4f7'); gr.addColorStop(1, '#8c95a1'); return gr; };
+  for (const x of [GOAL.x0, GOAL.x1]) { g.fillStyle = cyl(x - 7, 14); g.fillRect(x - 7, GOAL.y0 - 7, 14, GOAL.y1 - GOAL.y0 + 7); }
+  const gb = g.createLinearGradient(0, GOAL.y0 - 8, 0, GOAL.y0 + 6);
+  gb.addColorStop(0, '#9aa3ae'); gb.addColorStop(.3, '#ffffff'); gb.addColorStop(.6, '#eef1f4'); gb.addColorStop(1, '#8c95a1');
+  g.fillStyle = gb; g.beginPath(); g.roundRect(GOAL.x0 - 7, GOAL.y0 - 8, GOAL.x1 - GOAL.x0 + 14, 14, 7); g.fill();
+}
+
+/* ---------------- люди ---------------- */
+function limb(x1, y1, x2, y2, w, c, cap) { g.strokeStyle = c; g.lineWidth = w; g.lineCap = cap || 'round'; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); }
+function taper(x1, y1, r1, x2, y2, r2, color) {
+  // часть тела, сужающаяся от r1 к r2; светлее с одной стороны — выглядит объёмной
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  const gr = g.createLinearGradient(x1 + nx * r1, y1 + ny * r1, x1 - nx * r1, y1 - ny * r1);
+  gr.addColorStop(0, shade(color, .14)); gr.addColorStop(.55, color); gr.addColorStop(1, shade(color, -.25));
+  g.fillStyle = gr; g.beginPath();
+  g.moveTo(x1 + nx * r1, y1 + ny * r1); g.lineTo(x2 + nx * r2, y2 + ny * r2); g.lineTo(x2 - nx * r2, y2 - ny * r2); g.lineTo(x1 - nx * r1, y1 - ny * r1);
+  g.closePath(); g.fill();
+  g.beginPath(); g.arc(x1, y1, r1, 0, 7); g.fill(); g.beginPath(); g.arc(x2, y2, r2, 0, 7); g.fill();
+}
+function along(x1, y1, x2, y2, t) { return [lerp(x1, x2, t), lerp(y1, y2, t)]; }
+function softShadow(x, y, rx, ry, a) {
+  g.save(); g.translate(x, y); g.scale(1, ry / rx);
+  const s = g.createRadialGradient(0, 0, 1, 0, 0, rx); s.addColorStop(0, `rgba(0,0,0,${a})`); s.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = s; g.beginPath(); g.arc(0, 0, rx, 0, 7); g.fill(); g.restore();
+}
+function boot(x, y, w, h, ang) {
+  g.save(); g.translate(x, y); g.rotate(ang || 0);
+  g.fillStyle = '#0b0d12'; g.beginPath(); g.ellipse(0, 0, w, h, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(-w * .6, -h * .3, w * 1.2, h * .28);
+  g.restore();
+}
+function sockLeg(kx, ky, ax, ay, r1, r2, sock) {   // гетра от колена до щиколотки с белой полосой сверху
+  taper(kx, ky, r1, ax, ay, r2, sock);
+  const [bx, by] = along(kx, ky, ax, ay, .1), [cx, cy] = along(kx, ky, ax, ay, .2);
+  limb(bx, by, cx, cy, r1 * 1.9, '#f1f5f9', 'butt');
+}
+const SKIN = '#e6b08f', SKIN_D = '#c8906c';
+
+function drawKeeper(p) {
+  // анфас. p: {x, y (ноги), rot, arms 0..1 (0 — стойка, 1 — руки вверх), crouch 0..1, legs 0..1 (1 — ноги вместе, в прыжке)}
+  const shirt = P.keeper.shirt, dark = shade(shirt, -.4), sleeve = shade(shirt, -.08), sock = shade(shirt, -.3);
+  const lying = Math.abs(Math.sin(p.rot));
+  softShadow(p.x, GOAL.y1 + 4, 38 + 70 * lying, 9, .5);
+  g.save(); g.translate(p.x, p.y); g.rotate(p.rot);
+  const cr = p.crouch, lg = p.legs;
+  const hipY = -62 + 10 * cr, kneeY = -33 + 5 * cr, kneeX = lerp(17 + 7 * cr, 6, lg), footX = lerp(16, 6, lg);
+  // ноги: бедро (под шортами и голое до колена), гетра, бутса
+  for (const s of [-1, 1]) {
+    const hx = s * 9, kx = s * kneeX, ax = s * footX;
+    taper(hx, hipY, 7.2, kx, kneeY, 5.4, SKIN);
+    sockLeg(kx, kneeY + 1, ax, -6, 5.4, 3.8, sock);
+    boot(ax + s * 2, -3, 8.5, 5);
+  }
+  g.fillStyle = '#161922';                                                                                          // шорты
+  g.beginPath(); g.moveTo(-17, hipY - 12); g.lineTo(17, hipY - 12); g.lineTo(20, hipY + 9); g.lineTo(3, hipY + 10); g.lineTo(0, hipY + 3);
+  g.lineTo(-3, hipY + 10); g.lineTo(-20, hipY + 9); g.closePath(); g.fill();
+  // корпус: плечи шире пояса, округлые плечи
+  const shY = -106 + 10 * cr;
+  const tg = g.createLinearGradient(-24, 0, 24, 0); tg.addColorStop(0, shade(shirt, .28)); tg.addColorStop(.5, shirt); tg.addColorStop(1, dark);
+  g.fillStyle = tg; g.beginPath(); g.moveTo(-15, shY - 2); g.quadraticCurveTo(-24, shY - 1, -23, shY + 9);
+  g.lineTo(-16, hipY - 8); g.lineTo(16, hipY - 8); g.lineTo(23, shY + 9); g.quadraticCurveTo(24, shY - 1, 15, shY - 2); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(-16, shY + 14, 32, 3);                                         // полоса на груди
+  g.fillStyle = dark; g.beginPath(); g.moveTo(-6, shY - 2); g.lineTo(0, shY + 6); g.lineTo(6, shY - 2); g.fill();  // ворот
+  g.fillStyle = 'rgba(255,255,255,.92)'; g.font = `bold 16px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(String(P.keeper.num), 0, (shY + hipY) / 2 + 3);
+  // руки в длинных рукавах: плечо → локоть → запястье, перчатки
+  const a = p.arms;
+  for (const s of [-1, 1]) {
+    const sx = s * 18, sy = shY + 5;
+    const ex = s * lerp(35, 21, a), ey = shY + lerp(22, -24, a);
+    const wx = s * lerp(40, 14, a), wy = shY + lerp(40, -44, a);
+    taper(sx, sy, 6, ex, ey, 4.8, sleeve);
+    taper(ex, ey, 4.8, wx, wy, 4.2, sleeve);
+    const gx = wx + (wx - ex) * .35, gy = wy + (wy - ey) * .35;
+    limb(...along(ex, ey, wx, wy, .82), wx, wy, 9, '#111827', 'butt');                                         // манжета
+    const gl = g.createRadialGradient(gx - 3, gy - 3, 1, gx, gy, 11); gl.addColorStop(0, '#ffffff'); gl.addColorStop(1, '#c4ccd8');
+    g.fillStyle = gl; g.beginPath(); g.ellipse(gx, gy, 8, 9.5, Math.atan2(gy - ey, gx - ex) + Math.PI / 2, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1;                                                       // пальцы
+    for (const k of [-3, 0, 3]) { g.beginPath(); g.moveTo(gx + k, gy - 2); g.lineTo(gx + k * 1.2, gy - 7); g.stroke(); }
+  }
+  // голова
+  taper(0, shY - 1, 4.5, 0, shY - 8, 4.5, SKIN_D);
+  g.fillStyle = SKIN; g.beginPath(); g.ellipse(0, shY - 18, 10.5, 12, 0, 0, 7); g.fill();
+  g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(-10.5, shY - 17, 2.5, 3.5, 0, 0, 7); g.ellipse(10.5, shY - 17, 2.5, 3.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#2b1d16'; g.beginPath(); g.ellipse(0, shY - 25, 11, 6.5, 0, Math.PI, 0); g.fill(); g.fillRect(-11, shY - 25, 22, 3);
+  g.fillStyle = '#1f2937'; g.beginPath(); g.arc(-4, shY - 18, 1.4, 0, 7); g.arc(4, shY - 18, 1.4, 0, 7); g.fill();     // глаза
+  g.strokeStyle = 'rgba(80,40,30,.6)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-3, shY - 11.5); g.lineTo(3, shY - 11.5); g.stroke();
+  g.restore();
+}
+function keeperIdle(t) { return {x: 360 + Math.sin(t * 2.3) * 12, y: GOAL.y1, rot: 0, arms: 0, crouch: .6 + .15 * Math.sin(t * 4.6), legs: 0}; }
+function keeperTarget(a) {
+  // конечная поза прыжка: перчатки к мячу, если вратарь угадал сторону (не дотянулся — если гол)
+  const T = zone(a.aim), col = a.aim % 3, high = a.aim < 3;
+  if (a.dive === 1) {
+    if (col === 1 && high) return {x: 360, y: GOAL.y1 - 26, rot: 0, arms: 1, crouch: 0, legs: .6};
+    return {x: 360, y: GOAL.y1, rot: 0, arms: col === 1 ? .15 : .45, crouch: 1, legs: 0};
+  }
+  const dir = a.dive === 0 ? -1 : 1, L = 154;
+  const guessed = col === a.dive && a.outcome !== 'miss';
+  const rot = dir * (guessed ? (high ? .95 : 1.32) : 1.18);
+  let hx, hy;
+  if (guessed) { hx = T.x - (a.outcome === 'goal' ? dir * 48 : 0); hy = T.y + (a.outcome === 'goal' ? 10 : 0); }
+  else { hx = colX(a.dive); hy = 392; }
+  return {x: hx - Math.sin(rot) * L, y: hy + Math.cos(rot) * L, rot, arms: 1, crouch: 0, legs: 1};
+}
+
+function kickerArm(k, s, sw, running) {
+  // позы руки (локоть, запястье) относительно плеча; s = −1 левая, 1 правая
+  const idle = [[s * 62, -228], [s * 64, -178]];
+  if (k.mood === 'joy') return {e: [s * 80, -352], w: [s * 94, -404], front: false};
+  if (k.mood === 'sad') return {e: [s * 76, -308], w: [s * 24, -346], front: false};
+  if (k.kick > 0) {                                   // удар: левая рука в сторону для равновесия, правая назад
+    const q = clamp(k.kick * 1.6, 0, 1);
+    if (s < 0) return {e: [lerp(-62, -100, q), lerp(-228, -262, q)], w: [lerp(-64, -138, q), lerp(-178, -250, q)], front: false};
+    return {e: [lerp(62, 74, q), lerp(-228, -236, q)], w: [lerp(64, 88, q), lerp(-178, -196, q)], front: false};
+  }
+  if (!running) return {e: idle[0], w: idle[1], front: false};
+  const f = s * sw;                                   // > 0 — рука идёт вперёд (от нас), < 0 — назад (к нам)
+  if (f > 0) return {e: [s * lerp(62, 58, f), lerp(-228, -244, f)], w: [s * lerp(64, 34, f), lerp(-178, -232, f)], front: f > .45};
+  const b = -f;
+  return {e: [s * lerp(62, 70, b), lerp(-228, -226, b)], w: [s * lerp(64, 80, b), lerp(-178, -184, b)], front: false};
+}
+function drawKicker(k) {
+  // со спины. k: {x, y (ноги), s (масштаб), run (фаза бега), kick 0..1, mood: null|joy|sad, lean}
+  const c = P.kicker, dark = shade(c.shirt, -.38);
+  softShadow(k.x, k.y + 4, 80 * k.s, 18 * k.s, .55);
+  g.save(); g.translate(k.x, k.y); g.scale(k.s, k.s); g.rotate(k.lean || 0);
+  const sw = Math.sin(k.run), running = k.run !== 0;
+  const leg = (s, v) => {
+    const hip = [s * 21, -160];
+    let knee = [s * 24, -88 - (running ? Math.max(0, v) * 22 : 0)], ankle = [s * 25, -16 - (running ? v * 24 : 0)];
+    if (s === 1 && k.kick > 0) {                      // замах назад-вверх и удар с проносом ноги вперёд
+      const q = k.kick;
+      if (q < .4) { const e = q / .4; knee = [lerp(24, 32, e), lerp(-88, -74, e)]; ankle = [lerp(25, 44, e), lerp(-16, -58, e)]; }
+      else { const e = easeOut((q - .4) / .6); knee = [lerp(32, 48, e), lerp(-74, -150, e)]; ankle = [lerp(44, 70, e), lerp(-58, -196, e)]; }
+    }
+    taper(hip[0], hip[1], 19, knee[0], knee[1], 13, SKIN);
+    sockLeg(knee[0], knee[1] + 6, ankle[0], ankle[1], 13, 9, c.shirt);
+    boot(ankle[0] + s * 3, ankle[1] + 8, 19, 11);
+  };
+  const order = running && sw > 0 ? [[1, -sw], [-1, sw]] : [[-1, sw], [1, -sw]];
+  for (const [s, v] of order) leg(s, v);
+  // шорты с лампасами
+  g.fillStyle = c.shorts; g.beginPath(); g.moveTo(-48, -200); g.lineTo(48, -200); g.lineTo(55, -138); g.lineTo(5, -134); g.lineTo(0, -152);
+  g.lineTo(-5, -134); g.lineTo(-55, -138); g.closePath(); g.fill();
+  g.fillStyle = c.shirt; g.beginPath(); g.moveTo(-48, -200); g.lineTo(-42, -200); g.lineTo(-48, -138); g.lineTo(-55, -138); g.fill();
+  g.beginPath(); g.moveTo(48, -200); g.lineTo(42, -200); g.lineTo(48, -138); g.lineTo(55, -138); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.1)'; g.fillRect(-3, -198, 6, 44);
+  // руки растут из-под футболки: сначала руки, потом футболка, сверху только край рукава
+  const arms = [-1, 1].map(s => ({s, ...kickerArm(k, s, sw, running)}));
+  const shoulder = s => [s * 54, -280];
+  const forearm = ({e, w}) => {
+    taper(e[0], e[1], 10.5, w[0], w[1], 8, SKIN);                          // предплечье
+    const hx = w[0] + (w[0] - e[0]) * .22, hy = w[1] + (w[1] - e[1]) * .22;
+    g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(hx, hy, 8.5, 10.5, Math.atan2(hy - e[1], hx - e[0]) + Math.PI / 2, 0, 7); g.fill();   // кисть
+  };
+  for (const a of arms) { const sh = shoulder(a.s); taper(sh[0], sh[1], 13, a.e[0], a.e[1], 10.5, SKIN); forearm(a); }
+  const sleeve = ({s, e}) => {                                             // короткий рукав: от плеча до середины плеча
+    const sh = shoulder(s), [x2, y2] = along(sh[0], sh[1], e[0], e[1], .42);
+    taper(sh[0], sh[1], 15, x2, y2, 13.5, s < 0 ? shade(c.shirt, .06) : shade(c.shirt, -.12));
+    limb(...along(sh[0], sh[1], e[0], e[1], .38), x2, y2, 27, dark, 'butt');
+  };
+  // футболка (спина): округлые плечи, сужается к поясу
+  const tg = g.createLinearGradient(-60, 0, 60, 0); tg.addColorStop(0, shade(c.shirt, .22)); tg.addColorStop(.5, c.shirt); tg.addColorStop(1, dark);
+  g.fillStyle = tg; g.beginPath(); g.moveTo(-22, -304); g.quadraticCurveTo(-58, -302, -60, -276);
+  g.quadraticCurveTo(-54, -236, -47, -194); g.lineTo(47, -194); g.quadraticCurveTo(54, -236, 60, -276); g.quadraticCurveTo(58, -302, 22, -304); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.13)'; g.lineWidth = 3;                                                              // складки
+  g.beginPath(); g.moveTo(-22, -284); g.quadraticCurveTo(-28, -240, -20, -202); g.moveTo(24, -286); g.quadraticCurveTo(30, -240, 22, -202); g.stroke();
+  g.fillStyle = dark; g.beginPath(); g.ellipse(0, -303, 22, 6, 0, 0, Math.PI); g.fill();                           // ворот
+  g.fillStyle = 'rgba(255,255,255,.95)'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const last = (c.name.split(' ').pop() || '').toUpperCase().slice(0, 12);
+  g.font = `bold 18px ${FONT}`; g.fillText(last, 0, -272, 74);                     // длинная фамилия ужимается между рукавами
+  g.font = `bold 54px ${FONT}`; g.fillText(String(c.num), 0, -232);
+  for (const a of arms) if (!a.front) sleeve(a);
+  // шея, уши, затылок
+  taper(0, -300, 13, 0, -316, 12, SKIN_D);
+  g.fillStyle = SKIN; g.beginPath(); g.ellipse(-25, -332, 5.5, 9, -.15, 0, 7); g.ellipse(25, -332, 5.5, 9, .15, 0, 7); g.fill();
+  const hg = g.createRadialGradient(-8, -352, 4, 0, -336, 32); hg.addColorStop(0, '#4a3326'); hg.addColorStop(1, '#1b120d');
+  g.fillStyle = hg; g.beginPath(); g.ellipse(0, -337, 25, 29, 0, 0, 7); g.fill();
+  if (k.mood === 'sad') for (const a of arms) forearm(a);                  // ладони на затылке — поверх головы
+  g.restore();
+}
+function kickerAt(t, a) {
+  const start = {x: 225, y: 1010}, plant = {x: 312, y: 838};
+  if (!a) return {x: start.x, y: start.y, s: 1, run: 0, kick: 0, mood: null, lean: 0};
+  const r = clamp((t - .35) / .8, 0, 1), e = easeInOut(r);
+  const k = {x: lerp(start.x, plant.x, e), y: lerp(start.y, plant.y, e), s: lerp(1, .9, e), run: r > 0 && r < 1 ? t * 15 : 0,
+             kick: 0, mood: null, lean: r > 0 && r < 1 ? .07 : 0};
+  if (t > 1.0) k.kick = clamp((t - 1.0) / .22, 0, 1) * (t < 1.7 ? 1 : clamp(1 - (t - 1.7) / .3, 0, 1));
+  if (t > 2.1) { const good = a.outcome === 'goal'; k.mood = good ? 'joy' : 'sad';
+    if (good) k.y -= Math.abs(Math.sin((t - 2.1) * 7)) * 18; }
+  return k;
+}
+
+/* ---------------- мяч ---------------- */
+function drawBall(x, y, r, spin, alpha) {
+  g.save(); g.globalAlpha = alpha === undefined ? 1 : alpha; g.translate(x, y);
+  const gr = g.createRadialGradient(-r * .4, -r * .45, r * .05, 0, 0, r);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(.6, '#e5e7eb'); gr.addColorStop(1, '#9ca3af');
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+  g.save(); g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip(); g.rotate(spin); g.fillStyle = 'rgba(17,24,39,.92)';
+  const pent = (cx, cy, rr) => { g.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 1.2566; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.fill(); };
+  pent(0, 0, r * .38); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 1.2566; pent(Math.cos(a) * r * .95, Math.sin(a) * r * .95, r * .3); }
+  g.restore();
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.ellipse(-r * .38, -r * .42, r * .22, r * .14, -.6, 0, 7); g.fill();   // блик
+  g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
+  g.restore();
+}
+function ballAt(t, a) {
+  // {x, y, r, gy (земля под мячом), deep (за линией ворот), alpha, fly (в полёте — со следом)}
+  const K = 1.12, F = .62;
+  if (!a || t < K) return {x: SPOT.x, y: SPOT.y - 4, r: 22, gy: SPOT.y + 14, deep: false, spin: 0, alpha: 1};
+  let T = zone(a.aim);
+  if (a.outcome === 'miss') T = a.aim < 3 ? {x: T.x, y: GOAL.y0 - 42} : {x: a.aim % 3 === 0 ? GOAL.x0 - 52 : GOAL.x1 + 52, y: 440};
+  const p = clamp((t - K) / F, 0, 1), e = 1 - Math.pow(1 - p, 1.5);
+  if (p < 1) return {x: lerp(SPOT.x, T.x, e), y: lerp(SPOT.y - 4, T.y, e) - 46 * Math.sin(Math.PI * e), r: lerp(22, 10, e),
+                     gy: lerp(SPOT.y + 14, GOAL.y1 + 2, e), deep: false, spin: t * 18, alpha: 1, fly: true};
+  const q = t - K - F;
+  if (a.outcome === 'goal') {
+    const into = clamp(q / .16, 0, 1), fall = clamp((q - .16) / .45, 0, 1);
+    const x = lerp(T.x, lerp(T.x, VP.x, .3), into), y0 = lerp(T.y, lerp(T.y, VP.y, .3), into);
+    const y = lerp(y0, BACK.y1 - 8, fall * fall) - (fall > .7 ? Math.sin((fall - .7) / .3 * Math.PI) * 10 : 0);
+    return {x, y, r: lerp(10, 8.5, into), gy: BACK.y1, deep: true, spin: t * 6, alpha: 1};
+  }
+  if (a.outcome === 'save') {
+    // отбитый мяч отскакивает вперёд и в сторону — так, чтобы остался на экране телефона
+    const side = T.x === 360 ? (a.dive === 2 ? 1 : -1) : Math.sign(T.x - 360), r = clamp(q / .7, 0, 1), e2 = easeOut(r);
+    return {x: T.x + side * 90 * e2, y: lerp(T.y, GOAL.y1 + 130, e2) - 70 * Math.sin(Math.PI * Math.min(1, r * 1.3)), r: lerp(10, 16, e2),
+            gy: lerp(GOAL.y1 + 2, GOAL.y1 + 140, e2), deep: false, spin: -t * 12, alpha: 1};
+  }
+  const r = clamp(q / .6, 0, 1);                                                           // мимо: улетает дальше
+  return {x: T.x + (a.aim < 3 ? 0 : Math.sign(T.x - 360) * 80 * r), y: T.y - (a.aim < 3 ? 90 * r : 10 * r), r: lerp(10, 7, r),
+          gy: GOAL.y1 - 20, deep: true, spin: t * 18, alpha: 1 - r};
+}
+function drawBallWithShadow(b, prev) {
+  const h = clamp((b.gy - b.y) / 160, 0, 1);
+  softShadow(b.x + 3, b.gy, b.r * 1.25, b.r * .38, .5 * (1 - h) * b.alpha);
+  if (b.fly && prev) for (let k = 3; k >= 1; k--)                                          // след в полёте
+    drawBall(lerp(b.x, prev.x, k / 3), lerp(b.y, prev.y, k / 3), b.r * (1 + .05 * k), b.spin, .12 * (4 - k) / 3);
+  drawBall(b.x, b.y, b.r, b.spin, b.alpha);
+}
+
+/* ---------------- выбор и надписи ---------------- */
+function drawChoose(t) {
+  const pulse = .5 + .5 * Math.sin(t * 5);
+  if (role === 'kick') {
+    for (let z = 0; z < 6; z++) {
+      const {x, y} = zone(z), mine = myPick === z, dim = myPick !== null && !mine;
+      g.globalAlpha = dim ? .25 : 1;
+      g.save(); g.shadowColor = 'rgba(250,204,21,.9)'; g.shadowBlur = mine ? 22 : 10 * pulse;
+      g.fillStyle = mine ? 'rgba(250,204,21,.9)' : `rgba(250,204,21,${.16 + .14 * pulse})`;
+      g.strokeStyle = '#facc15'; g.lineWidth = 4;
+      g.beginPath(); g.arc(x, y, 30 + (mine ? 4 : 2 * pulse), 0, 7); g.fill(); g.stroke(); g.restore();
+      g.fillStyle = mine ? '#111' : '#fff'; g.font = `bold 30px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.6)'; if (!mine) g.strokeText(String(z + 1), x, y + 1); g.fillText(String(z + 1), x, y + 1);
+    }
+  } else {
+    const cw = (GOAL.x1 - GOAL.x0) / 3;
+    ['ВЛЕВО', 'ЦЕНТР', 'ВПРАВО'].forEach((w, i) => {
+      const mine = myPick === i, dim = myPick !== null && !mine, x = GOAL.x0 + cw * i;
+      g.globalAlpha = dim ? .25 : 1;
+      g.save(); g.shadowColor = 'rgba(147,197,253,.9)'; g.shadowBlur = mine ? 20 : 8 * pulse;
+      g.fillStyle = mine ? 'rgba(96,165,250,.6)' : `rgba(96,165,250,${.12 + .1 * pulse})`; g.strokeStyle = '#93c5fd'; g.lineWidth = 3;
+      g.beginPath(); g.roundRect(x + 6, GOAL.y0 + 10, cw - 12, GOAL.y1 - GOAL.y0 - 16, 14); g.fill(); g.stroke(); g.restore();
+      g.fillStyle = '#fff'; g.font = `bold 24px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(w, x + cw / 2, GOAL.y0 + 40); g.fillText(w, x + cw / 2, GOAL.y0 + 40);
+    });
+  }
+  g.globalAlpha = 1;
+}
+function pill(text, x, y, size, color) {
+  g.font = `bold ${size}px ${FONT}`; const w = Math.min(g.measureText(text).width, W - 40);
+  g.fillStyle = 'rgba(8,12,26,.8)'; g.beginPath(); g.roundRect(x - w / 2 - 14, y - size * .85, w + 28, size * 1.7, 12); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = 1.5; g.stroke();
+  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y, W - 40);
+}
+function drawHud() {
+  pill(`БЬЁТ  №${P.kicker.num} ${P.kicker.name} · ${P.kicker.stat}`, W / 2, 36, 22, '#fff');
+  pill(`ВРАТАРЬ  №${P.keeper.num} ${P.keeper.name} · ${P.keeper.stat}`, W / 2, 78, 22, '#fff');
+  if (phase === 'choose' || phase === 'wait') {
+    const left = clamp((deadline - performance.now()) / 1000, 0, chooseSec);
+    pill(role === 'kick' ? 'ВАШ УДАР — КОСНИТЕСЬ УГЛА' : 'ВЫ ВРАТАРЬ — КУДА ПРЫГНУТЬ?', W / 2, 140, 30, role === 'kick' ? '#facc15' : '#93c5fd');
+    g.fillStyle = 'rgba(8,12,26,.75)'; g.beginPath(); g.roundRect(158, 176, 404, 14, 7); g.fill();
+    g.fillStyle = left < 4 ? '#f87171' : '#facc15'; g.beginPath(); g.roundRect(160, 178, Math.max(0, 400 * left / chooseSec), 10, 5); g.fill();
+  }
+}
+function drawResult(t, a) {
+  const since = t - 1.85; if (since < 0) return;
+  const good = (a.outcome === 'goal') === (role === 'kick');
+  const word = {goal: 'ГОЛ!', save: 'СЕЙВ!', miss: 'МИМО!'}[a.outcome];
+  const s = 1 + .6 * Math.exp(-since * 7) * Math.cos(since * 18);
+  g.save(); g.translate(W / 2, 178); g.scale(s, s);                // на трибунах: не закрывает ни ворота, ни бьющего
+  g.font = `900 124px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let d = 9; d >= 1; d -= 2) { g.fillStyle = good ? '#7c2d12' : '#450a0a'; g.fillText(word, d * .6, d); }   // объём
+  g.lineWidth = 12; g.strokeStyle = 'rgba(8,12,26,.9)'; g.strokeText(word, 0, 0);
+  const gr = g.createLinearGradient(0, -55, 0, 55);
+  if (good) { gr.addColorStop(0, '#fff7c2'); gr.addColorStop(.45, '#facc15'); gr.addColorStop(1, '#f59e0b'); }
+  else { gr.addColorStop(0, '#fecaca'); gr.addColorStop(.45, '#f87171'); gr.addColorStop(1, '#dc2626'); }
+  g.shadowColor = good ? 'rgba(250,204,21,.85)' : 'rgba(248,113,113,.7)'; g.shadowBlur = 30;
+  g.fillStyle = gr; g.fillText(word, 0, 0);
+  g.restore();
+  if (a.text && since > .3) pill(a.text, W / 2, 266, 24, '#fff');
+}
+
+/* ---------------- эффекты ---------------- */
+function burst(x, y, n, colors, speed, life, grav, kind) {
+  for (let i = 0; i < n; i++) { const an = Math.random() * 6.283, v = speed * (.3 + Math.random());
+    fx.push({x, y, vx: Math.cos(an) * v, vy: Math.sin(an) * v - speed * .4, l: life * (.6 + Math.random() * .6), m: life,
+             c: colors[i % colors.length], g: grav, s: 3 + Math.random() * 5, r: Math.random() * 6, kind: kind || 'confetti'}); }
+}
+function stepFx(dt) {
+  for (const p of fx) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += p.g * dt * 60; p.vx *= .99; p.l -= dt; p.r += dt * 7; }
+  for (let i = fx.length - 1; i >= 0; i--) if (fx[i].l <= 0) fx.splice(i, 1);
+}
+function drawFx() {
+  for (const p of fx) {
+    g.globalAlpha = clamp(p.l / p.m, 0, 1); g.fillStyle = p.c;
+    if (p.kind === 'grass') { g.fillRect(p.x, p.y, 2, 4); continue; }
+    if (p.kind === 'spark') { g.beginPath(); g.arc(p.x, p.y, 2.2, 0, 7); g.fill(); continue; }
+    g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.scale(Math.abs(Math.cos(p.r * 1.7)) + .15, 1);          // переворачивается
+    g.fillRect(-p.s / 2, -p.s / 3, p.s, p.s / 1.5); g.restore();
+  }
+  g.globalAlpha = 1;
+}
+
+/* ---------------- камера и время ---------------- */
+// замедление у ворот: сцена 1.45–1.75 идёт вдвое медленнее (как в повторе)
+const sceneTime = x => x < 1.45 ? x : x < 2.05 ? 1.45 + (x - 1.45) * .5 : 1.75 + (x - 2.05);
+function camera(at) {   // наезд на ворота после удара
+  if (!anim) return {z: 1, fx: 360, fy: 420};
+  const z = 1 + .2 * easeInOut((at - 1.1) / .65) - .08 * easeInOut((at - 2.8) / .8);
+  return {z, fx: 360, fy: 420};
+}
+
+/* ---------------- ход сцены ---------------- */
+let events = {};
+function onAnimEvents(t, a) {
+  const once = (k, f) => { if (!events[k]) { events[k] = 1; f(); } };
+  if (t > .25) once('wh', whistle);
+  if (t > 1.12) once('kick', () => { thud(); haptic('kick');
+    burst(SPOT.x, SPOT.y + 8, 22, ['#2f9e57', '#3fb56a', '#7c5a3a'], 3.5, .7, .25, 'grass'); });
+  if (t > 1.74) once('out', () => {
+    const T = zone(a.aim), good = (a.outcome === 'goal') === (role === 'kick');
+    crowd(a.outcome); haptic(good ? 'success' : 'error');
+    if (a.outcome === 'goal') { excite = 1; shake = 9; flash = .6; burst(T.x, T.y, 90, ['#facc15', '#ffffff', P.kicker.shirt, '#60a5fa'], 7, 2.6, .12); }
+    if (a.outcome === 'save') { excite = .5; shake = 5; flash = .3; burst(T.x, T.y, 30, ['#ffffff', '#e5e7eb'], 5, .6, .05, 'spark'); }
+    if (a.outcome === 'miss') excite = .25;
+  });
+  if (t > 3.6) once('done', finish);
+}
+let last = performance.now(), prevBall = null;
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  excite = Math.max(0, excite - dt * .35); shake = Math.max(0, shake - dt * 30); flash = Math.max(0, flash - dt * 1.5);
+  stepFx(dt);
+  const a = anim, real = a ? (now - a.t0) / 1000 : 0, at = sceneTime(real);
+  if (a) onAnimEvents(at, a);
+  // поля за пределами сцены
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#02050f'; g.fillRect(0, 0, cv.width, oy + PITCH_Y * sc);
+  g.fillStyle = '#1d7a3e'; g.fillRect(0, oy + PITCH_Y * sc, cv.width, cv.height);
+  // сцена через камеру
+  const cam = camera(real), z = cam.z;
+  const sx = shake ? (Math.random() - .5) * shake * sc : 0, sy = shake ? (Math.random() - .5) * shake * sc : 0;
+  g.setTransform(sc * z, 0, 0, sc * z, ox + sc * cam.fx * (1 - z) + sx, oy + sc * cam.fy * (1 - z) + sy);
+  g.drawImage(bg, BX0, BY0, BW, BH);
+  for (const b of bands) {
+    const jump = excite > 0 ? Math.abs(Math.sin(t * 9 + b.ph)) * 6 * excite : 0;
+    g.drawImage(b.cnv, BX0, b.y0 - jump, BW, b.y1 - b.y0);
+  }
+  if (excite > .2) for (let i = 0; i < 8; i++) {                 // вспышки фотоаппаратов
+    if (Math.random() < .5 * excite) { const x = Math.random() * W, y = 20 + Math.random() * 210, r = 2 + Math.random() * 4;
+      const fl = g.createRadialGradient(x, y, 0, x, y, r * 4); fl.addColorStop(0, 'rgba(255,255,255,.95)'); fl.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = fl; g.fillRect(x - r * 4, y - r * 4, r * 8, r * 8); }
+  }
+  drawBoards(t);
+  const b = ballAt(at, a), pb = a ? ballAt(at - .05, a) : null;
+  let bulge = null;
+  if (a && a.outcome === 'goal') { const q = at - 1.74; if (q > 0) { const T = zone(a.aim); bulge = {x: lerp(BACK.x0, BACK.x1, (T.x - GOAL.x0) / (GOAL.x1 - GOAL.x0)), y: lerp(BACK.y0, BACK.y1, (T.y - GOAL.y0) / (GOAL.y1 - GOAL.y0)), k: Math.max(0, Math.sin(Math.min(q / .5, 1) * Math.PI)) * Math.exp(-q * 1.5)}; } }
+  drawNet(bulge);
+  if (b.deep) drawBall(b.x, b.y, b.r, b.spin, b.alpha);
+  drawPosts();
+  let kp;
+  if (!a || at < 1.17) kp = keeperIdle(a ? a.t0 / 1000 + at : t);
+  else {
+    const s = keeperIdle(a.t0 / 1000 + 1.17), e = keeperTarget(a), d = clamp((at - 1.17) / .45, 0, 1), de = easeOut(d);
+    kp = {x: lerp(s.x, e.x, de), y: lerp(s.y, e.y, de) - (a.dive !== 1 ? 34 * Math.sin(Math.PI * d) : 0), rot: lerp(0, e.rot, de),
+          arms: lerp(0, e.arms, de), crouch: lerp(s.crouch, e.crouch, de), legs: lerp(0, e.legs, de)};
+    const f = clamp((at - 1.85) / .35, 0, 1);                                   // падает на газон
+    if (f > 0 && a.dive !== 1) { const dir = Math.sign(e.rot); kp.rot = lerp(e.rot, dir * 1.57, easeInOut(f)); kp.y = lerp(e.y, GOAL.y1 - 12, easeInOut(f)); }
+  }
+  drawKeeper(kp);
+  if (phase === 'choose' || phase === 'wait') drawChoose(t);
+  if (!b.deep) drawBallWithShadow(b, pb);
+  drawKicker(kickerAt(at, a));
+  drawFx();
+  // экран: виньетка, вспышка, надписи
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const vg = g.createRadialGradient(cv.width / 2, cv.height * .45, Math.min(cv.width, cv.height) * .35, cv.width / 2, cv.height * .45, Math.max(cv.width, cv.height) * .75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)');
+  g.fillStyle = vg; g.fillRect(0, 0, cv.width, cv.height);
+  if (flash > 0) { g.fillStyle = `rgba(255,255,255,${flash * .35})`; g.fillRect(0, 0, cv.width, cv.height); }
+  g.setTransform(sc, 0, 0, sc, ox, oy);
+  drawHud();
+  if (a) drawResult(at, a);
+  if (phase === 'choose' && performance.now() > deadline) {
+    if (live) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }   // в матче решает сервер
+    else pick(Math.floor(Math.random() * (role === 'kick' ? 6 : 3)), true);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- управление ---------------- */
+cv.addEventListener('pointerdown', e => {
+  audioOn();
+  if (phase !== 'choose') return;
+  const x = (e.clientX * dpr - ox) / sc, y = (e.clientY * dpr - oy) / sc;
+  if (role === 'kick') {
+    if (x < GOAL.x0 - 50 || x > GOAL.x1 + 50 || y < GOAL.y0 - 60 || y > GOAL.y1 + 40) return;
+    const c = clamp(Math.floor((x - GOAL.x0) / ((GOAL.x1 - GOAL.x0) / 3)), 0, 2), r = y < (GOAL.y0 + GOAL.y1) / 2 ? 0 : 1;
+    pick(r * 3 + c);
+  } else {
+    if (y > 700) return;
+    pick(clamp(Math.floor((x - GOAL.x0) / ((GOAL.x1 - GOAL.x0) / 3)), 0, 2));
+  }
+});
+function setUi(text, buttons) {
+  msgEl.textContent = text; btnEl.innerHTML = '';
+  for (const [label, cls, fn] of buttons || []) { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls;
+    b.onclick = () => { audioOn(); fn(); }; btnEl.appendChild(b); }
+}
+const pickWords = v => role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
+function pick(v, auto) {
+  if (phase !== 'choose') return;
+  myPick = v; phase = 'wait'; haptic('tap');
+  if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
+  setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
+  demoOpponent(v);
+}
+
+/* ---------------- МАТЧ: сцена подключается к комнате пенальти, решает бот ---------------- */
+const Q = new URLSearchParams(location.search);
+const ROOM = Q.get('room');
+const DUEL_WS = '';            // адрес Worker'а после публикации, например 'wss://football-duel.<имя>.workers.dev'
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+// адрес сервера и подпись из ссылки — только при проверке на своём компьютере: иначе чужая ссылка увела бы подпись на чужой сервер
+const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
+const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
+let live = null;
+function liveConnect() {
+  if (!WS_BASE) { setUi('Сервер пенальти не настроен — выберите кнопкой в чате.', closeBtn()); return; }
+  setUi('Подключаемся к матчу…');
+  const ws = live = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } onLive(m); };
+  ws.onclose = e => {
+    if (phase === 'play' || phase === 'done') return;
+    setUi(e.code === 4003 ? 'Это пенальти не для вас.' : 'Связь с матчем потеряна — выберите кнопкой в чате.', closeBtn());
+  };
+}
+function onLive(m) {
+  if (m.type === 'state') {
+    Object.assign(P.kicker, m.kicker || {}); Object.assign(P.keeper, m.keeper || {});
+    start(m.role, m.left);
+    if (m.picked !== null && m.picked !== undefined) markPicked(m.picked);
+  } else if (m.type === 'picked') markPicked(m.value);
+  else if (m.type === 'result') play(m);
+  else if (m.type === 'bot_left' && phase !== 'play' && phase !== 'done') setUi('Матч прервал связь — выберите кнопкой в чате.', closeBtn());
+}
+function markPicked(v) {
+  if (phase === 'play' || phase === 'done') return;
+  myPick = v; phase = 'wait';
+  setUi(`Ваш выбор: ${pickWords(v)}. Ждём соперника…`);
+}
+function closeBtn() { return TG ? [['Закрыть', '', () => TG.close()]] : []; }
+
+/* ---------------- ДЕМО: соперник и исход (в матче это сделает сервер) ---------------- */
+function demoOpponent(mine) {
+  setTimeout(() => {
+    const aim = role === 'kick' ? mine : Math.floor(Math.random() * 6);
+    const dive = role === 'keep' ? mine : Math.floor(Math.random() * 3);
+    const high = aim < 3, guessed = aim % 3 === dive;
+    let outcome;
+    if (Math.random() < (high ? .2 : .07)) outcome = 'miss';
+    else if (guessed && Math.random() < (high ? .38 : .62)) outcome = 'save';
+    else outcome = 'goal';
+    const text = outcome === 'goal' ? (guessed ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь остался в центре' : 'Вратарь прыгнул в другую сторону')
+               : outcome === 'save' ? 'Вратарь угадал угол!' : (high ? 'Выше перекладины!' : 'Мимо, рядом со штангой!');
+    play({aim, dive, outcome, text});
+  }, 500 + Math.random() * 900);
+}
+function play(result) {
+  phase = 'play'; events = {}; anim = Object.assign({t0: performance.now()}, result);
+  setUi('');
+}
+function finish() {
+  phase = 'done';
+  if (live) { setUi('Матч продолжается в чате.', closeBtn()); return; }
+  setUi('Демо-режим: соперник выбирал случайно.', [['Ещё раз', '', () => start(role)], ['Сменить роль', 'alt', () => start(role === 'kick' ? 'keep' : 'kick')]]);
+}
+function start(r, left) {
+  role = r; phase = 'choose'; myPick = null; anim = null; fx.length = 0;
+  if (left !== undefined) chooseSec = Math.max(1, left);
+  deadline = performance.now() + chooseSec * 1000;
+  setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
+                     : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
+}
+if (ROOM) liveConnect();
+else setUi('Пенальти — демо. Кем будете?', [['⚽ Бить', '', () => start('kick')], ['🧤 Стоять в воротах', 'alt', () => start('keep')]]);
+
+addEventListener('resize', fit); fit();
+requestAnimationFrame(frame);
+if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
+  TG.setHeaderColor && TG.setHeaderColor('#02050f'); TG.setBackgroundColor && TG.setBackgroundColor('#02050f'); } catch (e) {} }
+</script>
+</body>
+</html>
