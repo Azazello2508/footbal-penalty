@@ -712,7 +712,7 @@ function pick(v, auto) {
 /* ---------------- МАТЧ: сцена подключается к комнате пенальти, решает бот ---------------- */
 const Q = new URLSearchParams(location.search);
 const ROOM = Q.get('room');
-const DUEL_WS = '';            // адрес Worker'а после публикации, например 'wss://football-duel.<имя>.workers.dev'
+const DUEL_WS = 'wss://football-duel.pinkovskyi2508.workers.dev';   // сервер комнат (worker/), только он
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 // адрес сервера и подпись из ссылки — только при проверке на своём компьютере: иначе чужая ссылка увела бы подпись на чужой сервер
 const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
