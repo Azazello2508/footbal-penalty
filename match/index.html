@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Матч</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#050a18;--panel:#0b1328;--line:#1c2742;--text:#f1f5f9;--muted:#94a3b8;--gold:#facc15;--comm:#fde68a}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);overflow:hidden;-webkit-user-select:none;user-select:none;
+  font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+body{display:flex;flex-direction:column;height:100dvh;height:var(--vh,100dvh)}
+#top{padding:calc(8px + env(safe-area-inset-top)) 12px 6px;background:linear-gradient(#0d1730,#070d1f);border-bottom:1px solid var(--line);flex:none}
+.teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.tm{display:flex;align-items:center;gap:6px;min-width:0;font-weight:700;font-size:15px}
+.tm.away{justify-content:flex-end;text-align:right}
+.tm .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kit{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid #fff3;box-sizing:border-box}
+#score{font-size:30px;font-weight:800;letter-spacing:1px;min-width:78px;text-align:center;transition:transform .25s}
+#score.bump{transform:scale(1.35);color:var(--gold)}
+#clockrow{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:13px;color:var(--muted)}
+#clock{color:var(--text);font-weight:700}
+#bar{position:relative;height:5px;border-radius:3px;background:#1e293b;margin:5px 0 4px;overflow:hidden}
+#fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#22c55e,var(--gold));transition:width .6s}
+#bar i{position:absolute;left:50%;top:0;bottom:0;width:2px;background:#0b1328}
+#stats{font-size:12px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status{font-size:13px;text-align:center;min-height:17px;margin-top:3px;color:var(--gold);font-weight:700}
+#pitchwrap{position:relative;flex:none;display:flex;justify-content:center;background:#04170c;overflow:hidden}
+canvas{display:block}
+#label{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(5,10,24,.82);border:1px solid #ffffff22;
+  padding:6px 12px;border-radius:12px;font-weight:800;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none;
+  max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#label.on{opacity:1}
+#flash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0}
+#flash b{font-size:76px;font-weight:900;letter-spacing:3px;color:#fff;-webkit-text-stroke:3px #000;paint-order:stroke fill;
+  text-shadow:0 0 24px var(--fc,#facc15),0 6px 0 #000}
+#flash span{margin-top:6px;font-size:17px;font-weight:800;background:rgba(0,0,0,.6);padding:4px 10px;border-radius:10px;max-width:92%;text-align:center}
+#flash.on{animation:flash 2.6s ease-out forwards}
+@keyframes flash{0%{opacity:0;transform:scale(.4)}12%{opacity:1;transform:scale(1.12)}22%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+#feed{flex:1;overflow-y:auto;padding:6px 12px calc(10px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.it{padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.35}
+.it.c{color:var(--comm);font-style:italic;padding-left:14px}
+.it.goal{font-weight:800;color:#fff;background:linear-gradient(90deg,#facc1522,transparent);padding-left:6px}
+.it.new{animation:pop .5s ease-out}
+@keyframes pop{from{background:#facc1533}to{}}
+#mute{position:absolute;top:8px;right:8px;font:inherit;font-size:16px;padding:5px 9px;border-radius:10px;border:0;background:rgba(5,10,24,.75);color:#fff;z-index:2}
+#note{position:absolute;left:10px;right:10px;bottom:10px;text-align:center;font-size:14px;background:rgba(5,10,24,.85);border-radius:10px;padding:8px;display:none}
+#note.on{display:block}
+</style>
+</head>
+<body>
+<div id="top">
+  <div class="teams">
+    <div class="tm home"><i class="kit" id="k0"></i><span class="nm" id="n0">Хозяева</span></div>
+    <div id="score">0:0</div>
+    <div class="tm away"><span class="nm" id="n1">Гости</span><i class="kit" id="k1"></i></div>
+  </div>
+  <div id="clockrow"><span id="clock">0'</span><span id="period">до свистка</span></div>
+  <div id="bar"><div id="fill"></div><i></i></div>
+  <div id="stats"></div>
+  <div id="status"></div>
+</div>
+<div id="pitchwrap"><canvas id="c"></canvas><div id="label"></div><div id="flash"><b>ГОЛ!</b><span></span></div>
+  <button id="mute" type="button" aria-label="Звук">🔊</button><div id="note"></div></div>
+<div id="feed"></div>
+<script>
+'use strict';
+/* Живой матч — зритель. Всё считает бот: страница получает состояние и события минуты и только показывает их.
+   Поле вертикальное: хозяева (команда 0) внизу и атакуют вверх, гости (1) — сверху вниз. */
+const W = 600, H = 840, M = 26;                       // логические размеры поля и отступ до линий
+const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+const $ = id => document.getElementById(id);
+const cv = $('c'), g = cv.getContext('2d');
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = t => { t = clamp(t, 0, 1); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+const rnd = (a, b) => a + Math.random() * (b - a);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+
+/* ---------------- координаты ---------------- */
+// depth: 0 — своя линия ворот, 1 — чужая; xf: 0…1 слева направо
+function at(t, depth, xf) {
+  const x = M + xf * (W - 2 * M);
+  const y = t === 0 ? H - M - depth * (H - 2 * M) : M + depth * (H - 2 * M);
+  return {x, y};
+}
+const goalOf = t => ({x: W / 2, y: t === 0 ? M : H - M});        // ворота, которые атакует команда t
+const CENTER = {x: W / 2, y: H / 2};
+
+/* ---------------- состояние ---------------- */
+let S = null;                // последнее состояние от бота
+let shown = null;            // что показано на табло (счёт и статистика догоняют анимацию)
+const players = {};          // "t:slot" -> фигурка {t, s, n, nm, gk, x, y, tx, ty, ...}
+const ball = {x: CENTER.x, y: CENTER.y, h: 0, fx: CENTER.x, fy: CENTER.y, tx: CENTER.x, ty: CENTER.y, t0: 0, d: 1, arc: 0};
+let poss = 0;                // кто сейчас с мячом (для «фона» игры)
+let queue = [], step = null, stepEnd = 0, nextIdle = 0;
+let fx = [];                 // частицы: конфетти, дым, пыль
+let cards = [];              // карточки над игроками
+let focus = {};              // "t:slot" -> {x, y} — куда бежит участник эпизода
+let crowd = null;            // {t, kind} — команда сбегается (угловой, гол, потасовка)
+let downed = null, stopped = false, fan = null, pyro = null;
+let lastSeq = -1;
+
+function key(t, s) { return t + ':' + s; }
+function gkColor(t) {
+  const pal = ['#f97316', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#e11d48'];
+  const used = S ? S.teams.map(x => x.shirt) : [];
+  const ok = pal.filter(c => !used.some(u => dist(c, u) < 120));
+  return (ok[t] || ok[0] || pal[t]);
+}
+function dist(a, b) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const x = p(a), y = p(b);
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
+}
+function ink(hex) {                     // цвет номера: тёмный на светлой футболке
+  const [r, gg, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  return (r * 299 + gg * 587 + b * 114) / 1000 > 150 ? '#111' : '#fff';
+}
+
+// базовые места по схеме: вратарь, защитники, нападающие; команда с мячом выдвигается вперёд
+function base(t, role, i, n) {
+  const spread = n === 1 ? [.5] : n === 2 ? [.3, .7] : [.2, .5, .8];
+  if (role === 'gk') return {depth: .035, xf: .5};
+  const xf = spread[i] !== undefined ? spread[i] : .5;
+  return role === 'def' ? {depth: .22, xf} : {depth: .44, xf};
+}
+function syncLineup() {
+  if (!S) return;
+  const seen = new Set();
+  S.teams.forEach((tm, t) => {
+    const list = [['gk', [tm.gk]], ['def', tm.def], ['att', tm.att]];
+    for (const [role, arr] of list) arr.forEach((p, i) => {
+      const k = key(t, p.s); seen.add(k);
+      const b = base(t, role, i, arr.length);
+      let f = players[k];
+      if (!f) { const st = at(t, b.depth, b.xf); f = players[k] = {t, s: p.s, x: st.x, y: st.y}; }
+      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, gk: role === 'gk', role, b});
+    });
+  });
+  for (const k of Object.keys(players)) if (!seen.has(k)) delete players[k];
+}
+function teamPlayers(t, field) { return Object.values(players).filter(p => p.t === t && (!field || !p.gk)); }
+function P(t, s) { return players[key(t, s)]; }
+
+/* ---------------- табло и лента ---------------- */
+function renderBoard() {
+  if (!S) return;
+  const sh = shown || S;
+  S.teams.forEach((tm, t) => { $('n' + t).textContent = tm.name; $('k' + t).style.background = tm.shirt; });
+  $('score').textContent = sh.teams[0].score + ':' + sh.teams[1].score;
+  const mnt = S.minute, half = S.half;
+  $('clock').textContent = S.phase === 'final' ? 'Финал' : (S.phase === 'pre' || mnt === 0) ? "0'" : mnt + "'";
+  $('period').textContent = S.phase === 'final' ? '🏁 матч окончен' : S.phase === 'pre' ? 'до стартового свистка'
+    : S.phase === 'half' ? '☕ перерыв' : mnt <= half ? '1-й тайм' : '2-й тайм';
+  $('fill').style.width = (100 * Math.min(mnt, S.full) / S.full) + '%';
+  const a = sh.teams[0], b = sh.teams[1];
+  $('stats').textContent = `Удары ${a.shots} (${a.on}) — ${b.shots} (${b.on}) · Угловые ${a.corners} — ${b.corners} · Владение ${a.poss}% — ${b.poss}%`;
+  renderStatus();
+}
+let statusUntil = 0;
+function renderStatus() {
+  if (!S) return;
+  const left = S.left !== undefined ? Math.max(0, Math.ceil((statusUntil - performance.now()) / 1000)) : null;
+  const sec = left !== null ? ` · ${left} сек` : '';
+  const names = S.teams.map(x => '«' + x.name + '»');
+  let txt = '';
+  if (stopped) txt = '⏸ Матч остановлен — часы стоят';
+  else if (S.phase === 'pre') txt = '🧭 Менеджеры дают установку' + sec;
+  else if (S.phase === 'window') txt = (S.who && S.who.length === 1 ? `⏸ Решает менеджер ${names[S.who[0]]}` : '⏸ Окно решений — часы стоят') + sec;
+  else if (S.phase === 'half') txt = '☕ Перерыв: замены и тактика' + sec;
+  else if (S.phase === 'pen') txt = `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]} — выбор в чате` + sec;
+  else if (S.phase === 'final') txt = '🏁 Финальный свисток';
+  else {
+    const r = S.teams.map((x, t) => x.rush ? `💥 ${names[t]} штурмует` : '').filter(Boolean);
+    txt = r.join(' · ');
+  }
+  $('status').textContent = txt;
+}
+const feedEl = $('feed');
+function addFeed(items, fresh) {
+  // событие и реплика комментатора к нему — один блок (реплика под событием); блоки — свежим сверху
+  const blocks = [];
+  for (const it of items) {
+    if (it.c && blocks.length && !blocks[blocks.length - 1].closed) { blocks[blocks.length - 1].items.push(it); blocks[blocks.length - 1].closed = true; }
+    else blocks.push({items: [it], closed: !!it.c});
+  }
+  for (const b of blocks) {
+    const box = document.createElement('div');
+    for (const it of b.items) {
+      const d = document.createElement('div');
+      const isGoal = it.t && /⚽/.test(it.t);
+      d.className = 'it' + (it.c ? ' c' : '') + (isGoal ? ' goal' : '') + (fresh ? ' new' : '');
+      if (b.items.length > 1 && it.t) d.style.borderBottom = '0';
+      d.textContent = it.c ? '🎙 ' + it.c : it.t;
+      box.appendChild(d);
+    }
+    feedEl.insertBefore(box, feedEl.firstChild);
+  }
+  while (feedEl.children.length > 60) feedEl.removeChild(feedEl.lastChild);
+}
+function note(text) { const n = $('note'); n.textContent = text || ''; n.classList.toggle('on', !!text); }
+
+/* ---------------- звук и вибрация ---------------- */
+let actx = null, muted = false;
+try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
+$('mute').textContent = muted ? '🔇' : '🔊';
+$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); };
+function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+addEventListener('pointerdown', audio, {once: true});
+function whistle(long) {
+  const a = !muted && audio(); if (!a) return;
+  const o = a.createOscillator(), gn = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
+  o.frequency.value = 2900; lfo.frequency.value = 28; lg.gain.value = 120; lfo.connect(lg); lg.connect(o.frequency);
+  const t = a.currentTime, d = long ? .9 : .35;
+  gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(.07, t + .03); gn.gain.setValueAtTime(.07, t + d - .05); gn.gain.linearRampToValueAtTime(0, t + d);
+  o.connect(gn); gn.connect(a.destination); o.start(t); lfo.start(t); o.stop(t + d); lfo.stop(t + d);
+}
+function roar(sec) {
+  const a = !muted && audio(); if (!a) return;
+  const n = a.sampleRate * sec, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / n);
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
+  f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = .6; gn.gain.value = .35;
+  src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(a.destination); src.start();
+}
+function kick() {
+  const a = !muted && audio(); if (!a) return;
+  const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime;
+  o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(50, t + .12);
+  gn.gain.setValueAtTime(.25, t); gn.gain.exponentialRampToValueAtTime(.001, t + .15);
+  o.connect(gn); gn.connect(a.destination); o.start(t); o.stop(t + .16);
+}
+function haptic(kind) { try { if (TG && TG.HapticFeedback) kind === 'goal' ? TG.HapticFeedback.notificationOccurred('success') : TG.HapticFeedback.impactOccurred(kind || 'light'); } catch (e) {} }
+
+/* ---------------- эпизоды: событие минуты → шаги анимации ---------------- */
+function label(text, ms) {
+  const el = $('label'); el.textContent = text; el.classList.add('on');
+  clearTimeout(label.tm); label.tm = setTimeout(() => el.classList.remove('on'), ms || 1400);
+}
+function goalFlash(team, text) {
+  const el = $('flash'); el.style.setProperty('--fc', S ? S.teams[team].shirt : '#facc15');
+  el.querySelector('span').textContent = text || '';
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  const cols = S ? [S.teams[team].shirt, S.teams[team].shorts, '#facc15', '#ffffff'] : ['#facc15', '#fff'];
+  for (let i = 0; i < 90; i++) fx.push({k: 'conf', x: rnd(0, W), y: rnd(-60, H * .3), vx: rnd(-1.2, 1.2), vy: rnd(1.5, 4), r: rnd(0, 6.3), c: cols[i % cols.length], life: rnd(2200, 3400), t0: performance.now()});
+  const sc = $('score'); sc.classList.add('bump'); setTimeout(() => sc.classList.remove('bump'), 900);
+  haptic('goal'); roar(1.8);
+}
+function moveBall(to, d, arc) {
+  ball.fx = ball.x; ball.fy = ball.y; ball.tx = to.x; ball.ty = to.y; ball.t0 = performance.now(); ball.d = d; ball.arc = arc || 0;
+}
+function near(p, r) { return {x: clamp(p.x + rnd(-r, r), M + 8, W - M - 8), y: clamp(p.y + rnd(-r, r), M + 8, H - M - 8)}; }
+function shooter(a) { return P(a.t, a.s) || teamPlayers(a.t, true)[0]; }
+function approach(a) {                     // бьющий выходит на удар
+  const sh = shooter(a), spot = at(a.t, rnd(.72, .8), rnd(.3, .7));
+  return {d: 850, run: () => { if (sh) focus[key(sh.t, sh.s)] = spot; moveBall(spot, 820, 18); kick(); }, poss: a.t};
+}
+function build(a) {
+  const steps = [], names = S ? S.teams.map(x => '«' + x.name + '»') : ['', ''];
+  const tag = (t, s) => { const p = P(t, s); return p ? `№${p.n} ${p.nm}` : ''; };
+  const pen = a.how === 'пенальти';
+  switch (a.a) {
+    case 'whistle':
+      steps.push({d: 1100, run: () => { whistle(a.w !== 'start'); label(a.w === 'start' ? '🏟 Стартовый свисток!' : a.w === 'half' ? '⏸ Перерыв' : '⏹ Финальный свисток'); moveBall(CENTER, 700); focus = {}; crowd = null; }, poss: null});
+      break;
+    case 'goal': {
+      const g = goalOf(a.t), into = {x: g.x + rnd(-40, 40), y: g.y + (a.t === 0 ? -12 : 12)};
+      if (pen) steps.push({d: 500, run: () => moveBall(at(a.t, .885, .5), 400)});
+      else steps.push(approach(a));
+      steps.push({d: 600, run: () => { moveBall(into, 520, 26); kick(); }, poss: a.t});
+      steps.push({d: 2900, run: () => {
+        goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
+        if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
+        const sh = shooter(a); const corner = at(a.t, .9, Math.random() < .5 ? .08 : .92);
+        if (sh) focus[key(sh.t, sh.s)] = corner;
+        crowd = {t: a.t, to: corner, kind: 'celebrate'};
+      }});
+      steps.push({d: 700, run: () => { focus = {}; crowd = null; moveBall(CENTER, 650); }, poss: 1 - a.t});
+      break;
+    }
+    case 'save': {
+      const d = 1 - a.t, gk = teamPlayers(d).find(p => p.gk), g = goalOf(a.t);
+      const hit = {x: g.x + rnd(-45, 45), y: g.y + (a.t === 0 ? 14 : -14)};
+      if (pen) steps.push({d: 400, run: () => moveBall(at(a.t, .885, .5), 350)});
+      else steps.push(approach(a));
+      steps.push({d: 650, run: () => { moveBall(hit, 480, 16); kick(); if (gk) { focus[key(gk.t, gk.s)] = hit; gk.dive = performance.now(); } }});
+      steps.push({d: 1000, run: () => { label(pen ? '🧤 Вратарь отбил пенальти!' : '🧤 Сейв! ' + (gk ? `№${gk.n} ${gk.nm}` : '')); haptic('medium'); moveBall(near(hit, 30), 500, 10); }, poss: d});
+      steps.push({d: 300, run: () => { focus = {}; }});
+      break;
+    }
+    case 'miss': {
+      const g = goalOf(a.t), side = Math.random() < .5 ? -1 : 1, over = Math.random() < .35;
+      const to = {x: g.x + side * (over ? rnd(0, 40) : rnd(70, 120)), y: g.y + (a.t === 0 ? -16 : 16)};
+      if (pen) steps.push({d: 400, run: () => moveBall(at(a.t, .885, .5), 350)});
+      else steps.push(approach(a));
+      steps.push({d: 650, run: () => { moveBall(to, 520, over ? 40 : 14); kick(); }});
+      steps.push({d: 900, run: () => { label(over ? '💨 Выше ворот!' : '💨 Мимо!'); }, poss: 1 - a.t});
+      steps.push({d: 500, run: () => { focus = {}; const gk = teamPlayers(1 - a.t).find(p => p.gk); moveBall(gk ? gk : at(1 - a.t, .05, .5), 450); }});
+      break;
+    }
+    case 'corner': {
+      const xf = Math.random() < .5 ? 0 : 1, flag = at(a.t, 1, xf);
+      steps.push({d: 1500, run: () => { label('🚩 Угловой · ' + names[a.t]); moveBall(flag, 900, 8); crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box'}; }, poss: a.t});
+      steps.push({d: 500, run: () => { kick(); moveBall(at(a.t, .85, rnd(.35, .65)), 480, 34); }});
+      break;
+    }
+    case 'clear':
+      steps.push({d: 900, run: () => { label('🧱 Защита выносит'); moveBall(at(a.t, rnd(.4, .5), rnd(.2, .8)), 700, 40); kick(); crowd = null; }, poss: 1 - a.t});
+      break;
+    case 'fk': {
+      const spot = at(a.t, .72, rnd(.35, .65));
+      steps.push({d: 1500, run: () => { whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600); crowd = {t: 1 - a.t, to: lerpPt(spot, goalOf(a.t), .25), kind: 'wall'}; }, poss: a.t});
+      break;
+    }
+    case 'pen':
+      steps.push({d: 1600, run: () => { whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(at(a.t, .885, .5), 600); crowd = {t: -1, kind: 'clearbox', att: a.t}; haptic('heavy'); }, poss: a.t});
+      break;
+    case 'foul': {
+      const v = P(1 - a.t, a.v), f = P(a.t, a.s);
+      steps.push({d: 1200, run: () => {
+        const spot = v ? {x: v.x, y: v.y} : near(ball, 20);
+        moveBall(spot, 400); if (f) focus[key(f.t, f.s)] = near(spot, 14);
+        downed = v ? {k: key(v.t, v.s), until: performance.now() + 1500} : null;
+        whistle(); label('🛑 Фол · ' + tag(a.t, a.s));
+      }, poss: 1 - a.t});
+      steps.push({d: 200, run: () => { focus = {}; }});
+      break;
+    }
+    case 'tackle': {
+      const p = P(a.t, a.s);
+      steps.push({d: 800, run: () => { if (p) { focus[key(p.t, p.s)] = {x: ball.x, y: ball.y}; } }, poss: 1 - a.t});
+      steps.push({d: 500, run: () => { if (p) moveBall(p, 350); focus = {}; }, poss: a.t});
+      break;
+    }
+    case 'card': {
+      steps.push({d: 1600, run: () => {
+        const p = P(a.t, a.s);
+        if (p) cards.push({k: key(a.t, a.s), c: a.c, until: performance.now() + 2200});
+        label((a.c === 'red' ? '🟥 Удаление · ' : '🟨 Жёлтая · ') + tag(a.t, a.s), 1800);
+        if (a.c === 'red') haptic('heavy');
+      }});
+      break;
+    }
+    case 'brawl': {
+      const p = P(a.t, a.s), q = P(a.ot, a.os);
+      const mid = p && q ? lerpPt(p, q, .5) : {x: ball.x, y: ball.y};
+      const words = {scuffle: '🥊 Стычка!', fight: '🥊 ДРАКА!', mass: '🥊🔥 МАССОВАЯ ПОТАСОВКА!'};
+      steps.push({d: a.lvl === 'scuffle' ? 1800 : 2600, run: () => {
+        if (p) focus[key(p.t, p.s)] = {x: mid.x - 9, y: mid.y};
+        if (q) focus[key(q.t, q.s)] = {x: mid.x + 9, y: mid.y};
+        if (a.lvl !== 'scuffle') crowd = {t: -1, to: mid, kind: a.lvl === 'mass' ? 'mass' : 'ring'};
+        for (let i = 0; i < (a.lvl === 'mass' ? 40 : 18); i++) fx.push({k: 'dust', x: mid.x + rnd(-30, 30), y: mid.y + rnd(-20, 20), vx: rnd(-.4, .4), vy: rnd(-.5, .1), r: rnd(8, 18), life: rnd(900, 2000), t0: performance.now() + i * 40});
+        whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy');
+      }});
+      steps.push({d: 300, run: () => { focus = {}; crowd = null; }});
+      break;
+    }
+    case 'protest':
+      steps.push({d: 1500, run: () => { label('📣 Скандал у бровки · ' + names[a.t], 1600); }});
+      break;
+    case 'stop':
+      steps.push({d: 2800, run: () => {
+        stopped = true; whistle(true); renderStatus();
+        if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); }
+        else { pyro = {t0: performance.now(), x: Math.random() < .5 ? M : W - M, y: rnd(H * .2, H * .8)}; label('🚨 На поле пиротехника!', 2600); }
+      }, poss: null});
+      break;
+    case 'resume':
+      steps.push({d: 1000, run: () => { stopped = false; fan = null; renderStatus(); whistle(); label('▶️ Игра возобновлена'); moveBall(CENTER, 600); focus = {}; crowd = null; }});
+      break;
+    case 'sub':
+      steps.push({d: 1200, run: () => label('🔄 Замена · ' + names[a.t])});
+      break;
+  }
+  return steps;
+}
+function lerpPt(a, b, t) { return {x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t)}; }
+
+/* ---------------- сообщения от бота ---------------- */
+function onState(m) {                      // полное состояние: вход, переподключение
+  S = m.state; lastSeq = m.seq; if (!S) { note('Матч ещё не начался'); return; }
+  shown = JSON.parse(JSON.stringify(S));
+  queue = []; step = null; focus = {}; crowd = null; stopped = false; fan = pyro = null;
+  syncLineup(); feedEl.textContent = ''; addFeed(m.feed || [], false);
+  statusUntil = performance.now() + (S.left || 0) * 1000;
+  renderBoard(); note('');
+}
+function onTick(m) {
+  if (m.seq <= lastSeq) return;
+  lastSeq = m.seq;
+  const prev = S; S = m.state;
+  if (!shown) shown = JSON.parse(JSON.stringify(S));
+  if (S.left !== undefined && !(prev && prev.left !== undefined && prev.phase === S.phase && prev.minute === S.minute)) statusUntil = performance.now() + S.left * 1000;
+  const lineupChanged = !prev || JSON.stringify(prev.teams.map(x => [x.gk, x.def, x.att])) !== JSON.stringify(S.teams.map(x => [x.gk, x.def, x.att]));
+  const fresh = JSON.parse(JSON.stringify(S));
+  const steps = [];
+  for (const a of m.acts || []) steps.push(...build(a));
+  // в конце эпизода — табло, состав и лента (чтобы счёт и строки не обгоняли мяч)
+  steps.push({d: 0, run: () => { shown = fresh; if (lineupChanged) syncLineup(); addFeed(m.feed || [], true); renderBoard(); }});
+  queue.push(...steps);
+  renderBoard();
+}
+function speed() { return queue.length > 14 ? 2.5 : queue.length > 8 ? 1.6 : 1; }   // догоняем, если события копятся
+
+/* ---------------- кадр ---------------- */
+function updatePlay(now) {
+  if (!step || now >= stepEnd) {
+    step = queue.shift() || null;
+    if (step) {
+      if (step.poss !== undefined && step.poss !== null) poss = step.poss;
+      try { step.run && step.run(); } catch (e) { console.error(e); }
+      stepEnd = now + (step.d || 0) / speed();
+      nextIdle = stepEnd + 600;
+    }
+  }
+  if (!step && S && S.phase === 'play' && !stopped && now > nextIdle) idlePass(now);
+  // мяч
+  const k = clamp((now - ball.t0) / ball.d, 0, 1), e = ease(k);
+  ball.x = lerp(ball.fx, ball.tx, e); ball.y = lerp(ball.fy, ball.ty, e); ball.h = ball.arc * Math.sin(Math.PI * k);
+  // игроки
+  for (const p of Object.values(players)) {
+    const target = targetOf(p, now);
+    const sp = focus[key(p.t, p.s)] ? .085 : .045;
+    p.x = lerp(p.x, target.x, sp); p.y = lerp(p.y, target.y, sp);
+  }
+}
+function idlePass(now) {                    // фон игры между событиями: пасы в средней зоне
+  if (Math.random() < .22) poss = 1 - poss;
+  const mates = teamPlayers(poss, true);
+  if (!mates.length) return;
+  const to = mates[Math.floor(Math.random() * mates.length)];
+  moveBall({x: to.x + rnd(-6, 6), y: to.y + rnd(-6, 6)}, rnd(650, 1000), rnd(0, 10));
+  nextIdle = now + rnd(1200, 2100);
+}
+function targetOf(p, now) {
+  const f = focus[key(p.t, p.s)];
+  if (f) return f;
+  if (crowd && !p.gk) {
+    if (crowd.kind === 'celebrate' && p.t === crowd.t) return near2(crowd.to, p, 22);
+    if (crowd.kind === 'box') return at(p.t, p.t === crowd.t ? .82 + (p.s % 3) * .03 : .12 + (p.s % 3) * .03, .3 + (p.s % 4) * .13);
+    if (crowd.kind === 'wall' && p.t === crowd.t) return {x: crowd.to.x + ((p.s % 4) - 1.5) * 16, y: crowd.to.y};
+    if (crowd.kind === 'clearbox') return at(p.t, p.t === crowd.att ? .66 : .3, .2 + (p.s % 4) * .2);
+    if (crowd.kind === 'mass' || (crowd.kind === 'ring' && Math.random() < 1)) return near2(crowd.to, p, crowd.kind === 'mass' ? 30 : 45);
+  }
+  const b = p.b || {depth: .3, xf: .5};
+  let depth = b.depth, xf = b.xf;
+  if (!p.gk && S && S.phase === 'play') {
+    depth += poss === p.t ? .13 : -.05;
+    if (S.teams[p.t].rush) depth += .08;
+  }
+  const home = at(p.t, depth, xf);
+  const wob = Math.sin(now / 900 + p.s * 1.7 + p.t * 3) * 8;
+  if (p.gk) return {x: lerp(home.x, ball.x, .25), y: home.y};
+  return {x: lerp(home.x, ball.x, .22) + wob, y: home.y + Math.cos(now / 1100 + p.s) * 6};
+}
+function near2(c, p, r) { const ang = (p.s * 2.39 + p.t * 1.3); return {x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r}; }
+
+/* ---------------- рисование ---------------- */
+let scale = 1, pitchImg = null;
+function fit() {
+  const wrap = $('pitchwrap'), top = $('top').offsetHeight;
+  const vh = (TG && TG.viewportStableHeight) || innerHeight;
+  document.body.style.setProperty('--vh', vh + 'px');
+  const maxH = Math.max(260, Math.min(vh * .56, vh - top - 150));
+  const cw = Math.min(innerWidth, maxH * W / H);
+  scale = cw / W;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.style.width = cw + 'px'; cv.style.height = (cw * H / W) + 'px';
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * H / W * dpr);
+  g.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+  wrap.style.height = (cw * H / W) + 'px';
+  pitchImg = drawPitch(cv.width, cv.height);
+}
+function drawPitch(pw, ph) {
+  const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+  const x = c.getContext('2d'); x.setTransform(pw / W, 0, 0, ph / H, 0, 0);
+  const stripes = 12;
+  for (let i = 0; i < stripes; i++) { x.fillStyle = i % 2 ? '#15803d' : '#16a34a'; x.fillRect(0, i * H / stripes, W, H / stripes + 1); }
+  const gr = x.createRadialGradient(W / 2, H / 2, 100, W / 2, H / 2, H * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)');
+  x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 3;
+  x.strokeRect(M, M, W - 2 * M, H - 2 * M);
+  x.beginPath(); x.moveTo(M, H / 2); x.lineTo(W - M, H / 2); x.stroke();
+  x.beginPath(); x.arc(W / 2, H / 2, 68, 0, Math.PI * 2); x.stroke();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(W / 2, H / 2, 4, 0, Math.PI * 2); x.fill();
+  for (const top of [true, false]) {
+    const y0 = top ? M : H - M, dir = top ? 1 : -1;
+    x.strokeRect(W / 2 - 150, top ? y0 : y0 - 120, 300, 120);
+    x.strokeRect(W / 2 - 70, top ? y0 : y0 - 42, 140, 42);
+    x.beginPath(); x.arc(W / 2, y0 + dir * 92, 4, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(W / 2, y0 + dir * 92, 62, top ? .22 * Math.PI : 1.22 * Math.PI, top ? .78 * Math.PI : 1.78 * Math.PI); x.stroke();
+    // ворота с сеткой
+    const gy = top ? y0 - 20 : y0;
+    x.fillStyle = 'rgba(255,255,255,.12)'; x.fillRect(W / 2 - 55, gy, 110, 20);
+    x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 1;
+    for (let i = 0; i <= 110; i += 10) { x.beginPath(); x.moveTo(W / 2 - 55 + i, gy); x.lineTo(W / 2 - 55 + i, gy + 20); x.stroke(); }
+    for (let j = 0; j <= 20; j += 6) { x.beginPath(); x.moveTo(W / 2 - 55, gy + j); x.lineTo(W / 2 + 55, gy + j); x.stroke(); }
+    x.strokeStyle = '#fff'; x.lineWidth = 4; x.beginPath();
+    x.moveTo(W / 2 - 55, y0); x.lineTo(W / 2 - 55, gy + (top ? 0 : 20)); x.lineTo(W / 2 + 55, gy + (top ? 0 : 20)); x.lineTo(W / 2 + 55, y0); x.stroke();
+    x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 3;
+  }
+  for (const [cx, cy, a0] of [[M, M, 0], [W - M, M, .5], [W - M, H - M, 1], [M, H - M, 1.5]]) {
+    x.beginPath(); x.arc(cx, cy, 10, a0 * Math.PI, (a0 + .5) * Math.PI); x.stroke();
+    x.fillStyle = '#facc15'; x.fillRect(cx - 1, cy - 14, 2, 14);
+  }
+  return c;
+}
+function drawPlayer(p, now) {
+  const tm = S.teams[p.t];
+  const shirt = p.gk ? gkColor(p.t) : tm.shirt;
+  const down = downed && downed.k === key(p.t, p.s) && now < downed.until;
+  const active = !!focus[key(p.t, p.s)];
+  g.save(); g.translate(p.x, p.y);
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(2, 13, 15, 6, 0, 0, Math.PI * 2); g.fill();
+  if (down) g.rotate(Math.PI / 2.2);
+  if (p.gk && p.dive && now - p.dive < 600) g.rotate(Math.sin((now - p.dive) / 600 * Math.PI) * .9);
+  if (active) { g.strokeStyle = 'rgba(250,204,21,.9)'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 21 + Math.sin(now / 120) * 1.5, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = tm.shorts; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.fill();
+  g.fillStyle = shirt; g.beginPath(); g.arc(0, 0, 13, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = ink(shirt); g.font = 'bold 15px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(p.n, 0, 1);
+  if (p.y_ > 0) { g.fillStyle = '#facc15'; g.fillRect(9, -18, 7, 10); }
+  g.restore();
+  if (active || down) {
+    g.font = 'bold 14px "Trebuchet MS",sans-serif'; g.textAlign = 'center';
+    const w = g.measureText(p.nm).width + 10;
+    g.fillStyle = 'rgba(5,10,24,.78)'; g.fillRect(p.x - w / 2, p.y + 19, w, 18);
+    g.fillStyle = '#fff'; g.fillText(p.nm, p.x, p.y + 29);
+  }
+}
+function frame(now) {
+  requestAnimationFrame(frame);
+  updatePlay(now);
+  if (!pitchImg) return;
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(pitchImg, 0, 0); g.restore();
+  if (S) {
+    const list = Object.values(players).sort((a, b) => a.y - b.y);
+    for (const p of list) drawPlayer(p, now);
+    for (const c of cards) {
+      const p = players[c.k]; if (!p || now > c.until) continue;
+      g.fillStyle = c.c === 'red' ? '#dc2626' : '#facc15'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+      g.fillRect(p.x - 8, p.y - 52, 16, 22); g.strokeRect(p.x - 8, p.y - 52, 16, 22);
+    }
+    cards = cards.filter(c => now < c.until);
+  }
+  if (fan) {                                  // болельщик бежит через поле
+    const k = (now - fan.t0) / 2600, x = lerp(-20, W + 20, clamp(k, 0, 1)), y = fan.y + Math.sin(k * 20) * 30;
+    g.fillStyle = '#111'; g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f43f5e'; g.fillRect(x - 6, y - 22, 12, 9);
+    if (k > 1.2) fan = null;
+  }
+  if (pyro) {
+    if (now - pyro.t0 < 2600 && Math.random() < .6) fx.push({k: 'smoke', x: pyro.x + rnd(-10, 10), y: pyro.y + rnd(-10, 10), vx: rnd(-.3, .8) * (pyro.x < W / 2 ? 1 : -1), vy: rnd(-.6, -.1), r: rnd(10, 22), life: rnd(1500, 2600), t0: now});
+    if (now - pyro.t0 < 2600) { g.fillStyle = `rgba(255,${80 + Math.random() * 80},0,.9)`; g.beginPath(); g.arc(pyro.x, pyro.y, 6 + Math.random() * 4, 0, Math.PI * 2); g.fill(); }
+    else if (now - pyro.t0 > 5000) pyro = null;
+  }
+  // мяч: тень на газоне, сам мяч выше на высоту полёта
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(ball.x + 2, ball.y + 4, 7, 3.5, 0, 0, Math.PI * 2); g.fill();
+  const r = 7 + ball.h * .08, by = ball.y - ball.h;
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(ball.x, by, r, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#111'; g.lineWidth = 1.2; g.stroke();
+  g.fillStyle = '#111'; g.beginPath(); g.arc(ball.x, by, r * .38, 0, Math.PI * 2); g.fill();
+  // частицы
+  fx = fx.filter(f => now - f.t0 < f.life);
+  for (const f of fx) {
+    const age = now - f.t0; if (age < 0) continue;
+    const k = age / f.life, x = f.x + f.vx * age / 16, y = f.y + f.vy * age / 16;
+    if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
+    else { g.globalAlpha = (1 - k) * (f.k === 'smoke' ? .55 : .5); g.fillStyle = f.k === 'smoke' ? '#c2410c' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+  }
+  if (S && S.left !== undefined && now % 1000 < 20) renderStatus();
+}
+setInterval(() => { if (S && S.left !== undefined) renderStatus(); }, 500);
+
+/* ---------------- подключение к комнате матча ---------------- */
+const Q = new URLSearchParams(location.search);
+const ROOM = Q.get('room');
+const DUEL_WS = 'wss://football-duel.pinkovskyi2508.workers.dev';   // сервер комнат (worker/), только он
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+// адрес сервера и подпись из ссылки — только при проверке на своём компьютере: иначе чужая ссылка увела бы подпись на чужой сервер
+const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
+const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
+let ws = null, retry = 0, ended = false;
+function connect() {
+  note(S ? 'Переподключаемся…' : 'Подключаемся к матчу…');
+  ws = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    retry = 0;
+    if (m.type === 'state') onState(m);
+    else if (m.type === 'tick') { onTick(m); note(''); }
+    else if (m.type === 'bot_left') note('Бот переподключается — матч продолжится, подождите…');
+  };
+  ws.onclose = e => {
+    if (e.code === 4003) { ended = true; note('Этот матч смотрят только его менеджеры.'); return; }
+    if (e.code === 4001) { ended = true; note(S && S.phase === 'final' ? 'Матч окончен. Итог — в чате.' : 'Трансляция закрыта. Матч — в чате.'); return; }
+    if (ended) return;
+    retry++;
+    note('Связь потеряна — переподключаемся…');
+    setTimeout(connect, Math.min(10000, 1500 * retry));
+  };
+}
+
+/* ---------------- ДЕМО без бота: случайный матч, чтобы посмотреть сцену ---------------- */
+function demo() {
+  const mk = (name, shirt, shorts, form, base) => {
+    const [d, a] = form.split('-').map(Number), p = i => ({s: i, n: [1, 4, 5, 9, 10, 7][i - 1], nm: name.slice(0, 3) + ' ' + base[i - 1], y: 0, c: i === 2});
+    return {name, score: 0, shirt, shorts, formation: form, tactic: 'Баланс', rush: false, gk: p(1),
+            def: [2, 3, 4, 5].slice(0, d).map(p), att: [2, 3, 4, 5].slice(d, d + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
+  };
+  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов']), mk('Бета', '#2563eb', '#202024', '1-3', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков'])]};
+  let seq = 0;
+  onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
+  const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'stop'];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const field = tm => [...tm.def, ...tm.att];
+  setInterval(() => {
+    if (st.minute >= 60) return;
+    st.minute++; st.phase = 'play';
+    const acts = [], feed = [];
+    if (st.minute === 1) acts.push({a: 'whistle', w: 'start'});
+    if (Math.random() < .55) {
+      const t = Math.random() < .5 ? 0 : 1, tm = st.teams[t], s = pick(field(tm)).s, k = pick(kinds);
+      const nm = P(t, s) ? P(t, s).nm : '';
+      if (k === 'goal' || k === 'save' || k === 'miss') {
+        tm.shots++; if (k !== 'miss') tm.on++;
+        if (k === 'goal') tm.score++;
+        acts.push({a: k, t, s, how: 'удар', score: [st.teams[0].score, st.teams[1].score]});
+        feed.push({m: st.minute, t: `${st.minute}' ` + (k === 'goal' ? `⚽ ГОЛ! ${nm} — ${st.teams[0].score}:${st.teams[1].score}` : k === 'save' ? `🧤 Вратарь отбивает удар ${nm}` : `💨 ${nm} — мимо`)});
+      } else if (k === 'corner') { tm.corners++; acts.push({a: 'corner', t}, {a: 'clear', t}); feed.push({m: st.minute, t: `${st.minute}' 🚩 Угловой! → 🧱 защита выносит мяч`}); }
+      else if (k === 'fk') { acts.push({a: 'fk', t}, {a: 'miss', t, s, how: 'штрафной'}); feed.push({m: st.minute, t: `${st.minute}' 🎯 Опасный штрафной! → мимо`}); }
+      else if (k === 'foul' || k === 'card') { const v = pick(field(st.teams[1 - t])).s; acts.push({a: 'foul', t, s, v}); if (k === 'card') acts.push({a: 'card', c: 'yellow', t, s}); feed.push({m: st.minute, t: `${st.minute}' 🛑 Фол` + (k === 'card' ? ' → 🟨 Жёлтая карточка: ' + nm : '')}); }
+      else if (k === 'tackle') acts.push({a: 'tackle', t, s});
+      else if (k === 'brawl') { const o = pick(field(st.teams[1 - t])).s; acts.push({a: 'brawl', lvl: pick(['scuffle', 'fight', 'mass']), t, s, ot: 1 - t, os: o}); feed.push({m: st.minute, t: `${st.minute}' 🥊 Стычка!`}); }
+      else if (k === 'pen') { const scored = Math.random() < .7; if (scored) tm.score++; acts.push({a: 'pen', t}, {a: scored ? 'goal' : 'save', t, s, how: 'пенальти', score: [st.teams[0].score, st.teams[1].score]}); feed.push({m: st.minute, t: `${st.minute}' 🥅❗ ПЕНАЛЬТИ!`}); }
+      else if (k === 'stop') { acts.push({a: 'stop', what: pick(['fan', 'pyro'])}, {a: 'resume'}); feed.push({m: st.minute, t: `${st.minute}' 🚨 Матч остановлен`}); }
+      if (Math.random() < .5) feed.push({m: st.minute, c: pick(['Красиво, но бесполезно — как зонтик в метро.', 'Тренер на бровке жуёт жвачку с яростью философа.', 'Мяч круглый, а вот идеи у команды — квадратные.'])});
+    }
+    if (st.minute === 30) { acts.push({a: 'whistle', w: 'half'}); }
+    if (st.minute === 60) { acts.push({a: 'whistle', w: 'end'}); st.phase = 'final'; }
+    const tot = st.teams[0].shots + st.teams[1].shots || 1;
+    st.teams[0].poss = Math.round(100 * (st.teams[0].shots + 1) / (tot + 2)); st.teams[1].poss = 100 - st.teams[0].poss;
+    onTick({seq: seq++, state: JSON.parse(JSON.stringify(st)), acts, feed});
+  }, Number(Q.get('tick')) || 4000);
+}
+
+addEventListener('resize', fit); fit();
+if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
+  TG.setHeaderColor && TG.setHeaderColor('#0d1730'); TG.setBackgroundColor && TG.setBackgroundColor('#050a18');
+  TG.onEvent && TG.onEvent('viewportChanged', fit); } catch (e) {} }
+requestAnimationFrame(frame);
+if (ROOM) connect(); else demo();
+</script>
+</body>
+</html>
