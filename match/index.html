@@ -38,6 +38,19 @@ canvas{display:block}
   padding:6px 12px;border-radius:12px;font-weight:800;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none;
   max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #label.on{opacity:1}
+#var{position:absolute;left:50%;top:14%;transform:translate(-50%,-8px) scale(.96);opacity:0;pointer-events:none;z-index:3;
+  transition:opacity .25s,transform .25s;text-align:center;font-family:"Trebuchet MS",sans-serif}
+#var.on{opacity:1;transform:translate(-50%,0) scale(1)}
+#var .box{display:flex;align-items:stretch;border-radius:10px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.55);border:1.5px solid #ffffff30}
+#var .logo{background:#0b1220;color:#fff;font-weight:900;font-size:26px;letter-spacing:2px;padding:8px 12px;display:flex;align-items:center;gap:6px}
+#var .logo i{display:inline-block;width:22px;height:15px;border:2.5px solid #fff;border-radius:3px;position:relative}
+#var .logo i::after{content:"";position:absolute;left:50%;bottom:-6px;width:8px;height:3px;background:#fff;transform:translateX(-50%)}
+#var .txt{background:linear-gradient(#1e3a8a,#172554);color:#e0e7ff;font-weight:800;font-size:14px;padding:6px 12px;display:flex;flex-direction:column;justify-content:center;text-align:left;min-width:150px}
+#var .txt small{font-size:11px;font-weight:600;color:#a5b4fc;letter-spacing:.5px}
+#var .dots::after{content:"";animation:vardots 1.2s steps(4) infinite}
+@keyframes vardots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+#var.ok .txt{background:linear-gradient(#15803d,#14532d);color:#dcfce7}
+#var.off .txt{background:linear-gradient(#b91c1c,#7f1d1d);color:#fee2e2}
 #flash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0}
 #flash b{font-size:76px;font-weight:900;letter-spacing:3px;color:#fff;-webkit-text-stroke:3px #000;paint-order:stroke fill;
   text-shadow:0 0 24px var(--fc,#facc15),0 6px 0 #000}
@@ -138,7 +151,7 @@ body.deciding #feed{display:none}
   <div id="stats"></div>
   <div id="status"></div>
 </div>
-<div id="pitchwrap"><canvas id="c"></canvas><div id="label"></div><div id="flash"><b>ГОЛ!</b><span></span></div>
+<div id="pitchwrap"><canvas id="c"></canvas><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div>
   <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><div id="note"></div></div>
 <div id="feed"></div>
 <div id="dec"></div>
@@ -245,7 +258,8 @@ function renderStatus() {
   const sec = left !== null ? ` · ${left} сек` : '';
   const names = S.teams.map(x => '«' + x.name + '»');
   let txt = '';
-  if (stopped) txt = '⏸ Матч остановлен — часы стоят';
+  if (S.var || $('var').classList.contains('on')) txt = '📺 Идёт проверка VAR — часы стоят';
+  else if (stopped) txt = '⏸ Матч остановлен — часы стоят';
   else if (S.phase === 'pre') txt = '🧭 Менеджеры дают установку' + sec;
   else if (S.phase === 'window') txt = (S.who && S.who.length === 1 ? `⏸ Решает менеджер ${names[S.who[0]]}` : '⏸ Окно решений — часы стоят') + sec;
   else if (S.phase === 'half') txt = '☕ Перерыв: замены и тактика' + sec;
@@ -572,6 +586,36 @@ function build(a) {
       steps.push({d: 300, run: () => { focus = {}; crowd = null; brawl = null; }});
       break;
     }
+    case 'varcheck': {                                     // судья держит руку у уха; при просмотре — бежит к монитору
+      const what = {goal: 'ГОЛ', pen: 'ПЕНАЛЬТИ', red: 'УДАЛЕНИЕ'}[a.what] || 'МОМЕНТ';
+      steps.push({d: a.review ? 14200 : 7400, poss: null, run: () => {
+        stopped = true; holder = null; whistle();
+        varShow('ИДЁТ ПРОВЕРКА', 'ПРОВЕРКА: ' + what, '', true); renderStatus();
+        const now = performance.now();
+        ref.varPose = {k: 'ear', until: now + (a.review ? 2600 : 7000)};
+        if (a.review) {
+          setTimeout(() => { ref.varPose = {k: 'tv', until: performance.now() + 1100}; varShow('ПРОСМОТР ПОВТОРА', 'СУДЬЯ У МОНИТОРА', '', true); }, 2600);
+          ref.monitor = {until: now + 14200};
+          setTimeout(() => refTo(MONITOR_SPOT, 9000), 1500);
+          camTo(1.9, 13000, () => lerpPt(ref, MONITOR, .35), undefined, true, cam.r);
+        } else camTo(1.4, 7000, () => ref, undefined, true, cam.r);
+      }});
+      break;
+    }
+    case 'var': {                                          // вердикт: засчитано / отменено, счёт на табло — по решению
+      const off = a.result === 'off';
+      const what = {goal: off ? 'ГОЛ ОТМЕНЁН' : 'ГОЛ ЗАСЧИТАН', pen: off ? 'ПЕНАЛЬТИ ОТМЕНЁН' : 'ПЕНАЛЬТИ В СИЛЕ',
+                    red: off ? 'ТОЛЬКО ЖЁЛТАЯ' : 'УДАЛЕНИЕ В СИЛЕ'}[a.what] || (off ? 'РЕШЕНИЕ ИЗМЕНЕНО' : 'РЕШЕНИЕ В СИЛЕ');
+      steps.push({d: 2800, poss: null, run: () => {
+        if (a.review) ref.varPose = {k: 'tv', until: performance.now() + 1200};
+        varShow(what, off && a.reason ? a.reason.toUpperCase() : 'РЕШЕНИЕ VAR', off ? 'off' : 'ok', false);
+        whistle(true); haptic(off ? 'heavy' : 'medium'); if (off) roar(1.6);
+        if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
+        ref.monitor = null;
+      }});
+      steps.push({d: 300, run: () => { varHide(); stopped = false; renderStatus(); }});
+      break;
+    }
     case 'protest':
       steps.push({d: 2200, run: () => { label('📣 Скандал у бровки · ' + names[a.t], 1800); startProtest(a.t, 2200); roar(1.4); }});
       steps.push({d: 200, run: () => { brawl = null; }});
@@ -685,13 +729,35 @@ function drawBrawlExtras(now) {                     // выбежавшие со
       e.coach ? {trousers: '#1f2937'} : {}));
   }
 }
+const MONITOR = {x: W - M + 16, y: H / 2 + 6}, MONITOR_SPOT = {x: W - M - 4, y: H / 2 + 6};   // монитор VAR у бровки (у центра поля)
+function varShow(t1, t2, cls, wait) {
+  const el = $('var'); el.className = 'on' + (cls ? ' ' + cls : '');
+  el.querySelector('.t1').textContent = t1; el.querySelector('.t1').classList.toggle('dots', !!wait);
+  el.querySelector('.t2').textContent = t2;
+}
+function varHide() { $('var').className = ''; }
+function drawMonitor(now) {                         // монитор на стойке у бровки: виден, пока судья смотрит повтор
+  if (!ref.monitor || now > ref.monitor.until) return;
+  const {x, y} = MONITOR;
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x, y + 2, 10, 4, 0, 0, 7); g.fill();
+  upright(x, y, () => {
+    g.fillStyle = '#334155'; g.fillRect(x - 1, y - 18, 2, 18);                      // стойка
+    g.fillStyle = '#0b1220'; g.fillRect(x - 11, y - 34, 22, 16);                   // экран в рамке под козырьком
+    g.fillStyle = '#1e293b'; g.fillRect(x - 13, y - 37, 26, 3);
+    const flick = .55 + .25 * Math.sin(now / 90);
+    g.fillStyle = `rgba(56,189,248,${flick.toFixed(2)})`; g.fillRect(x - 9, y - 32, 18, 12);
+    g.fillStyle = 'rgba(34,197,94,.9)'; g.fillRect(x - 9, y - 24, 18, 4);       // повтор: газон и фигурки
+    g.fillStyle = '#fff'; g.fillRect(x - 4 + Math.sin(now / 400) * 3, y - 27, 1.6, 3); g.fillRect(x + 3, y - 26, 1.6, 3);
+    g.font = 'bold 4px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e2e8f0'; g.fillText('VAR', x, y - 35);
+  });
+}
 function lerpPt(a, b, t) { return {x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t)}; }
 function kickoff(t) {                      // разводка с центра: все в своих половинах, мяч у нападающего команды t
   restart = {t, until: performance.now() + 1800, kick: true};
   const p = nearestTo(CENTER, teamPlayers(t, true));
   if (p) { ball.recv = key(p.t, p.s); focus[key(p.t, p.s)] = {x: CENTER.x, y: CENTER.y + (t === 0 ? 8 : -8)}; setTimeout(() => { delete focus[key(p.t, p.s)]; }, 1500); }
 }
-function refTo(pt) { ref.goal = {x: pt.x, y: pt.y, until: performance.now() + 2200}; }
+function refTo(pt, ms) { ref.goal = {x: pt.x, y: pt.y, until: performance.now() + (ms || 2200)}; }
 function divot(p) { divots.push({x: p.x, y: p.y, a: p.ang || 0, t0: performance.now()}); if (divots.length > 14) divots.shift(); }
 
 /* ---------------- кадр: мяч, «фон» игры, бег ---------------- */
@@ -1525,6 +1591,9 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (up) { hx = sh.x + i * (pz === 'cele' ? 6 : 2.5); hy = shoulder - (pz === 'cele' ? 10 : 12); }
     if (pz === 'kick') { hx = sh.x + i * 6; hy = shoulder + 4; }
     if (oneUp && i === 1) { hx = sh.x + 2.5; hy = shoulder - 12; }
+    if (pz === 'ear' && i === 1) { hx = sh.x + (side ? 0 : 1); hy = shoulder - 7; }                // рука у наушника: «на связи с VAR»
+    if (pz === 'tv') { hx = sh.x + i * 6 + Math.sin(now / 180) * 2; hy = shoulder - 9 + Math.cos(now / 180) * 3; }   // рисует руками экран
+    if (pz === 'watch') { hx = sh.x + i * 1.5; hy = hip - 3; }                                    // руки за спиной, смотрит повтор
     if (pz === 'push') { hx = side ? sh.x + face * 10 : sh.x + i * 2.2; hy = side ? shoulder + 3 : shoulder + (back ? -3 : 5); }      // толчок: обе руки вперёд
     if (pz === 'hold') { hx = side ? sh.x + face * 8 : sh.x - i * 1.5; hy = hip - 2; }                                             // обхватил сзади
     if (pz === 'punch') { if (i === 1) { hx = side ? sh.x + face * 13 : sh.x + 1; hy = side ? shoulder + 1 : shoulder - (back ? 6 : -6); } else { hx = sh.x + (side ? face * 3 : i * 2); hy = shoulder - 1; } }   // удар и защита
@@ -1831,9 +1900,11 @@ function drawRef(now) {                         // судья: чёрная фо
   const v = Math.hypot(ref.ux, ref.uy), ang = v > 8 ? Math.atan2(ref.uy, ref.ux) : Math.atan2(ball.y - ref.y, ball.x - ref.x);
   ref.ang = ref.ang === undefined ? ang : turn(ref.ang, ang, .12); ref.stride = (ref.stride || 0) + Math.min(v / 60, 4) * .2;
   g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ref.x, ref.y, 9 * PS, 5.5 * PS, 0, 0, 7); g.fill();
-  const card = ref.card && now < ref.card.until;
-  const body = {ang: ref.ang, stride: ref.stride, pw: 100, pose: card ? {k: 'card', until: ref.card.until} : null, card: card && ref.card.c, x: ref.x, y: ref.y};
-  upright(ref.x, ref.y, () => figure(body, now, {shorts: '#0b0b0b'}, '#111827', {skin: '#d6a77a', hair: '#3f2a1d', bald: false}, v / 60, card ? 'card' : null, false, {ref: true}));
+  const card = ref.card && now < ref.card.until, vp = ref.varPose && now < ref.varPose.until ? ref.varPose.k : null;
+  if (ref.monitor && now < ref.monitor.until && dd(ref, MONITOR_SPOT) < 12 && !vp) ref.ang = 0;     // смотрит в экран
+  const pz = card ? 'card' : vp || (ref.monitor && now < ref.monitor.until && dd(ref, MONITOR_SPOT) < 12 ? 'watch' : null);
+  const body = {ang: ref.ang, stride: ref.stride, pw: 100, pose: pz ? {k: pz, until: now + 100} : null, card: card && ref.card.c, x: ref.x, y: ref.y};
+  upright(ref.x, ref.y, () => figure(body, now, {shorts: '#0b0b0b'}, '#111827', {skin: '#d6a77a', hair: '#3f2a1d', bald: false}, v / 60, pz, false, {ref: true}));
 }
 function drawNetHit(now) {                      // сетка прогибается и колышется там, куда влетел мяч
   if (!netHit) return;
@@ -2305,6 +2376,7 @@ function frame(now) {
     drawSideline(now);
     drawDivots(now);
     drawNetHit(now);
+    drawMonitor(now);
     drawRef(now);
     drawARs(now);
     if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(25000, 50000); }
