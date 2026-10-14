@@ -65,6 +65,46 @@ body.deciding #feed{display:none}
 #dec button:disabled{opacity:.45}
 #dec button:active:not(:disabled){transform:translateY(1px)}
 #dec .list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+#dec .tabs{display:flex;gap:6px;margin:0 0 8px}
+#dec .tabs button{flex:1;text-align:center;padding:9px 6px;font-size:14px;background:#0f1a36}
+#dec .tabs button.on{background:#1e3a8a;outline:2px solid var(--gold)}
+#dec .mg .mghead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:15px;margin:2px 0 6px}
+#dec .mg .mghead span{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dec .mg .mghead i{font-style:normal;color:var(--gold);font-weight:800;font-size:16px}
+#dec .mg .big{font-size:17px;font-weight:800;margin:8px 0;line-height:1.35}
+#dec .mg .big.win{color:var(--gold)}
+#dec .mg .round{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+#dec .mg .round small{color:var(--gold);font-size:14px;font-weight:700}
+#dec .mg .tbar{height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin:5px 0 8px}
+#dec .mg .tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#f87171,var(--gold),#22c55e);transition:width .25s linear}
+#dec .mg .qtext{font-size:17px;font-weight:700;line-height:1.35;margin:4px 0 10px}
+#dec .mg .hints{font-size:15px;line-height:1.4;background:#16223f;border-radius:10px;padding:8px 10px;margin-bottom:6px}
+#dec .mg .opts,#dec .mg .bets .opts{display:flex;flex-direction:column;gap:7px}
+#dec .mg .two,#dec .mg .cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#dec .mg .cards{grid-template-columns:1fr 1fr 1fr}
+#dec .mg .cards .opt{text-align:center;padding:14px 4px;font-size:14px}
+#dec .mg .two .opt{text-align:center;font-size:17px;padding:16px 6px}
+#dec .mg .opt .ic{display:block;font-size:26px;margin-bottom:3px}
+#dec .mg .opt.mine{outline:2px solid var(--gold);background:#1e3a8a}
+#dec .mg .who{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:8px}
+#dec .mg .goal3{display:grid;grid-template-columns:1fr 1fr 1fr;border:5px solid #f8fafc;border-bottom:0;border-radius:6px 6px 0 0;
+  background:repeating-linear-gradient(45deg,#ffffff14 0 2px,transparent 2px 10px),repeating-linear-gradient(-45deg,#ffffff14 0 2px,transparent 2px 10px),#0b3d1d;
+  min-height:96px;margin:6px 0 2px}
+#dec .mg .goal3 .opt{background:transparent;border:0;border-right:1px dashed #ffffff33;border-radius:0;text-align:center;color:#fff;font-size:13px}
+#dec .mg .goal3 .opt:last-child{border-right:0}
+#dec .mg .goal3 .opt.mine{background:#facc1533;outline:0}
+#dec .mg .goal3 .cell{display:flex;align-items:center;justify-content:center;gap:4px;font-size:30px;border-right:1px dashed #ffffff33}
+#dec .mg .goal3 .cell:last-child{border-right:0}
+#dec .mg .goal3 .ball{animation:shot .5s ease-out}
+@keyframes shot{from{transform:translateY(70px) scale(.6);opacity:.4}to{transform:none;opacity:1}}
+#dec .mg .duel{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;font-size:18px;font-weight:800;margin:6px 0}
+#dec .mg .duel div{background:#16223f;border-radius:12px;padding:10px 4px}
+#dec .mg .duel div.won{outline:2px solid var(--gold);background:#1e3a8a}
+#dec .mg .duel small{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-bottom:3px}
+#dec .mg .series{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:15px}
+#dec .mg .series small{color:var(--muted);display:inline-block;min-width:90px;font-size:12px}
+#dec .mg .bets{margin-top:12px;padding-top:8px;border-top:1px solid var(--line)}
+#dec .mg .bets .opt small{display:inline;color:var(--gold);font-weight:700}
 #pen{position:fixed;left:0;right:0;bottom:0;z-index:5;display:none;background:#02050f}
 #pen.on{display:block}
 #pen iframe{border:0;width:100%;height:100%;display:block}
@@ -283,6 +323,7 @@ let dribbleUntil = 0, restart = null;  // restart — разводка/ввод:
 let lastNow = 0, plan = null;          // plan — кто прессингует и кто подбирает ничейный мяч (раз в кадр)
 let netHit = null, divots = [];
 const ref = {x: W / 2 - 60, y: H / 2 + 40, ux: 0, uy: 0, card: null};   // судья
+const TUNNEL = {x: -16, y: H / 2};      // выход из подтрибунного — у левой бровки между скамейками
 const dd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 function depthOf(t, y) { return t === 0 ? (H - M - y) / (H - 2 * M) : (y - M) / (H - 2 * M); }   // 0 — свои ворота, 1 — чужие
 function xfOf(x) { return (x - M) / (W - 2 * M); }
@@ -553,7 +594,7 @@ function updatePlay(now) {
     }
   }
   for (const p of list) {
-    p.x = clamp(p.x + p.ux * dt, 6, W - 6); p.y = clamp(p.y + p.uy * dt, 6, H - 6);
+    p.x = clamp(p.x + p.ux * dt, S && S.phase === 'half' ? TUNNEL.x : 6, W - 6); p.y = clamp(p.y + p.uy * dt, 6, H - 6);
     p.vx = p.ux / 60; p.vy = p.uy / 60;               // смещение за «кадр 60 Гц» — для разворота и шага фигурки
   }
   moveRef(dt, now);
@@ -597,6 +638,7 @@ function targetOf(p, now) {
     if (crowd.kind === 'clearbox') return {...at(p.t, p.t === crowd.att ? .66 : .3, .2 + (p.s % 4) * .2), sp: 'jog'};
     if (crowd.kind === 'mass' || crowd.kind === 'ring') return {...near2(crowd.to, p, crowd.kind === 'mass' ? 28 : 44), sp: 'run'};
   }
+  if (S && S.phase === 'half') return {x: TUNNEL.x, y: TUNNEL.y + (p.t ? 6 : -6), sp: 'jog'};   // перерыв — в подтрибунное
   const b = p.b || {depth: .3, xf: .5};
   const playing = S && S.phase === 'play' && !stopped;
   const jit = (a, s) => Math.sin(now / s + p.s * 1.7 + p.t * 3) * a;
@@ -638,7 +680,8 @@ function targetOf(p, now) {
 function near2(c, p, r) { const ang = (p.s * 2.39 + p.t * 1.3); return {x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r}; }
 function moveRef(dt, now) {                // судья: держится позади игры по диагонали, к эпизоду — бегом
   let T;
-  if (ref.goal && now < ref.goal.until) T = ref.goal;
+  if (S && S.phase === 'half') T = {x: TUNNEL.x, y: TUNNEL.y};
+  else if (ref.goal && now < ref.goal.until) T = ref.goal;
   else { const side = ball.x < W / 2 ? 1 : -1; T = {x: clamp(ball.x + side * 70, M + 20, W - M - 20), y: clamp(ball.y + (poss === 0 ? 55 : -55), M + 30, H - M - 30)}; }
   const dx = T.x - ref.x, dy = T.y - ref.y, d = Math.hypot(dx, dy), want = Math.min(ref.goal && now < ref.goal.until ? 150 : 90, d * 2.4);
   let ax = (d ? dx / d * want : 0) - ref.ux, ay = (d ? dy / d * want : 0) - ref.uy;
@@ -876,6 +919,10 @@ function drawStadium(x) {
     x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 1; x.strokeRect(-24, a, 14, b - a);
     for (let y = a + 6; y < b - 3; y += 7) { x.fillStyle = 'rgba(255,255,255,.2)'; x.fillRect(-22, y, 10, 1); }
   });
+  const ty = H / 2;                                                       // выход из подтрибунного: тёмный проём с навесом
+  x.fillStyle = '#020617'; x.fillRect(-30, ty - 15, 26, 30);
+  x.fillStyle = 'rgba(148,163,184,.55)'; x.fillRect(-30, ty - 17, 26, 3); x.fillRect(-30, ty + 14, 26, 3);
+  x.fillStyle = 'rgba(255,255,255,.08)'; for (let i = 0; i < 4; i++) x.fillRect(-26 + i * 6, ty - 13, 3, 26);
   ringPath(x, ST - 3); x.lineWidth = 6; x.strokeStyle = '#0f172a'; x.stroke();             // край крыши
   ringPath(x, ST - 5.5); x.lineWidth = 1; x.strokeStyle = 'rgba(148,163,184,.25)'; x.stroke();
   ringPath(x, 5.5); x.lineWidth = 6.5; x.strokeStyle = '#0b1120'; x.stroke();              // рекламные щиты вокруг газона
@@ -1203,6 +1250,7 @@ function crowdFlashes(now) {                       // вспышки телеф�
   }
 }
 function drawRef(now) {                         // судья: чёрная форма, жёлтый воротник; при карточке — поднятая рука с карточкой
+  if (ref.x < TUNNEL.x + 6) return;
   const v = Math.hypot(ref.ux, ref.uy), ang = v > 8 ? Math.atan2(ref.uy, ref.ux) : Math.atan2(ball.y - ref.y, ball.x - ref.x);
   ref.ang = ref.ang === undefined ? ang : turn(ref.ang, ang, .12); ref.stride = (ref.stride || 0) + v / 60 * .22;
   const sw = v > 8 ? Math.sin(ref.stride) : 0;
@@ -1258,7 +1306,7 @@ function frame(now) {
     drawNetHit(now);
     drawRef(now);
     if (!wave && S.phase === 'play' && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(45000, 90000); }
-    const list = Object.values(players).sort((a, b) => a.y - b.y);
+    const list = Object.values(players).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => a.y - b.y);   // ушедшие в тоннель не видны
     for (const p of list) drawPlayer(p, now);
     for (const c of cards) {
       const p = players[c.k]; if (!p || now > c.until) continue;
@@ -1336,6 +1384,7 @@ function onAck(m) {
     return;
   }
   if (was.a === 'taker') { if (!m.ok) haptic('rigid'); renderDec(); return; }
+  if (was.a === 'mg' || was.a === 'bet') { mgNote = m.ok ? '' : '⚠️ ' + (m.note || 'Не принято'); if (!m.ok) haptic('rigid'); renderDec(); return; }
   if (mine) mine.note = m.note || mine.note;
   if (!m.ok) haptic('rigid');
   view = 'main'; viewArg = null; renderDec();
@@ -1349,6 +1398,10 @@ function cardsOf(p) { return p.off ? ' 🟥' : ' 🟨'.repeat(p.y || 0); }
 function renderDec() {
   decEl.textContent = '';
   if (pen && pen.open && pen.kind === 'urgent') { renderUrgent(); return; }
+  if (mgOpen()) {                           // перерыв: мини-игра и решения — вкладками
+    if (mine && mine.open) mgTabs();
+    if (mgTab === 'mg' || !(mine && mine.open)) { renderMg(); return; }
+  }
   if (!mine || !mine.open) return;
   const m = mine, left = Math.max(0, Math.ceil((mineUntil - performance.now()) / 1000));
   const h = document.createElement('h3');
@@ -1498,7 +1551,7 @@ addEventListener('message', e => {
   else if (m.type === 'haptic') haptic({tap: 'light', kick: 'heavy', success: 'goal', error: 'rigid'}[m.kind] || 'light');
 });
 function setDeciding() {
-  const on = !!((mine && mine.open) || (pen && pen.open && pen.kind === 'urgent'));
+  const on = !!((mine && mine.open) || (pen && pen.open && pen.kind === 'urgent') || mgOpen());
   if (document.body.classList.contains('deciding') !== on) { document.body.classList.toggle('deciding', on); fit(); }
   renderDec();
 }
@@ -1531,6 +1584,134 @@ function setSeen(on) {
 document.addEventListener('visibilitychange', () => setSeen(document.visibilityState === 'visible'));
 if (TG && TG.onEvent) { try { TG.onEvent('activated', () => setSeen(true)); TG.onEvent('deactivated', () => setSeen(false)); } catch (e) {} }
 
+/* ---------------- мини-игра перерыва и пари — в приложении ----------------
+   Бот присылает {type:'mg'} (игра, счёт, текущий вопрос с вариантами для этого менеджера, итог раунда) и {type:'bets'}.
+   Ответ уходит боту решением {a:'mg', r, i} / {a:'bet', i}; проверяет его то же правило, что кнопки в чате. */
+let mg = null, bets = null, mgTab = 'mg', mgUntil = 0, mgStart = 0, mgNote = '';
+const MG_ICON = {quiz: '❓', truefalse: '🤔', guess: '🕵️', tactics: '🧠', penalty: '⚽'};
+function onMg(m) {
+  const prev = mg && mg.q ? mg.q.round : null;
+  mg = m.open ? m : null;
+  if (mg && mg.q && mg.q.round !== prev) {
+    mgUntil = performance.now() + (mg.q.left || 0) * 1000; mgNote = '';
+    if (!m.late) { mgTab = 'mg'; haptic('medium'); ping(); }
+  }
+  if (mg && mg.stage === 'wait') mgStart = performance.now() + (mg.start || 0) * 1000;
+  setDeciding();
+}
+function onBets(m) { bets = m; setDeciding(); }
+function mgOpen() { return !!((mg && mg.open) || (bets && bets.open)); }
+function mgTabs() {
+  const bar = document.createElement('div'); bar.className = 'tabs';
+  for (const [k, t] of [['mg', '🎮 Мини-игра'], ['dec', '⚙️ Решения']]) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.className = mgTab === k ? 'on' : '';
+    b.onclick = () => { mgTab = k; renderDec(); }; bar.appendChild(b);
+  }
+  decEl.appendChild(bar);
+}
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+function renderMg() {
+  const box = el('div', 'mg'), names = S ? S.teams.map(x => x.name) : ['Хозяева', 'Гости'];
+  if (mg) {
+    box.appendChild(el('div', 'mghead', `<b>${MG_ICON[mg.kind] || '🎮'} ${esc(mg.title)}</b><span>${esc(names[0])} <i>${mg.score[0]}:${mg.score[1]}</i> ${esc(names[1])}</span>`));
+    if (mg.stage === 'wait') {
+      box.appendChild(el('div', 'big', `Мини-игра перерыва — старт через <b id="mgleft">${Math.max(0, Math.ceil((mgStart - performance.now()) / 1000))}</b> сек`));
+      if (mg.rules) box.appendChild(el('div', 'sub', esc(mg.rules) + ` Победитель получает +${mg.bonus} к настрою на второй тайм.`));
+    } else if (mg.stage === 'done') {
+      box.appendChild(el('div', 'big win', mg.winner === null || mg.winner === undefined ? '🤝 Ничья — бонусов нет'
+        : `🏆 Победа «${esc(names[mg.winner])}»! +${mg.bonus} к настрою на второй тайм`));
+    } else if (mg.q) renderQ(box, mg);
+    else if (mg.reveal) renderReveal(box, mg);
+    if (mg.kind === 'penalty' && mg.series) box.appendChild(series(mg.series, names));
+  }
+  if (bets && (bets.open || bets.mine !== null && bets.mine !== undefined)) renderBets(box);
+  decEl.appendChild(box);
+}
+function renderQ(box, m) {
+  const q = m.q, left = Math.max(0, Math.ceil((mgUntil - performance.now()) / 1000));
+  const head = m.kind === 'penalty' ? `Удар ${Math.ceil(m.i / 2)}` : `${m.i}/${m.n}` + (m.topic ? ' · ' + esc(m.topic) : '');
+  box.appendChild(el('div', 'round', `<span>${head}</span><small id="mgleft">⏱ ${left} сек</small>`));
+  const bar = el('div', 'tbar'); bar.appendChild(el('i', '', '')); bar.firstChild.id = 'mgbar'; box.appendChild(bar);
+  if (m.kind === 'guess' && m.hints) {
+    box.appendChild(el('div', 'hints', m.hints.map((h, i) => `<div>${i + 1}) ${esc(h)}</div>`).join('')));
+    box.appendChild(el('div', 'sub', `Угадаете сейчас — <b>${m.worth}</b> очк.` + ((m.out || []).includes(myTeam()) ? ' Вы выбыли из этой загадки.' : '')));
+  } else if (m.kind === 'penalty') {
+    box.appendChild(el('div', 'qtext', q.role === 'kick' ? `⚽ Вы бьёте: ${esc(q.kicker)}. Куда?` : `🧤 Бьёт ${esc(q.kicker)}. Куда прыгнет ваш вратарь ${esc(q.keeper)}?`));
+  } else if (m.kind !== 'tactics' || q.text) box.appendChild(el('div', 'qtext', esc(q.text)));
+  const opts = q.opts || [];
+  if (m.kind === 'penalty') {
+    const goal = el('div', 'goal3');
+    opts.forEach((o, i) => goal.appendChild(optBtn(o, i, q, m)));
+    box.appendChild(goal);
+  } else {
+    const list = el('div', m.kind === 'tactics' ? 'cards' : m.kind === 'truefalse' ? 'two' : 'opts');
+    opts.forEach((o, i) => list.appendChild(optBtn(o, i, q, m)));
+    box.appendChild(list);
+  }
+  const st = q.mine !== null && q.mine !== undefined ? '✅ Ответ принят' : pending && pending.a === 'mg' ? 'Отправляем…' : q.can ? '' : '⏳ Сейчас отвечает соперник';
+  box.appendChild(el('div', 'who', `<span>${st}</span><span>${q.opp ? 'Соперник ответил ✓' : 'Соперник думает…'}</span>`));
+  if (mgNote) box.appendChild(el('div', 'res bad', esc(mgNote)));
+}
+function optBtn(label, i, q, m) {
+  const b = document.createElement('button'); b.type = 'button';
+  b.className = 'opt' + (q.mine === i ? ' mine' : '');
+  const parts = String(label).split(' '), icon = m.kind === 'tactics' || m.kind === 'penalty' ? parts.shift() : '';
+  b.innerHTML = icon ? `<span class="ic">${icon}</span>${esc(parts.join(' '))}` : esc(label);
+  b.disabled = !q.can || !!pending;
+  b.onclick = () => { sendAct({a: 'mg', r: q.round, i}, 'mg'); renderDec(); };
+  return b;
+}
+function renderReveal(box, m) {
+  const r = m.reveal, names = S ? S.teams.map(x => x.name) : ['', ''];
+  if (m.kind === 'tactics' && r.tac) {
+    const T = ['⚔️ Атака', '🛡 Оборона', '⚡ Контратака'];
+    box.appendChild(el('div', 'duel', `<div class="${r.point === 0 ? 'won' : ''}"><small>${esc(names[0])}</small>${T[r.tac[0]]}</div><b>vs</b><div class="${r.point === 1 ? 'won' : ''}"><small>${esc(names[1])}</small>${T[r.tac[1]]}</div>`));
+  } else if (m.kind === 'penalty' && r.kd !== undefined) {
+    const goal = el('div', 'goal3 shot');
+    for (let i = 0; i < 3; i++) goal.appendChild(el('div', 'cell', (r.gd === i ? '<span class="gk">🧤</span>' : '') + (r.kd === i ? `<span class="ball ${r.saved ? 'held' : ''}">⚽</span>` : '')));
+    box.appendChild(goal);
+  }
+  box.appendChild(el('div', 'big' + (r.saved === false ? ' win' : ''), esc(r.text)));
+  if (r.right !== undefined && m.kind !== 'tactics') {
+    const you = r.you, ok = you !== null && you !== undefined && you === r.right;
+    box.appendChild(el('div', 'res' + (ok ? '' : ' bad'), you === null || you === undefined ? 'Вы не ответили' : (ok ? '✅ Вы ответили верно: ' : '❌ Ваш ответ: ') + esc(you)));
+  }
+  if (m.kind === 'guess' && r.got) box.appendChild(el('div', 'sub', names.map((n, t) => `«${esc(n)}»: ${r.got[t] ? '+' + r.got[t] : 'не угадал'}`).join(' · ')));
+  box.appendChild(el('div', 'sub', 'Следующий раунд — через пару секунд…'));
+}
+function series(sr, names) {
+  const w = el('div', 'series');
+  [0, 1].forEach(t => {
+    const dots = (sr[t] || []).map(g => g ? '⚽' : '❌').join(' ') || '—';
+    w.appendChild(el('div', '', `<small>${esc(names[t])}</small> ${dots}`));
+  });
+  return w;
+}
+function renderBets(box) {
+  const w = el('div', 'bets');
+  w.appendChild(el('div', 'mghead', '<b>🎲 Пари на второй тайм</b><span>необязательно</span>'));
+  if (bets.mine !== null && bets.mine !== undefined) {
+    const o = bets.opts[bets.mine];
+    w.appendChild(el('div', 'res', `✅ Ваш прогноз: ${esc(o.label)} (+${o.pct}% болельщиков). Разыграем после финального свистка.`));
+  } else if (bets.open) {
+    w.appendChild(el('div', 'sub', 'Сбывшийся прогноз на официальном матче приводит новых болельщиков. Соперник ваш выбор не видит.'));
+    const list = el('div', 'opts');
+    bets.opts.forEach((o, i) => { const b = el('button', 'opt', `${esc(o.label)} <small>+${o.pct}%</small>`); b.type = 'button'; b.disabled = !!pending;
+      b.onclick = () => { sendAct({a: 'bet', i}, 'bet'); renderDec(); }; list.appendChild(b); });
+    w.appendChild(list);
+  }
+  box.appendChild(w);
+}
+function myTeam() { return mine && mine.t !== undefined ? mine.t : -1; }
+setInterval(() => {
+  if (!mg) return;
+  const e = $('mgleft');
+  if (mg.stage === 'wait' && e) e.textContent = Math.max(0, Math.ceil((mgStart - performance.now()) / 1000));
+  else if (mg.q && e) e.textContent = '⏱ ' + Math.max(0, Math.ceil((mgUntil - performance.now()) / 1000)) + ' сек';
+  const bar = $('mgbar');
+  if (bar && mg.q) { const total = mg.q.sec || 15; bar.style.width = clamp((mgUntil - performance.now()) / 10 / total, 0, 100) + '%'; }
+}, 250);
+
 /* ---------------- подключение к комнате матча ---------------- */
 const Q = new URLSearchParams(location.search);
 const ROOM = Q.get('room');
@@ -1554,6 +1735,8 @@ function connect() {
     if (m.type === 'state') onState(m);
     else if (m.type === 'mine') onMine(m);
     else if (m.type === 'pen') onPen(m);
+    else if (m.type === 'mg') onMg(m);
+    else if (m.type === 'bets') onBets(m);
     else if (m.type === 'ack') onAck(m);
     else if (m.type === 'tick') { onTick(m); note(''); }
     else if (m.type === 'bot_left') note('Бот переподключается — матч продолжится, подождите…');
@@ -1612,6 +1795,42 @@ function demo() {
   }, Number(Q.get('tick')) || 4000);
 }
 
+// демо мини-игры перерыва: раунды и ответы «как от бота»
+const DEMO_MG = {
+  quiz: {title: 'футбольная викторина', q: 'Какая страна выиграла первый чемпионат мира в 1930 году?', opts: ['Аргентина', 'Уругвай', 'Бразилия', 'Италия'], right: 1, topic: 'История'},
+  truefalse: {title: 'правда или миф', q: 'Вратарь может забить гол, просто выбив мяч от своих ворот.', opts: ['✅ Правда', '❌ Миф'], right: 0},
+  guess: {title: 'угадай по подсказкам', q: '', opts: ['Пеле', 'Марадона', 'Месси', 'Кройф'], right: 2, hints: ['Восемь «Золотых мячей».', 'Вырос в Росарио.', 'Чемпион мира 2022 года.']},
+  tactics: {title: 'тактическая дуэль', q: 'Ваш план на следующий отрезок игры?', opts: ['⚔️ Атака', '🛡 Оборона', '⚡ Контратака']},
+  penalty: {title: 'серия пенальти', q: '', opts: ['⬅️ Влево', '⬆️ Центр', '➡️ Вправо']},
+};
+function demoMg(kind) {
+  const d = DEMO_MG[kind]; S.phase = 'half'; renderBoard();
+  mine = {type: 'mine', t: 0, open: false};
+  bets = {type: 'bets', open: true, mine: null, opts: [{label: '🥇 Мы забьём первыми во 2-м тайме', pct: 2}, {label: '🔥 Во 2-м тайме будет 3+ гола', pct: 2}, {label: '🏆 Выиграем 2-й тайм по голам', pct: 4}]};
+  const base = {type: 'mg', open: true, kind, title: d.title, score: [0, 0], bonus: 3, n: 5, i: 1, rules: 'Демо: соперник отвечает случайно.'};
+  onMg({...base, stage: 'wait', start: 3});
+  demoMg.state = {kind, d, base, r: 0, score: [0, 0], series: {0: [], 1: []}};
+  setTimeout(() => demoQ(), 3000);
+}
+function demoQ() {
+  const z = demoMg.state, d = z.d, extra = z.kind === 'penalty' ? {role: z.r % 2 ? 'keep' : 'kick', kicker: z.r % 2 ? '№9 Бет Смирнов' : '№9 Аль Козлов', keeper: z.r % 2 ? '№1 Аль Иванов' : '№1 Бет Смирнов'} : {};
+  z.q = {round: z.r, text: d.q, opts: d.opts, left: 12, sec: 12, can: true, mine: null, opp: false, ...extra};
+  onMg({...z.base, stage: 'play', i: z.r + 1, score: z.score, q: z.q, hints: d.hints ? d.hints.slice(0, z.r % 3 + 1) : undefined, worth: 3 - z.r % 3, series: z.kind === 'penalty' ? z.series : undefined});
+  setTimeout(() => { if (z.q && z.q.round === z.r) { z.q.opp = true; onMg({...mg, q: {...z.q}}); } }, 1500);
+}
+function demoMgAnswer(i) {
+  const z = demoMg.state; if (!z || !z.q || z.q.mine !== null) return;
+  z.q.mine = i; z.q.can = false; onMg({...mg, q: {...z.q}});
+  setTimeout(() => {
+    const d = z.d, o = Math.floor(Math.random() * d.opts.length); let reveal;
+    if (z.kind === 'tactics') { const B = [[0, 1], [1, 2], [2, 0]], w = B.some(([a, b]) => a === i && b === o) ? 0 : B.some(([a, b]) => a === o && b === i) ? 1 : null; if (w !== null) z.score[w]++; reveal = {text: w === null ? 'Ничья в раунде' : w === 0 ? 'Очко ваше!' : 'Очко сопернику', tac: [i, o], point: w}; }
+    else if (z.kind === 'penalty') { const kick = z.q.role === 'kick', kd = kick ? i : o, gd = kick ? o : i, saved = kd === gd, k = kick ? 0 : 1; z.series[k].push(!saved); if (!saved) z.score[k]++; reveal = {text: saved ? '🧤 СЕЙВ!' : '⚽ ГОЛ!', kd, gd, saved, k}; }
+    else { if (i === d.right) z.score[0]++; if (o === d.right) z.score[1]++; reveal = {text: '✅ Верный ответ: ' + d.opts[d.right], right: d.opts[d.right], you: d.opts[i]}; }
+    z.q = null; onMg({...z.base, stage: 'play', i: z.r + 1, score: z.score, reveal, series: z.kind === 'penalty' ? z.series : undefined});
+    z.r++;
+    setTimeout(() => z.r < 4 ? demoQ() : onMg({...z.base, stage: 'done', score: z.score, winner: z.score[0] > z.score[1] ? 0 : z.score[1] > z.score[0] ? 1 : null}), 2500);
+  }, 700);
+}
 // демо пенальти в сцене: вы бьёте (команда 0) или ловите; соперник и исход — случайные, как «ответ бота»
 let demoWid = 100;
 function demoPen(t) {
@@ -1622,6 +1841,8 @@ function demoPen(t) {
   demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 15000);
 }
 function demoAct(a) {
+  if (a.a === 'mg') { demoMgAnswer(a.i); return; }
+  if (a.a === 'bet') { if (bets) { bets = {...bets, mine: a.i}; renderDec(); } return; }
   if (a.a !== 'pen' || !pen || !pen.open) return;
   clearTimeout(demoPen.timer);
   const role = pen.role, v = a.v;
@@ -1642,7 +1863,7 @@ if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableV
   TG.setHeaderColor && TG.setHeaderColor('#0d1730'); TG.setBackgroundColor && TG.setBackgroundColor('#050a18');
   TG.onEvent && TG.onEvent('viewportChanged', fit); } catch (e) {} }
 requestAnimationFrame(frame);
-if (ROOM) connect(); else demo();
+if (ROOM) connect(); else { demo(); if (Q.get('mg')) setTimeout(() => demoMg(Q.get('mg')), 800); }
 </script>
 </body>
 </html>
