@@ -547,7 +547,9 @@ function build(a) {
         stopped = true; whistle(true); renderStatus(); holder = null;
         if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); camTo(1.6, 2700, () => fan && {x: lerp(-20, W + 20, clamp((performance.now() - fan.t0) / 2600, 0, 1)), y: fan.y}); }
         else {
-          pyro = {t0: performance.now(), x: Math.random() < .5 ? M : W - M, y: rnd(H * .2, H * .8)}; label('🚨 На поле пиротехника!', 2600);
+          const left = Math.random() < .5, ly = rnd(H * .2, H * .8);
+          pyro = {t0: performance.now(), x: left ? M + rnd(20, 70) : W - M - rnd(20, 70), y: ly, from: {x: left ? -60 : W + 60, y: ly + rnd(-40, 40)},
+                  ang: rnd(0, 6.28), st: nearestTo({x: left ? M : W - M, y: ly}, STEWARDS)}; label('🚨 На поле пиротехника!', 2600);
           const src = lightFlares(-1, 5, 6500, {x: pyro.x < W / 2 ? -40 : W + 40, y: pyro.y});        // горит сектор, откуда бросили
           if (src) camTo(1.5, 2600, lerpPt(src, {x: pyro.x, y: pyro.y}, .5), undefined, true);
         }
@@ -998,6 +1000,12 @@ function buildShade() {
     const a = ring(R1, s), b = ring(ST - 2, s * ringLen(ST - 2) / PR);
     x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke();
   }
+  x.globalCompositeOperation = 'lighter';                 // прожекторы подсвечивают трибуны у мачт
+  for (const [cx, cy] of [[-ST + 9, -ST + 9], [W + ST - 9, -ST + 9], [W + ST - 9, H + ST - 9], [-ST + 9, H + ST - 9]]) {
+    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, 260); gl.addColorStop(0, 'rgba(255,248,220,.14)'); gl.addColorStop(1, 'rgba(255,248,220,0)');
+    x.fillStyle = gl; x.fillRect(cx - 260, cy - 260, 520, 520);
+  }
+  x.globalCompositeOperation = 'source-over';
   ringPath(x, R1); x.lineWidth = 1.4; x.strokeStyle = 'rgba(203,213,225,.45)'; x.stroke();
   x.fillStyle = 'rgba(255,251,235,.85)';                  // светильники по кромке козырька
   for (let s = 0; s < PR; s += 9) { const q = ring(R1, s); x.fillRect(q.x - .7, q.y - .7, 1.4, 1.4); }
@@ -1415,7 +1423,7 @@ function drawJumbo(now) {                          // табло над триб
     g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-25, -9, 54, 22);
     g.fillStyle = '#0b1120'; g.fillRect(-27, -11, 54, 22); g.strokeStyle = '#475569'; g.lineWidth = 1; g.strokeRect(-27, -11, 54, 22);
     g.fillStyle = '#020617'; g.fillRect(-25, -9, 50, 18);
-    g.fillStyle = S.teams[0].shirt; g.fillRect(-24, -8, 3, 16); g.fillStyle = S.teams[1].shirt; g.fillRect(21, -8, 3, 16);
+    drawCrest(-19, 0, 13, S.teams[0]); drawCrest(19, 0, 13, S.teams[1]);
     g.font = 'bold 10px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = jump && now < jump.until && Math.floor(now / 250) % 2 ? '#facc15' : '#fef3c7';
     g.fillText(jump && now < jump.until && jump.big ? 'ГОЛ!' : sc.teams[0].score + ':' + sc.teams[1].score, 0, -1.5);
@@ -1424,32 +1432,105 @@ function drawJumbo(now) {                          // табло над триб
     g.restore();
   }
 }
+/* ---------------- герб клуба: рисуется из названия и цветов формы — у каждого клуба свой и всегда одинаковый ----------------
+   форма (щит / круг / ромб), раскраска (половины / полосы / шеврон), знак в центре (буква / звезда / мяч / корона) */
+function hashStr(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const crestCache = new Map();
+function crestImg(tm) {
+  const id = tm.name + tm.shirt + tm.shorts;
+  let c = crestCache.get(id);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), r = 46, h = hashStr(tm.name), shape = h % 3, split = (h >> 4) % 3, emb = (h >> 8) % 4;
+  x.translate(64, 60);
+  const path = new Path2D();
+  if (shape === 0) { path.moveTo(-r, -r); path.lineTo(r, -r); path.lineTo(r, r * .2); path.quadraticCurveTo(r, r * .85, 0, r * 1.2); path.quadraticCurveTo(-r, r * .85, -r, r * .2); path.closePath(); }
+  else if (shape === 1) path.arc(0, 0, r, 0, 7);
+  else { path.moveTo(0, -r * 1.12); path.lineTo(r, -r * .3); path.lineTo(r * .78, r * .78); path.lineTo(0, r * 1.18); path.lineTo(-r * .78, r * .78); path.lineTo(-r, -r * .3); path.closePath(); }
+  x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 6; x.shadowOffsetY = 3;
+  x.fillStyle = tm.shorts; x.fill(path); x.shadowColor = 'transparent';
+  x.save(); x.clip(path); x.fillStyle = tm.shirt;
+  if (split === 0) x.fillRect(-r * 1.3, -r * 1.3, r * 1.3, r * 2.7);
+  else if (split === 1) for (const i of [-1, 1]) x.fillRect(i * r * .55 - r * .22, -r * 1.3, r * .44, r * 2.7);
+  else { x.beginPath(); x.moveTo(-r * 1.3, -r * .25); x.lineTo(0, r * .45); x.lineTo(r * 1.3, -r * .25); x.lineTo(r * 1.3, r * 1.4); x.lineTo(-r * 1.3, r * 1.4); x.closePath(); x.fill(); }
+  const gl = x.createLinearGradient(-r, -r, r, r); gl.addColorStop(0, 'rgba(255,255,255,.4)'); gl.addColorStop(.45, 'rgba(255,255,255,0)'); gl.addColorStop(1, 'rgba(0,0,0,.3)');
+  x.fillStyle = gl; x.fillRect(-r * 1.3, -r * 1.3, r * 2.6, r * 2.7);
+  x.restore();
+  x.lineWidth = 7; x.strokeStyle = '#b45309'; x.stroke(path); x.lineWidth = 4; x.strokeStyle = '#fcd34d'; x.stroke(path);
+  x.fillStyle = '#fffbeb'; x.beginPath(); x.arc(0, r * .06, r * .5, 0, 7); x.fill();
+  x.lineWidth = 3; x.strokeStyle = '#b45309'; x.stroke();
+  x.fillStyle = '#111827'; x.strokeStyle = '#111827';
+  if (emb === 1) {                                               // звезда
+    x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .17 : r * .38; x.lineTo(Math.cos(a) * rr, r * .06 + Math.sin(a) * rr); } x.closePath(); x.fill();
+  } else if (emb === 2) {                                        // мяч
+    x.beginPath(); x.arc(0, r * .06, r * .36, 0, 7); x.lineWidth = 3; x.stroke();
+    x.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; x.lineTo(Math.cos(a) * r * .15, r * .06 + Math.sin(a) * r * .15); } x.closePath(); x.fill();
+  } else if (emb === 3) {                                        // корона
+    x.beginPath(); x.moveTo(-r * .34, r * .26); x.lineTo(-r * .34, -r * .12); x.lineTo(-r * .17, r * .06); x.lineTo(0, -r * .22); x.lineTo(r * .17, r * .06); x.lineTo(r * .34, -r * .12); x.lineTo(r * .34, r * .26); x.closePath(); x.fill();
+  } else {                                                       // буква клуба
+    x.font = `bold ${Math.round(r * .62)}px "Trebuchet MS",sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText((tm.name.match(/[A-Za-zА-Яа-яЁё0-9]/) || ['?'])[0].toUpperCase(), 0, r * .1);
+  }
+  crestCache.set(id, c);
+  return c;
+}
+function drawCrest(x, y, size, tm) { g.drawImage(crestImg(tm), x - size / 2, y - size / 2, size, size); }
 const BANNERS = [   // x, y — середина баннера (координаты поля), team, вид: name — название клуба, cheer — кричалка, stripes — полосы
   {x: W * .27, y: -WALK[0] - 2, t: 0, kind: 'name'}, {x: W * .73, y: -WALK[0] - 2, t: 0, kind: 'stripes'},
   {x: W * .5, y: H + WALK[0] + 2, t: 0, kind: 'name'}, {x: W + WALK[0] + 2, y: H * .3, t: 0, kind: 'cheer'},
   {x: W + WALK[0] + 2, y: H * .72, t: 0, kind: 'name'}, {x: -WALK[0] - 2, y: H * .7, t: 0, kind: 'cheer'},
   {x: -WALK[0] - 2, y: H * .1, t: 1, kind: 'name'},
 ];
+let standFlags = null;                               // флаги на древках над болельщиками
+function drawStandFlags(now) {
+  if (!stands) return;
+  if (!standFlags || standFlags.key !== stands.key) {
+    const rn = seeded(hashStr(stands.key));
+    const keep = []; stands.sectors.forEach(sc => { if (!sc.n) return; const [x0, y0, x1, y1] = sc.box;
+      for (let i = 0; i < (sc.team ? 3 : 2); i++) keep.push({x: x0 + 4 + rn() * (x1 - x0 - 8), y: y0 + 4 + rn() * (y1 - y0 - 8), t: sc.team, ph: rn() * 6.28, two: rn() < .5}); });
+    standFlags = {key: stands.key, list: keep};
+  }
+  for (const f of standFlags.list) {
+    const tm = S.teams[f.t], up = jump && now < jump.until && jump.t === f.t;
+    const sw = Math.sin(now / (up ? 140 : 520) + f.ph) * (up ? 7 : 3), fx = f.x + sw * .35, fy = f.y - 7;
+    g.strokeStyle = '#d6d3d1'; g.lineWidth = .9; g.beginPath(); g.moveTo(f.x, f.y); g.lineTo(fx, fy); g.stroke();
+    g.fillStyle = f.two && Math.sin(now / 300 + f.ph) > 0 ? tm.shorts : tm.shirt;
+    g.beginPath(); g.moveTo(fx, fy); g.quadraticCurveTo(fx + 5 + sw * .3, fy - 2 + sw * .2, fx + 10 + sw * .5, fy + sw * .25);
+    g.lineTo(fx + 10 + sw * .5, fy + 6 + sw * .25); g.quadraticCurveTo(fx + 5, fy + 5 + sw * .2, fx, fy + 6); g.closePath(); g.fill();
+  }
+}
 function drawBanners(now) {
   if (!S) return;
+  drawStandFlags(now);
   g.font = 'bold 10px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const b of BANNERS) {
     const tm = S.teams[b.t]; if (!tm) continue;
     const side = b.y < 0 || b.y > H, rot = side ? 0 : b.x > W ? Math.PI / 2 : -Math.PI / 2;
     const text = b.kind === 'name' ? tm.name.toUpperCase().slice(0, 16) : b.kind === 'cheer' ? 'ВПЕРЁД, ' + tm.name.toUpperCase().slice(0, 10) + '!' : '';
-    const len = b.kind === 'stripes' ? 120 : Math.max(90, g.measureText(text).width + 24), hh = 15;
+    const crest = 15, len = b.kind === 'stripes' ? 120 : Math.max(96, g.measureText(text).width + 30 + crest), hh = 18;
     const up = jump && now < jump.until && jump.t === b.t;                   // своя трибуна встала — баннер ходит волной
     g.save(); g.translate(b.x, b.y); g.rotate(rot);
-    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-len / 2 + 1.5, -hh / 2 + 2, len, hh);
-    const N = 10;
-    for (let i = 0; i < N; i++) {                                           // полотно полосками: так оно может колыхаться
-      const x0 = -len / 2 + i * len / N, dy = Math.sin(now / (up ? 110 : 900) + i * .9 + b.x) * (up ? 2.2 : .5);
-      g.fillStyle = b.kind === 'stripes' ? (i % 2 ? tm.shorts : tm.shirt) : tm.shirt;
+    g.strokeStyle = 'rgba(203,213,225,.7)'; g.lineWidth = .8;              // растяжки к ограждению
+    for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * len / 2, -hh / 2); g.lineTo(sx * (len / 2 + 6), -hh / 2 - 5); g.moveTo(sx * len / 2, hh / 2); g.lineTo(sx * (len / 2 + 6), hh / 2 + 4); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(-len / 2 + 2, -hh / 2 + 3, len, hh);
+    const N = 14, sp = up ? 110 : 900, amp = up ? 2.4 : .6;
+    for (let i = 0; i < N; i++) {                                           // полотно полосками: колышется, складки темнее
+      const x0 = -len / 2 + i * len / N, ph = now / sp + i * .9 + b.x, dy = Math.sin(ph) * amp;
+      g.fillStyle = b.kind === 'stripes' ? (Math.floor(i / 2) % 2 ? tm.shorts : tm.shirt) : tm.shirt;
       g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh);
-      g.fillStyle = 'rgba(255,255,255,' + (.06 + .05 * Math.sin(i * 1.3)) + ')'; g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh * .4);
+      const fold = Math.cos(ph);                                            // складка: свет и тень по наклону ткани
+      g.fillStyle = fold > 0 ? `rgba(255,255,255,${(.16 * fold).toFixed(3)})` : `rgba(0,0,0,${(-.22 * fold).toFixed(3)})`;
+      g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh);
+      g.fillStyle = tm.shorts; g.fillRect(x0, -hh / 2 + dy, len / N + .6, 1.6); g.fillRect(x0, hh / 2 + dy - 1.6, len / N + .6, 1.6);   // кайма
+      if (i % 1 === 0) { g.fillStyle = mix(tm.shorts, -.2); g.fillRect(x0 + 1, hh / 2 + dy, 1.2, 2.4); g.fillRect(x0 + len / N / 2 + 1, hh / 2 + dy, 1.2, 2.4); }   // бахрома
     }
-    g.strokeStyle = tm.shorts; g.lineWidth = 1.6; g.strokeRect(-len / 2, -hh / 2, len, hh);
-    if (text) { g.fillStyle = ink(tm.shirt); g.fillText(text, 0, .5 + Math.sin(now / (up ? 110 : 900) + 4.5 + b.x) * (up ? 2.2 : .5)); }
+    const dyc = Math.sin(now / sp + 4.5 + b.x) * amp;
+    if (b.kind === 'stripes') drawCrest(0, dyc, crest * 1.25, tm);
+    else {
+      drawCrest(-len / 2 + crest / 2 + 5, dyc, crest, tm);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillText(text, crest / 2 + 3.6, 1.4 + dyc);
+      g.fillStyle = ink(tm.shirt); g.fillText(text, crest / 2 + 3, .6 + dyc);
+    }
     g.restore();
   }
 }
@@ -1585,8 +1666,48 @@ function lightFlares(t, n, ms, near) {               // near — зажечь р
   const now = performance.now();
   pts.forEach((p, i) => flares.push({...p, t0: now + i * rnd(80, 260), life: ms * rnd(.8, 1.15),
                                      col: Math.random() < .25 ? '#22c55e' : Math.random() < .2 ? '#facc15' : '#ef4444'}));
+  if (t >= 0 && !near && S) standPoints(t, 2).forEach((p, i) =>                          // дымовые шашки в цвет клуба
+    flares.push({...p, t0: now + 300 + i * 400, life: ms * 1.1, bomb: true, col: i % 2 ? S.teams[t].shorts : S.teams[t].shirt}));
   if (flares.length > 40) flares = flares.slice(-40);
   return pts[0];
+}
+function drawPyro(now) {                          // файер на газоне: полёт с трибуны, горение, дым, стюард уносит
+  const p = pyro, age = now - p.t0, FLY = 650, PICK = 3700, GONE = 4600;
+  if (age > 8000) { pyro = null; return; }
+  if (age < FLY) {                                   // летит дугой, искрит
+    const k = age / FLY, x = lerp(p.from.x, p.x, k), y = lerp(p.from.y, p.y, k) - Math.sin(Math.PI * k) * 60;
+    for (let i = 0; i < 3; i++) fx.push({k: 'spark', x: x + rnd(-2, 2), y: y + rnd(-2, 2), vx: rnd(-.5, .5), vy: rnd(-.2, .6), r: 1.4, life: rnd(250, 500), t0: now});
+    g.globalCompositeOperation = 'lighter';
+    const gl = g.createRadialGradient(x, y, 0, x, y, 16); gl.addColorStop(0, 'rgba(255,120,60,.9)'); gl.addColorStop(1, 'rgba(255,60,20,0)');
+    g.fillStyle = gl; g.fillRect(x - 16, y - 16, 32, 32); g.globalCompositeOperation = 'source-over';
+    return;
+  }
+  const st = p.st || {x: p.x < W / 2 ? 6 : W - 6, y: p.y};
+  let fx0 = p.x, fy0 = p.y;
+  if (age > PICK) {                                  // стюард несёт файер к бровке
+    const k = clamp((age - PICK) / (GONE - PICK), 0, 1); fx0 = lerp(p.x, st.x, k); fy0 = lerp(p.y, st.y, k);
+  }
+  const burning = age < GONE, fl = .8 + Math.random() * .3;
+  if (burning) {
+    g.globalCompositeOperation = 'lighter';         // световое пятно на газоне
+    const pool = g.createRadialGradient(fx0, fy0, 0, fx0, fy0, 70 * fl);
+    pool.addColorStop(0, 'rgba(255,90,40,.55)'); pool.addColorStop(.4, 'rgba(255,60,30,.18)'); pool.addColorStop(1, 'rgba(255,40,20,0)');
+    g.fillStyle = pool; g.fillRect(fx0 - 70, fy0 - 70, 140, 140);
+    g.globalCompositeOperation = 'source-over';
+    if (age < PICK) {                                // сам файер лежит на траве
+      g.save(); g.translate(fx0, fy0); g.rotate(p.ang); g.fillStyle = '#7f1d1d'; g.fillRect(-7, -1.6, 12, 3.2); g.fillStyle = '#fca5a5'; g.fillRect(-7, -1.6, 3, 3.2); g.restore();
+    }
+    g.fillStyle = '#fff7ed'; g.beginPath(); g.arc(fx0 + Math.cos(p.ang) * 5, fy0 + Math.sin(p.ang) * 5, 3.4 * fl, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,70,40,.85)'; g.beginPath(); g.arc(fx0 + Math.cos(p.ang) * 5, fy0 + Math.sin(p.ang) * 5, 6 * fl, 0, 7); g.fill();
+    for (let i = 0; i < 2; i++) fx.push({k: 'spark', x: fx0, y: fy0, vx: rnd(-1.4, 1.4), vy: rnd(-1.6, .4), r: 1.3, life: rnd(300, 700), t0: now});
+    if (Math.random() < .55) fx.push({k: 'smoke', x: fx0 + rnd(-4, 4), y: fy0 + rnd(-4, 4), vx: rnd(-.2, .7) * (p.x < W / 2 ? 1 : -1), vy: rnd(-.7, -.2), r: rnd(9, 16), life: rnd(2500, 4200), t0: now});
+  }
+  if (age > 2400 && age < GONE + 1800) {             // стюард в жилете: бежит к файеру, поднимает, уносит
+    const run = clamp((age - 2400) / (PICK - 2400), 0, 1), back = clamp((age - PICK) / (GONE - PICK), 0, 1);
+    const sx = age < PICK ? lerp(st.x, p.x - 10, run) : lerp(p.x - 10, st.x, back), sy = age < PICK ? lerp(st.y, p.y, run) : lerp(p.y, st.y, back);
+    blob(sx + 2, sy + 2, 7, 6, 'rgba(0,0,0,.3)'); shaded(sx, sy, 7.5, 5.5, '#facc15'); g.fillStyle = '#f97316'; g.fillRect(sx - 7, sy - 1, 14, 2);
+    shaded(sx, sy, 3.4, 3.4, '#d6a77a'); blob(sx, sy + .4, 3, 2.6, '#1c1917');
+  }
 }
 function drawFlares(now) {
   flares = flares.filter(f => now - f.t0 < f.life + 2500);
@@ -1594,7 +1715,18 @@ function drawFlares(now) {
     const age = now - f.t0;
     if (age < 0) continue;
     const burning = age < f.life;
+    if (burning && f.bomb) {                         // дымовая шашка: без пламени, густое облако цвета клуба
+      if (Math.random() < .45) fx.push({k: 'haze', x: f.x + rnd(-4, 4), y: f.y + rnd(-4, 4), vx: -f.nx * rnd(.25, .55) + rnd(-.2, .2),
+        vy: -f.ny * rnd(.25, .55) - .1, r: rnd(10, 18), life: rnd(2600, 4200), t0: now, tint: f.col, dense: true});
+      continue;
+    }
     if (burning) {
+      g.globalCompositeOperation = 'lighter';         // свет пламени складывается с трибуной — соседи подсвечены
+      const lg = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, 34);
+      lg.addColorStop(0, f.col === '#22c55e' ? 'rgba(60,255,120,.35)' : f.col === '#facc15' ? 'rgba(255,220,80,.38)' : 'rgba(255,90,40,.42)');
+      lg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = lg; g.fillRect(f.x - 34, f.y - 34, 68, 68);
+      g.globalCompositeOperation = 'source-over';
       const fl = .75 + Math.random() * .35, r = 16 * fl;
       const gl = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
       gl.addColorStop(0, f.col === '#ef4444' ? 'rgba(255,70,40,.95)' : f.col === '#22c55e' ? 'rgba(80,255,120,.85)' : 'rgba(255,230,90,.9)');
@@ -1603,9 +1735,9 @@ function drawFlares(now) {
       g.fillStyle = gl; g.fillRect(f.x - r * 2.2, f.y - r * 2.2, r * 4.4, r * 4.4);
       g.fillStyle = '#fff7ed'; g.beginPath(); g.arc(f.x, f.y, 2.2 * fl, 0, 7); g.fill();
       g.fillStyle = f.col; g.beginPath(); g.arc(f.x, f.y, 3.6 * fl, 0, 7); g.globalAlpha = .7; g.fill(); g.globalAlpha = 1;
-      for (let i = 0; i < 3; i++) {                  // искры
-        const a = Math.random() * 6.28, d = rnd(3, 13);
-        g.fillStyle = 'rgba(255,240,200,.9)'; g.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 1.2, 1.2);
+      for (let i = 0; i < 5; i++) {                  // искры — разлетаются и гаснут
+        const a = Math.random() * 6.28, d = rnd(3, 16);
+        g.fillStyle = d < 9 ? 'rgba(255,250,220,.95)' : 'rgba(255,170,80,.7)'; g.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 1.3, 1.3);
       }
       if (Math.random() < .22) fx.push({k: 'haze', x: f.x + rnd(-3, 3), y: f.y + rnd(-3, 3),
         vx: -f.nx * rnd(.3, .7) + rnd(-.2, .2), vy: -f.ny * rnd(.3, .7) - .15, r: rnd(7, 13), life: rnd(2200, 3600), t0: now,
@@ -1649,11 +1781,7 @@ function frame(now) {
     g.fillStyle = '#f43f5e'; g.fillRect(x - 6, y - 22, 12, 9);
     if (k > 1.2) fan = null;
   }
-  if (pyro) {
-    if (now - pyro.t0 < 2600 && Math.random() < .6) fx.push({k: 'smoke', x: pyro.x + rnd(-10, 10), y: pyro.y + rnd(-10, 10), vx: rnd(-.3, .8) * (pyro.x < W / 2 ? 1 : -1), vy: rnd(-.6, -.1), r: rnd(10, 22), life: rnd(1500, 2600), t0: now});
-    if (now - pyro.t0 < 2600) { g.fillStyle = `rgba(255,${80 + Math.random() * 80},0,.9)`; g.beginPath(); g.arc(pyro.x, pyro.y, 6 + Math.random() * 4, 0, Math.PI * 2); g.fill(); }
-    else if (now - pyro.t0 > 5000) pyro = null;
-  }
+  if (pyro) drawPyro(now);
   drawBall();
   // частицы
   fx = fx.filter(f => now - f.t0 < f.life);
@@ -1663,8 +1791,13 @@ function frame(now) {
     if (f.k === 'turf') { g.globalAlpha = 1 - k; g.fillStyle = '#3f6212'; g.fillRect(x - f.r / 2, y - f.r / 2 - age * .02, f.r, f.r * .7); g.globalAlpha = 1; continue; }
     if (f.k === 'ring') { g.globalAlpha = (1 - k) * .8; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, f.r + k * 16, 0, 7); g.stroke(); g.globalAlpha = 1; continue; }
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
-    else if (f.k === 'haze') { g.globalAlpha = (1 - k) * (k < .08 ? k / .08 : 1) * .2; g.fillStyle = f.tint === '#ef4444' ? '#cbb6b0' : f.tint === '#22c55e' ? '#b9d8bf' : '#d9d2b0'; g.beginPath(); g.arc(x, y, f.r * (1 + k * 1.6), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
-    else { g.globalAlpha = (1 - k) * (f.k === 'smoke' ? .55 : .5); g.fillStyle = f.k === 'smoke' ? '#c2410c' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+    else if (f.k === 'haze') {
+      g.globalAlpha = (1 - k) * (k < .08 ? k / .08 : 1) * (f.dense ? .38 : .22);
+      g.fillStyle = f.dense ? f.tint : f.tint === '#ef4444' ? '#d9a59b' : f.tint === '#22c55e' ? '#a7dcb3' : '#e2d6a3';
+      g.beginPath(); g.arc(x, y, f.r * (1 + k * 1.8), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+    }
+    else if (f.k === 'spark') { g.globalAlpha = 1 - k; g.fillStyle = k < .4 ? '#fff7ed' : '#fb923c'; g.fillRect(x, y + age * age * .000004 * 60, f.r, f.r); g.globalAlpha = 1; }
+    else { g.globalAlpha = (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .42 : .5); g.fillStyle = f.k === 'smoke' ? '#e2827a' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   }
   if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
   drawWeather(now);
