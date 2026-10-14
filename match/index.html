@@ -27,6 +27,13 @@ body{display:flex;flex-direction:column;height:100dvh;height:var(--vh,100dvh)}
 #status{font-size:13px;text-align:center;min-height:17px;margin-top:3px;color:var(--gold);font-weight:700}
 #pitchwrap{position:relative;flex:none;display:flex;justify-content:center;background:#04170c;overflow:hidden}
 canvas{display:block}
+#chant{position:absolute;left:50%;bottom:8px;transform:translateX(-50%) translateY(6px);max-width:92%;padding:5px 12px;border-radius:14px;
+  background:rgba(5,10,24,.78);border:1.5px solid var(--cc,#facc15);color:#e2e8f0;font-size:14px;font-weight:800;letter-spacing:.3px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:2}
+#chant.on{opacity:1;transform:translateX(-50%)}
+#chant span{color:#94a3b8;transition:color .1s}
+#chant span.was{color:#e2e8f0}
+#chant span.now{color:#fde047;text-shadow:0 0 8px var(--cc,#facc15)}
 #label{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(5,10,24,.82);border:1px solid #ffffff22;
   padding:6px 12px;border-radius:12px;font-weight:800;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none;
   max-width:92%;overflow:hidden;text-overflow:ellipsis}
@@ -339,7 +346,7 @@ function xfOf(x) { return (x - M) / (W - 2 * M); }
 function moveBall(to, d, arc, mode) {
   holder = null; dribbleUntil = 0;
   ball.fx = ball.x; ball.fy = ball.y; ball.tx = to.x; ball.ty = to.y; ball.t0 = performance.now(); ball.d = Math.max(1, d);
-  ball.arc = arc || 0; ball.mode = mode || 'ease'; ball.recv = null;
+  ball.arc = arc || 0; ball.mode = mode || 'ease'; ball.recv = null; ball.cv = 0;
 }
 function strike(power) {                  // кто бил — выносит ногу; на ударе из-под ноги летит газон
   const k = holderP() || nearestTo(ball, Object.values(players).filter(q => dd(q, ball) < 30));
@@ -358,10 +365,18 @@ function giveBall(p) { if (!p) return; holder = key(p.t, p.s); poss = p.t; ball.
 function holderP() { return holder ? players[holder] || null : null; }
 function passTo(p, speed) {               // пас в ноги с упреждением: p получит мяч, когда тот доедет
   const hp = holderP();
-  const lead = {x: p.x + (p.ux || 0) * .35, y: p.y + (p.uy || 0) * .35}, d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
+  let lead = {x: p.x, y: p.y}, d = 0;
+  for (let i = 0; i < 3; i++) {                   // где они встретятся: игрок бежит, мяч летит — пару итераций хватает
+    d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
+    const tt = d / ((speed || 360) * 1.12) * .85;
+    lead = {x: clamp(p.x + (p.ux || 0) * tt * .8, M + 6, W - M - 6), y: clamp(p.y + (p.uy || 0) * tt * .8, M + 6, H - M - 6)};
+  }
+  d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
   if (hp) { strike(1); hp.face = {a: Math.atan2(lead.y - hp.y, lead.x - hp.x), until: performance.now() + 420}; }
   p.face = {a: Math.atan2(ball.y - p.y, ball.x - p.x), until: performance.now() + d / (speed || 360) * 1000 + 200};   // принимающий смотрит на мяч
-  moveBall(lead, d / ((speed || 360) * 1.12) * 1000, d > 300 ? d * .06 : 0, 'out');
+  const lofted = d > 280;                         // длинная — верхом, дугой и медленнее; короткая — по газону
+  moveBall(lead, d / ((speed || 360) * (lofted ? .9 : 1.12)) * 1000, lofted ? d * .1 : 0, lofted ? 'ease' : 'out');
+  if (lofted) ball.cv = rnd(-18, 18);
   ball.recv = key(p.t, p.s); poss = p.t; kick();
 }
 function bring(p, then) {                  // мяч у игрока: в ногах — сразу, иначе пас ему
@@ -396,7 +411,10 @@ function approach(a) {                     // бьющий получает мя
 function shotStep(a, to, arc, after) {
   return {d: 650, poss: a.t, run: () => {
     const sh = shooter(a); if (sh && dd(sh, ball) < 40) giveBall(sh);    // мяч ещё не дошёл — бьёт с того места, где мяч
-    shoot(to, 540, arc); snap(a.t);
+    const header = /углового/.test(a.how || '') && ball.h > 4 || /углового/.test(a.how || '') && Math.random() < .6;
+    if (header && sh) { pose(sh, 'head', 600, 0); shoot(to, 430, 4); }   // головой: в прыжке, мяч медленнее
+    else windup(sh, to, 140, () => { shoot(to, 540, arc); if (!/пенальти|штрафной/.test(a.how || '')) ball.cv = rnd(-26, 26); });
+    snap(a.t);
     const gk = teamPlayers(1 - a.t).find(p => p.gk);
     if (gk) { focus[key(gk.t, gk.s)] = {x: lerp(gk.x, to.x, .55), y: gk.y}; }
     after && after(gk);
@@ -425,6 +443,7 @@ function build(a) {
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
         jump = {t: a.t, until: performance.now() + 4200, big: true};
         lightFlares(a.t, 4 + Math.floor(Math.random() * 3), 5200);
+        setTimeout(() => { if (S) startChant(a.t, Math.random() < .5 ? null : undefined); nextChant = performance.now() + rnd(20000, 30000); }, 2600);
         camTo(1.8, 2900, () => { const s2 = shooter(a); return s2 || corner; });   // празднование крупно
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
@@ -464,11 +483,19 @@ function build(a) {
     case 'corner': {
       const xf = Math.random() < .5 ? 0 : 1, flag = at(a.t, 1, xf), off = {x: flag.x + (xf ? -6 : 6), y: flag.y + (a.t === 0 ? 6 : -6)};
       const taker = nearestTo(flag, teamPlayers(a.t, true).filter(q => q.s !== a.avoid));   // подаёт не тот, кто будет бить
-      steps.push({d: 2600, poss: a.t, run: () => {
-        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.45, 3600, 'ball', a.t); if (taker) { ball.recv = key(taker.t, taker.s); focus[key(taker.t, taker.s)] = {x: off.x + (xf ? 7 : -7), y: off.y}; }
-        crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box'};
+      const back = {x: off.x + (xf ? 16 : -16), y: off.y + (a.t === 0 ? 10 : -10)};          // откуда разбег
+      const drop = at(a.t, rnd(.83, .9), xf ? rnd(.38, .55) : rnd(.45, .62));                   // куда навес: от ближней штанги до точки
+      steps.push({d: 3200, poss: a.t, run: () => {             // пока все занимают места в штрафной
+        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.45, 4200, 'ball', a.t);
+        if (taker) { ball.recv = null; focus[key(taker.t, taker.s)] = back; }
+        crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box', xf};
       }});
-      steps.push({d: 600, run: () => { kick(); moveBall(at(a.t, .86, rnd(.35, .65)), 560, 34, 'lin'); if (taker) delete focus[key(taker.t, taker.s)]; }});
+      steps.push({d: 650, run: () => { if (taker) { focus[key(taker.t, taker.s)] = {x: off.x + (xf ? 3 : -3), y: off.y}; } }});   // разбег
+      steps.push({d: 800, run: () => {
+        if (taker) { pose(taker, 'kick', 300); taker.face = {a: Math.atan2(drop.y - off.y, drop.x - off.x), until: performance.now() + 500}; }
+        strike(2); kick(); moveBall(drop, 760, 46, 'ease'); ball.cv = xf ? 34 : -34;                     // закрученная подача в штрафную
+        if (taker) setTimeout(() => delete focus[key(taker.t, taker.s)], 400);
+      }});
       break;
     }
     case 'clear':
@@ -577,11 +604,18 @@ function refTo(pt) { ref.goal = {x: pt.x, y: pt.y, until: performance.now() + 22
 function divot(p) { divots.push({x: p.x, y: p.y, a: p.ang || 0, t0: performance.now()}); if (divots.length > 14) divots.shift(); }
 
 /* ---------------- кадр: мяч, «фон» игры, бег ---------------- */
+let pendingKick = null;                    // удар/пас после замаха: {at, fn, bg} (bg — из «фона», эпизод от бота его отменяет)
+function windup(p, to, ms, fn, bg) {       // игрок разворачивается к цели, ставит опорную ногу — и только потом бьёт
+  if (p) { p.face = {a: Math.atan2(to.y - p.y, to.x - p.x), until: performance.now() + ms + 300}; pose(p, 'plant', ms, 0); }
+  pendingKick = {at: performance.now() + ms, fn, bg};
+}
 function updatePlay(now) {
+  if (pendingKick && now >= pendingKick.at) { const f = pendingKick.fn; pendingKick = null; f(); }
   const dt = clamp((now - (lastNow || now)) / 1000, 0, .05); lastNow = now;
   if (!step || now >= stepEnd) {
     step = queue.shift() || null;
     if (step && throwIn) { if (throwIn.taker) delete focus[throwIn.taker]; throwIn = null; restart = null; }   // эпизод от бота важнее
+    if (step && pendingKick && pendingKick.bg) pendingKick = null;
     if (step) {
       if (step.poss !== undefined && step.poss !== null) poss = step.poss;
       try { step.run && step.run(); } catch (e) { console.error(e); }
@@ -599,6 +633,10 @@ function updatePlay(now) {
     const k = clamp((now - ball.t0) / ball.d, 0, 1);
     const e = ball.mode === 'out' ? 1 - (1 - k) * (1 - k) : ball.mode === 'lin' ? k : ease(k);
     ball.x = lerp(ball.fx, ball.tx, e); ball.y = lerp(ball.fy, ball.ty, e); ball.h = ball.arc * Math.sin(Math.PI * k);
+    if (ball.cv) {                                   // закрутка: мяч уходит дугой вбок и возвращается к цели
+      const L = Math.hypot(ball.tx - ball.fx, ball.ty - ball.fy) || 1, bend = ball.cv * Math.sin(Math.PI * e);
+      ball.x += -(ball.ty - ball.fy) / L * bend; ball.y += (ball.tx - ball.fx) / L * bend;
+    }
     if (k >= 1 && ball.recv) { const r = players[ball.recv]; ball.recv = null; if (r && dd(r, ball) < 34) giveBall(r); }
   }
   if (restart && now > restart.until) restart = null;
@@ -621,7 +659,7 @@ function updatePlay(now) {
   // игроки: разгон и торможение к своей цели, не налезают друг на друга
   const list = Object.values(players);
   for (const p of list) {
-    const T0 = targetOf(p, now), sharp = T0.sp === 'sprint' || !!focus[key(p.t, p.s)];
+    const T0 = targetOf(p, now), sharp = T0.sp === 'sprint' || !!focus[key(p.t, p.s)] || !!crowd;
     if (p.gx === undefined || dd({x: p.gx, y: p.gy}, T0) > 260) { p.gx = T0.x; p.gy = T0.y; }
     const kt = 1 - Math.exp(-dt * (sharp ? 9 : 2.6));          // к эпизоду — сразу, в «фоне» — плавно
     p.gx += (T0.x - p.gx) * kt; p.gy += (T0.y - p.gy) * kt;
@@ -686,10 +724,11 @@ function director(now) {                   // «фон» игры: ведени�
     }
     if (!hp.gk && hp.role !== 'att' && Math.random() < .14) {      // смена фланга: длинный навес на дальнего партнёра
       const far = mates.filter(q => !q.gk && Math.abs(q.x - hp.x) > W * .35);
-      if (far.length) { const q = far[Math.floor(Math.random() * far.length)]; passTo(q, 380); ball.arc = 34; return; }
+      if (far.length) { const q = far[Math.floor(Math.random() * far.length)]; dribbleUntil = now + 600; windup(hp, q, 220, () => passTo(q, 380), true); return; }
     }
-    passTo(best, hp.gk ? 380 : rnd(330, 400));
-    oneTouch = Math.random() < .3;                                   // получивший отдаст в одно касание
+    const spd = hp.gk ? 380 : rnd(330, 400), one = Math.random() < .3;
+    dribbleUntil = now + 600;
+    windup(hp, best, one ? 70 : 150, () => { passTo(best, spd); oneTouch = one; }, true);   // в одно касание — почти без замаха
     return;
   }
   if (now - ball.t0 < ball.d || ball.recv) return;
@@ -747,7 +786,7 @@ function target0(p, now) {
   if (f) return {x: f.x, y: f.y, sp: 'sprint'};
   if (crowd && !p.gk) {
     if (crowd.kind === 'celebrate' && p.t === crowd.t) return {...near2(crowd.to, p, 20), sp: 'sprint'};
-    if (crowd.kind === 'box') return {...at(p.t, p.t === crowd.t ? .82 + (p.s % 3) * .03 : .1 + (p.s % 3) * .03, .3 + (p.s % 4) * .13), sp: 'sprint'};
+    if (crowd.kind === 'box') return {...cornerSpot(p), sp: 'sprint'};
     if (crowd.kind === 'wall' && p.t === crowd.t) return {x: crowd.to.x + ((p.s % 4) - 1.5) * 15, y: crowd.to.y, sp: 'run'};
     if (crowd.kind === 'clearbox') return {...at(p.t, p.t === crowd.att ? .66 : .3, .2 + (p.s % 4) * .2), sp: 'jog'};
     if (crowd.kind === 'mass' || crowd.kind === 'ring') return {...near2(crowd.to, p, crowd.kind === 'mass' ? 28 : 44), sp: 'run'};
@@ -787,10 +826,33 @@ function target0(p, now) {
     }
     depth = Math.min(b.depth + clamp(bd - .5, -.14, .16), Math.max(.06, bd - .06));
     xf = .5 + (b.xf - .5) * .8 + (bx - .5) * .35;
+    if (p.role !== 'att') {                                      // опека: ближайший соперник в зоне — встать между ним и воротами
+      const zone = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94)), own = goalOf(1 - p.t);
+      let best = null, bd2 = 130;
+      for (const q of teamPlayers(1 - p.t, true)) { const d = dd(q, zone); if (d < bd2) { bd2 = d; best = q; } }
+      if (best) {
+        const gs = lerpPt(best, own, 24 / Math.max(1, dd(best, own))), w = .55 * (1 - bd2 / 130);
+        const pt = lerpPt(zone, gs, w);
+        return {x: pt.x, y: pt.y, sp: 'jog'};
+      }
+    }
   }
   if (S.teams[p.t].rush) depth += .06;
   const pt = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94));
   return {x: pt.x + jit(2, 2600), y: pt.y + jit(2, 2300), sp: attacking ? 'run' : 'jog'};
+}
+function cornerSpot(p) {                   // угловой: каждому своё место. Атака — ближняя штанга, точка, дальняя штанга,
+  const t = crowd.t, side = crowd.xf ? 1 : 0;   // линия штрафной, подбор; оборона — ближняя штанга и опека: между соперником и воротами
+  const near = side ? .62 : .38, far = side ? .36 : .64;
+  const spots = [[.93, near], [.87, .5], [.9, far], [.73, .5], [.8, side ? .2 : .8], [.62, .5]];
+  const att = teamPlayers(t, true).filter(q => !focus[key(q.t, q.s)]).sort((a, b) => a.s - b.s);
+  if (p.t === t) { const i = att.indexOf(p); const sp = spots[Math.max(0, i) % spots.length]; return at(t, sp[0], sp[1]); }
+  const defs = teamPlayers(p.t, true).sort((a, b) => a.s - b.s), j = defs.indexOf(p);
+  if (j === 0) return at(t, .975, near);         // у ближней штанги
+  const mark = att[(j - 1) % Math.max(1, att.length)];
+  if (!mark) return at(t, .8, .5);
+  const sp = spots[(j - 1) % spots.length], m = at(t, sp[0], sp[1]), gl = goalOf(t);
+  return lerpPt(m, gl, 22 / Math.max(1, dd(m, gl)));
 }
 function near2(c, p, r) { const ang = (p.s * 2.39 + p.t * 1.3); return {x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r}; }
 const ARS = [{side: 1, y0: M, y1: H / 2, t: 1, x: W - M + 12, y: H / 4, flag: null},          // сверху справа — у ворот гостей
@@ -980,6 +1042,7 @@ function waveAt(now) { return wave ? (now - wave.t0) / WAVE_MS : -1; }
 function crowdAmp(sec, i, now) {
   let a = 0;
   if (jump && now < jump.until && sec.team === jump.t) a = Math.abs(Math.sin(now / 95 + i * 1.7)) * (jump.big ? 1 : .5);
+  if (chant && sec.team === chant.t) { const b = chantBeat(now); if (b) a = Math.max(a, .2 + .5 * b.pulse * (.7 + .3 * Math.sin(i * 2.3))); }
   if (wave) {
     const k = waveAt(now);
     let dd = Math.abs(i / SECTORS - k); dd = Math.min(dd, 1 - dd);
@@ -1291,7 +1354,7 @@ function drawPlayer(p, now) {
   } else {
     const kickLeg = pz === 'kick';
     for (const i of [-1, 1]) {                                     // ноги: в беге одна впереди, другая сзади; при ударе — правая вперёд
-      const fy = kickLeg ? (i === 1 ? -15 : 5) : -sw * i * 9 * (.75 + .25 * clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1));
+      const fy = pz === 'plant' ? (i === 1 ? 8 : -3) : kickLeg ? (i === 1 ? -15 : 5) : -sw * i * 9 * (.75 + .25 * clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1));
       g.strokeStyle = L.skin; g.lineWidth = 4.6; g.beginPath(); g.moveTo(i * 4.2, 1); g.lineTo(i * 4.4, fy * .5); g.stroke();   // колени
       g.strokeStyle = sock; g.lineWidth = 4.2; g.beginPath(); g.moveTo(i * 4.4, fy * .45); g.lineTo(i * 4.6, fy); g.stroke();
       g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(i * 3, fy * .5); g.lineTo(i * 6, fy * .5); g.stroke();
@@ -1300,6 +1363,7 @@ function drawPlayer(p, now) {
     }
     shaded(0, 2.2, 8.8, 5.8, tm.shorts);
     if (pz === 'dive') g.scale(1, 1.18);                            // вратарь тянется в прыжке
+    if (pz === 'head') g.scale(1.18, 1.18);                         // прыжок на мяч: ближе к камере
     for (const i of [-1, 1]) {                                     // руки — в противофазе с ногами
       const ay = sw * i * 6;
       if (pz === 'cele' || pz === 'dive' || pz === 'throw') {       // руки вверх: празднование — в стороны, прыжок и вбрасывание — вперёд
@@ -1649,6 +1713,102 @@ function camIdle(now) {                              // в спокойной и
 
 /* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
    Горят в секторах своих болельщиков: красное пламя мерцает, летят искры, поднимается дым и сносится ветром к полю. */
+
+/* ---------------- кричалки: трибуна скандирует название клуба и кричалки ----------------
+   Звук — «хор»: несколько голосов на гласных каждого слога (форманты а/о/у/э/и/ы) и хлопки; текст — по слогам внизу поля.
+   Только для атмосферы: на матч не влияет. 🔇 выключает и это. */
+const CHANTS = [n => `${n}! ${n}! ${n}!`, n => `Впе-рёд, ${n}!`, n => `Да-вай, да-вай, ${n}!`, () => 'О-ле, о-ле, о-ле, о-ле!',
+                n => `${n} — чем-пи-он!`, n => `Мы с то-бой, ${n}!`, () => 'Толь-ко по-бе-да!', n => `${n}! (хлоп-хлоп-хлоп)`];
+const VOWELS = 'аоуэиыеёюяАОУЭИЫЕЁЮЯaeiouyAEIOUY';
+const FORMANT = {а: [800, 1250], о: [520, 880], у: [340, 700], э: [560, 1800], и: [300, 2300], ы: [360, 1500]};
+const VMAP = {е: 'э', ё: 'о', ю: 'у', я: 'а', a: 'а', e: 'э', i: 'и', o: 'о', u: 'у', y: 'ы'};
+function syllables(text) {                          // слоги: дефисы и пробелы делят явно, иначе — по гласным
+  const out = [];
+  for (const w of text.split(/\s+/)) {
+    if (!w) continue;
+    const parts = w.split('-');
+    for (const part of parts) {
+      const vs = [...part].filter(ch => VOWELS.includes(ch));
+      if (vs.length <= 1 || parts.length > 1) { out.push({s: part, v: vs[0] || 'а'}); continue; }
+      // слово целиком: между гласными одна согласная уходит к следующему слогу, две и больше — первая остаётся
+      // (Аль-фа, Спар-так, Ди-на-мо); ь и ъ всегда с предыдущим
+      const ch = [...part], vi = ch.map((c, i) => VOWELS.includes(c) ? i : -1).filter(i => i >= 0);
+      let from = 0;
+      for (let k = 0; k < vi.length - 1; k++) {
+        const i = vi[k], j = vi[k + 1];
+        let cut = j - i - 1 <= 1 ? i + 1 : i + 2;
+        while (cut < j && 'ьъЬЪ'.includes(ch[cut])) cut++;
+        out.push({s: ch.slice(from, cut).join(''), v: ch[i]}); from = cut;
+      }
+      out.push({s: ch.slice(from).join(''), v: ch[vi[vi.length - 1]]});
+    }
+  }
+  return out;
+}
+let chant = null, nextChant = 0, chantEl = null;
+function startChant(t, force) {
+  if (!S || !S.teams[t]) return;
+  const nm = S.teams[t].name.replace(/[«»"]/g, '').trim(), short = nm.length > 12 ? nm.split(/\s+/)[0] : nm;
+  const text = force || CHANTS[Math.floor(Math.random() * CHANTS.length)](short);
+  const claps = /хлоп/.test(text);
+  const syl = syllables(text.replace(/\(хлоп-хлоп-хлоп\)/, '').trim());
+  const beat = 330, t0 = performance.now() + 150;
+  chant = {t, text, syl, beat, t0, end: t0 + (syl.length + (claps ? 4 : 1)) * beat + 400, claps};
+  if (!chantEl) { chantEl = document.createElement('div'); chantEl.id = 'chant'; $('pitchwrap').appendChild(chantEl); }
+  chantEl.style.setProperty('--cc', S.teams[t].shirt);
+  chantEl.classList.add('on');
+  singChant(chant);
+}
+function singChant(c) {
+  const a = !muted && audio(); if (!a) return;
+  const base = a.currentTime + .15, vol = c.t === 0 ? .11 : .07;      // хозяев на трибунах больше — громче
+  c.syl.forEach((sy, i) => {
+    const v = VMAP[sy.v.toLowerCase()] || sy.v.toLowerCase(), [f1, f2] = FORMANT[v] || FORMANT['а'];
+    const t = base + i * c.beat / 1000, dur = c.beat / 1000 * (i === c.syl.length - 1 ? 1.6 : .82);
+    const out = a.createGain(); out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(vol, t + .04);
+    out.gain.setValueAtTime(vol, t + dur - .08); out.gain.linearRampToValueAtTime(0, t + dur);
+    const b1 = a.createBiquadFilter(), b2 = a.createBiquadFilter(); b1.type = b2.type = 'bandpass';
+    b1.frequency.value = f1; b2.frequency.value = f2; b1.Q.value = 5; b2.Q.value = 7;
+    const mixG = a.createGain(); mixG.gain.value = 1;
+    b1.connect(out); b2.connect(out); out.connect(a.destination);
+    for (let k = 0; k < 6; k++) {                   // шесть голосов чуть вразнобой — звучит как трибуна, а не робот
+      const o = a.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime((k % 2 ? 125 : 205) * (1 + (Math.random() - .5) * .06), t);
+      o.connect(b1); o.connect(b2); o.start(t + Math.random() * .03); o.stop(t + dur + .05);
+    }
+  });
+  const nClaps = c.claps ? 3 : 0, after = base + c.syl.length * c.beat / 1000;
+  for (let i = 0; i < nClaps; i++) crowdClap(a, after + i * c.beat / 1000 * .7);
+}
+function crowdClap(a, t) {                          // хлопки трибуны: много коротких щелчков вразнобой
+  for (let k = 0; k < 7; k++) {
+    const n = a.sampleRate * .03, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
+    f.type = 'bandpass'; f.frequency.value = 1300 + Math.random() * 900; f.Q.value = .9; gn.gain.value = .09;
+    src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(a.destination); src.start(t + Math.random() * .035);
+  }
+}
+function chantBeat(now) {                           // какой слог сейчас и насколько сильный удар (для прыжков трибуны)
+  if (!chant) return null;
+  const k = (now - chant.t0) / chant.beat;
+  if (k < 0) return null;
+  const i = Math.floor(k), pulse = Math.max(0, 1 - (k - i) * 2.2);
+  return {i, pulse};
+}
+function updateChant(now) {
+  if (chant && now > chant.end) { chant = null; if (chantEl) chantEl.classList.remove('on'); }
+  if (chant && chantEl) {
+    const b = chantBeat(now), i = b ? b.i : -1;
+    const html = chant.syl.map((sy, j) => `<span class="${j < i ? 'was' : j === i ? 'now' : ''}">${esc(sy.s)}</span>`).join(' ')
+      + (chant.claps ? ` <span class="${i >= chant.syl.length ? 'now' : ''}">👏👏👏</span>` : '');
+    if (chantEl._h !== html) { chantEl.innerHTML = '📣 ' + html; chantEl._h = html; }
+  }
+  if (!chant && S && (S.phase === 'play' || S.phase === 'half') && !stopped) {
+    if (!nextChant) nextChant = now + rnd(9000, 16000);
+    else if (now > nextChant) { startChant(Math.random() < .68 ? 0 : 1); nextChant = now + rnd(22000, 38000); }
+  }
+}
 let flares = [];
 function standPoints(t, n) {                         // n случайных мест в секторах болельщиков команды t (−1 — любые)
   if (!stands) return [];
@@ -1766,6 +1926,7 @@ function frame(now) {
     drawARs(now);
     if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(25000, 50000); }
     camIdle(now);
+    updateChant(now);
     const list = Object.values(players).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => a.y - b.y);   // ушедшие в тоннель не видны
     for (const p of list) drawPlayer(p, now);
     for (const c of cards) {
