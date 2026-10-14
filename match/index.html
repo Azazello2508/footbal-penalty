@@ -562,20 +562,19 @@ function build(a) {
       const p = P(a.t, a.s), q = P(a.ot, a.os);
       const mid = p && q ? lerpPt(p, q, .5) : {x: ball.x, y: ball.y};
       const words = {scuffle: '🥊 Стычка!', fight: '🥊 ДРАКА!', mass: '🥊🔥 МАССОВАЯ ПОТАСОВКА!'};
-      steps.push({d: a.lvl === 'scuffle' ? 1800 : 2600, run: () => {
+      const dur = {scuffle: 2600, fight: 3400, mass: 4200}[a.lvl] || 2600;
+      steps.push({d: dur, run: () => {
         holder = null;
-        if (p) focus[key(p.t, p.s)] = {x: mid.x - 9, y: mid.y};
-        if (q) focus[key(q.t, q.s)] = {x: mid.x + 9, y: mid.y};
-        if (a.lvl !== 'scuffle') crowd = {t: -1, to: mid, kind: a.lvl === 'mass' ? 'mass' : 'ring'};
-        camTo(a.lvl === 'mass' ? 1.6 : 2.1, 2800, mid, undefined, false, cam.r);
-        for (let i = 0; i < (a.lvl === 'mass' ? 40 : 18); i++) fx.push({k: 'dust', x: mid.x + rnd(-30, 30), y: mid.y + rnd(-20, 20), vx: rnd(-.4, .4), vy: rnd(-.5, .1), r: rnd(8, 18), life: rnd(900, 2000), t0: performance.now() + i * 40});
-        whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy'); refTo(near(mid, 26));
+        if (p && q) startBrawl(a.lvl, p, q, mid, dur);
+        camTo(a.lvl === 'mass' ? 1.5 : 2, dur, () => brawl ? brawl.mid : mid, undefined, true, cam.r);
+        whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy'); roar(a.lvl === 'scuffle' ? 1.2 : 2.4);
       }});
-      steps.push({d: 300, run: () => { focus = {}; crowd = null; }});
+      steps.push({d: 300, run: () => { focus = {}; crowd = null; brawl = null; }});
       break;
     }
     case 'protest':
-      steps.push({d: 1500, run: () => { label('📣 Скандал у бровки · ' + names[a.t], 1600); }});
+      steps.push({d: 2200, run: () => { label('📣 Скандал у бровки · ' + names[a.t], 1800); startProtest(a.t, 2200); roar(1.4); }});
+      steps.push({d: 200, run: () => { brawl = null; }});
       break;
     case 'stop':
       steps.push({d: 2800, poss: null, run: () => {
@@ -605,6 +604,86 @@ function build(a) {
       break;
   }
   return steps;
+}
+
+/* ---------------- конфликты на поле: стычка, драка, массовая потасовка, скандал с судьёй ----------------
+   Как в жизни: двое сходятся лицом к лицу, толчок — отлетел — ответный толчок; в драке — удар, соперник падает;
+   сбегаются партнёры (кто толкается, кто кричит и машет руками), свои оттаскивают своих сзади, судья вклинивается.
+   В потасовке со скамеек выбегают запасные в манишках и тренеры. Скандал: игроки окружают судью, он пятится, тренер
+   возмущается у бровки. Всё — только показ (что случилось, решил бот: карточки придут следующими событиями). */
+let brawl = null;
+function startBrawl(lvl, a, b, mid, dur) {
+  const now = performance.now(), cast = [];
+  const near = (t, n, skip) => teamPlayers(t, true).filter(q => !skip.includes(q)).sort((x, y) => dd(x, mid) - dd(y, mid)).slice(0, n);
+  const n = lvl === 'mass' ? 6 : lvl === 'fight' ? 3 : 2;
+  const pullA = near(a.t, 1, [a])[0], pullB = near(b.t, 1, [b])[0];
+  for (const t of [a.t, b.t]) near(t, n, [a, b, pullA, pullB]).forEach((q, i) => cast.push({p: q, ang: rnd(0, 6.28), r: rnd(16, lvl === 'mass' ? 40 : 30), ph: rnd(0, 6)}));
+  const extras = [];
+  if (lvl === 'mass') DUGOUT.forEach(([y0, y1], t) => {     // скамейки пустеют: двое запасных в манишках и тренер
+    for (let i = 0; i < 3; i++) extras.push({t, coach: i === 2, x: -16, y: (y0 + y1) / 2 + (i - 1) * 14, ang: 0, stride: 0, pw: 100,
+                                             go: {x: mid.x + rnd(-38, 38), y: mid.y + rnd(-34, 34)}, delay: 300 + i * 250});
+  });
+  brawl = {lvl, a, b, mid: {...mid}, t0: now, dur, cast, pullA, pullB, extras, tgt: {}};
+}
+function startProtest(t, dur) {
+  const now = performance.now(), mates = teamPlayers(t, true).sort((x, y) => dd(x, ref) - dd(y, ref)).slice(0, 3);
+  brawl = {lvl: 'protest', t, t0: now, dur, mid: {x: ref.x, y: ref.y}, cast: mates.map((p, i) => ({p, ang: i * 2.1 + rnd(-.3, .3), r: rnd(12, 17), ph: rnd(0, 6)})),
+           extras: [], tgt: {}};
+  const away = lerpPt(ref, CENTER, -.4); refTo({x: clamp(ref.x + (ref.x - away.x) * 0 + rnd(-20, 20), M + 20, W - M - 20), y: clamp(ref.y + (ref.y < H / 2 ? 40 : -40), M + 30, H - M - 30)});
+}
+function brawlTick(now) {
+  const B = brawl;
+  if (!B) return;
+  const k = now - B.t0, T = B.tgt;
+  for (const kk in T) delete T[kk];
+  const setP = (p, x, y, pz, faceTo) => {
+    T[key(p.t, p.s)] = {x, y};
+    if (pz) p.pose = {k: pz, until: now + 140, dir: 0};
+    if (faceTo) p.face = {a: Math.atan2(faceTo.y - p.y, faceTo.x - p.x), until: now + 200};
+  };
+  if (B.lvl === 'protest') {                          // окружили судью, машут руками; судья пятится
+    B.mid = {x: lerp(B.mid.x, ref.x, .08), y: lerp(B.mid.y, ref.y, .08)};
+    B.cast.forEach(c => setP(c.p, ref.x + Math.cos(c.ang) * c.r, ref.y + Math.sin(c.ang) * c.r, Math.sin(now / 300 + c.ph) > -.2 ? 'argue' : 'push', ref));
+    return;
+  }
+  const {a, b} = B, ux = (b.x - a.x) / (dd(a, b) || 1), uy = (b.y - a.y) / (dd(a, b) || 1);
+  let gapA = 7, gapB = 7, poseA = null, poseB = null;
+  if (k > 350 && k < 750) { poseA = 'push'; gapB = 7 + clamp((k - 450) / 200, 0, 1) * 9; }           // толчок — отлетел
+  else if (k >= 750 && k < 1100) { gapB = 14 - (k - 750) / 350 * 6; poseB = B.lvl === 'fight' ? null : 'push'; if (B.lvl !== 'fight') gapA = 7 + clamp((k - 850) / 200, 0, 1) * 7; }   // ответный толчок
+  if (B.lvl === 'fight' && k > 1000 && k < 1350) poseA = 'punch';                                    // удар
+  if (B.lvl === 'fight' && k > 1150) { downed = {k: key(b.t, b.s), until: B.t0 + B.dur - 300}; gapB = 16; }   // упал
+  if (B.lvl === 'mass' && k > 1100) { poseA = Math.sin(now / 160) > 0 ? 'push' : 'argue'; poseB = Math.sin(now / 170 + 1) > 0 ? 'push' : 'argue'; }
+  const drag = clamp((k - 1400) / 900, 0, 1) * 22;                                                    // своих оттаскивают в стороны
+  const ax = B.mid.x - ux * (gapA + drag), ay = B.mid.y - uy * (gapA + drag), bx = B.mid.x + ux * (gapB + (B.lvl === 'fight' ? 0 : drag)), by = B.mid.y + uy * (gapB + (B.lvl === 'fight' ? 0 : drag));
+  setP(a, ax, ay, poseA || (k > 1400 ? 'argue' : null), b);
+  if (!(downed && downed.k === key(b.t, b.s))) setP(b, bx, by, poseB || (k > 1400 ? 'argue' : null), a);
+  else T[key(b.t, b.s)] = {x: bx, y: by};
+  if (B.pullA && k > 900) setP(B.pullA, ax - ux * 8, ay - uy * 8, 'hold', a);                      // одноклубник обхватил сзади
+  if (B.pullB && k > 1000 && B.lvl !== 'fight') setP(B.pullB, bx + ux * 8, by + uy * 8, 'hold', b);
+  else if (B.pullB && B.lvl === 'fight' && k > 1200) setP(B.pullB, bx + ux * 5 - uy * 9, by + uy * 5 + ux * 9, null, b);   // склонился над упавшим
+  B.cast.forEach(c => {                                                                              // сбежались: толкаются и кричат
+    const a2 = c.ang + Math.sin(now / 900 + c.ph) * .25;
+    const tx = B.mid.x + Math.cos(a2) * c.r, ty = B.mid.y + Math.sin(a2) * c.r;
+    const mood = Math.sin(now / 280 + c.ph);
+    setP(c.p, tx, ty, k < 500 ? null : mood > .55 ? 'push' : mood > -.3 ? 'argue' : null, B.mid);
+  });
+  if (k > 1500 && Math.random() < .25) fx.push({k: 'dust', x: B.mid.x + rnd(-25, 25), y: B.mid.y + rnd(-15, 15), vx: rnd(-.3, .3), vy: rnd(-.3, .1), r: rnd(6, 12), life: rnd(700, 1400), t0: now});
+}
+function drawBrawlExtras(now) {                     // выбежавшие со скамеек: запасные в манишках и тренеры
+  if (!brawl || !brawl.extras.length || !S) return;
+  const k = now - brawl.t0;
+  for (const e of brawl.extras) {
+    if (k < e.delay) continue;
+    const back = k > brawl.dur - 900, to = back ? {x: -16, y: e.y} : e.go;
+    const d = dd(e, to), sp = d > 4 ? Math.min(d, 2.6) : 0;
+    if (d > 1) { e.x += (to.x - e.x) / d * sp; e.y += (to.y - e.y) / d * sp; e.ang = Math.atan2(to.y - e.y, to.x - e.x); }
+    else e.ang = Math.atan2(brawl.mid.y - e.y, brawl.mid.x - e.x);
+    e.stride += Math.min(sp, 4) * .2;
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(e.x, e.y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
+    const tm = S.teams[e.t], L = {skin: e.coach ? '#d6a77a' : '#e0ac85', hair: e.coach ? '#9ca3af' : '#1c1917', bald: false};
+    upright(e.x, e.y, () => figure(e, now, tm, e.coach ? '#1f2937' : '#a3e635', L, sp, sp < .5 ? 'argue' : null, false,
+      e.coach ? {trousers: '#1f2937'} : {}));
+  }
 }
 function lerpPt(a, b, t) { return {x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t)}; }
 function kickoff(t) {                      // разводка с центра: все в своих половинах, мяч у нападающего команды t
@@ -657,6 +736,7 @@ function updatePlay(now) {
   }
   if (restart && now > restart.until) restart = null;
   updateThrow(now);
+  brawlTick(now);
   if (!step && S && S.phase === 'play' && !stopped && now > nextIdle && !restart) director(now);
   // кто прессингует и кто бежит к ничейному мячу (раз в кадр)
   const free = !holderP() && !ball.recv && now - ball.t0 >= ball.d && !throwIn;
@@ -807,6 +887,7 @@ function targetOf(p, now) {
 function target0(p, now) {
   const k = key(p.t, p.s), f = focus[k];
   if (f) return {x: f.x, y: f.y, sp: 'sprint'};
+  if (brawl && brawl.tgt[k]) return {x: brawl.tgt[k].x, y: brawl.tgt[k].y, sp: 'sprint'};
   if (crowd && !p.gk) {
     if (crowd.kind === 'celebrate' && p.t === crowd.t) return {...near2(crowd.to, p, 20), sp: 'sprint'};
     if (crowd.kind === 'box') return {...cornerSpot(p), sp: 'sprint'};
@@ -1414,7 +1495,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     shaded(23, -12, 2.8, 2.6, '#e5e7eb'); shaded(23, -4, 2.8, 2.6, '#e5e7eb');
     g.restore(); return;
   }
-  const lift = pz === 'head' ? 11 : 0, lean = side ? face * (run ? .09 * amp + (pz === 'kick' ? .1 : 0) : 0) : 0;
+  const lift = pz === 'head' ? 11 : 0, lean = side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0)) : 0;
   g.translate(0, -lift); g.rotate(lean);
   const hip = -15 - hop * .5, shoulder = hip - 13, neck = shoulder - 1.5, head = neck - 4;
   // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса
@@ -1444,6 +1525,10 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (up) { hx = sh.x + i * (pz === 'cele' ? 6 : 2.5); hy = shoulder - (pz === 'cele' ? 10 : 12); }
     if (pz === 'kick') { hx = sh.x + i * 6; hy = shoulder + 4; }
     if (oneUp && i === 1) { hx = sh.x + 2.5; hy = shoulder - 12; }
+    if (pz === 'push') { hx = side ? sh.x + face * 10 : sh.x + i * 2.2; hy = side ? shoulder + 3 : shoulder + (back ? -3 : 5); }      // толчок: обе руки вперёд
+    if (pz === 'hold') { hx = side ? sh.x + face * 8 : sh.x - i * 1.5; hy = hip - 2; }                                             // обхватил сзади
+    if (pz === 'punch') { if (i === 1) { hx = side ? sh.x + face * 13 : sh.x + 1; hy = side ? shoulder + 1 : shoulder - (back ? 6 : -6); } else { hx = sh.x + (side ? face * 3 : i * 2); hy = shoulder - 1; } }   // удар и защита
+    if (pz === 'argue') { const w = Math.sin(now / 110 + (p.s || 0)); if (i === 1) { hx = sh.x + 3 + w * 3; hy = shoulder - 8 - w * 2; } else { hx = sh.x + i * 8; hy = shoulder + 2 + w; } }   // кричит, машет руками
     const ex = (sh.x + hx) / 2 + i * 1.2, ey = (sh.y + hy) / 2;
     g.strokeStyle = behind ? mix(shirt, -.3) : shirt; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
     g.strokeStyle = behind ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(ex, ey); g.lineTo(hx, hy); g.stroke();
@@ -1536,6 +1621,7 @@ function drawBall() {
 }
 
 /* ---------------- у кромки поля: флажки, фотографы, стюарды, тренеры, табло ---------------- */
+const coachState = [];
 const SNAPPERS = [];
 for (const top of [true, false]) for (const side of [-1, 1]) for (let i = 0; i < 4; i++)
   SNAPPERS.push({x: W / 2 + side * (78 + i * 26 + (i % 2) * 5), y: top ? 9 : H - 9, top});
@@ -1569,13 +1655,15 @@ function drawSideline(now) {
     const sway = Math.sin(now / 2600 + s.x * .1 + s.y * .07);
     stewardFig(s, s.x + sway * 1.5, s.y, now, Math.abs(Math.cos(now / 2600 + s.x * .1 + s.y * .07)) > .97 ? .4 : 0, null);
   }
-  // тренеры у своих скамеек: ходят вдоль технической зоны
+    // тренеры у своих скамеек: ходят вдоль технической зоны (люди в костюмах; на конфликтах — машут руками)
   if (S) DUGOUT.forEach(([a, b], t) => {
     const y = (a + b) / 2 + Math.sin(now / 1700 + t * 2) * 18, x = 14 + Math.sin(now / 2300 + t) * 3;
-    blob(x + 2, y + 2, 6, 5, 'rgba(0,0,0,.3)');
-    shaded(x, y, 6.4, 4.6, '#1e293b');
-    g.fillStyle = S.teams[t].shirt; g.fillRect(x - 1.5, y - 4.6, 3, 9.2);         // шарф клуба
-    shaded(x, y, 3, 3, '#d6a77a'); blob(x + .4, y, 2.7, 2.4, '#57534e');
+    const c = coachState[t] || (coachState[t] = {stride: 0, pw: 100, ang: 0, py: y});
+    const v = Math.abs(y - c.py); c.py = y; c.stride += Math.min(v, 4) * .2;
+    c.ang = v > .02 ? (Math.sin(now / 1700 + t * 2 + .01) > Math.sin(now / 1700 + t * 2) ? Math.PI / 2 : -Math.PI / 2) : 0;   // лицом к полю
+    const angry = brawl && (brawl.lvl !== 'protest' || brawl.t === t);
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
+    upright(x, y, () => figure({...c, x, y, s: t}, now, {shorts: '#111827'}, '#1e293b', {skin: '#d6a77a', hair: '#57534e', bald: t === 1}, v, angry ? 'argue' : null, false, {trousers: '#111827'}));
   });
 }
 
@@ -2225,6 +2313,7 @@ function frame(now) {
     const scr = q => Math.sin(cam.r) * q.x + Math.cos(cam.r) * q.y;          // глубина на экране
     const list = Object.values(players).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => scr(a) - scr(b));   // ушедшие в тоннель не видны
     for (const p of list) drawPlayer(p, now);
+    drawBrawlExtras(now);
     for (const c of cards) {
       const p = players[c.k]; if (!p || now > c.until) continue;
       g.fillStyle = c.c === 'red' ? '#dc2626' : '#facc15'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
