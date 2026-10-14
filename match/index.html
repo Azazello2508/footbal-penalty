@@ -407,6 +407,7 @@ function build(a) {
         whistle(a.w !== 'start'); label(a.w === 'start' ? '🏟 Стартовый свисток!' : a.w === 'half' ? '⏸ Перерыв' : '⏹ Финальный свисток');
         focus = {}; crowd = null; moveBall(CENTER, 500, 0, 'out');
         if (a.w === 'start') kickoff(0); else restart = null;
+        if (a.w === 'start') { lightFlares(0, 3, 4200); lightFlares(1, 2, 4200); }      // стартовый свисток — фанаты зажигают
       }});
       break;
     case 'goal': {
@@ -417,6 +418,7 @@ function build(a) {
         netHit = {x: into.x, y: into.y, t0: performance.now(), t: a.t};
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
         jump = {t: a.t, until: performance.now() + 4200, big: true};
+        lightFlares(a.t, 4 + Math.floor(Math.random() * 3), 5200);
         camTo(1.8, 2900, () => { const s2 = shooter(a); return s2 || corner; });   // празднование крупно
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
@@ -538,7 +540,11 @@ function build(a) {
       steps.push({d: 2800, poss: null, run: () => {
         stopped = true; whistle(true); renderStatus(); holder = null;
         if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); camTo(1.6, 2700, () => fan && {x: lerp(-20, W + 20, clamp((performance.now() - fan.t0) / 2600, 0, 1)), y: fan.y}); }
-        else { pyro = {t0: performance.now(), x: Math.random() < .5 ? M : W - M, y: rnd(H * .2, H * .8)}; label('🚨 На поле пиротехника!', 2600); }
+        else {
+          pyro = {t0: performance.now(), x: Math.random() < .5 ? M : W - M, y: rnd(H * .2, H * .8)}; label('🚨 На поле пиротехника!', 2600);
+          const src = lightFlares(-1, 5, 6500, {x: pyro.x < W / 2 ? -40 : W + 40, y: pyro.y});        // горит сектор, откуда бросили
+          if (src) camTo(1.5, 2600, lerpPt(src, {x: pyro.x, y: pyro.y}, .5), undefined, true);
+        }
       }});
       break;
     case 'resume':
@@ -1370,6 +1376,35 @@ function drawJumbo(now) {                          // табло над триб
     g.restore();
   }
 }
+const BANNERS = [   // x, y — середина баннера (координаты поля), team, вид: name — название клуба, cheer — кричалка, stripes — полосы
+  {x: W * .27, y: -WALK[0] - 2, t: 0, kind: 'name'}, {x: W * .73, y: -WALK[0] - 2, t: 0, kind: 'stripes'},
+  {x: W * .5, y: H + WALK[0] + 2, t: 0, kind: 'name'}, {x: W + WALK[0] + 2, y: H * .3, t: 0, kind: 'cheer'},
+  {x: W + WALK[0] + 2, y: H * .72, t: 0, kind: 'name'}, {x: -WALK[0] - 2, y: H * .7, t: 0, kind: 'cheer'},
+  {x: -WALK[0] - 2, y: H * .1, t: 1, kind: 'name'},
+];
+function drawBanners(now) {
+  if (!S) return;
+  g.font = 'bold 10px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const b of BANNERS) {
+    const tm = S.teams[b.t]; if (!tm) continue;
+    const side = b.y < 0 || b.y > H, rot = side ? 0 : b.x > W ? Math.PI / 2 : -Math.PI / 2;
+    const text = b.kind === 'name' ? tm.name.toUpperCase().slice(0, 16) : b.kind === 'cheer' ? 'ВПЕРЁД, ' + tm.name.toUpperCase().slice(0, 10) + '!' : '';
+    const len = b.kind === 'stripes' ? 120 : Math.max(90, g.measureText(text).width + 24), hh = 15;
+    const up = jump && now < jump.until && jump.t === b.t;                   // своя трибуна встала — баннер ходит волной
+    g.save(); g.translate(b.x, b.y); g.rotate(rot);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-len / 2 + 1.5, -hh / 2 + 2, len, hh);
+    const N = 10;
+    for (let i = 0; i < N; i++) {                                           // полотно полосками: так оно может колыхаться
+      const x0 = -len / 2 + i * len / N, dy = Math.sin(now / (up ? 110 : 900) + i * .9 + b.x) * (up ? 2.2 : .5);
+      g.fillStyle = b.kind === 'stripes' ? (i % 2 ? tm.shorts : tm.shirt) : tm.shirt;
+      g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh);
+      g.fillStyle = 'rgba(255,255,255,' + (.06 + .05 * Math.sin(i * 1.3)) + ')'; g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh * .4);
+    }
+    g.strokeStyle = tm.shorts; g.lineWidth = 1.6; g.strokeRect(-len / 2, -hh / 2, len, hh);
+    if (text) { g.fillStyle = ink(tm.shirt); g.fillText(text, 0, .5 + Math.sin(now / (up ? 110 : 900) + 4.5 + b.x) * (up ? 2.2 : .5)); }
+    g.restore();
+  }
+}
 function crowdFlashes(now) {                       // вспышки телефонов и фотоаппаратов на трибуне, которая встала
   if (!jump || now > jump.until || !stands) return;
   for (let i = 0; i < 7; i++) {
@@ -1429,8 +1464,8 @@ function drawDivots(now) {                      // следы подката: т
 let cam = {x: W / 2, y: H / 2, z: 1}, shotCam = null, nextPan = 0, camOn = true;
 try { camOn = localStorage.getItem('fm_cam') !== '0'; } catch (e) {}
 $('cam').classList.toggle('off', !camOn);
-function camTo(z, ms, target, goalT) {              // goalT — команда, которая атакует: в кадре мяч и ворота
-  if (camOn) shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT};
+function camTo(z, ms, target, goalT, free) {        // goalT — кто атакует (в кадре мяч и ворота); free — план трибун, мяч можно упустить
+  if (camOn) shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT, free};
 }
 function secCenter(i) {
   const sec = stands && stands.sectors[((i % SECTORS) + SECTORS) % SECTORS];
@@ -1465,7 +1500,7 @@ function camAim(now) {
 function camUpdate(now, dt) {
   const t = camAim(now), kp = 1 - Math.exp(-dt * 4.5), kz = 1 - Math.exp(-dt * 2.6);
   cam.z += (t.z - cam.z) * kz; cam.x += (t.x - cam.x) * kp; cam.y += (t.y - cam.y) * kp;
-  if (cam.z > 1.02 && !(wave && !shotCam)) {          // мяч никогда не уходит из кадра: камера его «дотягивает»
+  if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: камера его «дотягивает»
     const mx = TW / 2 / cam.z * .78, my = TH / 2 / cam.z * .78, by = ball.y - ball.h;
     cam.x = clamp(cam.x, ball.x - mx, ball.x + mx); cam.y = clamp(cam.y, by - my, by + my);
   }
@@ -1480,8 +1515,57 @@ function camIdle(now) {                              // в спокойной и
   if (now < nextPan || queue.length) return;
   nextPan = now + rnd(25000, 45000);
   const c = secCenter(Math.floor(Math.random() * SECTORS));
-  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)});
+  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true);
 }
+
+/* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
+   Горят в секторах своих болельщиков: красное пламя мерцает, летят искры, поднимается дым и сносится ветром к полю. */
+let flares = [];
+function standPoints(t, n) {                         // n случайных мест в секторах болельщиков команды t (−1 — любые)
+  if (!stands) return [];
+  const secs = stands.sectors.filter(sc => sc.n && (t < 0 || sc.team === t));
+  const out = [];
+  for (let i = 0; i < n && secs.length; i++) {
+    const sc = secs[Math.floor(Math.random() * secs.length)], [x0, y0, x1, y1] = sc.box;
+    out.push({x: rnd(x0 + 4, x1 - 4), y: rnd(y0 + 4, y1 - 4), nx: sc.nx, ny: sc.ny});
+  }
+  return out;
+}
+function lightFlares(t, n, ms, near) {               // near — зажечь рядом с точкой (сектор, откуда бросили пиротехнику)
+  let pts = standPoints(t, near ? 40 : n);
+  if (near) pts = pts.sort((a, b) => dd(a, near) - dd(b, near)).slice(0, n);
+  const now = performance.now();
+  pts.forEach((p, i) => flares.push({...p, t0: now + i * rnd(80, 260), life: ms * rnd(.8, 1.15),
+                                     col: Math.random() < .25 ? '#22c55e' : Math.random() < .2 ? '#facc15' : '#ef4444'}));
+  if (flares.length > 40) flares = flares.slice(-40);
+  return pts[0];
+}
+function drawFlares(now) {
+  flares = flares.filter(f => now - f.t0 < f.life + 2500);
+  for (const f of flares) {
+    const age = now - f.t0;
+    if (age < 0) continue;
+    const burning = age < f.life;
+    if (burning) {
+      const fl = .75 + Math.random() * .35, r = 16 * fl;
+      const gl = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
+      gl.addColorStop(0, f.col === '#ef4444' ? 'rgba(255,70,40,.95)' : f.col === '#22c55e' ? 'rgba(80,255,120,.85)' : 'rgba(255,230,90,.9)');
+      gl.addColorStop(.35, f.col === '#ef4444' ? 'rgba(255,60,30,.35)' : f.col === '#22c55e' ? 'rgba(60,220,100,.3)' : 'rgba(255,210,60,.3)');
+      gl.addColorStop(1, 'rgba(255,60,20,0)');
+      g.fillStyle = gl; g.fillRect(f.x - r * 2.2, f.y - r * 2.2, r * 4.4, r * 4.4);
+      g.fillStyle = '#fff7ed'; g.beginPath(); g.arc(f.x, f.y, 2.2 * fl, 0, 7); g.fill();
+      g.fillStyle = f.col; g.beginPath(); g.arc(f.x, f.y, 3.6 * fl, 0, 7); g.globalAlpha = .7; g.fill(); g.globalAlpha = 1;
+      for (let i = 0; i < 3; i++) {                  // искры
+        const a = Math.random() * 6.28, d = rnd(3, 13);
+        g.fillStyle = 'rgba(255,240,200,.9)'; g.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 1.2, 1.2);
+      }
+      if (Math.random() < .22) fx.push({k: 'haze', x: f.x + rnd(-3, 3), y: f.y + rnd(-3, 3),
+        vx: -f.nx * rnd(.3, .7) + rnd(-.2, .2), vy: -f.ny * rnd(.3, .7) - .15, r: rnd(7, 13), life: rnd(2200, 3600), t0: now,
+        tint: f.col});
+    }
+  }
+}
+
 function frame(now) {
   requestAnimationFrame(frame);
   updatePlay(now);
@@ -1492,6 +1576,7 @@ function frame(now) {
   if (S) {
     if (buildStands()) { pitchImg = drawPitch(HQW(), HQH()); }       // цвета команд пришли — кресла и скамейки в их цвет
     drawStands(now);
+    drawBanners(now);
     crowdFlashes(now);
     drawJumbo(now);
     drawSideline(now);
@@ -1530,8 +1615,10 @@ function frame(now) {
     if (f.k === 'turf') { g.globalAlpha = 1 - k; g.fillStyle = '#3f6212'; g.fillRect(x - f.r / 2, y - f.r / 2 - age * .02, f.r, f.r * .7); g.globalAlpha = 1; continue; }
     if (f.k === 'ring') { g.globalAlpha = (1 - k) * .8; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, f.r + k * 16, 0, 7); g.stroke(); g.globalAlpha = 1; continue; }
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
+    else if (f.k === 'haze') { g.globalAlpha = (1 - k) * (k < .08 ? k / .08 : 1) * .2; g.fillStyle = f.tint === '#ef4444' ? '#cbb6b0' : f.tint === '#22c55e' ? '#b9d8bf' : '#d9d2b0'; g.beginPath(); g.arc(x, y, f.r * (1 + k * 1.6), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
     else { g.globalAlpha = (1 - k) * (f.k === 'smoke' ? .55 : .5); g.fillStyle = f.k === 'smoke' ? '#c2410c' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   }
+  if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
   drawWeather(now);
   if (S && S.left !== undefined && now % 1000 < 20) renderStatus();
 }
