@@ -46,6 +46,25 @@ canvas{display:block}
 #mute{position:absolute;top:8px;right:8px;font:inherit;font-size:16px;padding:5px 9px;border-radius:10px;border:0;background:rgba(5,10,24,.75);color:#fff;z-index:2}
 #note{position:absolute;left:10px;right:10px;bottom:10px;text-align:center;font-size:14px;background:rgba(5,10,24,.85);border-radius:10px;padding:8px;display:none}
 #note.on{display:block}
+#dec{flex:1;overflow-y:auto;padding:8px 12px calc(12px + env(safe-area-inset-bottom));display:none;background:linear-gradient(#0b1328,#050a18)}
+body.deciding #dec{display:block}
+body.deciding #feed{display:none}
+#dec h3{margin:2px 0 4px;font-size:16px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+#dec h3 small{color:var(--gold);font-size:14px;white-space:nowrap}
+#dec .sub{color:var(--muted);font-size:13px;margin-bottom:6px;line-height:1.35}
+#dec .res{font-size:14px;margin:6px 0;padding:7px 10px;border-radius:10px;background:#16223f;line-height:1.35}
+#dec .res.bad{background:#3b1420}
+#dec .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+#dec button{font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;border:1px solid #ffffff14;background:#17254a;
+  color:#fff;text-align:left;-webkit-tap-highlight-color:transparent;line-height:1.25}
+#dec button small{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:2px}
+#dec button.wide{grid-column:1/-1}
+#dec button.go{background:var(--gold);color:#111;text-align:center}
+#dec button.hot{background:#7c2d12}
+#dec button.on{outline:2px solid var(--gold)}
+#dec button:disabled{opacity:.45}
+#dec button:active:not(:disabled){transform:translateY(1px)}
+#dec .list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -63,6 +82,7 @@ canvas{display:block}
 <div id="pitchwrap"><canvas id="c"></canvas><div id="label"></div><div id="flash"><b>ГОЛ!</b><span></span></div>
   <button id="mute" type="button" aria-label="Звук">🔊</button><div id="note"></div></div>
 <div id="feed"></div>
+<div id="dec"></div>
 <script>
 'use strict';
 /* Живой матч — зритель. Всё считает бот: страница получает состояние и события минуты и только показывает их.
@@ -391,7 +411,7 @@ function onTick(m) {
   lastSeq = m.seq;
   const prev = S; S = m.state;
   if (!shown) shown = JSON.parse(JSON.stringify(S));
-  if (S.left !== undefined && !(prev && prev.left !== undefined && prev.phase === S.phase && prev.minute === S.minute)) statusUntil = performance.now() + S.left * 1000;
+  if (S.left !== undefined) statusUntil = performance.now() + S.left * 1000;
   const lineupChanged = !prev || JSON.stringify(prev.teams.map(x => [x.gk, x.def, x.att])) !== JSON.stringify(S.teams.map(x => [x.gk, x.def, x.att]));
   const fresh = JSON.parse(JSON.stringify(S));
   const steps = [];
@@ -462,7 +482,8 @@ function fit() {
   const wrap = $('pitchwrap'), top = $('top').offsetHeight;
   const vh = (TG && TG.viewportStableHeight) || innerHeight;
   document.body.style.setProperty('--vh', vh + 'px');
-  const maxH = Math.max(260, Math.min(vh * .56, vh - top - 150));
+  const deciding = document.body.classList.contains('deciding');      // панель решений — поле поменьше
+  const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .56, vh - top - 150));
   const cw = Math.min(innerWidth, maxH * W / H);
   scale = cw / W;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -574,6 +595,132 @@ function frame(now) {
 }
 setInterval(() => { if (S && S.left !== undefined) renderStatus(); }, 500);
 
+/* ---------------- решения менеджера (шаг 2): панель вместо ленты, пока открыто окно ----------------
+   Страница только предлагает: каждое решение уходит боту, он проверяет его по тем же правилам, что кнопки в чате,
+   и присылает ответ (ack) и новую панель (mine). Что показано здесь — ровно то, что прислал бот. */
+let mine = null, view = 'main', viewArg = null, pending = null, actSeq = 1, mineUntil = 0;
+const decEl = $('dec');
+function onMine(m) {
+  const wasOpen = mine && mine.open, sameWin = mine && mine.wid === m.wid;
+  mine = m;
+  if (!m.open) pending = null;
+  if (m.open) {
+    mineUntil = performance.now() + (m.left || 0) * 1000;
+    if (!wasOpen || !sameWin) { view = 'main'; viewArg = null; pending = null; haptic('medium'); ping(); }
+  }
+  if (document.body.classList.contains('deciding') !== !!m.open) { document.body.classList.toggle('deciding', !!m.open); fit(); }
+  renderDec();
+}
+function act(a) {
+  if (!mine || !mine.open || pending || !ws || ws.readyState !== 1) return;
+  pending = Object.assign({id: actSeq++, wid: mine.wid}, a);
+  ws.send(JSON.stringify({type: 'act', act: pending}));
+  haptic('light'); renderDec();
+  setTimeout(() => { if (pending && pending.id === actSeq - 1) { pending = null; mine.note = '⚠️ Ответ не пришёл — попробуйте ещё раз или кнопкой в чате'; renderDec(); } }, 8000);
+}
+function onAck(m) {
+  if (!pending || m.id !== pending.id) return;
+  pending = null;
+  if (mine) mine.note = m.note || mine.note;
+  if (!m.ok) haptic('rigid');
+  view = 'main'; viewArg = null; renderDec();
+}
+function btn(html, cls, fn, disabled) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = cls || ''; b.innerHTML = html;
+  b.disabled = !!disabled || !!pending; if (fn) b.onclick = fn; return b;
+}
+function power(p) { return (p.pw >= 60 ? '🟢' : p.pw >= 35 ? '🟡' : '🔴') + ' ' + p.pw + '%'; }
+function cardsOf(p) { return p.off ? ' 🟥' : ' 🟨'.repeat(p.y || 0); }
+function renderDec() {
+  decEl.textContent = '';
+  if (!mine || !mine.open) return;
+  const m = mine, left = Math.max(0, Math.ceil((mineUntil - performance.now()) / 1000));
+  const h = document.createElement('h3');
+  h.innerHTML = `<span>${esc(m.title)}</span><small id="decleft">⏱ ${left} сек</small>`;
+  decEl.appendChild(h);
+  const sub = document.createElement('div'); sub.className = 'sub';
+  sub.textContent = `Схема ${m.formation} · ${(m.tactics.find(x => x.k === m.tactic) || {}).title || ''} · настрой: ${m.mood}`
+    + (m.order ? ` · задание: ${m.order}` : '') + (m.reason ? `\nПовод: ${m.reason}` : '');
+  sub.style.whiteSpace = 'pre-line'; decEl.appendChild(sub);
+  if (pending || m.note) {
+    const r = document.createElement('div'); r.className = 'res' + (!pending && m.note && m.note.startsWith('⚠️') ? ' bad' : '');
+    r.textContent = pending ? 'Отправляем решение…' : m.note; decEl.appendChild(r);
+  }
+  const back = () => btn('⬅️ Назад', 'wide', () => { view = 'main'; viewArg = null; renderDec(); });
+  const box = document.createElement('div');
+  if (m.done && m.kind !== 'half') {
+    const r = document.createElement('div'); r.className = 'sub'; r.textContent = 'Окно закроется, когда ответит соперник или выйдет время.';
+    decEl.appendChild(r); return;
+  }
+  if (view === 'main') {
+    box.className = 'grid';
+    const bench = m.bench.filter(p => !p.off);
+    if (m.brawl) {
+      box.appendChild(btn(`🕊 Успокоить своих<small>10 мин стычки вдвое реже, настрой +3</small>`, '', () => act({a: 'calm'})));
+      box.appendChild(btn(`📣 Скандал судье<small>настрой +8, но стычки вероятнее, риск жёлтой</small>`, 'hot', () => act({a: 'protest'})));
+    }
+    box.appendChild(btn(`🔄 Замена<small>${bench.length ? 'выйдет №' + bench[0].n + ' ' + esc(bench[0].nm) : 'запасных нет'}</small>`, '', () => { view = 'sub'; renderDec(); }, !bench.length));
+    box.appendChild(btn(`📐 Схема<small>сейчас ${m.formation}</small>`, '', () => { view = 'form'; renderDec(); }));
+    box.appendChild(btn(`⚙️ Тактика<small>${m.tactic_used ? 'уже меняли в этом окне' : 'раз за окно'}</small>`, '', () => { view = 'tac'; renderDec(); }, m.tactic_used));
+    box.appendChild(btn(`🎯 Задание игроку<small>${m.order_used ? 'уже давали в этом окне' : m.order ? 'есть: ' + esc(m.order) : 'нет'}</small>`, '', () => { view = 'ord'; renderDec(); }));
+    box.appendChild(btn(`🗣 Речь<small>${m.spoke ? 'уже говорили' : 'раз за окно'}</small>`, '', () => { view = 'speech'; renderDec(); }, m.spoke));
+    const r = m.rush;
+    box.appendChild(btn(`💥 Штурм ворот<small>${r.active ? 'идёт до ' + r.until + "'" : r.left <= 0 ? 'использован' : !r.allowed ? 'после свистка' : 'раз за матч, 5 минут'}</small>`, 'hot',
+      () => { view = 'rush'; renderDec(); }, r.active || r.left <= 0 || !r.allowed));
+    box.appendChild(btn(m.kind === 'half' ? '✅ Готово (перерыв идёт до конца)' : '✅ Готово', 'go wide', () => act({a: 'done'}), m.done));
+  } else if (view === 'sub') {
+    box.className = 'list';
+    const inn = m.bench.find(p => !p.off);
+    const t = document.createElement('div'); t.className = 'sub'; t.textContent = `Кого заменить? Выйдет №${inn.n} ${inn.nm} · силы ${inn.pw}%` + (inn.inj ? ' · 🚑 травма' : '');
+    box.appendChild(t);
+    for (const p of m.field) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.gk ? ' (вратарь)' : ''}<small>силы ${power(p)}</small>`, '', () => act({a: 'sub', s: p.s})));
+    box.appendChild(back());
+  } else if (view === 'form') {
+    box.className = 'list';
+    for (const f of m.formations) box.appendChild(btn(`${f.k === m.formation ? '✔️ ' : ''}${esc(f.title)}<small>${esc(f.info)}</small>`, f.k === m.formation ? 'on' : '', () => act({a: 'form', k: f.k})));
+    box.appendChild(back());
+  } else if (view === 'tac') {
+    box.className = 'list';
+    for (const x of m.tactics) box.appendChild(btn(`${x.k === m.tactic ? '✔️ ' : ''}${esc(x.title)}<small>${esc(x.info)}</small>`, x.k === m.tactic ? 'on' : '', () => act({a: 'tac', k: x.k}), x.k === m.tactic));
+    box.appendChild(back());
+  } else if (view === 'ord') {
+    box.className = 'list';
+    if (!viewArg) {
+      for (const o of m.orders) box.appendChild(btn(`${esc(o.title)}<small>${esc(o.info)}</small>`, '', () => { viewArg = o.k; renderDec(); }, m.order_used));
+      if (m.order) box.appendChild(btn('❌ Снять задание', '', () => act({a: 'ord', k: 'clear'})));
+    } else {
+      const t = document.createElement('div'); t.className = 'sub'; t.textContent = viewArg === 'mark' ? 'Кого опекать у соперника?' : 'Кому дать задание?';
+      box.appendChild(t);
+      const list = viewArg === 'mark' ? m.opp : m.field.filter(p => !p.gk);
+      for (const p of list) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}<small>${viewArg === 'mark' ? 'голов: ' + p.g : 'силы ' + power(p)}</small>`, '', () => act({a: 'ord', k: viewArg, s: p.s})));
+    }
+    box.appendChild(back());
+  } else if (view === 'speech') {
+    box.className = 'list';
+    for (const x of m.speeches) box.appendChild(btn(esc(x.title), '', () => act({a: 'speech', k: x.k})));
+    box.appendChild(back());
+  } else if (view === 'rush') {
+    box.className = 'list';
+    const t = document.createElement('div'); t.className = 'sub';
+    t.textContent = 'Один раз за матч, на 5 игровых минут. Плюс: около +30% атак. Минус: защита раскрыта, полевые устают на 60% быстрее. Соперник сразу узнает.';
+    box.appendChild(t);
+    box.appendChild(btn('💥 Да, на штурм!', 'hot', () => act({a: 'rush'})));
+    box.appendChild(back());
+  }
+  decEl.appendChild(box);
+}
+setInterval(() => {
+  if (!mine || !mine.open) return;
+  const el = $('decleft'); if (el) el.textContent = '⏱ ' + Math.max(0, Math.ceil((mineUntil - performance.now()) / 1000)) + ' сек';
+}, 500);
+function ping() {
+  const a = !muted && audio(); if (!a) return;
+  const o = a.createOscillator(), gn = a.createGain(), t = a.currentTime;
+  o.frequency.setValueAtTime(880, t); o.frequency.setValueAtTime(1320, t + .12);
+  gn.gain.setValueAtTime(.12, t); gn.gain.exponentialRampToValueAtTime(.001, t + .35);
+  o.connect(gn); gn.connect(a.destination); o.start(t); o.stop(t + .36);
+}
+
 /* ---------------- подключение к комнате матча ---------------- */
 const Q = new URLSearchParams(location.search);
 const ROOM = Q.get('room');
@@ -591,6 +738,8 @@ function connect() {
     let m; try { m = JSON.parse(e.data); } catch (err) { return; }
     retry = 0;
     if (m.type === 'state') onState(m);
+    else if (m.type === 'mine') onMine(m);
+    else if (m.type === 'ack') onAck(m);
     else if (m.type === 'tick') { onTick(m); note(''); }
     else if (m.type === 'bot_left') note('Бот переподключается — матч продолжится, подождите…');
   };
