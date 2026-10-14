@@ -43,6 +43,8 @@ canvas{display:block}
 .it.goal{font-weight:800;color:#fff;background:linear-gradient(90deg,#facc1522,transparent);padding-left:6px}
 .it.new{animation:pop .5s ease-out}
 @keyframes pop{from{background:#facc1533}to{}}
+#cam{position:absolute;top:8px;right:54px;font:inherit;font-size:16px;padding:5px 9px;border-radius:10px;border:0;background:rgba(5,10,24,.75);color:#fff;z-index:2}
+#cam.off{opacity:.45}
 #mute{position:absolute;top:8px;right:8px;font:inherit;font-size:16px;padding:5px 9px;border-radius:10px;border:0;background:rgba(5,10,24,.75);color:#fff;z-index:2}
 #note{position:absolute;left:10px;right:10px;bottom:10px;text-align:center;font-size:14px;background:rgba(5,10,24,.85);border-radius:10px;padding:8px;display:none}
 #note.on{display:block}
@@ -130,7 +132,7 @@ body.deciding #feed{display:none}
   <div id="status"></div>
 </div>
 <div id="pitchwrap"><canvas id="c"></canvas><div id="label"></div><div id="flash"><b>ГОЛ!</b><span></span></div>
-  <button id="mute" type="button" aria-label="Звук">🔊</button><div id="note"></div></div>
+  <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><div id="note"></div></div>
 <div id="feed"></div>
 <div id="dec"></div>
 <div id="pen"><div class="wait">🥅 Пенальти…</div></div>
@@ -276,6 +278,7 @@ function note(text) { const n = $('note'); n.textContent = text || ''; n.classLi
 let actx = null, muted = false;
 try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
 $('mute').textContent = muted ? '🔇' : '🔊';
+$('cam').onclick = () => { camOn = !camOn; $('cam').classList.toggle('off', !camOn); shotCam = null; try { localStorage.setItem('fm_cam', camOn ? '1' : '0'); } catch (e) {} label(camOn ? '🎥 Камера: приближения включены' : '🎥 Камера: всё поле'); };
 $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); toFrame({type: 'mute', on: muted}); };
 function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
 addEventListener('pointerdown', audio, {once: true});
@@ -361,6 +364,7 @@ function approach(a) {                     // бьющий получает мя
   let dur = 1300;
   return {d: () => dur, poss: a.t, run: () => {
     const sh = shooter(a); if (!sh) return;
+    camTo(1.45, 3200, 'ball');                       // выход на удар — камера ближе и ведёт мяч
     const bd = depthOf(a.t, ball.y);
     if (bd > .68 && holder !== key(sh.t, sh.s)) {           // мяч уже в штрафной (подача) — замыкает с места
       const spot = at(a.t, Math.max(.78, Math.min(bd, .9)), clamp(xfOf(ball.x), .25, .75));
@@ -404,6 +408,7 @@ function build(a) {
         netHit = {x: into.x, y: into.y, t0: performance.now(), t: a.t};
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
         jump = {t: a.t, until: performance.now() + 4200, big: true};
+        camTo(1.8, 2900, () => { const s2 = shooter(a); return s2 || corner; });   // празднование крупно
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
         if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); }
@@ -443,7 +448,7 @@ function build(a) {
       const xf = Math.random() < .5 ? 0 : 1, flag = at(a.t, 1, xf), off = {x: flag.x + (xf ? -6 : 6), y: flag.y + (a.t === 0 ? 6 : -6)};
       const taker = nearestTo(flag, teamPlayers(a.t, true).filter(q => q.s !== a.avoid));   // подаёт не тот, кто будет бить
       steps.push({d: 2600, poss: a.t, run: () => {
-        label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); if (taker) { ball.recv = key(taker.t, taker.s); focus[key(taker.t, taker.s)] = {x: off.x + (xf ? 7 : -7), y: off.y}; }
+        label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.5, 3600, lerpPt(flag, at(a.t, .9, .5), .5)); if (taker) { ball.recv = key(taker.t, taker.s); focus[key(taker.t, taker.s)] = {x: off.x + (xf ? 7 : -7), y: off.y}; }
         crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box'};
       }});
       steps.push({d: 600, run: () => { kick(); moveBall(at(a.t, .86, rnd(.35, .65)), 560, 34, 'lin'); if (taker) delete focus[key(taker.t, taker.s)]; }});
@@ -459,7 +464,7 @@ function build(a) {
     case 'fk': {
       const spot = at(a.t, .72, rnd(.35, .65)), taker = nearestTo(spot, teamPlayers(a.t, true));
       steps.push({d: 1700, poss: a.t, run: () => {
-        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out');
+        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out'); camTo(1.5, 2800, lerpPt(spot, goalOf(a.t), .4));
         if (taker) focus[key(taker.t, taker.s)] = lerpPt(spot, goalOf(1 - a.t), .04);
         crowd = {t: 1 - a.t, to: lerpPt(spot, goalOf(a.t), .2), kind: 'wall'}; refTo(near(spot, 40));
       }});
@@ -468,7 +473,7 @@ function build(a) {
     case 'pen': {
       const spot = at(a.t, .885, .5);
       steps.push({d: 1600, poss: a.t, run: () => {
-        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out');
+        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out'); camTo(1.75, 4200, lerpPt(spot, goalOf(a.t), .45));
         crowd = {t: -1, kind: 'clearbox', att: a.t}; haptic('heavy'); refTo(at(a.t, .8, .78));
         const gk = teamPlayers(1 - a.t).find(p => p.gk); if (gk) focus[key(gk.t, gk.s)] = at(1 - a.t, .01, .5);
       }});
@@ -510,6 +515,7 @@ function build(a) {
         if (p) focus[key(p.t, p.s)] = {x: mid.x - 9, y: mid.y};
         if (q) focus[key(q.t, q.s)] = {x: mid.x + 9, y: mid.y};
         if (a.lvl !== 'scuffle') crowd = {t: -1, to: mid, kind: a.lvl === 'mass' ? 'mass' : 'ring'};
+        camTo(a.lvl === 'mass' ? 1.5 : 1.8, 2800, mid);
         for (let i = 0; i < (a.lvl === 'mass' ? 40 : 18); i++) fx.push({k: 'dust', x: mid.x + rnd(-30, 30), y: mid.y + rnd(-20, 20), vx: rnd(-.4, .4), vy: rnd(-.5, .1), r: rnd(8, 18), life: rnd(900, 2000), t0: performance.now() + i * 40});
         whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy'); refTo(near(mid, 26));
       }});
@@ -522,7 +528,7 @@ function build(a) {
     case 'stop':
       steps.push({d: 2800, poss: null, run: () => {
         stopped = true; whistle(true); renderStatus(); holder = null;
-        if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); }
+        if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); camTo(1.6, 2700, () => fan && {x: lerp(-20, W + 20, clamp((performance.now() - fan.t0) / 2600, 0, 1)), y: fan.y}); }
         else { pyro = {t0: performance.now(), x: Math.random() < .5 ? M : W - M, y: rnd(H * .2, H * .8)}; label('🚨 На поле пиротехника!', 2600); }
       }});
       break;
@@ -732,11 +738,11 @@ function speed() { return queue.length > 14 ? 2.5 : queue.length > 8 ? 1.6 : 1; 
    Поле — прямоугольник 0…W × 0…H (газон с отступом M до линий); вокруг кольцо шириной ST: щиты, трибуны, край крыши.
    Бетон, кресла, лестницы, щиты рисуются один раз; болельщики — векторами по секторам (встают при голе, «волна»),
    а пока трибуна спокойна — копируются из готовой картинки. */
-const ST = 74, TW = W + 2 * ST, TH = H + 2 * ST, R0 = 12;
+const ST = 92, TW = W + 2 * ST, TH = H + 2 * ST, R0 = 12;
 const SECTORS = 32;                       // трибуна поделена на сектора
-const ROWS = [14.5, 20.5, 26.5, 32.5, 38.5, 49, 55, 61, 67];   // ряды (расстояние от газона); между ярусами — проход WALK
-const WALK = [42.5, 46];
-const SEAT = 6.2, AISLES = 24;            // шаг кресел вдоль ряда; лестниц по кругу
+const ROWS = [14.5, 21, 27.5, 34, 40.5, 47, 59, 65.5, 72, 78.5];   // ряды (расстояние от газона); между ярусами — проход WALK
+const WALK = [51, 55];
+const SEAT = 6.6, AISLES = 24;            // шаг кресел вдоль ряда; лестниц по кругу
 function ringLen(d) { const r = R0 + d; return 2 * (W + 2 * d - 2 * r) + 2 * (H + 2 * d - 2 * r) + 2 * Math.PI * r; }
 // точка на скруглённом прямоугольнике в d от газона: s — путь по периметру от середины верхней стороны по часовой
 function ring(d, s) {
@@ -788,7 +794,7 @@ function isAisle(p) { return (frac(p) * AISLES + .03) % 1 < .06; }
 let stands = null;                         // {sectors: [{paths: Map(цвет → Path2D), heads, scarf, nx, ny, team}], key, cache}
 function standsKey() {
   if (!S) return '';
-  const fill = clamp(.12 + (S.fans || 400) / 1100, .18, 1);         // заполненность — по посещаемости матча
+  const fill = clamp(.2 + (S.fans || 400) / 900, .3, 1);         // заполненность — по посещаемости матча
   return [S.teams[0].shirt, S.teams[0].shorts, S.teams[1].shirt, S.teams[1].shorts, Math.round(fill * 20) / 20].join();
 }
 function buildStands() {
@@ -799,7 +805,7 @@ function buildStands() {
   const casual = ['#e5e7eb', '#111827', '#374151', '#1e3a8a', '#7f1d1d', '#14532d', '#78350f', '#f8fafc'];
   const hair = ['#1c1917', '#3f2a1d', '#57351f', '#a16207', '#d6d3d1', '#0c0a09'];
   const sectors = [];
-  for (let i = 0; i < SECTORS; i++) sectors.push({paths: new Map(), heads: new Map(), scarf: new Path2D(), nx: 0, ny: 0, n: 0, team: 0, box: [1e9, 1e9, -1e9, -1e9]});
+  for (let i = 0; i < SECTORS; i++) sectors.push({paths: new Map(), heads: new Map(), scarf: new Path2D(), arms: new Path2D(), nx: 0, ny: 0, n: 0, team: 0, box: [1e9, 1e9, -1e9, -1e9]});
   const add = (map, col, x, y, r) => { let p = map.get(col); if (!p) map.set(col, p = new Path2D()); p.moveTo(x + r, y); p.arc(x, y, r, 0, 6.29); };
   ROWS.forEach((d, row) => {
     const P = ringLen(d), n = Math.floor(P / SEAT);
@@ -814,9 +820,11 @@ function buildStands() {
       const col = u < .55 ? tm.shirt : u < .7 ? tm.shorts : casual[Math.floor(rnd2() * casual.length)];
       const sec = sectors[Math.floor(f * SECTORS) % SECTORS];
       const x = p.x + p.nx * 1.2 + (rnd2() - .5) * 1.2, y = p.y + p.ny * 1.2 + (rnd2() - .5) * 1.2;
-      add(sec.paths, col, x, y, 2.5);                                                    // плечи
-      add(sec.heads, rnd2() < .12 ? '#e0b48a' : hair[Math.floor(rnd2() * hair.length)], x - p.nx * 1.1, y - p.ny * 1.1, 1.5);
-      if (rnd2() < .45) sec.scarf.rect(x + p.nx * 2.6 - 2, y + p.ny * 2.6 - 1, 4, 2);     // шарф над головой (виден, когда встают)
+      add(sec.paths, col, x, y, 3);                                                      // плечи
+      add(sec.heads, rnd2() < .12 ? '#e0b48a' : hair[Math.floor(rnd2() * hair.length)], x - p.nx * 1.2, y - p.ny * 1.2, 1.8);
+      if (rnd2() < .45) sec.scarf.rect(x + p.nx * 3 - 2.4, y + p.ny * 3 - 1.2, 4.8, 2.4);  // шарф над головой (виден, когда встают)
+      const tx = -p.ny, ty = p.nx;                                                       // руки вверх (видны, когда встают)
+      for (const sd of [-1, 1]) { const ax = x + tx * sd * 2.6 - p.nx * 1.6, ay = y + ty * sd * 2.6 - p.ny * 1.6; sec.arms.moveTo(ax + 1.3, ay); sec.arms.arc(ax, ay, 1.3, 0, 6.29); }
       sec.nx += p.nx; sec.ny += p.ny; sec.n++; sec.team += team;
       const bx = sec.box; bx[0] = Math.min(bx[0], x - 6); bx[1] = Math.min(bx[1], y - 6); bx[2] = Math.max(bx[2], x + 6); bx[3] = Math.max(bx[3], y + 6);
     }
@@ -825,24 +833,26 @@ function buildStands() {
   stands = {sectors, key, cache: null};
   return true;
 }
+const WAVE_MS = 9000;                          // «волна» обходит весь стадион за 9 секунд
 let jump = null, wave = null, nextWave = 0;   // jump — встают фанаты команды {t, until, big}; wave — «волна» {t0}
+function waveAt(now) { return wave ? (now - wave.t0) / WAVE_MS : -1; }
 function crowdAmp(sec, i, now) {
   let a = 0;
   if (jump && now < jump.until && sec.team === jump.t) a = Math.abs(Math.sin(now / 95 + i * 1.7)) * (jump.big ? 1 : .5);
   if (wave) {
-    const k = (now - wave.t0) / 6000;
+    const k = waveAt(now);
     let dd = Math.abs(i / SECTORS - k); dd = Math.min(dd, 1 - dd);
-    if (k <= 1.05 && dd < .07) a = Math.max(a, 1 - dd / .07);
+    if (k <= 1.08 && dd < .1) a = Math.max(a, 1.4 * (1 - dd / .1));
   }
   return a;
 }
 let shadeImg = null;                        // тень крыши: верхние ряды темнее
 function buildShade() {
-  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
-  const x = c.getContext('2d'); x.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);
-  for (let d = 10; d < ST; d += 1) { ringPath(x, d); x.lineWidth = 1.2; x.strokeStyle = `rgba(2,6,23,${(.5 * Math.pow((d - 10) / (ST - 10), 1.6)).toFixed(3)})`; x.stroke(); }
+  const c = document.createElement('canvas'); c.width = HQW(); c.height = HQH();
+  const x = c.getContext('2d'); x.setTransform(c.width / TW, 0, 0, c.height / TH, ST * c.width / TW, ST * c.height / TH);
+  for (let d = 10; d < ST; d += 1) { ringPath(x, d); x.lineWidth = 1.2; x.strokeStyle = `rgba(2,6,23,${(.3 * Math.pow((d - 10) / (ST - 10), 1.8)).toFixed(3)})`; x.stroke(); }
   const R1 = ST - 22;                                     // козырёк крыши над верхним ярусом
-  for (let d = R1; d < ST; d += 1) { ringPath(x, d); x.lineWidth = 1.2; x.strokeStyle = 'rgba(15,23,42,.28)'; x.stroke(); }
+  for (let d = R1; d < ST; d += 1) { ringPath(x, d); x.lineWidth = 1.2; x.strokeStyle = 'rgba(15,23,42,.16)'; x.stroke(); }
   const PR = ringLen(R1);
   x.strokeStyle = 'rgba(148,163,184,.28)'; x.lineWidth = .9;
   for (let s = 0; s < PR; s += 26) {                      // фермы крыши
@@ -856,7 +866,7 @@ function buildShade() {
 }
 function sectorSprites() {
   // каждый сектор — две готовые картинки (сидят / встали с шарфами): в анимации их только сдвигаем, не перерисовываем
-  const k = cv.width / TW;
+  const k = HQW() / TW;
   if (stands.k === k) return;
   stands.k = k;
   for (const sec of stands.sectors) {
@@ -867,7 +877,8 @@ function sectorSprites() {
       const c = document.createElement('canvas'); c.width = Math.ceil((x1 - x0) * k) + 1; c.height = Math.ceil((y1 - y0) * k) + 1;
       const x = c.getContext('2d'); x.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
       for (const [col, p] of sec.paths) { x.fillStyle = col; x.fill(p); }
-      if (up) { x.fillStyle = S.teams[sec.team].shirt; x.fill(sec.scarf); }
+      if (up) { x.fillStyle = 'rgba(255,255,240,.38)'; for (const [, p] of sec.paths) x.fill(p); }   // вставшие под прожекторами — светлее
+      if (up) { x.fillStyle = S.teams[sec.team].shirt; x.fill(sec.scarf); x.fillStyle = '#e8b98f'; x.fill(sec.arms); }
       for (const [col, p] of sec.heads) { x.fillStyle = col; x.fill(p); }
       sec.img[up] = c;
     }
@@ -875,14 +886,14 @@ function sectorSprites() {
 }
 function drawStands(now) {
   if (!stands) return;
-  if (!shadeImg || shadeImg.width !== cv.width) shadeImg = buildShade();
+  if (!shadeImg || shadeImg.width !== HQW()) shadeImg = buildShade();
   sectorSprites();
-  if (wave && now - wave.t0 > 6400) wave = null;
+  if (wave && waveAt(now) > 1.1) wave = null;
   if (jump && now > jump.until) jump = null;
   if (jump || wave) { crowdVec(g, now); g.drawImage(shadeImg, -ST, -ST, TW, TH); return; }
   if (!stands.cache) {                       // спокойная трибуна — одна картинка на всё кольцо
-    const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
-    const x = c.getContext('2d'); x.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);
+    const c = document.createElement('canvas'); c.width = HQW(); c.height = HQH();
+    const x = c.getContext('2d'); x.setTransform(c.width / TW, 0, 0, c.height / TH, ST * c.width / TW, ST * c.height / TH);
     crowdVec(x, now); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(shadeImg, 0, 0); stands.cache = c;
   }
   g.drawImage(stands.cache, -ST, -ST, TW, TH);
@@ -891,7 +902,9 @@ function crowdVec(c, now) {
   stands.sectors.forEach((sec, i) => {
     if (!sec.img || !sec.img[0]) return;
     const a = crowdAmp(sec, i, now), [x0, y0, x1, y1] = sec.box;
-    c.drawImage(sec.img[a > .35 ? 1 : 0], x0 + sec.nx * a * 1.8, y0 + sec.ny * a * 1.8, x1 - x0, y1 - y0);
+    const up = a > .35, k = up && wave ? 1 + .06 * Math.min(a, 1) : 1;      // встали — чуть выше и крупнее
+    const w = (x1 - x0) * k, h = (y1 - y0) * k, cx = (x0 + x1) / 2 + sec.nx * a * 3, cy = (y0 + y1) / 2 + sec.ny * a * 3;
+    c.drawImage(sec.img[up ? 1 : 0], cx - w / 2, cy - h / 2, w, h);
   });
 }
 function drawStadium(x) {
@@ -908,7 +921,7 @@ function drawStadium(x) {
     x.fillStyle = seatCol;
     for (let i = 0; i < n; i++) {
       const p = ring(d, i * P / n);
-      if (!isAisle(p) && !inDugout(p, d)) x.fillRect(p.x + p.nx * 1.2 - 2, p.y + p.ny * 1.2 - 2, 4, 4);
+      if (!isAisle(p) && !inDugout(p, d)) x.fillRect(p.x + p.nx * 1.2 - 2.3, p.y + p.ny * 1.2 - 2.3, 4.6, 4.6);
     }
   }
   x.fillStyle = 'rgba(148,163,184,.4)';                                   // лестницы сквозь все ряды
@@ -956,6 +969,8 @@ function drawStadium(x) {
 }
 
 let scale = 1, pitchImg = null;
+const HQ = 1.6;                                   // стадион рисуется крупнее экрана: при приближении камеры не мылится
+const HQW = () => Math.round(cv.width * HQ), HQH = () => Math.round(cv.height * HQ);
 function fit() {
   const wrap = $('pitchwrap'), top = $('top').offsetHeight;
   const vh = (TG && TG.viewportStableHeight) || innerHeight;
@@ -969,7 +984,7 @@ function fit() {
   cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * TH / TW * dpr);
   g.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);   // дальше — координаты поля
   wrap.style.height = (cw * TH / TW) + 'px';
-  pitchImg = drawPitch(cv.width, cv.height);
+  pitchImg = drawPitch(HQW(), HQH());
   if (stands) stands.cache = null;
   const pen = $('pen'); pen.style.top = top + 'px';
 }
@@ -1297,13 +1312,58 @@ function drawDivots(now) {                      // следы подката: т
     g.fillStyle = `rgba(20,83,45,${(a * .8).toFixed(3)})`; g.fillRect(-20, -4, 6, 1.6); g.restore();
   }
 }
+
+/* ---------------- камера: приближается к моментам у ворот, голам, стычкам, сопровождает «волну»; иногда — к трибунам.
+   Только картинка: на матч не влияет. 🎥 — выключить (всё поле целиком). Пока открыта панель решений — всё поле. */
+let cam = {x: W / 2, y: H / 2, z: 1}, shotCam = null, nextPan = 0, camOn = true;
+try { camOn = localStorage.getItem('fm_cam') !== '0'; } catch (e) {}
+$('cam').classList.toggle('off', !camOn);
+function camTo(z, ms, target) { if (camOn) shotCam = {z, until: performance.now() + ms / speed(), at: target}; }
+function secCenter(i) {
+  const sec = stands && stands.sectors[((i % SECTORS) + SECTORS) % SECTORS];
+  if (!sec || !sec.n) return null;
+  const [x0, y0, x1, y1] = sec.box;
+  return {x: (x0 + x1) / 2, y: (y0 + y1) / 2};
+}
+function camAim(now) {
+  const full = {x: W / 2, y: H / 2, z: 1};
+  if (!camOn || !S || document.body.classList.contains('deciding') || S.phase === 'final') { shotCam = null; return full; }
+  if (shotCam && now > shotCam.until) shotCam = null;
+  if (shotCam) {
+    const a = shotCam.at, p = a === 'ball' ? ball : typeof a === 'function' ? a(now) : a;
+    if (p) return {x: p.x, y: p.y, z: shotCam.z};
+  }
+  if (wave) {                                        // камера бежит за «волной» по трибунам
+    const k = waveAt(now), c = k < 1.02 && secCenter(Math.floor(k * SECTORS));
+    if (c) return {x: lerp(c.x, W / 2, .25), y: lerp(c.y, H / 2, .25), z: 1.7};
+  }
+  return full;
+}
+function camUpdate(now, dt) {
+  const t = camAim(now), k = 1 - Math.exp(-dt * (wave && !shotCam ? 1.6 : 2.4));
+  cam.z += (t.z - cam.z) * k; cam.x += (t.x - cam.x) * k; cam.y += (t.y - cam.y) * k;
+  const hw = TW / 2 / cam.z, hh = TH / 2 / cam.z;     // не показываем пустоту за стадионом
+  cam.x = clamp(cam.x, -ST + hw, W + ST - hw); cam.y = clamp(cam.y, -ST + hh, H + ST - hh);
+  const kx = cv.width / TW * cam.z, ky = cv.height / TH * cam.z;
+  g.setTransform(kx, 0, 0, ky, cv.width / 2 - cam.x * kx, cv.height / 2 - cam.y * ky);
+}
+function camIdle(now) {                              // в спокойной игре — изредка показать трибуны
+  if (!camOn || shotCam || wave || !stands || S.phase !== 'play' || stopped) return;
+  if (!nextPan) { nextPan = now + rnd(20000, 35000); return; }
+  if (now < nextPan || queue.length) return;
+  nextPan = now + rnd(25000, 45000);
+  const c = secCenter(Math.floor(Math.random() * SECTORS));
+  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)});
+}
 function frame(now) {
   requestAnimationFrame(frame);
   updatePlay(now);
   if (!pitchImg) return;
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(pitchImg, 0, 0); g.restore();
+  camUpdate(now, clamp((now - (camUpdate.last || now)) / 1000, 0, .05)); camUpdate.last = now;
+  g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4);
+  g.drawImage(pitchImg, -ST, -ST, TW, TH);
   if (S) {
-    if (buildStands()) { pitchImg = drawPitch(cv.width, cv.height); }       // цвета команд пришли — кресла и скамейки в их цвет
+    if (buildStands()) { pitchImg = drawPitch(HQW(), HQH()); }       // цвета команд пришли — кресла и скамейки в их цвет
     drawStands(now);
     crowdFlashes(now);
     drawJumbo(now);
@@ -1311,7 +1371,8 @@ function frame(now) {
     drawDivots(now);
     drawNetHit(now);
     drawRef(now);
-    if (!wave && S.phase === 'play' && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(45000, 90000); }
+    if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(25000, 50000); }
+    camIdle(now);
     const list = Object.values(players).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => a.y - b.y);   // ушедшие в тоннель не видны
     for (const p of list) drawPlayer(p, now);
     for (const c of cards) {
