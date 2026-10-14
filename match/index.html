@@ -285,7 +285,10 @@ function note(text) { const n = $('note'); n.textContent = text || ''; n.classLi
 let actx = null, muted = false;
 try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
 $('mute').textContent = muted ? '🔇' : '🔊';
-$('cam').onclick = () => { camOn = !camOn; $('cam').classList.toggle('off', !camOn); shotCam = null; try { localStorage.setItem('fm_cam', camOn ? '1' : '0'); } catch (e) {} label(camOn ? '🎥 Камера: приближения включены' : '🎥 Камера: всё поле'); };
+$('cam').onclick = () => {
+  camMode = {auto: 'wide', wide: 'follow', follow: 'auto'}[camMode] || 'auto'; camOn = camMode === 'auto'; shotCam = null; baseShot = null;
+  $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam', camMode); } catch (e) {} label(CAM_MODES[camMode]);
+};
 $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); toFrame({type: 'mute', on: muted}); };
 function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
 addEventListener('pointerdown', audio, {once: true});
@@ -444,7 +447,8 @@ function build(a) {
         jump = {t: a.t, until: performance.now() + 4200, big: true};
         lightFlares(a.t, 4 + Math.floor(Math.random() * 3), 5200);
         setTimeout(() => { if (S) startChant(a.t, Math.random() < .5 ? null : undefined); nextChant = performance.now() + rnd(20000, 30000); }, 2600);
-        camTo(1.8, 2900, () => { const s2 = shooter(a); return s2 || corner; });   // празднование крупно
+        const r0 = cam.r, tg = performance.now();               // празднование крупно, камера медленно облетает героя
+        camTo(2.1, 2900, () => { const s2 = shooter(a); return s2 || corner; }, undefined, true, n => r0 + (n - tg) / 1000 * .45);
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
         if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); }
@@ -486,7 +490,7 @@ function build(a) {
       const back = {x: off.x + (xf ? 16 : -16), y: off.y + (a.t === 0 ? 10 : -10)};          // откуда разбег
       const drop = at(a.t, rnd(.83, .9), xf ? rnd(.38, .55) : rnd(.45, .62));                   // куда навес: от ближней штанги до точки
       steps.push({d: 3200, poss: a.t, run: () => {             // пока все занимают места в штрафной
-        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.45, 4200, 'ball', a.t);
+        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.55, 4800, 'ball', a.t, false, aimUp(flag, at(a.t, .86, .5)));   // от флажка на ворота
         if (taker) { ball.recv = null; focus[key(taker.t, taker.s)] = back; }
         crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box', xf};
       }});
@@ -508,7 +512,7 @@ function build(a) {
     case 'fk': {
       const spot = at(a.t, .72, rnd(.35, .65)), taker = nearestTo(spot, teamPlayers(a.t, true));
       steps.push({d: 1700, poss: a.t, run: () => {
-        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out'); camTo(1.5, 2800, 'ball', a.t);
+        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out'); camTo(1.6, 2800, 'ball', a.t, false, aimUp(spot, goalOf(a.t)));   // из-за мяча на ворота
         if (taker) focus[key(taker.t, taker.s)] = lerpPt(spot, goalOf(1 - a.t), .04);
         crowd = {t: 1 - a.t, to: lerpPt(spot, goalOf(a.t), .2), kind: 'wall'}; refTo(near(spot, 40));
       }});
@@ -517,7 +521,7 @@ function build(a) {
     case 'pen': {
       const spot = at(a.t, .885, .5);
       steps.push({d: 1600, poss: a.t, run: () => {
-        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out'); camTo(1.75, 4200, 'ball', a.t);
+        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out'); camTo(1.9, 4200, 'ball', a.t, false, aimUp(spot, goalOf(a.t)));   // из-за спины бьющего
         crowd = {t: -1, kind: 'clearbox', att: a.t}; haptic('heavy'); refTo(at(a.t, .8, .78));
         const gk = teamPlayers(1 - a.t).find(p => p.gk); if (gk) focus[key(gk.t, gk.s)] = at(1 - a.t, .01, .5);
       }});
@@ -530,7 +534,7 @@ function build(a) {
         const spot = v ? {x: v.x, y: v.y} : near(ball, 20);
         if (f) { focus[key(f.t, f.s)] = near(spot, 10); pose(f, 'slide', 700, 0); divot(f); }
         if (v) { downed = {k: key(v.t, v.s), until: performance.now() + 1700}; holder = null; moveBall(near(spot, 12), 300, 0, 'out'); }
-        whistle(); label('🛑 Фол · ' + tag(a.t, a.s)); refTo(near(spot, 30));
+        whistle(); label('🛑 Фол · ' + tag(a.t, a.s)); refTo(near(spot, 30)); camTo(1.9, 1500, spot, undefined, false, cam.r);
       }});
       steps.push({d: 300, run: () => { focus = {}; if (v) { ball.recv = key(v.t, v.s); restart = {t: v.t, until: performance.now() + 1500}; } }});
       break;
@@ -544,7 +548,8 @@ function build(a) {
     case 'card': {
       steps.push({d: 1600, run: () => {
         const p = P(a.t, a.s);
-        if (p) { cards.push({k: key(a.t, a.s), c: a.c, until: performance.now() + 2200}); refTo(near(p, 18)); ref.card = {c: a.c, until: performance.now() + 2000}; }
+        if (p) { cards.push({k: key(a.t, a.s), c: a.c, until: performance.now() + 2200}); refTo(near(p, 18)); ref.card = {c: a.c, until: performance.now() + 2000};
+          camTo(2.2, 1700, () => lerpPt(p, ref, .4), undefined, true, cam.r); }                         // карточка крупно: судья и игрок
         label((a.c === 'red' ? '🟥 Удаление · ' : '🟨 Жёлтая · ') + tag(a.t, a.s), 1800);
         if (a.c === 'red') haptic('heavy');
       }});
@@ -559,7 +564,7 @@ function build(a) {
         if (p) focus[key(p.t, p.s)] = {x: mid.x - 9, y: mid.y};
         if (q) focus[key(q.t, q.s)] = {x: mid.x + 9, y: mid.y};
         if (a.lvl !== 'scuffle') crowd = {t: -1, to: mid, kind: a.lvl === 'mass' ? 'mass' : 'ring'};
-        camTo(a.lvl === 'mass' ? 1.5 : 1.8, 2800, mid);
+        camTo(a.lvl === 'mass' ? 1.6 : 2.1, 2800, mid, undefined, false, cam.r);
         for (let i = 0; i < (a.lvl === 'mass' ? 40 : 18); i++) fx.push({k: 'dust', x: mid.x + rnd(-30, 30), y: mid.y + rnd(-20, 20), vx: rnd(-.4, .4), vy: rnd(-.5, .1), r: rnd(8, 18), life: rnd(900, 2000), t0: performance.now() + i * 40});
         whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy'); refTo(near(mid, 26));
       }});
@@ -1395,6 +1400,9 @@ function drawPlayer(p, now) {
     g.restore();
   }
   // номер — на плашке цвета команды под фигуркой; на экране не крутим, чтобы читался
+  upright(p.x, p.y, () => plate(p, now, shirt, active, down));
+}
+function plate(p, now, shirt, active, down) {
   const ny = p.y + 19 * PS;
   g.font = 'bold 10px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   const nw = Math.max(15, g.measureText(p.n).width + 7);
@@ -1573,7 +1581,8 @@ function drawBanners(now) {
     const text = b.kind === 'name' ? tm.name.toUpperCase().slice(0, 16) : b.kind === 'cheer' ? 'ВПЕРЁД, ' + tm.name.toUpperCase().slice(0, 10) + '!' : '';
     const crest = 15, len = b.kind === 'stripes' ? 120 : Math.max(96, g.measureText(text).width + 30 + crest), hh = 18;
     const up = jump && now < jump.until && jump.t === b.t;                   // своя трибуна встала — баннер ходит волной
-    g.save(); g.translate(b.x, b.y); g.rotate(rot);
+    const flip = Math.cos(rot + cam.r) < -.05 ? Math.PI : 0;              // надпись всегда к зрителю, как бы ни стояла камера
+    g.save(); g.translate(b.x, b.y); g.rotate(rot + flip);
     g.strokeStyle = 'rgba(203,213,225,.7)'; g.lineWidth = .8;              // растяжки к ограждению
     for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * len / 2, -hh / 2); g.lineTo(sx * (len / 2 + 6), -hh / 2 - 5); g.moveTo(sx * len / 2, hh / 2); g.lineTo(sx * (len / 2 + 6), hh / 2 + 4); g.stroke(); }
     g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(-len / 2 + 2, -hh / 2 + 3, len, hh);
@@ -1652,13 +1661,25 @@ function drawDivots(now) {                      // следы подката: т
   }
 }
 
-/* ---------------- камера: приближается к моментам у ворот, голам, стычкам, сопровождает «волну»; иногда — к трибунам.
-   Только картинка: на матч не влияет. 🎥 — выключить (всё поле целиком). Пока открыта панель решений — всё поле. */
-let cam = {x: W / 2, y: H / 2, z: 1}, shotCam = null, nextPan = 0, camOn = true;
-try { camOn = localStorage.getItem('fm_cam') !== '0'; } catch (e) {}
-$('cam').classList.toggle('off', !camOn);
-function camTo(z, ms, target, goalT, free) {        // goalT — кто атакует (в кадре мяч и ворота); free — план трибун, мяч можно упустить
-  if (camOn) shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT, free};
+/* ---------------- камера-«режиссёр»: планы и ракурсы ----------------
+   Общий план (всё поле), телеплан с бровки (поле развёрнуто боком, камера ведёт мяч), верхняя камера за мячом;
+   на эпизодах — свои планы: из-за спины атакующего, крупно удар и гол с облётом, угловой — от флажка на ворота,
+   пенальти — из-за спины бьющего, фол и карточка — крупно, «волна» и трибуны. Поле можно поворачивать (r — угол),
+   надписи и номера остаются ровными. Только картинка: на матч не влияет.
+   🎥 — режим: «Режиссёр» → «Всё поле» → «За мячом». Пока открыта панель решений — всё поле. */
+let cam = {x: W / 2, y: H / 2, z: 1, r: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
+try { const v = localStorage.getItem('fm_cam'); camMode = v === '0' ? 'wide' : ['auto', 'wide', 'follow'].includes(v) ? v : 'auto'; } catch (e) {}
+let camOn = camMode === 'auto';
+const CAM_MODES = {auto: '🎥 Режиссёр: планы и ракурсы', wide: '🎥 Всё поле', follow: '🎥 За мячом'};
+$('cam').classList.toggle('off', camMode === 'wide');
+function aimUp(from, to) { return -Math.PI / 2 - Math.atan2(to.y - from.y, to.x - from.x); }   // поворот: «от from к to» — вверх экрана
+function camTo(z, ms, target, goalT, free, r) {     // goalT — кто атакует (в кадре мяч и ворота); free — план трибун; r — угол (число или функция)
+  if (!camOn) return;
+  if (r === undefined && goalT !== undefined && target === 'ball') {
+    const v = Math.random();                        // ракурс атаки: из-за спины атакующего / с бровки / сверху
+    r = v < .4 ? (goalT === 1 ? -Math.PI : 0) : v < .7 ? (Math.random() < .5 ? 1 : -1) * Math.PI / 2 : 0;
+  }
+  shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT, free, r, t0: performance.now()};
 }
 function secCenter(i) {
   const sec = stands && stands.sectors[((i % SECTORS) + SECTORS) % SECTORS];
@@ -1670,37 +1691,65 @@ function fitZ(a, b, zmax) {                         // насколько мож
   const dx = Math.abs(a.x - b.x) + 170, dy = Math.abs(a.y - b.y) + 170;
   return clamp(Math.min(TW / dx, TH / dy), 1, zmax);
 }
+function zMin(r) {                                  // повёрнутый кадр должен целиком лечь на стадион — минимальное приближение
+  const c = Math.abs(Math.cos(r)), s2 = Math.abs(Math.sin(r));
+  return Math.max(1, c + s2 * TH / TW, s2 * TW / TH + c);
+}
+function nextBase(now) {                            // фоновый план в спокойной игре: сменяется каждые 8–15 сек
+  const v = Math.random(), side = baseShot && baseShot.side || (Math.random() < .5 ? 1 : -1);
+  const kind = camMode === 'follow' ? 'high' : v < .34 ? 'wide' : v < .7 ? 'tv' : 'high';
+  baseShot = {kind, side, until: now + rnd(8000, 15000)};
+}
 function camAim(now) {
-  const full = {x: W / 2, y: H / 2, z: 1};
-  if (!camOn || !S || document.body.classList.contains('deciding') || S.phase === 'final' || speed() > 1) { shotCam = null; return full; }
+  const full = {x: W / 2, y: H / 2, z: 1, r: 0};
+  if (camMode === 'wide' || !S || document.body.classList.contains('deciding') || speed() > 1) { shotCam = null; return full; }
+  if (S.phase === 'final') return {x: W / 2, y: H / 2, z: 1 + .12 * Math.max(0, Math.sin(now / 4000)), r: Math.sin(now / 6000) * .12};
+  if (S.phase !== 'play' && S.phase !== 'pen') return full;           // до матча, перерыв, окна решений — всё поле
   if (shotCam && now > shotCam.until) shotCam = null;
   if (shotCam) {
-    const a = shotCam.at;
+    const a = shotCam.at, r = typeof shotCam.r === 'function' ? shotCam.r(now) : shotCam.r || 0;
     if (a === 'ball') {                              // атака: мяч и ворота, к которым он идёт
       const gl = goalOf(shotCam.goalT !== undefined ? shotCam.goalT : poss);
       const c = lerpPt(ball, gl, .4);
-      return {x: c.x, y: c.y, z: Math.min(shotCam.z, fitZ(ball, gl, shotCam.z))};
+      return {x: c.x, y: c.y, z: Math.max(Math.min(shotCam.z, fitZ(ball, gl, shotCam.z)), zMin(r)), r};
     }
     const pnt = typeof a === 'function' ? a(now) : a;
-    if (pnt) return {x: pnt.x, y: pnt.y, z: shotCam.z};
+    if (pnt) return {x: pnt.x, y: pnt.y, z: Math.max(shotCam.z, zMin(r)), r};
   }
   if (wave) {                                        // камера бежит за «волной» по трибунам
     const k = waveAt(now), c = k < 1.02 && secCenter(Math.floor(k * SECTORS));
-    if (c) return {x: lerp(c.x, W / 2, .15), y: lerp(c.y, H / 2, .15), z: 1.6};
+    if (c) return {x: lerp(c.x, W / 2, .15), y: lerp(c.y, H / 2, .15), z: 1.6, r: 0};
   }
+  if (!baseShot || now > baseShot.until) nextBase(now);
+  const lead = {x: ball.x, y: ball.y + (poss === 0 ? -70 : 70)};            // чуть впереди мяча — по ходу атаки
+  if (baseShot.kind === 'tv') { const r = baseShot.side * Math.PI / 2; return {x: lead.x, y: lead.y, z: Math.max(1.45, zMin(r)), r}; }
+  if (baseShot.kind === 'high') return {x: lead.x, y: lead.y, z: 1.28, r: 0};
   return full;
 }
 function camUpdate(now, dt) {
-  const t = camAim(now), kp = 1 - Math.exp(-dt * 4.5), kz = 1 - Math.exp(-dt * 2.6);
-  cam.z += (t.z - cam.z) * kz; cam.x += (t.x - cam.x) * kp; cam.y += (t.y - cam.y) * kp;
-  if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: камера его «дотягивает»
+  const t = camAim(now), kp = 1 - Math.exp(-dt * 4.2), kz = 1 - Math.exp(-dt * 2.4), kr = 1 - Math.exp(-dt * 2);
+  let dr = t.r - cam.r; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
+  cam.r += dr * kr;
+  cam.z += (Math.max(t.z, zMin(cam.r)) - cam.z) * kz; cam.x += (t.x - cam.x) * kp; cam.y += (t.y - cam.y) * kp;
+  cam.z = Math.max(cam.z, zMin(cam.r));
+  const co = Math.cos(cam.r), si = Math.sin(cam.r);
+  if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра (в осях экрана)
     const mx = TW / 2 / cam.z * .78, my = TH / 2 / cam.z * .78, by = ball.y - ball.h;
-    cam.x = clamp(cam.x, ball.x - mx, ball.x + mx); cam.y = clamp(cam.y, by - my, by + my);
+    const dx = ball.x - cam.x, dy = by - cam.y, sx = co * dx - si * dy, sy = si * dx + co * dy;
+    const cx = clamp(sx, -mx, mx), cy = clamp(sy, -my, my);
+    if (cx !== sx || cy !== sy) {                     // сдвигаем камеру на разницу, переведя её обратно в мир
+      const ex = sx - cx, ey = sy - cy;
+      cam.x += co * ex + si * ey; cam.y += -si * ex + co * ey;
+    }
   }
-  const hw = TW / 2 / cam.z, hh = TH / 2 / cam.z;     // не показываем пустоту за стадионом
-  cam.x = clamp(cam.x, -ST + hw, W + ST - hw); cam.y = clamp(cam.y, -ST + hh, H + ST - hh);
-  const kx = cv.width / TW * cam.z, ky = cv.height / TH * cam.z;
-  g.setTransform(kx, 0, 0, ky, cv.width / 2 - cam.x * kx, cv.height / 2 - cam.y * ky);
+  const ex = (Math.abs(co) * TW + Math.abs(si) * TH) / 2 / cam.z, ey = (Math.abs(si) * TW + Math.abs(co) * TH) / 2 / cam.z;   // не показываем пустоту за стадионом
+  cam.x = clamp(cam.x, -ST + ex, W + ST - ex); cam.y = clamp(cam.y, -ST + ey, H + ST - ey);
+  const k = cv.width / TW * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
+  g.setTransform(a, b, c, d, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y));
+}
+function upright(x, y, fn) {                        // надпись в точке (x, y) ровно на экране, как бы ни была повёрнута камера
+  if (!cam.r) { fn(); return; }
+  g.save(); g.translate(x, y); g.rotate(-cam.r); g.translate(-x, -y); fn(); g.restore();
 }
 function camIdle(now) {                              // в спокойной игре — изредка показать трибуны
   if (!camOn || shotCam || wave || !stands || S.phase !== 'play' || stopped) return;
@@ -1708,7 +1757,7 @@ function camIdle(now) {                              // в спокойной и
   if (now < nextPan || queue.length) return;
   nextPan = now + rnd(25000, 45000);
   const c = secCenter(Math.floor(Math.random() * SECTORS));
-  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true);
+  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true, aimUp({x: W / 2, y: H / 2}, c));   // трибуна вверху кадра
 }
 
 /* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
@@ -1910,6 +1959,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   updatePlay(now);
   if (!pitchImg) return;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#060b16'; g.fillRect(0, 0, cv.width, cv.height);
   camUpdate(now, clamp((now - (camUpdate.last || now)) / 1000, 0, .05)); camUpdate.last = now;
   g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4);
   g.drawImage(pitchImg, -ST, -ST, TW, TH);
@@ -1932,7 +1982,7 @@ function frame(now) {
     for (const c of cards) {
       const p = players[c.k]; if (!p || now > c.until) continue;
       g.fillStyle = c.c === 'red' ? '#dc2626' : '#facc15'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
-      g.fillRect(p.x - 8, p.y - 52, 16, 22); g.strokeRect(p.x - 8, p.y - 52, 16, 22);
+      upright(p.x, p.y, () => { g.fillRect(p.x - 8, p.y - 52, 16, 22); g.strokeRect(p.x - 8, p.y - 52, 16, 22); });
     }
     cards = cards.filter(c => now < c.until);
   }
