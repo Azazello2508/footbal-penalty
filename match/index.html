@@ -580,7 +580,11 @@ function build(a) {
     case 'stop':
       steps.push({d: 2800, poss: null, run: () => {
         stopped = true; whistle(true); renderStatus(); holder = null;
-        if (a.what === 'fan') { fan = {t0: performance.now(), y: rnd(H * .25, H * .75)}; label('🚨 Болельщик выбежал на поле!', 2600); camTo(1.6, 2700, () => fan && {x: lerp(-20, W + 20, clamp((performance.now() - fan.t0) / 2600, 0, 1)), y: fan.y}); }
+        if (a.what === 'fan') {
+          const left = Math.random() < .5;
+          fan = {t0: performance.now(), y: rnd(H * .25, H * .75), x0: left ? -8 : W + 8, dir: left ? 1 : -1, team: Math.random() < .75 ? 0 : 1};
+          label('🚨 Болельщик выбежал на поле!', 2600); camTo(1.6, 5400, () => fan && invaderPos(performance.now()), undefined, true);
+        }
         else {
           const left = Math.random() < .5, ly = rnd(H * .2, H * .8);
           pyro = {t0: performance.now(), x: left ? M + rnd(20, 70) : W - M - rnd(20, 70), y: ly, from: {x: left ? -60 : W + 60, y: ly + rnd(-40, 40)},
@@ -592,7 +596,7 @@ function build(a) {
       break;
     case 'resume':
       steps.push({d: 1000, run: () => {
-        stopped = false; fan = null; renderStatus(); whistle(); label('▶️ Игра возобновлена'); focus = {}; crowd = null;
+        stopped = false; renderStatus(); whistle(); label('▶️ Игра возобновлена'); focus = {}; crowd = null;
         const p = nearestTo(ball, Object.values(players).filter(q => !q.gk)); if (p) giveBall(p);
       }});
       break;
@@ -1422,13 +1426,14 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     else if (side) { fx = i * .8 + face * sw * i * 7; fy = -Math.max(0, -sw * i) * 3.5; }
     else { fy = -Math.max(0, sw * i) * 4; }
     kx = (i * 3.1 + fx) / 2 + (side ? face * 1.6 * amp : 0); ky = (hip + fy) / 2 + (side ? 0 : -1);
-    g.strokeStyle = far ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3.8; g.beginPath(); g.moveTo(i * 3, hip + 2); g.lineTo(kx, ky); g.stroke();
-    g.strokeStyle = far ? mix(sock, -.25) : sock; g.lineWidth = 3.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy - 1.5); g.stroke();
-    g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(Math.min(kx, fx) - .2, ky + (fy - ky) * .35, 1, 1.4);   // полоска на гетре
+    const thigh = opt.trousers || L.skin, shin = opt.trousers || sock;
+    g.strokeStyle = far ? mix(thigh, -.25) : thigh; g.lineWidth = opt.trousers ? 4.2 : 3.8; g.beginPath(); g.moveTo(i * 3, hip + 2); g.lineTo(kx, ky); g.stroke();
+    g.strokeStyle = far ? mix(shin, -.25) : shin; g.lineWidth = opt.trousers ? 4 : 3.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy - 1.5); g.stroke();
+    if (!opt.trousers) { g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(Math.min(kx, fx) - .2, ky + (fy - ky) * .35, 1, 1.4); }   // полоска на гетре
     blob(fx + (side ? face * 1.4 : 0), fy - .6, side ? 3.2 : 2.3, 1.7, boot);
   }
   // шорты
-  g.fillStyle = shorts; g.beginPath(); g.roundRect(-6.2, hip - 3, 12.4, 7, 2.5); g.fill();
+  g.fillStyle = opt.trousers || shorts; g.beginPath(); g.roundRect(-6.2, hip - 3, 12.4, 7, 2.5); g.fill();
   g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-.5, hip, 1, 4);
   // руки за корпусом (дальняя) — сначала
   const armSw = -sw * 4.5, up = pz === 'cele' || pz === 'throw', gloves = p.gk;
@@ -1459,7 +1464,10 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   g.fillStyle = tg; g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.fill();
   if (!p.gk && !opt.ref && !opt.flag) { g.save(); g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.clip();
     g.fillStyle = mix(tm.shorts, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 2, shoulder, 1.6, 15); g.fillRect(tw / 2 - 3.6, shoulder, 1.6, 15); g.restore(); g.globalAlpha = 1; }
-  if (back && p.n !== undefined) {                                      // номер на спине
+  if (opt.vest) {                                                        // жилет: светоотражающие полосы
+    g.fillStyle = 'rgba(226,232,240,.95)'; g.fillRect(-tw / 2, shoulder + 5, tw, 1.3); g.fillRect(-tw / 2, shoulder + 8.5, tw, 1.3);
+    if (back) { g.font = 'bold 3.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#111827'; g.fillText('STEWARD', 0, shoulder + 3.2); }
+  } else if (back && p.n !== undefined) {                               // номер на спине
     g.font = 'bold 7px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = ink(shirt); g.fillText(p.n, 0, shoulder + 6.5);
   } else if (!side) {                                                   // спереди — воротник
@@ -1555,7 +1563,12 @@ function drawSideline(now) {
     g.fillStyle = gl; g.fillRect(f.x - 14, f.y - 14, 28, 28);
   }
   // стюарды в жилетах — лицом к трибунам
-  for (const s of STEWARDS) { blob(s.x, s.y, 4.4, 3.4, '#facc15'); blob(s.x, s.y, 2.2, 2.2, '#3f2a1d'); }
+  for (const s of STEWARDS) {                                     // стюарды лицом к трибунам, изредка переминаются
+    if (fan && fan.chasers && fan.chasers.includes(s)) continue;    // эти сейчас ловят болельщика на поле
+    if (pyro && pyro.st === s && now - pyro.t0 > 2400 && now - pyro.t0 < 6400) continue;
+    const sway = Math.sin(now / 2600 + s.x * .1 + s.y * .07);
+    stewardFig(s, s.x + sway * 1.5, s.y, now, Math.abs(Math.cos(now / 2600 + s.x * .1 + s.y * .07)) > .97 ? .4 : 0, null);
+  }
   // тренеры у своих скамеек: ходят вдоль технической зоны
   if (S) DUGOUT.forEach(([a, b], t) => {
     const y = (a + b) / 2 + Math.sin(now / 1700 + t * 2) * 18, x = 14 + Math.sin(now / 2300 + t) * 3;
@@ -1564,6 +1577,19 @@ function drawSideline(now) {
     g.fillStyle = S.teams[t].shirt; g.fillRect(x - 1.5, y - 4.6, 3, 9.2);         // шарф клуба
     shaded(x, y, 3, 3, '#d6a77a'); blob(x + .4, y, 2.7, 2.4, '#57534e');
   });
+}
+
+function stewardFig(home, x, y, now, v, pz) {      // стюард: оранжевый жилет с полосами, тёмные брюки
+  const id = home.x * 7 + home.y;
+  const st = home._f || (home._f = {stride: 0, pw: 100, ang: 0});
+  const moving = v > .1, look = moving ? Math.atan2(y - (home._py ?? y), x - (home._px ?? x)) : Math.atan2(home.y - H / 2 + (home.y < H / 2 ? -1 : 1) * 200, home.x - W / 2);
+  if (!moving) st.ang = home.x < 30 ? Math.PI : home.x > W - 30 ? 0 : home.y < 30 ? -Math.PI / 2 : Math.PI / 2;   // лицом к трибуне
+  else st.ang = look;
+  home._px = x; home._py = y;
+  st.stride += Math.min(v, 4) * .2 + (moving ? 0 : 0);
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
+  const L = {skin: ['#e0ac85', '#c68863', '#f1c7a5'][Math.abs(Math.round(id)) % 3], hair: '#1c1917', bald: Math.abs(Math.round(id)) % 4 === 0};
+  upright(x, y, () => figure({...st, x, y}, now, {shorts: '#1f2937'}, '#f97316', L, v, pz, false, {vest: true, trousers: '#1f2937'}));
 }
 function snap(team) {                              // вспышки фотографов за воротами, куда бьёт команда
   const near = SNAPPERS.filter(s => s.top === (team === 0));
@@ -1668,17 +1694,29 @@ function drawBanners(now) {
     g.strokeStyle = 'rgba(203,213,225,.7)'; g.lineWidth = .8;              // растяжки к ограждению
     for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * len / 2, -hh / 2); g.lineTo(sx * (len / 2 + 6), -hh / 2 - 5); g.moveTo(sx * len / 2, hh / 2); g.lineTo(sx * (len / 2 + 6), hh / 2 + 4); g.stroke(); }
     g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(-len / 2 + 2, -hh / 2 + 3, len, hh);
-    const N = 14, sp = up ? 110 : 900, amp = up ? 2.4 : .6;
-    for (let i = 0; i < N; i++) {                                           // полотно полосками: колышется, складки темнее
-      const x0 = -len / 2 + i * len / N, ph = now / sp + i * .9 + b.x, dy = Math.sin(ph) * amp;
-      g.fillStyle = b.kind === 'stripes' ? (Math.floor(i / 2) % 2 ? tm.shorts : tm.shirt) : tm.shirt;
-      g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh);
+    const N = 18, sp = up ? 110 : 900, amp = up ? 2.4 : .6, cloth = new Path2D();
+    for (let i = 0; i < N; i++) {                                           // полотно полосками: колышется, провисает к середине, складки темнее
+      const u = (i + .5) / N, x0 = -len / 2 + i * len / N, ph = now / sp + i * .9 + b.x, dy = Math.sin(ph) * amp;
+      const sag = 2.6 * Math.sin(Math.PI * u), w = len / N + .6, h = hh + sag;
+      g.fillStyle = b.kind === 'stripes' ? (Math.floor(i / 3) % 2 ? tm.shorts : tm.shirt) : tm.shirt;
+      g.fillRect(x0, -hh / 2 + dy, w, h); cloth.rect(x0, -hh / 2 + dy, w, h);
       const fold = Math.cos(ph);                                            // складка: свет и тень по наклону ткани
-      g.fillStyle = fold > 0 ? `rgba(255,255,255,${(.16 * fold).toFixed(3)})` : `rgba(0,0,0,${(-.22 * fold).toFixed(3)})`;
-      g.fillRect(x0, -hh / 2 + dy, len / N + .6, hh);
-      g.fillStyle = tm.shorts; g.fillRect(x0, -hh / 2 + dy, len / N + .6, 1.6); g.fillRect(x0, hh / 2 + dy - 1.6, len / N + .6, 1.6);   // кайма
-      if (i % 1 === 0) { g.fillStyle = mix(tm.shorts, -.2); g.fillRect(x0 + 1, hh / 2 + dy, 1.2, 2.4); g.fillRect(x0 + len / N / 2 + 1, hh / 2 + dy, 1.2, 2.4); }   // бахрома
+      g.fillStyle = fold > 0 ? `rgba(255,255,255,${(.15 * fold).toFixed(3)})` : `rgba(0,0,0,${(-.24 * fold).toFixed(3)})`;
+      g.fillRect(x0, -hh / 2 + dy, w, h);
+      g.fillStyle = tm.shorts; g.fillRect(x0, -hh / 2 + dy, w, 1.6); g.fillRect(x0, -hh / 2 + dy + h - 1.6, w, 1.6);   // кайма
+      g.fillStyle = mix(tm.shorts, -.25); g.fillRect(x0 + .8, -hh / 2 + dy + h, 1, 2.2); g.fillRect(x0 + w / 2 + .5, -hh / 2 + dy + h, 1, 2.6);   // бахрома
     }
+    g.save(); g.clip(cloth);                                                 // свет прожекторов сверху, тень снизу, прострочка, бегущий блик
+    const lgt = g.createLinearGradient(0, -hh / 2, 0, hh / 2 + 3);
+    lgt.addColorStop(0, 'rgba(255,255,255,.2)'); lgt.addColorStop(.45, 'rgba(255,255,255,0)'); lgt.addColorStop(1, 'rgba(0,0,0,.28)');
+    g.fillStyle = lgt; g.fillRect(-len / 2, -hh / 2 - 3, len, hh + 9);
+    const sh = ((now / 5200 + b.x * .01) % 1.6) - .3;
+    const sg = g.createLinearGradient(-len / 2, 0, len / 2, 0);
+    sg.addColorStop(clamp(sh - .08, 0, 1), 'rgba(255,255,255,0)'); sg.addColorStop(clamp(sh, 0, 1), 'rgba(255,255,255,.16)'); sg.addColorStop(clamp(sh + .08, 0, 1), 'rgba(255,255,255,0)');
+    g.fillStyle = sg; g.fillRect(-len / 2, -hh / 2 - 3, len, hh + 9);
+    g.setLineDash([1.6, 1.4]); g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = .6;
+    g.strokeRect(-len / 2 + 2.6, -hh / 2 + 2.6, len - 5.2, hh - 5.2); g.setLineDash([]);
+    g.restore();
     const dyc = Math.sin(now / sp + 4.5 + b.x) * amp;
     if (b.kind === 'stripes') drawCrest(0, dyc, crest * 1.25, tm);
     else {
@@ -2001,6 +2039,42 @@ function drawChant(now) {                           // бегущая строк
   }
   g.restore();
 }
+
+/* ---------------- дым и пламя: мягкие облака вместо кругов, пламя языками вверх по экрану ---------------- */
+const puffCache = new Map();
+function puffImg(col) {                            // облако дыма: неровное, мягкое по краям (несколько размытых пятен)
+  let c = puffCache.get(col);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = c.height = 96;
+  const x = c.getContext('2d'), rn = seeded(hashStr(col) % 9973 + 7);
+  for (let i = 0; i < 6; i++) {
+    const px = 48 + (rn() - .5) * 26, py = 48 + (rn() - .5) * 26, r = 22 + rn() * 18;
+    const gr = x.createRadialGradient(px, py, 0, px, py, r);
+    gr.addColorStop(0, col); gr.addColorStop(.55, col + 'aa'); gr.addColorStop(1, col + '00');
+    x.globalAlpha = .45; x.fillStyle = gr; x.fillRect(0, 0, 96, 96);
+  }
+  puffCache.set(col, c);
+  return c;
+}
+function smoke(x, y, r, col, a) { g.globalAlpha = a; g.drawImage(puffImg(col), x - r, y - r, r * 2, r * 2); g.globalAlpha = 1; }
+const FLAME = {'#ef4444': ['#ff3b1f', '#ff8a2a', '#ffe08a'], '#22c55e': ['#22ff7a', '#9dffb4', '#effff2'], '#facc15': ['#ffcc1a', '#ffe680', '#fffbe0']};
+function flame(x, y, s, col, now) {                 // пламя файера: ореол и языки огня вверх по экрану (как бы ни стояла камера)
+  const [c1, c2, c3] = FLAME[col] || FLAME['#ef4444'];
+  upright(x, y, () => {
+    g.save(); g.translate(x, y); g.globalCompositeOperation = 'lighter';
+    const bl = g.createRadialGradient(0, -6 * s, 0, 0, -6 * s, 30 * s);
+    bl.addColorStop(0, c1 + 'cc'); bl.addColorStop(.35, c1 + '44'); bl.addColorStop(1, c1 + '00');
+    g.fillStyle = bl; g.fillRect(-30 * s, -36 * s, 60 * s, 60 * s);
+    for (const [w, h, c, a] of [[5.5, 17, c1, .8], [3.8, 12.5, c2, .9], [2.3, 8, c3, 1], [1.2, 4.5, '#ffffff', 1]]) {
+      const f = .8 + Math.random() * .4, lean = (Math.random() - .5) * 2.4 * s;
+      g.globalAlpha = a; g.fillStyle = c; g.beginPath(); g.moveTo(-w * s * .55, 0);
+      g.quadraticCurveTo(-w * s, -h * s * .45, lean, -h * s * f); g.quadraticCurveTo(w * s, -h * s * .45, w * s * .55, 0);
+      g.closePath(); g.fill();
+    }
+    g.restore();
+  });
+}
+function upVec() { return {x: -Math.sin(cam.r), y: -Math.cos(cam.r)}; }   // «вверх» на экране — в координатах поля
 let flares = [];
 function standPoints(t, n) {                         // n случайных мест в секторах болельщиков команды t (−1 — любые)
   if (!stands) return [];
@@ -2022,6 +2096,40 @@ function lightFlares(t, n, ms, near) {               // near — зажечь р
     flares.push({...p, t0: now + 300 + i * 400, life: ms * 1.1, bomb: true, col: i % 2 ? S.teams[t].shorts : S.teams[t].shirt}));
   if (flares.length > 40) flares = flares.slice(-40);
   return pts[0];
+}
+
+function invaderPos(now) {                         // где болельщик на поле: бег (0–2,4 с), пойман (2,4–3), уводят (3–5,6)
+  const f = fan, age = now - f.t0, run = clamp(age / 2400, 0, 1);
+  const rx = lerp(f.x0, f.x0 + f.dir * 330, run), ry = f.y + Math.sin(run * 13) * 34 * (1 - run * .3);
+  if (age < 2400) return {x: rx, y: ry, ph: 'run'};
+  const caught = {x: lerp(f.x0, f.x0 + f.dir * 330, 1), y: f.y + Math.sin(13) * 34 * .7};
+  if (age < 3000) return {...caught, ph: 'down'};
+  const k = clamp((age - 3000) / 2600, 0, 1);
+  return {x: lerp(caught.x, f.x0, k), y: lerp(caught.y, f.y, k), ph: 'out'};
+}
+function drawInvader(now) {
+  const f = fan, age = now - f.t0;
+  if (age > 5800) { fan = null; return; }
+  const p = invaderPos(now), prev = f.prev || p, v = Math.hypot(p.x - prev.x, p.y - prev.y);
+  f.prev = p;
+  f.body = f.body || {stride: 0, pw: 100, ang: 0};
+  if (v > .05) f.body.ang = Math.atan2(p.y - prev.y, p.x - prev.x);
+  f.body.stride += Math.min(v, 4) * .2;
+  if (!f.chasers) f.chasers = STEWARDS.slice().sort((a, b) => dd(a, {x: f.x0 + f.dir * 330, y: f.y}) - dd(b, {x: f.x0 + f.dir * 330, y: f.y})).slice(0, 2);
+  // стюарды: бегут наперерез (с 0,9 с), ловят, ведут под руки к бровке
+  f.chasers.forEach((s, i) => {
+    const side = i ? 1 : -1;
+    let x = s.x, y = s.y;
+    if (age > 900 && age < 2400) { const k = (age - 900) / 1500; const tgt = invaderPos(f.t0 + 2400); x = lerp(s.x, tgt.x + side * 9, k * k); y = lerp(s.y, tgt.y + side * 4, k * k); }
+    else if (age >= 2400) { x = p.x + side * 9; y = p.y + side * 3; }
+    const sv = Math.hypot(x - (s._ix ?? x), y - (s._iy ?? y)); s._ix = x; s._iy = y;
+    stewardFig(s, x, y, now, sv, age >= 2400 && age < 3000 ? 'kick' : null);
+  });
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(p.x, p.y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
+  const L = {skin: '#e0ac85', hair: '#57351f', bald: false};
+  const shirt = S ? S.teams[f.team].shirt : '#ef4444';
+  upright(p.x, p.y, () => figure({...f.body, x: p.x, y: p.y}, now, {shorts: '#1e3a8a'}, shirt, L, p.ph === 'down' ? 0 : v,
+    p.ph === 'run' ? (Math.floor(age / 400) % 2 ? 'cele' : null) : null, p.ph === 'down', {trousers: '#1e3a8a'}));
 }
 function drawPyro(now) {                          // файер на газоне: полёт с трибуны, горение, дым, стюард уносит
   const p = pyro, age = now - p.t0, FLY = 650, PICK = 3700, GONE = 4600;
@@ -2049,16 +2157,14 @@ function drawPyro(now) {                          // файер на газон�
     if (age < PICK) {                                // сам файер лежит на траве
       g.save(); g.translate(fx0, fy0); g.rotate(p.ang); g.fillStyle = '#7f1d1d'; g.fillRect(-7, -1.6, 12, 3.2); g.fillStyle = '#fca5a5'; g.fillRect(-7, -1.6, 3, 3.2); g.restore();
     }
-    g.fillStyle = '#fff7ed'; g.beginPath(); g.arc(fx0 + Math.cos(p.ang) * 5, fy0 + Math.sin(p.ang) * 5, 3.4 * fl, 0, 7); g.fill();
-    g.fillStyle = 'rgba(255,70,40,.85)'; g.beginPath(); g.arc(fx0 + Math.cos(p.ang) * 5, fy0 + Math.sin(p.ang) * 5, 6 * fl, 0, 7); g.fill();
+    flame(fx0 + Math.cos(p.ang) * 5, fy0 + Math.sin(p.ang) * 5, age > PICK ? .8 : 1.15, '#ef4444', now);
     for (let i = 0; i < 2; i++) fx.push({k: 'spark', x: fx0, y: fy0, vx: rnd(-1.4, 1.4), vy: rnd(-1.6, .4), r: 1.3, life: rnd(300, 700), t0: now});
-    if (Math.random() < .55) fx.push({k: 'smoke', x: fx0 + rnd(-4, 4), y: fy0 + rnd(-4, 4), vx: rnd(-.2, .7) * (p.x < W / 2 ? 1 : -1), vy: rnd(-.7, -.2), r: rnd(9, 16), life: rnd(2500, 4200), t0: now});
+    if (Math.random() < .6) { const uv = upVec(); fx.push({k: 'smoke', x: fx0 + rnd(-4, 4), y: fy0 + rnd(-4, 4), vx: uv.x * rnd(.3, .6) + rnd(.1, .5) * (p.x < W / 2 ? 1 : -1), vy: uv.y * rnd(.3, .6) + rnd(-.15, .15), r: rnd(10, 17), life: rnd(3000, 4800), t0: now}); }
   }
   if (age > 2400 && age < GONE + 1800) {             // стюард в жилете: бежит к файеру, поднимает, уносит
     const run = clamp((age - 2400) / (PICK - 2400), 0, 1), back = clamp((age - PICK) / (GONE - PICK), 0, 1);
     const sx = age < PICK ? lerp(st.x, p.x - 10, run) : lerp(p.x - 10, st.x, back), sy = age < PICK ? lerp(st.y, p.y, run) : lerp(p.y, st.y, back);
-    blob(sx + 2, sy + 2, 7, 6, 'rgba(0,0,0,.3)'); shaded(sx, sy, 7.5, 5.5, '#facc15'); g.fillStyle = '#f97316'; g.fillRect(sx - 7, sy - 1, 14, 2);
-    shaded(sx, sy, 3.4, 3.4, '#d6a77a'); blob(sx, sy + .4, 3, 2.6, '#1c1917');
+    stewardFig(p.st || st, sx, sy, now, age < PICK ? (age > 2400 ? 2.6 : 0) : 1.4, age >= PICK && age < GONE ? 'flag' : null);
   }
 }
 function drawFlares(now) {
@@ -2068,32 +2174,27 @@ function drawFlares(now) {
     if (age < 0) continue;
     const burning = age < f.life;
     if (burning && f.bomb) {                         // дымовая шашка: без пламени, густое облако цвета клуба
-      if (Math.random() < .45) fx.push({k: 'haze', x: f.x + rnd(-4, 4), y: f.y + rnd(-4, 4), vx: -f.nx * rnd(.25, .55) + rnd(-.2, .2),
-        vy: -f.ny * rnd(.25, .55) - .1, r: rnd(10, 18), life: rnd(2600, 4200), t0: now, tint: f.col, dense: true});
+      if (Math.random() < .5) { const uv = upVec(); fx.push({k: 'haze', x: f.x + rnd(-4, 4), y: f.y + rnd(-4, 4), vx: -f.nx * rnd(.2, .45) + uv.x * .3 + rnd(-.2, .2),
+        vy: -f.ny * rnd(.2, .45) + uv.y * .3, r: rnd(11, 19), life: rnd(3000, 4800), t0: now, tint: f.col, dense: true}); }
       continue;
     }
     if (burning) {
       g.globalCompositeOperation = 'lighter';         // свет пламени складывается с трибуной — соседи подсвечены
-      const lg = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, 34);
+      const lg = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, 46);
       lg.addColorStop(0, f.col === '#22c55e' ? 'rgba(60,255,120,.35)' : f.col === '#facc15' ? 'rgba(255,220,80,.38)' : 'rgba(255,90,40,.42)');
       lg.addColorStop(1, 'rgba(0,0,0,0)');
-      g.fillStyle = lg; g.fillRect(f.x - 34, f.y - 34, 68, 68);
+      g.fillStyle = lg; g.fillRect(f.x - 46, f.y - 46, 92, 92);
       g.globalCompositeOperation = 'source-over';
-      const fl = .75 + Math.random() * .35, r = 16 * fl;
-      const gl = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
-      gl.addColorStop(0, f.col === '#ef4444' ? 'rgba(255,70,40,.95)' : f.col === '#22c55e' ? 'rgba(80,255,120,.85)' : 'rgba(255,230,90,.9)');
-      gl.addColorStop(.35, f.col === '#ef4444' ? 'rgba(255,60,30,.35)' : f.col === '#22c55e' ? 'rgba(60,220,100,.3)' : 'rgba(255,210,60,.3)');
-      gl.addColorStop(1, 'rgba(255,60,20,0)');
-      g.fillStyle = gl; g.fillRect(f.x - r * 2.2, f.y - r * 2.2, r * 4.4, r * 4.4);
-      g.fillStyle = '#fff7ed'; g.beginPath(); g.arc(f.x, f.y, 2.2 * fl, 0, 7); g.fill();
-      g.fillStyle = f.col; g.beginPath(); g.arc(f.x, f.y, 3.6 * fl, 0, 7); g.globalAlpha = .7; g.fill(); g.globalAlpha = 1;
+      const uv = upVec(), tipX = f.x + uv.x * 5, tipY = f.y + uv.y * 5;
+      g.strokeStyle = '#3f3f46'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(f.x, f.y); g.lineTo(tipX, tipY); g.stroke();   // палочка в поднятой руке
+      flame(tipX, tipY, .75, f.col, now);
       for (let i = 0; i < 5; i++) {                  // искры — разлетаются и гаснут
         const a = Math.random() * 6.28, d = rnd(3, 16);
         g.fillStyle = d < 9 ? 'rgba(255,250,220,.95)' : 'rgba(255,170,80,.7)'; g.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, 1.3, 1.3);
       }
-      if (Math.random() < .22) fx.push({k: 'haze', x: f.x + rnd(-3, 3), y: f.y + rnd(-3, 3),
-        vx: -f.nx * rnd(.3, .7) + rnd(-.2, .2), vy: -f.ny * rnd(.3, .7) - .15, r: rnd(7, 13), life: rnd(2200, 3600), t0: now,
-        tint: f.col});
+      if (Math.random() < .3) { const uv = upVec(); fx.push({k: 'haze', x: f.x + rnd(-3, 3), y: f.y + rnd(-3, 3),
+        vx: -f.nx * rnd(.15, .4) + uv.x * rnd(.25, .5) + rnd(-.12, .12), vy: -f.ny * rnd(.15, .4) + uv.y * rnd(.25, .5), r: rnd(8, 14), life: rnd(2600, 4200), t0: now,
+        tint: f.col}); }
     }
   }
 }
@@ -2131,29 +2232,25 @@ function frame(now) {
     }
     cards = cards.filter(c => now < c.until);
   }
-  if (fan) {                                  // болельщик бежит через поле
-    const k = (now - fan.t0) / 2600, x = lerp(-20, W + 20, clamp(k, 0, 1)), y = fan.y + Math.sin(k * 20) * 30;
-    g.fillStyle = '#111'; g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#f43f5e'; g.fillRect(x - 6, y - 22, 12, 9);
-    if (k > 1.2) fan = null;
-  }
+  if (fan) drawInvader(now);                  // болельщик на поле и стюарды
   if (pyro) drawPyro(now);
   drawBall();
   // частицы
   fx = fx.filter(f => now - f.t0 < f.life);
+  if (fx.length > 600) fx.splice(0, fx.length - 600);       // много дыма разом — старые облака уходят (телефон не тормозит)
   for (const f of fx) {
     const age = now - f.t0; if (age < 0) continue;
     const k = age / f.life, x = f.x + f.vx * age / 16, y = f.y + f.vy * age / 16;
     if (f.k === 'turf') { g.globalAlpha = 1 - k; g.fillStyle = '#3f6212'; g.fillRect(x - f.r / 2, y - f.r / 2 - age * .02, f.r, f.r * .7); g.globalAlpha = 1; continue; }
     if (f.k === 'ring') { g.globalAlpha = (1 - k) * .8; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, f.r + k * 16, 0, 7); g.stroke(); g.globalAlpha = 1; continue; }
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
-    else if (f.k === 'haze') {
-      g.globalAlpha = (1 - k) * (k < .08 ? k / .08 : 1) * (f.dense ? .38 : .22);
-      g.fillStyle = f.dense ? f.tint : f.tint === '#ef4444' ? '#d9a59b' : f.tint === '#22c55e' ? '#a7dcb3' : '#e2d6a3';
-      g.beginPath(); g.arc(x, y, f.r * (1 + k * 1.8), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+    else if (f.k === 'haze') {                        // дым файеров и шашек: облака растут и тают; у пламени — подсвечены
+      const col = f.dense ? f.tint : k < .15 ? (f.tint === '#22c55e' ? '#9fe0b0' : f.tint === '#facc15' ? '#f0dd9c' : '#e6a08f') : '#b9b4b0';
+      smoke(x, y, f.r * (1 + k * 2.2), col, (1 - k) * (k < .08 ? k / .08 : 1) * (f.dense ? .55 : .34));
     }
     else if (f.k === 'spark') { g.globalAlpha = 1 - k; g.fillStyle = k < .4 ? '#fff7ed' : '#fb923c'; g.fillRect(x, y + age * age * .000004 * 60, f.r, f.r); g.globalAlpha = 1; }
-    else { g.globalAlpha = (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .42 : .5); g.fillStyle = f.k === 'smoke' ? '#e2827a' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+    else { const col = f.k === 'smoke' ? (k < .2 ? '#e88a7c' : '#c9a7a2') : '#d6c7a1';
+      smoke(x, y, f.r * (1 + k * (f.k === 'smoke' ? 2 : 1.2)), col, (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .5 : .55)); }
   }
   if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
   drawWeather(now);
