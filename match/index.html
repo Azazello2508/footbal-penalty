@@ -65,6 +65,10 @@ body.deciding #feed{display:none}
 #dec button:disabled{opacity:.45}
 #dec button:active:not(:disabled){transform:translateY(1px)}
 #dec .list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+#pen{position:fixed;left:0;right:0;bottom:0;z-index:5;display:none;background:#02050f}
+#pen.on{display:block}
+#pen iframe{border:0;width:100%;height:100%;display:block}
+#pen .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:#fff;pointer-events:none}
 </style>
 </head>
 <body>
@@ -83,6 +87,7 @@ body.deciding #feed{display:none}
   <button id="mute" type="button" aria-label="Звук">🔊</button><div id="note"></div></div>
 <div id="feed"></div>
 <div id="dec"></div>
+<div id="pen"><div class="wait">🥅 Пенальти…</div></div>
 <script>
 'use strict';
 /* Живой матч — зритель. Всё считает бот: страница получает состояние и события минуты и только показывает их.
@@ -189,7 +194,7 @@ function renderStatus() {
   else if (S.phase === 'pre') txt = '🧭 Менеджеры дают установку' + sec;
   else if (S.phase === 'window') txt = (S.who && S.who.length === 1 ? `⏸ Решает менеджер ${names[S.who[0]]}` : '⏸ Окно решений — часы стоят') + sec;
   else if (S.phase === 'half') txt = '☕ Перерыв: замены и тактика' + sec;
-  else if (S.phase === 'pen') txt = `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]} — выбор в чате` + sec;
+  else if (S.phase === 'pen') txt = `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]}` + sec;
   else if (S.phase === 'final') txt = '🏁 Финальный свисток';
   else {
     const r = S.teams.map((x, t) => x.rush ? `💥 ${names[t]} штурмует` : '').filter(Boolean);
@@ -225,7 +230,7 @@ function note(text) { const n = $('note'); n.textContent = text || ''; n.classLi
 let actx = null, muted = false;
 try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
 $('mute').textContent = muted ? '🔇' : '🔊';
-$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); };
+$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); toFrame({type: 'mute', on: muted}); };
 function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
 addEventListener('pointerdown', audio, {once: true});
 function whistle(long) {
@@ -291,6 +296,7 @@ function build(a) {
       steps.push({d: 600, run: () => { moveBall(into, 520, 26); kick(); }, poss: a.t});
       steps.push({d: 2900, run: () => {
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
+        jump = {t: a.t, until: performance.now() + 4200, big: true};
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a); const corner = at(a.t, .9, Math.random() < .5 ? .08 : .92);
         if (sh) focus[key(sh.t, sh.s)] = corner;
@@ -305,7 +311,7 @@ function build(a) {
       if (pen) steps.push({d: 400, run: () => moveBall(at(a.t, .885, .5), 350)});
       else steps.push(approach(a));
       steps.push({d: 650, run: () => { moveBall(hit, 480, 16); kick(); if (gk) { focus[key(gk.t, gk.s)] = hit; gk.dive = performance.now(); } }});
-      steps.push({d: 1000, run: () => { label(pen ? '🧤 Вратарь отбил пенальти!' : '🧤 Сейв! ' + (gk ? `№${gk.n} ${gk.nm}` : '')); haptic('medium'); moveBall(near(hit, 30), 500, 10); }, poss: d});
+      steps.push({d: 1000, run: () => { label(pen ? '🧤 Вратарь отбил пенальти!' : '🧤 Сейв! ' + (gk ? `№${gk.n} ${gk.nm}` : '')); haptic('medium'); moveBall(near(hit, 30), 500, 10); jump = {t: d, until: performance.now() + 1600}; }, poss: d});
       steps.push({d: 300, run: () => { focus = {}; }});
       break;
     }
@@ -442,7 +448,9 @@ function updatePlay(now) {
   for (const p of Object.values(players)) {
     const target = targetOf(p, now);
     const sp = focus[key(p.t, p.s)] ? .085 : .045;
+    const ox = p.x, oy = p.y;
     p.x = lerp(p.x, target.x, sp); p.y = lerp(p.y, target.y, sp);
+    p.vx = lerp(p.vx || 0, p.x - ox, .3); p.vy = lerp(p.vy || 0, p.y - oy, .3);
   }
 }
 function idlePass(now) {                    // фон игры между событиями: пасы в средней зоне
@@ -477,29 +485,228 @@ function targetOf(p, now) {
 function near2(c, p, r) { const ang = (p.s * 2.39 + p.t * 1.3); return {x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r}; }
 
 /* ---------------- рисование ---------------- */
+/* ---------------- стадион: трибуны по кругу, щиты, прожекторы ----------------
+   Поле — прямоугольник 0…W × 0…H (газон с отступом M до линий); вокруг кольцо шириной ST: щиты, трибуны, край крыши.
+   Бетон, кресла, лестницы, щиты рисуются один раз; болельщики — векторами по секторам (встают при голе, «волна»),
+   а пока трибуна спокойна — копируются из готовой картинки. */
+const ST = 74, TW = W + 2 * ST, TH = H + 2 * ST, R0 = 12;
+const SECTORS = 32;                       // трибуна поделена на сектора
+const ROWS = [14.5, 20.5, 26.5, 32.5, 38.5, 49, 55, 61, 67];   // ряды (расстояние от газона); между ярусами — проход WALK
+const WALK = [42.5, 46];
+const SEAT = 6.2, AISLES = 24;            // шаг кресел вдоль ряда; лестниц по кругу
+function ringLen(d) { const r = R0 + d; return 2 * (W + 2 * d - 2 * r) + 2 * (H + 2 * d - 2 * r) + 2 * Math.PI * r; }
+// точка на скруглённом прямоугольнике в d от газона: s — путь по периметру от середины верхней стороны по часовой
+function ring(d, s) {
+  const r = R0 + d, x0 = -d, y0 = -d, x1 = W + d, y1 = H + d, lx = W + 2 * d - 2 * r, ly = H + 2 * d - 2 * r, q = Math.PI * r / 2;
+  const P = ringLen(d);
+  s = ((s % P) + P) % P;
+  const seg = [[lx / 2, 'T1'], [q, 'C1'], [ly, 'R'], [q, 'C2'], [lx, 'B'], [q, 'C3'], [ly, 'L'], [q, 'C4'], [lx / 2, 'T2']];
+  for (const [len, k] of seg) {
+    if (s <= len) {
+      const a = (k === 'C1' ? -90 : k === 'C2' ? 0 : k === 'C3' ? 90 : 180) * Math.PI / 180 + s / r;
+      const c = Math.cos(a), sn = Math.sin(a);
+      switch (k) {
+        case 'T1': return {x: W / 2 + s, y: y0, nx: 0, ny: -1};
+        case 'T2': return {x: x0 + r + s, y: y0, nx: 0, ny: -1};
+        case 'R': return {x: x1, y: y0 + r + s, nx: 1, ny: 0};
+        case 'B': return {x: x1 - r - s, y: y1, nx: 0, ny: 1};
+        case 'L': return {x: x0, y: y1 - r - s, nx: -1, ny: 0};
+        case 'C1': return {x: x1 - r + c * r, y: y0 + r + sn * r, nx: c, ny: sn};
+        case 'C2': return {x: x1 - r + c * r, y: y1 - r + sn * r, nx: c, ny: sn};
+        case 'C3': return {x: x0 + r + c * r, y: y1 - r + sn * r, nx: c, ny: sn};
+        case 'C4': return {x: x0 + r + c * r, y: y0 + r + sn * r, nx: c, ny: sn};
+      }
+    }
+    s -= len;
+  }
+  return {x: W / 2, y: y0, nx: 0, ny: -1};
+}
+function ringPath(c, d) { const r = R0 + d; c.beginPath(); c.roundRect(-d, -d, W + 2 * d, H + 2 * d, r); }
+function seeded(n) { let s = Math.abs(Math.floor(n)) % 2147483646 + 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function mix(h, k) {                       // k<0 темнее, k>0 светлее
+  const [r, gg, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const f = v => Math.round(clamp(k < 0 ? v * (1 + k) : v + (255 - v) * k, 0, 255));
+  return `rgb(${f(r)},${f(gg)},${f(b)})`;
+}
+const AWAY_SECTOR = [.80, .89];            // гостевой сектор у левого верхнего углового; вокруг — пустые кресла
+const DUGOUT = [[H / 2 - 92, H / 2 - 30], [H / 2 + 30, H / 2 + 92]];      // скамейки запасных у левой бровки
+function inDugout(p, d) { return p.nx < -.9 && d < 25 && DUGOUT.some(([a, b]) => p.y > a && p.y < b); }
+// доля круга по часовой от середины верхней трибуны: по ней лестницы, сектора и гостевая трибуна
+function frac(p) { const a = Math.atan2((p.x - W / 2) / W, -(p.y - H / 2) / H); return (a / (2 * Math.PI) + 1) % 1; }
+function isAisle(p) { return (frac(p) * AISLES + .03) % 1 < .06; }
+
+let stands = null;                         // {sectors: [{paths: Map(цвет → Path2D), heads, scarf, nx, ny, team}], key, cache}
+function standsKey() {
+  if (!S) return '';
+  const fill = clamp(.12 + (S.fans || 400) / 1100, .18, 1);         // заполненность — по посещаемости матча
+  return [S.teams[0].shirt, S.teams[0].shorts, S.teams[1].shirt, S.teams[1].shorts, Math.round(fill * 20) / 20].join();
+}
+function buildStands() {
+  const key = standsKey();
+  if (!key || (stands && stands.key === key)) return false;
+  const home = S.teams[0], away = S.teams[1], fill = +key.split(',')[4];
+  const rnd2 = seeded(parseInt(home.shirt.slice(1), 16) + parseInt(away.shirt.slice(1), 16) * 3 + fill * 1000);
+  const casual = ['#e5e7eb', '#111827', '#374151', '#1e3a8a', '#7f1d1d', '#14532d', '#78350f', '#f8fafc'];
+  const hair = ['#1c1917', '#3f2a1d', '#57351f', '#a16207', '#d6d3d1', '#0c0a09'];
+  const sectors = [];
+  for (let i = 0; i < SECTORS; i++) sectors.push({paths: new Map(), heads: new Map(), scarf: new Path2D(), nx: 0, ny: 0, n: 0, team: 0});
+  const add = (map, col, x, y, r) => { let p = map.get(col); if (!p) map.set(col, p = new Path2D()); p.moveTo(x + r, y); p.arc(x, y, r, 0, 6.29); };
+  ROWS.forEach((d, row) => {
+    const P = ringLen(d), n = Math.floor(P / SEAT);
+    for (let i = 0; i < n; i++) {
+      const p = ring(d, i * P / n), f = frac(p);
+      if (isAisle(p) || inDugout(p, d)) continue;
+      const awayZone = f > AWAY_SECTOR[0] && f < AWAY_SECTOR[1];
+      if (!awayZone && (Math.abs(f - AWAY_SECTOR[0]) < .012 || Math.abs(f - AWAY_SECTOR[1]) < .012)) continue;   // пустые кресла между фанатами
+      const want = awayZone ? clamp(fill + .25, .35, .95) : fill * (1.25 - row * .07);    // нижние ряды заполняются первыми
+      if (rnd2() > want) continue;
+      const team = awayZone ? 1 : 0, tm = team ? away : home, u = rnd2();
+      const col = u < .55 ? tm.shirt : u < .7 ? tm.shorts : casual[Math.floor(rnd2() * casual.length)];
+      const sec = sectors[Math.floor(f * SECTORS) % SECTORS];
+      const x = p.x + p.nx * 1.2 + (rnd2() - .5) * 1.2, y = p.y + p.ny * 1.2 + (rnd2() - .5) * 1.2;
+      add(sec.paths, col, x, y, 2.5);                                                    // плечи
+      add(sec.heads, rnd2() < .12 ? '#e0b48a' : hair[Math.floor(rnd2() * hair.length)], x - p.nx * 1.1, y - p.ny * 1.1, 1.5);
+      if (rnd2() < .45) sec.scarf.rect(x + p.nx * 2.6 - 2, y + p.ny * 2.6 - 1, 4, 2);     // шарф над головой (виден, когда встают)
+      sec.nx += p.nx; sec.ny += p.ny; sec.n++; sec.team += team;
+    }
+  });
+  for (const sc of sectors) { const l = Math.hypot(sc.nx, sc.ny) || 1; sc.nx /= l; sc.ny /= l; sc.team = sc.n && sc.team / sc.n > .5 ? 1 : 0; }
+  stands = {sectors, key, cache: null};
+  return true;
+}
+let jump = null, wave = null, nextWave = 0;   // jump — встают фанаты команды {t, until, big}; wave — «волна» {t0}
+function crowdAmp(sec, i, now) {
+  let a = 0;
+  if (jump && now < jump.until && sec.team === jump.t) a = Math.abs(Math.sin(now / 95 + i * 1.7)) * (jump.big ? 1 : .5);
+  if (wave) {
+    const k = (now - wave.t0) / 6000;
+    let dd = Math.abs(i / SECTORS - k); dd = Math.min(dd, 1 - dd);
+    if (k <= 1.05 && dd < .07) a = Math.max(a, 1 - dd / .07);
+  }
+  return a;
+}
+let shadeImg = null;                        // тень крыши: верхние ряды темнее
+function buildShade() {
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  const x = c.getContext('2d'); x.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);
+  for (let d = 10; d < ST; d += 1) { ringPath(x, d); x.lineWidth = 1.2; x.strokeStyle = `rgba(2,6,23,${(.5 * Math.pow((d - 10) / (ST - 10), 1.6)).toFixed(3)})`; x.stroke(); }
+  return c;
+}
+function drawStands(now) {
+  if (!stands) return;
+  if (!shadeImg || shadeImg.width !== cv.width) shadeImg = buildShade();
+  if (wave && now - wave.t0 > 6400) wave = null;
+  if (jump && now > jump.until) jump = null;
+  if (jump || wave) { crowdVec(g, now); g.drawImage(shadeImg, -ST, -ST, TW, TH); return; }
+  if (!stands.cache) {                       // спокойная трибуна — один раз в картинку, дальше только копируем
+    const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+    const x = c.getContext('2d'); x.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);
+    crowdVec(x, now); x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(shadeImg, 0, 0); stands.cache = c;
+  }
+  g.drawImage(stands.cache, -ST, -ST, TW, TH);
+}
+function crowdVec(c, now) {
+  stands.sectors.forEach((sec, i) => {
+    const a = crowdAmp(sec, i, now);
+    c.save(); if (a) c.translate(sec.nx * a * 1.8, sec.ny * a * 1.8);
+    for (const [col, p] of sec.paths) { c.fillStyle = col; c.fill(p); }
+    if (a > .35) { c.fillStyle = S.teams[sec.team].shirt; c.fill(sec.scarf); }
+    for (const [col, p] of sec.heads) { c.fillStyle = col; c.fill(p); }
+    c.restore();
+  });
+}
+function drawStadium(x) {
+  x.fillStyle = '#060b16'; x.fillRect(-ST, -ST, TW, TH);                  // ночь за крышей
+  for (let d = ST - 2; d >= 9; d -= 1) {                                 // бетон ярусов: светлее к газону, проход между ярусами
+    const k = (d - 9) / (ST - 11);
+    ringPath(x, d); x.lineWidth = 1.6;
+    x.strokeStyle = d > WALK[0] && d < WALK[1] ? '#2b3445' : `rgb(${Math.round(58 - 26 * k)},${Math.round(66 - 28 * k)},${Math.round(82 - 30 * k)})`; x.stroke();
+  }
+  const seatCol = S ? mix(S.teams[0].shirt, -.55) : '#1e293b';           // кресла в цвет клуба хозяев
+  for (const d of ROWS) {
+    ringPath(x, d + 3.4); x.lineWidth = .8; x.strokeStyle = 'rgba(0,0,0,.45)'; x.stroke();       // край ступени
+    const P = ringLen(d), n = Math.floor(P / SEAT);
+    x.fillStyle = seatCol;
+    for (let i = 0; i < n; i++) {
+      const p = ring(d, i * P / n);
+      if (!isAisle(p) && !inDugout(p, d)) x.fillRect(p.x + p.nx * 1.2 - 2, p.y + p.ny * 1.2 - 2, 4, 4);
+    }
+  }
+  x.fillStyle = 'rgba(148,163,184,.4)';                                   // лестницы сквозь все ряды
+  for (let d = 10; d < ST - 4; d += 2.2) {
+    const P = ringLen(d);
+    for (let s = 0; s < P; s += 1.4) { const p = ring(d, s); if (isAisle(p)) x.fillRect(p.x - .8, p.y - .8, 1.6, 1.6); }
+  }
+  x.fillStyle = '#020617';                                                // входы-тоннели на проходе между ярусами
+  const PW = ringLen(WALK[0] + 1.8);
+  for (let s = 0; s < PW; s += 2) { const p = ring(WALK[0] + 1.8, s); if ((frac(p) * AISLES / 2 + .26) % 1 < .02) { x.beginPath(); x.arc(p.x, p.y, 3, 0, 6.29); x.fill(); } }
+  DUGOUT.forEach(([a, b], t) => {                                         // скамейки запасных под навесом в цвет команды
+    x.fillStyle = 'rgba(15,23,42,.92)'; x.fillRect(-24, a, 14, b - a);
+    if (S) { x.globalAlpha = .5; x.fillStyle = S.teams[t].shirt; x.fillRect(-24, a, 14, b - a); x.globalAlpha = 1; }
+    x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 1; x.strokeRect(-24, a, 14, b - a);
+    for (let y = a + 6; y < b - 3; y += 7) { x.fillStyle = 'rgba(255,255,255,.2)'; x.fillRect(-22, y, 10, 1); }
+  });
+  ringPath(x, ST - 3); x.lineWidth = 6; x.strokeStyle = '#0f172a'; x.stroke();             // край крыши
+  ringPath(x, ST - 5.5); x.lineWidth = 1; x.strokeStyle = 'rgba(148,163,184,.25)'; x.stroke();
+  ringPath(x, 5.5); x.lineWidth = 6.5; x.strokeStyle = '#0b1120'; x.stroke();              // рекламные щиты вокруг газона
+  const ads = [['ЛИГА ДРУЗЕЙ', '#1d4ed8'], ['ФУТБОЛ 5×5', '#b91c1c'], ['ФАН-ЗОНА', '#047857'], ['ТАКТИКА', '#7c3aed'], ['ГОЛ!', '#c2410c']];
+  const P5 = ringLen(5.5);
+  for (let s = 0, i = 0; s + 60 < P5; s += 74, i++) {
+    const [txt, col] = ads[i % ads.length];
+    x.fillStyle = col;
+    for (let k = 0; k < 70; k += 1.5) { const p = ring(5.5, s + k); x.fillRect(p.x - 1.7, p.y - 1.7, 3.4, 3.4); }
+    const p = ring(5.5, s + 35);
+    if (Math.abs(p.nx) > .99 || Math.abs(p.ny) > .99) {
+      x.save(); x.translate(p.x, p.y); x.rotate(p.ny ? 0 : p.nx > 0 ? Math.PI / 2 : -Math.PI / 2);
+      x.fillStyle = '#fff'; x.font = 'bold 5px "Trebuchet MS",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText(txt, 0, .4); x.restore();
+    }
+  }
+  for (const [cx, cy] of [[-ST + 9, -ST + 9], [W + ST - 9, -ST + 9], [W + ST - 9, H + ST - 9], [-ST + 9, H + ST - 9]]) {   // прожекторы
+    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, 34);
+    gl.addColorStop(0, 'rgba(255,255,240,.9)'); gl.addColorStop(.25, 'rgba(255,250,220,.35)'); gl.addColorStop(1, 'rgba(255,250,220,0)');
+    x.fillStyle = gl; x.fillRect(cx - 34, cy - 34, 68, 68);
+    x.fillStyle = '#f8fafc'; x.fillRect(cx - 6, cy - 4, 12, 8); x.strokeStyle = '#475569'; x.lineWidth = 1; x.strokeRect(cx - 6, cy - 4, 12, 8);
+    x.fillStyle = '#fefce8';
+    for (let i = 0; i < 3; i++) { x.fillRect(cx - 5 + i * 4, cy - 3, 2.6, 2.6); x.fillRect(cx - 5 + i * 4, cy + .5, 2.6, 2.6); }
+  }
+}
+
 let scale = 1, pitchImg = null;
 function fit() {
   const wrap = $('pitchwrap'), top = $('top').offsetHeight;
   const vh = (TG && TG.viewportStableHeight) || innerHeight;
   document.body.style.setProperty('--vh', vh + 'px');
   const deciding = document.body.classList.contains('deciding');      // панель решений — поле поменьше
-  const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .56, vh - top - 150));
-  const cw = Math.min(innerWidth, maxH * W / H);
-  scale = cw / W;
+  const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .62, vh - top - 130));
+  const cw = Math.min(innerWidth, maxH * TW / TH);
+  scale = cw / TW;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  cv.style.width = cw + 'px'; cv.style.height = (cw * H / W) + 'px';
-  cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * H / W * dpr);
-  g.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
-  wrap.style.height = (cw * H / W) + 'px';
+  cv.style.width = cw + 'px'; cv.style.height = (cw * TH / TW) + 'px';
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * TH / TW * dpr);
+  g.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);   // дальше — координаты поля
+  wrap.style.height = (cw * TH / TW) + 'px';
   pitchImg = drawPitch(cv.width, cv.height);
+  if (stands) stands.cache = null;
+  const pen = $('pen'); pen.style.top = top + 'px';
 }
 function drawPitch(pw, ph) {
   const c = document.createElement('canvas'); c.width = pw; c.height = ph;
-  const x = c.getContext('2d'); x.setTransform(pw / W, 0, 0, ph / H, 0, 0);
-  const stripes = 12;
+  const x = c.getContext('2d'); x.setTransform(pw / TW, 0, 0, ph / TH, ST * pw / TW, ST * ph / TH);
+  drawStadium(x);
+  const stripes = 12;                                     // газон: полосы стрижки, фактура, пятна света от прожекторов
   for (let i = 0; i < stripes; i++) { x.fillStyle = i % 2 ? '#15803d' : '#16a34a'; x.fillRect(0, i * H / stripes, W, H / stripes + 1); }
-  const gr = x.createRadialGradient(W / 2, H / 2, 100, W / 2, H / 2, H * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.35)');
+  const rn = seeded(42);
+  for (let i = 0; i < 2600; i++) { x.fillStyle = rn() < .5 ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.05)'; x.fillRect(rn() * W, rn() * H, 1, 2.2); }
+  x.globalCompositeOperation = 'lighter';
+  for (const [cx, cy] of [[0, 0], [W, 0], [W, H], [0, H]]) {
+    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, 380); gl.addColorStop(0, 'rgba(255,255,220,.10)'); gl.addColorStop(1, 'rgba(255,255,220,0)');
+    x.fillStyle = gl; x.fillRect(0, 0, W, H);
+  }
+  x.globalCompositeOperation = 'source-over';
+  const gr = x.createRadialGradient(W / 2, H / 2, 140, W / 2, H / 2, H * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.28)');
   x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  if (S && (S.weather === 'rain' || S.weather === 'snow')) { x.fillStyle = S.weather === 'rain' ? 'rgba(30,64,120,.16)' : 'rgba(255,255,255,.13)'; x.fillRect(0, 0, W, H); }
   x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 3;
   x.strokeRect(M, M, W - 2 * M, H - 2 * M);
   x.beginPath(); x.moveTo(M, H / 2); x.lineTo(W - M, H / 2); x.stroke();
@@ -511,12 +718,13 @@ function drawPitch(pw, ph) {
     x.strokeRect(W / 2 - 70, top ? y0 : y0 - 42, 140, 42);
     x.beginPath(); x.arc(W / 2, y0 + dir * 92, 4, 0, Math.PI * 2); x.fill();
     x.beginPath(); x.arc(W / 2, y0 + dir * 92, 62, top ? .22 * Math.PI : 1.22 * Math.PI, top ? .78 * Math.PI : 1.78 * Math.PI); x.stroke();
-    // ворота с сеткой
+    // ворота с сеткой и тенью
     const gy = top ? y0 - 20 : y0;
-    x.fillStyle = 'rgba(255,255,255,.12)'; x.fillRect(W / 2 - 55, gy, 110, 20);
-    x.strokeStyle = 'rgba(255,255,255,.35)'; x.lineWidth = 1;
-    for (let i = 0; i <= 110; i += 10) { x.beginPath(); x.moveTo(W / 2 - 55 + i, gy); x.lineTo(W / 2 - 55 + i, gy + 20); x.stroke(); }
-    for (let j = 0; j <= 20; j += 6) { x.beginPath(); x.moveTo(W / 2 - 55, gy + j); x.lineTo(W / 2 + 55, gy + j); x.stroke(); }
+    x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(W / 2 - 52, gy + (top ? 4 : 6), 110, 20);
+    x.fillStyle = 'rgba(255,255,255,.14)'; x.fillRect(W / 2 - 55, gy, 110, 20);
+    x.strokeStyle = 'rgba(255,255,255,.4)'; x.lineWidth = 1;
+    for (let i = 0; i <= 110; i += 6) { x.beginPath(); x.moveTo(W / 2 - 55 + i, gy); x.lineTo(W / 2 - 55 + i, gy + 20); x.stroke(); }
+    for (let j = 0; j <= 20; j += 5) { x.beginPath(); x.moveTo(W / 2 - 55, gy + j); x.lineTo(W / 2 + 55, gy + j); x.stroke(); }
     x.strokeStyle = '#fff'; x.lineWidth = 4; x.beginPath();
     x.moveTo(W / 2 - 55, y0); x.lineTo(W / 2 - 55, gy + (top ? 0 : 20)); x.lineTo(W / 2 + 55, gy + (top ? 0 : 20)); x.lineTo(W / 2 + 55, y0); x.stroke();
     x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = 3;
@@ -527,28 +735,77 @@ function drawPitch(pw, ph) {
   }
   return c;
 }
+let sky = [];                                  // дождь / снег поверх всего
+function drawWeather(now) {
+  const w = S && S.weather;
+  if (w !== 'rain' && w !== 'snow') return;
+  while (sky.length < (w === 'rain' ? 70 : 55)) sky.push({x: rnd(-ST, W + ST), y: rnd(-ST, H + ST), v: rnd(.7, 1.3)});
+  g.strokeStyle = 'rgba(200,220,255,.45)'; g.fillStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.2;
+  for (const d of sky) {
+    if (w === 'rain') { d.y += 14 * d.v; d.x += 2; g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x - 3, d.y - 14); g.stroke(); }
+    else { d.y += 1.6 * d.v; d.x += Math.sin(now / 700 + d.v * 9) * .8; g.beginPath(); g.arc(d.x, d.y, 2 * d.v, 0, 6.29); g.fill(); }
+    if (d.y > H + ST) { d.y = -ST; d.x = rnd(-ST, W + ST); }
+  }
+}
+const SKIN = ['#f1c7a5', '#e0ac85', '#c68863', '#8d5a3b', '#5c3a24'];
+const HAIR = ['#1c1917', '#3f2a1d', '#6b4423', '#b7791f', '#0c0a09', '#57534e'];
+function looks(p) { const h = (p.t * 7 + p.s * 13 + (p.n || 0) * 3) % 30; return {skin: SKIN[h % SKIN.length], hair: HAIR[(h * 7) % HAIR.length]}; }
+function turn(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
 function drawPlayer(p, now) {
+  // фигурка сверху: тень, ноги (бег), шорты, руки, футболка-плечи, голова с причёской; номер — поверх, не поворачивается
   const tm = S.teams[p.t];
   const shirt = p.gk ? gkColor(p.t) : tm.shirt;
   const down = downed && downed.k === key(p.t, p.s) && now < downed.until;
   const active = !!focus[key(p.t, p.s)];
+  const v = Math.hypot(p.vx || 0, p.vy || 0);
+  const want = v > .25 ? Math.atan2(p.vy, p.vx) : Math.atan2(ball.y - p.y, ball.x - p.x);
+  p.ang = p.ang === undefined ? want : turn(p.ang, want, v > .25 ? .18 : .06);
+  p.stride = (p.stride || 0) + Math.min(v, 4) * .22;
+  const sw = v > .12 ? Math.sin(p.stride) : 0, L = looks(p);
   g.save(); g.translate(p.x, p.y);
-  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(2, 13, 15, 6, 0, 0, Math.PI * 2); g.fill();
-  if (down) g.rotate(Math.PI / 2.2);
-  if (p.gk && p.dive && now - p.dive < 600) g.rotate(Math.sin((now - p.dive) / 600 * Math.PI) * .9);
-  if (active) { g.strokeStyle = 'rgba(250,204,21,.9)'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 21 + Math.sin(now / 120) * 1.5, 0, Math.PI * 2); g.stroke(); }
-  g.fillStyle = tm.shorts; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.fill();
-  g.fillStyle = shirt; g.beginPath(); g.arc(0, 0, 13, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = ink(shirt); g.font = 'bold 15px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(p.n, 0, 1);
-  if (p.y_ > 0) { g.fillStyle = '#facc15'; g.fillRect(9, -18, 7, 10); }
-  g.restore();
+  g.fillStyle = 'rgba(0,0,0,.32)'; g.beginPath(); g.ellipse(4, 6, 15, 9, .5, 0, Math.PI * 2); g.fill();     // тень от прожекторов
+  if (active) { g.strokeStyle = 'rgba(250,204,21,.9)'; g.lineWidth = 2.5; g.beginPath(); g.arc(0, 0, 21 + Math.sin(now / 120) * 1.5, 0, Math.PI * 2); g.stroke(); }
+  let rot = p.ang + Math.PI / 2;                                   // в своих координатах фигурка смотрит вверх (−y)
+  if (p.gk && p.dive && now - p.dive < 600) rot += Math.sin((now - p.dive) / 600 * Math.PI) * .9;
+  g.rotate(rot);
+  const sock = mix(tm.shorts, -.15);
+  if (down) {                                                       // лежит на газоне
+    g.rotate(Math.PI / 2);
+    for (const i of [-1, 1]) { g.strokeStyle = sock; g.lineWidth = 4.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(i * 4, 4); g.lineTo(i * 5, 19); g.stroke(); }
+    g.fillStyle = tm.shorts; g.beginPath(); g.ellipse(0, 5, 9, 6, 0, 0, 7); g.fill();
+    g.fillStyle = shirt; g.beginPath(); g.ellipse(0, -3, 12, 8.5, 0, 0, 7); g.fill();
+    g.fillStyle = L.skin; g.beginPath(); g.arc(0, -13, 5.6, 0, 7); g.fill();
+    g.fillStyle = L.hair; g.beginPath(); g.arc(0, -14.5, 4.8, Math.PI, 0); g.fill();
+    g.restore();
+  } else {
+    for (const i of [-1, 1]) {                                     // ноги: в беге одна впереди, другая сзади
+      const fy = -sw * i * 9;
+      g.strokeStyle = sock; g.lineWidth = 4.2; g.lineCap = 'round'; g.beginPath(); g.moveTo(i * 4.2, 1); g.lineTo(i * 4.6, fy); g.stroke();
+      g.fillStyle = '#111827'; g.beginPath(); g.ellipse(i * 4.6, fy - 1.5 * Math.sign(fy || -1), 2.6, 3.6, 0, 0, 7); g.fill();
+    }
+    g.fillStyle = tm.shorts; g.beginPath(); g.ellipse(0, 2, 8.6, 5.6, 0, 0, 7); g.fill();
+    for (const i of [-1, 1]) {                                     // руки — в противофазе с ногами
+      const ay = sw * i * 6;
+      g.fillStyle = L.skin; g.beginPath(); g.ellipse(i * 13.6, ay, 2.6, 5, 0, 0, 7); g.fill();
+      if (p.gk) { g.fillStyle = '#f8fafc'; g.beginPath(); g.arc(i * 13.8, ay - 4.2, 3, 0, 7); g.fill(); }
+      g.fillStyle = shirt; g.beginPath(); g.ellipse(i * 11.6, ay * .5 - .5, 3.6, 4.2, 0, 0, 7); g.fill();
+    }
+    g.fillStyle = shirt; g.beginPath(); g.ellipse(0, 0, 12.4, 8, 0, 0, 7); g.fill();      // плечи
+    g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 1.2; g.stroke();
+    g.fillStyle = mix(shirt, -.25); g.beginPath(); g.ellipse(0, -1, 4.6, 2.6, 0, 0, 7); g.fill();   // воротник
+    g.fillStyle = L.skin; g.beginPath(); g.arc(0, -1.5, 5.4, 0, 7); g.fill();               // голова
+    g.fillStyle = L.hair; g.beginPath(); g.ellipse(0, .2, 5.2, 4.4, 0, Math.PI * .95, Math.PI * 2.05); g.fill();   // волосы — к затылку
+    g.restore();
+  }
+  // номер — на спине; на экране не крутим, чтобы читался
+  g.font = 'bold 11px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.65)'; g.strokeText(p.n, p.x, p.y + 15); g.fillStyle = '#fff'; g.fillText(p.n, p.x, p.y + 15);
+  if (p.y_ > 0) { g.fillStyle = '#facc15'; g.fillRect(p.x + 9, p.y - 18, 5, 7); }
   if (active || down) {
-    g.font = 'bold 14px "Trebuchet MS",sans-serif'; g.textAlign = 'center';
+    g.font = 'bold 13px "Trebuchet MS",sans-serif';
     const w = g.measureText(p.nm).width + 10;
-    g.fillStyle = 'rgba(5,10,24,.78)'; g.fillRect(p.x - w / 2, p.y + 19, w, 18);
-    g.fillStyle = '#fff'; g.fillText(p.nm, p.x, p.y + 29);
+    g.fillStyle = 'rgba(5,10,24,.78)'; g.fillRect(p.x - w / 2, p.y + 22, w, 17);
+    g.fillStyle = '#fff'; g.fillText(p.nm, p.x, p.y + 31);
   }
 }
 function frame(now) {
@@ -557,6 +814,9 @@ function frame(now) {
   if (!pitchImg) return;
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(pitchImg, 0, 0); g.restore();
   if (S) {
+    if (buildStands()) { pitchImg = drawPitch(cv.width, cv.height); }       // цвета команд пришли — кресла и скамейки в их цвет
+    drawStands(now);
+    if (!wave && S.phase === 'play' && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(45000, 90000); }
     const list = Object.values(players).sort((a, b) => a.y - b.y);
     for (const p of list) drawPlayer(p, now);
     for (const c of cards) {
@@ -591,6 +851,7 @@ function frame(now) {
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
     else { g.globalAlpha = (1 - k) * (f.k === 'smoke' ? .55 : .5); g.fillStyle = f.k === 'smoke' ? '#c2410c' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   }
+  drawWeather(now);
   if (S && S.left !== undefined && now % 1000 < 20) renderStatus();
 }
 setInterval(() => { if (S && S.left !== undefined) renderStatus(); }, 500);
@@ -608,19 +869,37 @@ function onMine(m) {
     mineUntil = performance.now() + (m.left || 0) * 1000;
     if (!wasOpen || !sameWin) { view = 'main'; viewArg = null; pending = null; haptic('medium'); ping(); }
   }
-  if (document.body.classList.contains('deciding') !== !!m.open) { document.body.classList.toggle('deciding', !!m.open); fit(); }
-  renderDec();
+  setDeciding();
 }
 function act(a) {
-  if (!mine || !mine.open || pending || !ws || ws.readyState !== 1) return;
-  pending = Object.assign({id: actSeq++, wid: mine.wid}, a);
+  if (!mine || !mine.open) return;
+  sendAct(a, mine.wid);
+}
+function sendAct(a, wid) {
+  if (!ROOM) { demoAct(a); return; }
+  if (pending || !ws || ws.readyState !== 1 || wid === undefined || wid === null) return;
+  pending = Object.assign({id: actSeq++, wid}, a);
   ws.send(JSON.stringify({type: 'act', act: pending}));
   haptic('light'); renderDec();
-  setTimeout(() => { if (pending && pending.id === actSeq - 1) { pending = null; mine.note = '⚠️ Ответ не пришёл — попробуйте ещё раз или кнопкой в чате'; renderDec(); } }, 8000);
+  const id = pending.id;
+  setTimeout(() => {
+    if (!pending || pending.id !== id) return;
+    const was = pending; pending = null;
+    if (was.a === 'pen') toFrame({type: 'note', text: '⚠️ Ответ не пришёл — коснитесь ещё раз'});
+    else if (mine) mine.note = '⚠️ Ответ не пришёл — попробуйте ещё раз или кнопкой в чате';
+    renderDec();
+  }, 8000);
 }
 function onAck(m) {
   if (!pending || m.id !== pending.id) return;
+  const was = pending;
   pending = null;
+  if (was.a === 'pen') {                       // выбор в пенальти: принят — отметить; нет — сказать почему
+    if (m.ok) toFrame({type: 'picked', value: was.v}); else toFrame({type: 'note', text: '⚠️ ' + (m.note || 'Не принято')});
+    if (!m.ok) haptic('rigid');
+    return;
+  }
+  if (was.a === 'taker') { if (!m.ok) haptic('rigid'); renderDec(); return; }
   if (mine) mine.note = m.note || mine.note;
   if (!m.ok) haptic('rigid');
   view = 'main'; viewArg = null; renderDec();
@@ -633,6 +912,7 @@ function power(p) { return (p.pw >= 60 ? '🟢' : p.pw >= 35 ? '🟡' : '🔴') 
 function cardsOf(p) { return p.off ? ' 🟥' : ' 🟨'.repeat(p.y || 0); }
 function renderDec() {
   decEl.textContent = '';
+  if (pen && pen.open && pen.kind === 'urgent') { renderUrgent(); return; }
   if (!mine || !mine.open) return;
   const m = mine, left = Math.max(0, Math.ceil((mineUntil - performance.now()) / 1000));
   const h = document.createElement('h3');
@@ -710,8 +990,8 @@ function renderDec() {
   decEl.appendChild(box);
 }
 setInterval(() => {
-  if (!mine || !mine.open) return;
-  const el = $('decleft'); if (el) el.textContent = '⏱ ' + Math.max(0, Math.ceil((mineUntil - performance.now()) / 1000)) + ' сек';
+  const until = pen && pen.open && pen.kind === 'urgent' ? penUntil : mine && mine.open ? mineUntil : 0;
+  const el = $('decleft'); if (until && el) el.textContent = '⏱ ' + Math.max(0, Math.ceil((until - performance.now()) / 1000)) + ' сек';
 }, 500);
 function ping() {
   const a = !muted && audio(); if (!a) return;
@@ -720,6 +1000,100 @@ function ping() {
   gn.gain.setValueAtTime(.12, t); gn.gain.exponentialRampToValueAtTime(.001, t + .35);
   o.connect(gn); gn.connect(a.destination); o.start(t); o.stop(t + .36);
 }
+
+/* ---------------- пенальти внутри сцены (шаг 3) ----------------
+   Бот присылает {type:'pen'}: открыт выбор (бьющий/вратарь — графика страницы пенальти во вложенном окне;
+   срочный выбор исполнителя — список в панели), потом — исход. Выбор уходит боту как решение {a:'pen'|'taker'},
+   он проверяет его по тому же правилу, что кнопки в чате; исход считает только бот. */
+let pen = null, penFrame = null, penReady = false, penSent = null, penClose = 0;
+const penEl = $('pen');
+function penUrl() { return (LOCAL ? '../penalty/' : '../') + '?embed=1'; }
+function toFrame(m) { if (penFrame && penReady) try { penFrame.contentWindow.postMessage(m, location.origin); } catch (e) {} }
+function penOpen() {
+  clearTimeout(penClose);
+  if (!penFrame) {
+    penReady = false;
+    penFrame = document.createElement('iframe'); penFrame.src = penUrl(); penFrame.title = 'Пенальти';
+    penEl.appendChild(penFrame);
+  }
+  penEl.style.top = $('top').offsetHeight + 'px';
+  penEl.classList.add('on');
+}
+function penHide() {
+  penEl.classList.remove('on');
+  if (penFrame) { penFrame.remove(); penFrame = null; penReady = false; }
+  penSent = null;
+}
+function penState() {                         // всё, что нужно сцене пенальти, — в её формате (как у отдельной страницы)
+  if (!pen || !pen.open || pen.kind !== 'penalty') return;
+  const left = Math.max(1, Math.round((penUntil - performance.now()) / 1000));
+  toFrame({type: 'mute', on: muted});
+  toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked});
+  penSent = pen.wid;
+}
+let penUntil = 0;
+function onPen(m) {
+  const prev = pen;
+  if (m.result && !m.open) {
+    if (m.late || !penFrame) return;          // старый исход (сцену открыли позже) — не показываем
+    pen = m; toFrame({type: 'result', ...m.result});
+    penClose = setTimeout(penHide, 9000);     // страница пенальти сама скажет «готово»; это — на всякий случай
+    return;
+  }
+  pen = m;
+  if (m.open) penUntil = performance.now() + (m.left || 0) * 1000;
+  if (m.open && m.kind === 'penalty') {
+    penOpen();
+    if (!prev || prev.wid !== m.wid || penSent !== m.wid) { penSent = null; if (penReady) penState(); }
+    else if (m.picked !== null && m.picked !== undefined && (prev.picked === null || prev.picked === undefined)) toFrame({type: 'picked', value: m.picked});
+    if (!prev || prev.wid !== m.wid) { haptic('heavy'); ping(); }
+  } else if (!m.open && prev && prev.open && prev.kind === 'penalty') {
+    penClose = setTimeout(penHide, 6000);     // выбор закрыт — ждём исход; не пришёл — убираем
+  } else if (!m.open && penFrame && !penEl.classList.contains('on')) penHide();
+  if (m.open && m.kind === 'urgent' && (!prev || prev.wid !== m.wid)) { view = 'main'; haptic('heavy'); ping(); }
+  setDeciding();
+}
+addEventListener('message', e => {
+  if (!penFrame || e.source !== penFrame.contentWindow || e.origin !== location.origin || !e.data) return;
+  const m = e.data;
+  if (m.type === 'ready') { penReady = true; penEl.querySelector('.wait').style.display = 'none'; penState(); }
+  else if (m.type === 'pick') sendAct({a: 'pen', v: m.value}, pen && pen.wid);
+  else if (m.type === 'done') penHide();
+  else if (m.type === 'haptic') haptic({tap: 'light', kick: 'heavy', success: 'goal', error: 'rigid'}[m.kind] || 'light');
+});
+function setDeciding() {
+  const on = !!((mine && mine.open) || (pen && pen.open && pen.kind === 'urgent'));
+  if (document.body.classList.contains('deciding') !== on) { document.body.classList.toggle('deciding', on); fit(); }
+  renderDec();
+}
+function renderUrgent() {
+  const m = pen, left = Math.max(0, Math.ceil((penUntil - performance.now()) / 1000));
+  const h = document.createElement('h3');
+  h.innerHTML = `<span>❗ Пенальти — кто бьёт?</span><small id="decleft">⏱ ${left} сек</small>`;
+  decEl.appendChild(h);
+  const sub = document.createElement('div'); sub.className = 'sub';
+  if (m.role !== 'pick') { sub.textContent = 'Соперник выбирает исполнителя пенальти…'; decEl.appendChild(sub); return; }
+  sub.textContent = 'Назначенного пенальтиста нет на поле. Не выберете — бьёт лучший по Удару.';
+  decEl.appendChild(sub);
+  if (pending || (m.picked !== null && m.picked !== undefined)) {
+    const r = document.createElement('div'); r.className = 'res';
+    const p = m.cands.find(x => x.s === m.picked);
+    r.textContent = pending ? 'Отправляем решение…' : `🎯 Бьёт №${p ? p.n + ' ' + p.nm : ''}`;
+    decEl.appendChild(r); return;
+  }
+  const box = document.createElement('div'); box.className = 'list';
+  for (const c of m.cands) box.appendChild(btn(`№${c.n} ${esc(c.nm)}<small>Удар ${c.shot} · силы ${power({pw: c.pw})}</small>`, '', () => sendAct({a: 'taker', s: c.s}, m.wid)));
+  decEl.appendChild(box);
+}
+// свернули мини-приложение или ушли с экрана — бот снова пишет в чат как обычно
+let seen = true;
+function setSeen(on) {
+  if (on === seen) return;
+  seen = on;
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'act', act: {a: 'seen', on}}));
+}
+document.addEventListener('visibilitychange', () => setSeen(document.visibilityState === 'visible'));
+if (TG && TG.onEvent) { try { TG.onEvent('activated', () => setSeen(true)); TG.onEvent('deactivated', () => setSeen(false)); } catch (e) {} }
 
 /* ---------------- подключение к комнате матча ---------------- */
 const Q = new URLSearchParams(location.search);
@@ -733,7 +1107,8 @@ let ws = null, retry = 0, ended = false;
 function connect() {
   note(S ? 'Переподключаемся…' : 'Подключаемся к матчу…');
   ws = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
-  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+  ws.onopen = () => { ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+    if (!seen) ws.send(JSON.stringify({type: 'act', act: {a: 'seen', on: false}})); };
   clearInterval(connect.ping);           // молчащее соединение Cloudflare закрывает (~100 сек) — пингуем
   connect.ping = setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 30000);
   ws.onmessage = e => {
@@ -742,6 +1117,7 @@ function connect() {
     retry = 0;
     if (m.type === 'state') onState(m);
     else if (m.type === 'mine') onMine(m);
+    else if (m.type === 'pen') onPen(m);
     else if (m.type === 'ack') onAck(m);
     else if (m.type === 'tick') { onTick(m); note(''); }
     else if (m.type === 'bot_left') note('Бот переподключается — матч продолжится, подождите…');
@@ -787,6 +1163,7 @@ function demo() {
       else if (k === 'foul' || k === 'card') { const v = pick(field(st.teams[1 - t])).s; acts.push({a: 'foul', t, s, v}); if (k === 'card') acts.push({a: 'card', c: 'yellow', t, s}); feed.push({m: st.minute, t: `${st.minute}' 🛑 Фол` + (k === 'card' ? ' → 🟨 Жёлтая карточка: ' + nm : '')}); }
       else if (k === 'tackle') acts.push({a: 'tackle', t, s});
       else if (k === 'brawl') { const o = pick(field(st.teams[1 - t])).s; acts.push({a: 'brawl', lvl: pick(['scuffle', 'fight', 'mass']), t, s, ot: 1 - t, os: o}); feed.push({m: st.minute, t: `${st.minute}' 🥊 Стычка!`}); }
+      else if (k === 'pen' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t); return; }
       else if (k === 'pen') { const scored = Math.random() < .7; if (scored) tm.score++; acts.push({a: 'pen', t}, {a: scored ? 'goal' : 'save', t, s, how: 'пенальти', score: [st.teams[0].score, st.teams[1].score]}); feed.push({m: st.minute, t: `${st.minute}' 🥅❗ ПЕНАЛЬТИ!`}); }
       else if (k === 'stop') { acts.push({a: 'stop', what: pick(['fan', 'pyro'])}, {a: 'resume'}); feed.push({m: st.minute, t: `${st.minute}' 🚨 Матч остановлен`}); }
       if (Math.random() < .5) feed.push({m: st.minute, c: pick(['Красиво, но бесполезно — как зонтик в метро.', 'Тренер на бровке жуёт жвачку с яростью философа.', 'Мяч круглый, а вот идеи у команды — квадратные.'])});
@@ -797,6 +1174,31 @@ function demo() {
     st.teams[0].poss = Math.round(100 * (st.teams[0].shots + 1) / (tot + 2)); st.teams[1].poss = 100 - st.teams[0].poss;
     onTick({seq: seq++, state: JSON.parse(JSON.stringify(st)), acts, feed});
   }, Number(Q.get('tick')) || 4000);
+}
+
+// демо пенальти в сцене: вы бьёте (команда 0) или ловите; соперник и исход — случайные, как «ответ бота»
+let demoWid = 100;
+function demoPen(t) {
+  const tm = S.teams[t], o = S.teams[1 - t], kp = tm.att[0] || tm.def[0];
+  onPen({type: 'pen', open: true, wid: ++demoWid, kind: 'penalty', role: t === 0 ? 'kick' : 'keep', left: 15, picked: null,
+         kicker: {num: kp.n, name: kp.nm, stat: 'Удар 30', shirt: tm.shirt, shorts: tm.shorts},
+         keeper: {num: o.gk.n, name: o.gk.nm, stat: 'Вратарство 28', shirt: gkColor(1 - t)}});
+  demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 15000);
+}
+function demoAct(a) {
+  if (a.a !== 'pen' || !pen || !pen.open) return;
+  clearTimeout(demoPen.timer);
+  const role = pen.role, v = a.v;
+  if (v !== null) toFrame({type: 'picked', value: v});
+  const aim = role === 'kick' && v !== null ? v : Math.floor(Math.random() * 6), dive = role === 'keep' && v !== null ? v : Math.floor(Math.random() * 3);
+  const outcome = Math.random() < .08 ? 'miss' : aim % 3 === dive && Math.random() < .5 ? 'save' : 'goal';
+  setTimeout(() => {
+    onPen({type: 'pen', open: false});
+    onPen({type: 'pen', open: false, result: {aim, dive, outcome, text: outcome === 'goal' ? 'Вратарь прыгнул в другую сторону' : outcome === 'save' ? 'Вратарь угадал угол!' : 'Мимо!'}});
+    const t = demoPen.t, tm = S.teams[t];
+    if (outcome === 'goal') tm.score++;
+    onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'pen', t}, {a: outcome, t, s: (tm.att[0] || tm.def[0]).s, how: 'пенальти', score: [S.teams[0].score, S.teams[1].score]}], feed: [{m: S.minute, t: `${S.minute}' 🥅 Пенальти: ` + outcome}]});
+  }, 700);
 }
 
 addEventListener('resize', fit); fit();

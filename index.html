@@ -43,7 +43,9 @@ const STANDS_Y = 250, BOARDS_Y = 250, PITCH_Y = 282;     // трибуны до 
 const AIMS = ['в левый верхний угол', 'под перекладину', 'в правый верхний угол',
               'в левый нижний угол', 'низом по центру', 'в правый нижний угол'];
 const DIVES = ['прыгает влево', 'остаётся в центре', 'прыгает вправо'];
-const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+// ?embed=1 — пенальти внутри сцены матча (webapp/match): связь с ботом и вибрация — через неё (postMessage)
+const EMBED = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
+const TG = !EMBED && window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 const FONT = '"Trebuchet MS","Segoe UI",sans-serif';
 
 if (!CanvasRenderingContext2D.prototype.roundRect)      // старые Android WebView: скругление — простым прямоугольником
@@ -215,6 +217,7 @@ document.getElementById('mute').onclick = () => {
   muted = !muted; document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; audioOn();
 };
 function haptic(kind) {
+  if (EMBED) { toParent({type: 'haptic', kind}); return; }
   try { if (!TG || !TG.HapticFeedback) return;
     if (kind === 'tap') TG.HapticFeedback.impactOccurred('light');
     else if (kind === 'kick') TG.HapticFeedback.impactOccurred('heavy');
@@ -675,7 +678,7 @@ function frame(now) {
   drawHud();
   if (a) drawResult(at, a);
   if (phase === 'choose' && performance.now() > deadline) {
-    if (live) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }   // в матче решает сервер
+    if (live || EMBED) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }   // в матче решает сервер
     else pick(Math.floor(Math.random() * (role === 'kick' ? 6 : 3)), true);
   }
   requestAnimationFrame(frame);
@@ -704,6 +707,7 @@ const pickWords = v => role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVE
 function pick(v, auto) {
   if (phase !== 'choose') return;
   myPick = v; phase = 'wait'; haptic('tap');
+  if (EMBED) { toParent({type: 'pick', value: v}); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
   demoOpponent(v);
@@ -766,6 +770,7 @@ function play(result) {
 }
 function finish() {
   phase = 'done';
+  if (EMBED) { setUi(''); toParent({type: 'done'}); return; }
   if (live) { setUi('Матч продолжается в чате.', closeBtn()); return; }
   setUi('Демо-режим: соперник выбирал случайно.', [['Ещё раз', '', () => start(role)], ['Сменить роль', 'alt', () => start(role === 'kick' ? 'keep' : 'kick')]]);
 }
@@ -776,7 +781,21 @@ function start(r, left) {
   setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
                      : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
 }
-if (ROOM) liveConnect();
+/* ---------------- ВНУТРИ СЦЕНЫ МАТЧА: сообщения бота приносит страница матча ---------------- */
+function toParent(m) { try { window.parent.postMessage(m, location.origin); } catch (e) {} }
+if (EMBED) {
+  document.getElementById('mute').style.display = 'none';     // звук включает/выключает сцена матча
+  addEventListener('message', e => {
+    if (e.source !== window.parent || e.origin !== location.origin || !e.data) return;
+    const m = e.data;
+    if (m.type === 'mute') muted = !!m.on;
+    else if (m.type === 'note') { if (phase === 'wait') { phase = 'choose'; myPick = null; } setUi(m.text || ''); }
+    else onLive(m);
+  });
+  setUi('Пенальти!');
+  toParent({type: 'ready'});
+}
+else if (ROOM) liveConnect();
 else setUi('Пенальти — демо. Кем будете?', [['⚽ Бить', '', () => start('kick')], ['🧤 Стоять в воротах', 'alt', () => start('keep')]]);
 
 addEventListener('resize', fit); fit();
