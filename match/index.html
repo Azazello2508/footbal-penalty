@@ -196,19 +196,19 @@ function base(t, role, i, n) {
   const spread = n === 1 ? [.5] : n === 2 ? [.3, .7] : [.2, .5, .8];
   if (role === 'gk') return {depth: .035, xf: .5};
   const xf = spread[i] !== undefined ? spread[i] : .5;
-  return role === 'def' ? {depth: .22, xf} : {depth: .44, xf};
+  return role === 'def' ? {depth: .2, xf} : role === 'mid' ? {depth: .33, xf} : {depth: .46, xf};
 }
 function syncLineup() {
   if (!S) return;
   const seen = new Set();
   S.teams.forEach((tm, t) => {
-    const list = [['gk', [tm.gk]], ['def', tm.def], ['att', tm.att]];
+    const list = [['gk', [tm.gk]], ['def', tm.def], ['mid', tm.mid || []], ['att', tm.att]];
     for (const [role, arr] of list) arr.forEach((p, i) => {
       const k = key(t, p.s); seen.add(k);
       const b = base(t, role, i, arr.length);
       let f = players[k];
       if (!f) { const st = at(t, b.depth, b.xf); f = players[k] = {t, s: p.s, x: st.x, y: st.y}; }
-      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b});
+      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b, sp: p.sp || 20, pw: p.pw === undefined ? 100 : p.pw});
     });
   });
   for (const k of Object.keys(players)) if (!seen.has(k)) delete players[k];
@@ -341,10 +341,19 @@ function moveBall(to, d, arc, mode) {
   ball.fx = ball.x; ball.fy = ball.y; ball.tx = to.x; ball.ty = to.y; ball.t0 = performance.now(); ball.d = Math.max(1, d);
   ball.arc = arc || 0; ball.mode = mode || 'ease'; ball.recv = null;
 }
-function shoot(to, speed, arc) { const d = Math.hypot(to.x - ball.x, to.y - ball.y); moveBall(to, d / (speed || 520) * 1000, arc || 8, 'lin'); kick(); }
-function giveBall(p) { if (!p) return; holder = key(p.t, p.s); poss = p.t; ball.recv = null; dribbleUntil = 0; }
+function strike(power) {                  // кто бил — выносит ногу; на ударе из-под ноги летит газон
+  const k = holderP() || nearestTo(ball, Object.values(players).filter(q => dd(q, ball) < 30));
+  if (k) pose(k, 'kick', power > 1 ? 320 : 220, 0);
+  const n = power > 1 ? 9 : 3;
+  for (let i = 0; i < n; i++) fx.push({k: 'turf', x: ball.x + rnd(-4, 4), y: ball.y + rnd(-4, 4), vx: rnd(-.9, .9), vy: rnd(-.9, .9), r: rnd(1.2, 2.4), life: rnd(350, 700), t0: performance.now()});
+  if (power > 1) fx.push({k: 'ring', x: ball.x, y: ball.y, vx: 0, vy: 0, r: 6, life: 260, t0: performance.now()});
+}
+function shoot(to, speed, arc) { strike(2); const d = Math.hypot(to.x - ball.x, to.y - ball.y); moveBall(to, d / (speed || 520) * 1000, arc || 8, 'lin'); kick(); }
+let oneTouch = false;
+function giveBall(p) { if (!p) return; holder = key(p.t, p.s); poss = p.t; ball.recv = null; dribbleUntil = oneTouch ? -1 : 0; oneTouch = false; }
 function holderP() { return holder ? players[holder] || null : null; }
 function passTo(p, speed) {               // пас в ноги с упреждением: p получит мяч, когда тот доедет
+  if (holderP()) strike(1);
   const lead = {x: p.x + (p.ux || 0) * .3, y: p.y + (p.uy || 0) * .3}, d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
   moveBall(lead, d / (speed || 290) * 1000, d > 250 ? d * .07 : 0, 'out');
   ball.recv = key(p.t, p.s); poss = p.t; kick();
@@ -594,7 +603,8 @@ function updatePlay(now) {
   for (const p of list) {
     const T = targetOf(p, now);
     const dx = T.x - p.x, dy = T.y - p.y, d = Math.hypot(dx, dy);
-    const vmax = SPD[T.sp || 'jog'] * (S && S.teams[p.t].rush && T.sp !== 'walk' ? 1.08 : 1);
+    const legs = (.86 + clamp(p.sp || 20, 5, 40) / 40 * .28) * (.78 + .22 * clamp(p.pw === undefined ? 100 : p.pw, 0, 100) / 100);
+    const vmax = SPD[T.sp || 'jog'] * legs * (S && S.teams[p.t].rush && T.sp !== 'walk' ? 1.08 : 1);
     const want = Math.min(vmax, d * 2.8);
     let ax = (d ? dx / d * want : 0) - (p.ux || 0), ay = (d ? dy / d * want : 0) - (p.uy || 0);
     const al = Math.hypot(ax, ay), lim = ACC * dt * (T.sp === 'sprint' ? 1.3 : 1);
@@ -603,8 +613,8 @@ function updatePlay(now) {
   }
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i], b = list[j], d = dd(a, b);
-    if (d > 0 && d < 20 && !(crowd && (crowd.kind === 'celebrate' || crowd.kind === 'mass'))) {
-      const push = (20 - d) * 2.2, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
+    if (d > 0 && d < 22 && !(crowd && (crowd.kind === 'celebrate' || crowd.kind === 'mass'))) {
+      const push = (22 - d) * 2.2, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
       a.ux += nx * push; a.uy += ny * push; b.ux -= nx * push; b.uy -= ny * push;
     }
   }
@@ -618,6 +628,7 @@ function updatePlay(now) {
 function director(now) {                   // «фон» игры: ведение и пасы в средней зоне, иногда перехват
   const hp = holderP();
   if (hp) {
+    if (dribbleUntil === -1) { dribbleUntil = now + 120; return; }  // в одно касание
     if (!dribbleUntil) { dribbleUntil = now + (hp.gk ? rnd(1100, 1900) : rnd(600, 1500)); return; }
     const pr = plan && plan.press[1 - hp.t];
     if (pr && !hp.gk && dd(pr, hp) < 17 && Math.random() < .012) {     // прессингующий отобрал мяч
@@ -638,7 +649,12 @@ function director(now) {                   // «фон» игры: ведени�
       const mid = lerpPt(hp, best, rnd(.35, .7)), cut = nearestTo(mid, teamPlayers(1 - hp.t, true));
       if (cut && dd(cut, mid) < 120) { passTo({x: mid.x, y: mid.y, t: cut.t, s: cut.s, ux: 0, uy: 0}, 300); ball.recv = key(cut.t, cut.s); return; }
     }
+    if (!hp.gk && hp.role !== 'att' && Math.random() < .14) {      // смена фланга: длинный навес на дальнего партнёра
+      const far = mates.filter(q => !q.gk && Math.abs(q.x - hp.x) > W * .35);
+      if (far.length) { const q = far[Math.floor(Math.random() * far.length)]; passTo(q, 380); ball.arc = 34; return; }
+    }
     passTo(best, hp.gk ? 340 : rnd(260, 340));
+    oneTouch = Math.random() < .3;                                   // получивший отдаст в одно касание
     return;
   }
   if (now - ball.t0 < ball.d || ball.recv) return;
@@ -806,7 +822,7 @@ function onTick(m) {
   const prev = S; S = m.state;
   if (!shown) shown = JSON.parse(JSON.stringify(S));
   if (S.left !== undefined) statusUntil = performance.now() + S.left * 1000;
-  const lineupChanged = !prev || JSON.stringify(prev.teams.map(x => [x.gk, x.def, x.att])) !== JSON.stringify(S.teams.map(x => [x.gk, x.def, x.att]));
+  const lineupChanged = !prev || JSON.stringify(prev.teams.map(x => [x.gk, x.def, x.mid, x.att])) !== JSON.stringify(S.teams.map(x => [x.gk, x.def, x.mid, x.att]));
   const fresh = JSON.parse(JSON.stringify(S));
   const steps = [];
   const acts = m.acts || [];
@@ -1167,7 +1183,7 @@ function drawWeather(now) {
 }
 const SKIN = ['#f1c7a5', '#e0ac85', '#c68863', '#8d5a3b', '#5c3a24'];
 const HAIR = ['#1c1917', '#3f2a1d', '#6b4423', '#b7791f', '#0c0a09', '#57534e'];
-const PS = 1.22;                                // фигурки чуть крупнее поля — чтобы на телефоне читались
+const PS = 1.12;                                // фигурки чуть крупнее поля — чтобы на телефоне читались (7×7 — плотнее)
 const LIGHTS = [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4];   // тени от четырёх мачт — по диагоналям
 function looks(p) { const h = (p.t * 7 + p.s * 13 + (p.n || 0) * 3) % 30; return {skin: SKIN[h % SKIN.length], hair: HAIR[(h * 7) % HAIR.length], bald: h % 11 === 0}; }
 function turn(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
@@ -1211,8 +1227,9 @@ function drawPlayer(p, now) {
     if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(0, -14.5, 4.8, Math.PI, 0); g.fill(); }
     g.restore();
   } else {
-    for (const i of [-1, 1]) {                                     // ноги: в беге одна впереди, другая сзади
-      const fy = -sw * i * 9;
+    const kickLeg = pz === 'kick';
+    for (const i of [-1, 1]) {                                     // ноги: в беге одна впереди, другая сзади; при ударе — правая вперёд
+      const fy = kickLeg ? (i === 1 ? -15 : 5) : -sw * i * 9 * (.75 + .25 * clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1));
       g.strokeStyle = L.skin; g.lineWidth = 4.6; g.beginPath(); g.moveTo(i * 4.2, 1); g.lineTo(i * 4.4, fy * .5); g.stroke();   // колени
       g.strokeStyle = sock; g.lineWidth = 4.2; g.beginPath(); g.moveTo(i * 4.4, fy * .45); g.lineTo(i * 4.6, fy); g.stroke();
       g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(i * 3, fy * .5); g.lineTo(i * 6, fy * .5); g.stroke();
@@ -1236,8 +1253,12 @@ function drawPlayer(p, now) {
       blob(i * 12.6, ay * .55 + 2.4, 2.6, 1.1, p.gk ? '#111827' : mix(tm.shorts, -.05));   // манжета рукава
       if (p.c && i === -1 && !p.gk) { g.fillStyle = '#facc15'; g.save(); g.translate(i * 12.6, ay * .7); g.fillRect(-2.6, -1.2, 5.2, 2.4); g.restore(); }   // повязка капитана
     }
+    const lean = kickLeg ? -1.5 : Math.min(v, 3) * -.5;           // на бегу корпус чуть вперёд
+    g.translate(0, lean);
     shaded(0, 0, 12.6, 8.2, shirt);                                // плечи
-    g.strokeStyle = mix(shirt, -.45); g.lineWidth = 1; g.beginPath(); g.ellipse(0, 0, 12.6, 8.2, 0, 0, 7); g.stroke();
+    if (!p.gk) { g.save(); g.beginPath(); g.ellipse(0, 0, 12.6, 8.2, 0, 0, 7); g.clip();            // две полосы клуба по спине
+      g.fillStyle = mix(tm.shorts, .05); g.globalAlpha = .55; g.fillRect(-5.2, -9, 2.2, 18); g.fillRect(3, -9, 2.2, 18); g.restore(); g.globalAlpha = 1; }
+    g.strokeStyle = mix(shirt, -.55); g.lineWidth = 1.2; g.beginPath(); g.ellipse(0, 0, 12.6, 8.2, 0, 0, 7); g.stroke();
     blob(0, -1, 4.8, 2.8, mix(shirt, -.3));                       // воротник
     blob(-5.4, -1.4, 1.3, 1.9, L.skin); blob(5.4, -1.4, 1.3, 1.9, L.skin);   // уши
     shaded(0, -1.5, 5.4, 5.4, L.skin);                              // голова
@@ -1266,16 +1287,16 @@ function drawPlayer(p, now) {
 /* ---------------- мяч: рисунок из пятиугольников, вращение, след, тень по высоте ---------------- */
 let spin = 0, bprev = null;
 function drawBall() {
-  const h = ball.h, r = 6.6 + h * .07, by = ball.y - h;
+  const h = ball.h, r = 7.2 + h * .07, by = ball.y - h;
   const sp = bprev ? Math.hypot(ball.x - bprev.x, by - bprev.y) : 0;
   spin += sp * .09;
   const sa = clamp(.38 - h * .004, .12, .38);
   g.fillStyle = `rgba(0,0,0,${sa})`; g.beginPath(); g.ellipse(ball.x + 2 + h * .25, ball.y + 3 + h * .18, 6.5 + h * .04, 3.3 + h * .02, 0, 0, 7); g.fill();
-  if (sp > 3 && bprev) {                                     // след в полёте
-    for (let i = 1; i <= 3; i++) {
-      const k = i / 4; g.fillStyle = `rgba(255,255,255,${.16 - i * .04})`;
-      g.beginPath(); g.arc(lerp(ball.x, bprev.x, k * 2), lerp(by, bprev.y, k * 2), r * (1 - k * .25), 0, 7); g.fill();
-    }
+  if (sp > 3 && bprev) {                                     // след в полёте: полоса от прошлых кадров, на ударе длиннее
+    const tx = ball.x - (ball.x - bprev.x) * clamp(sp / 3, 2, 7), ty = by - (by - bprev.y) * clamp(sp / 3, 2, 7);
+    const gr = g.createLinearGradient(ball.x, by, tx, ty);
+    gr.addColorStop(0, 'rgba(255,255,255,.42)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.strokeStyle = gr; g.lineCap = 'round'; g.lineWidth = r * 1.5; g.beginPath(); g.moveTo(ball.x, by); g.lineTo(tx, ty); g.stroke();
   }
   bprev = {x: ball.x, y: by};
   const gr = g.createRadialGradient(ball.x - r * .35, by - r * .4, r * .1, ball.x, by, r);
@@ -1506,6 +1527,8 @@ function frame(now) {
   for (const f of fx) {
     const age = now - f.t0; if (age < 0) continue;
     const k = age / f.life, x = f.x + f.vx * age / 16, y = f.y + f.vy * age / 16;
+    if (f.k === 'turf') { g.globalAlpha = 1 - k; g.fillStyle = '#3f6212'; g.fillRect(x - f.r / 2, y - f.r / 2 - age * .02, f.r, f.r * .7); g.globalAlpha = 1; continue; }
+    if (f.k === 'ring') { g.globalAlpha = (1 - k) * .8; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, f.r + k * 16, 0, 7); g.stroke(); g.globalAlpha = 1; continue; }
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
     else { g.globalAlpha = (1 - k) * (f.k === 'smoke' ? .55 : .5); g.fillStyle = f.k === 'smoke' ? '#c2410c' : '#d6c7a1'; g.beginPath(); g.arc(x, y, f.r * (1 + k), 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
   }
@@ -1604,7 +1627,8 @@ function renderDec() {
       box.appendChild(btn(`🕊 Успокоить своих<small>10 мин стычки вдвое реже, настрой +3</small>`, '', () => act({a: 'calm'})));
       box.appendChild(btn(`📣 Скандал судье<small>настрой +8, но стычки вероятнее, риск жёлтой</small>`, 'hot', () => act({a: 'protest'})));
     }
-    box.appendChild(btn(`🔄 Замена<small>${bench.length ? 'выйдет №' + bench[0].n + ' ' + esc(bench[0].nm) : 'запасных нет'}</small>`, '', () => { view = 'sub'; renderDec(); }, !bench.length));
+    const ready = bench.filter(p => !p.inj);
+    box.appendChild(btn(`🔄 Замена<small>${ready.length ? 'на скамейке: ' + ready.map(p => '№' + p.n).join(', ') : 'выпустить некого'}</small>`, '', () => { view = 'sub'; viewArg = null; renderDec(); }, !ready.length));
     box.appendChild(btn(`📐 Схема<small>сейчас ${m.formation}</small>`, '', () => { view = 'form'; renderDec(); }));
     box.appendChild(btn(`⚙️ Тактика<small>${m.tactic_used ? 'уже меняли в этом окне' : 'раз за окно'}</small>`, '', () => { view = 'tac'; renderDec(); }, m.tactic_used));
     box.appendChild(btn(`🎯 Задание игроку<small>${m.order_used ? 'уже давали в этом окне' : m.order ? 'есть: ' + esc(m.order) : 'нет'}</small>`, '', () => { view = 'ord'; renderDec(); }));
@@ -1619,11 +1643,19 @@ function renderDec() {
     box.appendChild(btn(m.kind === 'half' ? '✅ Готово (перерыв идёт до конца)' : '✅ Готово', 'go wide', () => act({a: 'done'}), m.done));
   } else if (view === 'sub') {
     box.className = 'list';
-    const inn = m.bench.find(p => !p.off);
-    const t = document.createElement('div'); t.className = 'sub'; t.textContent = `Кого заменить? Выйдет №${inn.n} ${inn.nm} · силы ${inn.pw}%` + (inn.inj ? ' · 🚑 травма' : '');
-    box.appendChild(t);
-    for (const p of m.field) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.gk ? ' (вратарь)' : ''}<small>силы ${power(p)}</small>`, '', () => act({a: 'sub', s: p.s})));
-    box.appendChild(back());
+    const ready = m.bench.filter(p => !p.off && !p.inj);
+    const t = document.createElement('div'); t.className = 'sub';
+    if (viewArg === null || viewArg === undefined) {          // шаг 1: кого убрать
+      t.textContent = 'Кого заменить?'; box.appendChild(t);
+      for (const p of m.field) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.gk ? ' (вратарь)' : ''}<small>силы ${power(p)}</small>`, '',
+        () => { if (ready.length > 1) { viewArg = p.s; renderDec(); } else act({a: 'sub', s: p.s, i: ready[0] && ready[0].s}); }));
+      box.appendChild(back());
+    } else {                                                   // шаг 2: кто из запасных выйдет
+      const out = m.field.find(p => p.s === viewArg);
+      t.textContent = `Вместо №${out ? out.n + ' ' + out.nm : ''} выйдет:`; box.appendChild(t);
+      for (const p of ready) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}<small>силы ${power(p)}</small>`, '', () => act({a: 'sub', s: viewArg, i: p.s})));
+      box.appendChild(btn('⬅️ Назад', 'wide', () => { viewArg = null; renderDec(); }));
+    }
   } else if (view === 'form') {
     box.className = 'list';
     for (const f of m.formations) box.appendChild(btn(`${f.k === m.formation ? '✔️ ' : ''}${esc(f.title)}<small>${esc(f.info)}</small>`, f.k === m.formation ? 'on' : '', () => act({a: 'form', k: f.k})));
@@ -1967,16 +1999,17 @@ function connect() {
 /* ---------------- ДЕМО без бота: случайный матч, чтобы посмотреть сцену ---------------- */
 function demo() {
   const mk = (name, shirt, shorts, form, base) => {
-    const [d, a] = form.split('-').map(Number), p = i => ({s: i, n: [1, 4, 5, 9, 10, 7][i - 1], nm: name.slice(0, 3) + ' ' + base[i - 1], y: 0, c: i === 2});
+    const [d, mm, a] = form.split('-').map(Number), p = i => ({s: i, n: [1, 4, 5, 6, 8, 10, 9][i - 1], nm: name.slice(0, 3) + ' ' + base[i - 1], y: 0, c: i === 2});
+    const f = [2, 3, 4, 5, 6, 7];
     return {name, score: 0, shirt, shorts, formation: form, tactic: 'Баланс', rush: false, gk: p(1),
-            def: [2, 3, 4, 5].slice(0, d).map(p), att: [2, 3, 4, 5].slice(d, d + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
+            def: f.slice(0, d).map(p), mid: f.slice(d, d + mm).map(p), att: f.slice(d + mm, d + mm + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
   };
-  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов']), mk('Бета', '#2563eb', '#202024', '1-3', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков'])]};
+  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
   let seq = 0;
   onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
   const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'stop'];
   const pick = a => a[Math.floor(Math.random() * a.length)];
-  const field = tm => [...tm.def, ...tm.att];
+  const field = tm => [...tm.def, ...(tm.mid || []), ...tm.att];
   setInterval(() => {
     if (st.minute >= 60) return;
     st.minute++; st.phase = 'play';
