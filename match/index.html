@@ -65,6 +65,12 @@ body.deciding #feed{display:none}
 #dec button:disabled{opacity:.45}
 #dec button:active:not(:disabled){transform:translateY(1px)}
 #dec .list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+#dec .setg{margin-top:6px}
+#dec .setg b{display:block;font-size:14px;margin:4px 0 5px}
+#dec .setg b small{font-weight:400;color:var(--muted)}
+#dec .setrow{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+#dec .setrow button{padding:10px 4px;font-size:13px;text-align:center}
+#dec .setg .sub{margin:5px 0 0;font-size:12px}
 #dec .tabs{display:flex;gap:6px;margin:0 0 8px}
 #dec .tabs button{flex:1;text-align:center;padding:9px 6px;font-size:14px;background:#0f1a36}
 #dec .tabs button.on{background:#1e3a8a;outline:2px solid var(--gold)}
@@ -1387,7 +1393,8 @@ function onAck(m) {
   if (was.a === 'mg' || was.a === 'bet') { mgNote = m.ok ? '' : '⚠️ ' + (m.note || 'Не принято'); if (!m.ok) haptic('rigid'); renderDec(); return; }
   if (mine) mine.note = m.note || mine.note;
   if (!m.ok) haptic('rigid');
-  view = 'main'; viewArg = null; renderDec();
+  if (was.a !== 'set') { view = 'main'; viewArg = null; }     // установки — остаёмся на их экране: можно поменять и другие
+  renderDec();
 }
 function btn(html, cls, fn, disabled) {
   const b = document.createElement('button'); b.type = 'button'; b.className = cls || ''; b.innerHTML = html;
@@ -1409,7 +1416,8 @@ function renderDec() {
   decEl.appendChild(h);
   const sub = document.createElement('div'); sub.className = 'sub';
   sub.textContent = `Схема ${m.formation} · ${(m.tactics.find(x => x.k === m.tactic) || {}).title || ''} · настрой: ${m.mood}`
-    + (m.order ? ` · задание: ${m.order}` : '') + (m.reason ? `\nПовод: ${m.reason}` : '');
+    + (m.my_sets ? ` · ${m.my_sets}` : '') + (m.order ? ` · задание: ${m.order}` : '')
+    + (m.opp_sets ? `\nСоперник: ${m.opp_sets}` : '') + (m.reason ? `\nПовод: ${m.reason}` : '');
   sub.style.whiteSpace = 'pre-line'; decEl.appendChild(sub);
   if (pending || m.note) {
     const r = document.createElement('div'); r.className = 'res' + (!pending && m.note && m.note.startsWith('⚠️') ? ' bad' : '');
@@ -1433,6 +1441,10 @@ function renderDec() {
     box.appendChild(btn(`⚙️ Тактика<small>${m.tactic_used ? 'уже меняли в этом окне' : 'раз за окно'}</small>`, '', () => { view = 'tac'; renderDec(); }, m.tactic_used));
     box.appendChild(btn(`🎯 Задание игроку<small>${m.order_used ? 'уже давали в этом окне' : m.order ? 'есть: ' + esc(m.order) : 'нет'}</small>`, '', () => { view = 'ord'; renderDec(); }));
     box.appendChild(btn(`🗣 Речь<small>${m.spoke ? 'уже говорили' : 'раз за окно'}</small>`, '', () => { view = 'speech'; renderDec(); }, m.spoke));
+    if (m.sets) {
+      box.appendChild(btn(`🧩 Установки<small>${esc(m.my_sets || 'темп, отбор, атака, угловые')}</small>`, '', () => { view = 'set'; renderDec(); }));
+      box.appendChild(btn(`💬 Игроку<small>${m.word_used ? 'слово сказано · капитан, пенальти' : 'похвала, разнос · капитан'}</small>`, '', () => { view = 'word'; renderDec(); }));
+    }
     const r = m.rush;
     box.appendChild(btn(`💥 Штурм ворот<small>${r.active ? 'идёт до ' + r.until + "'" : r.left <= 0 ? 'использован' : !r.allowed ? 'после свистка' : 'раз за матч, 5 минут'}</small>`, 'hot',
       () => { view = 'rush'; renderDec(); }, r.active || r.left <= 0 || !r.allowed));
@@ -1468,6 +1480,39 @@ function renderDec() {
     box.className = 'list';
     for (const x of m.speeches) box.appendChild(btn(esc(x.title), '', () => act({a: 'speech', k: x.k})));
     box.appendChild(back());
+  } else if (view === 'set') {
+    box.className = 'list';
+    const t = document.createElement('div'); t.className = 'sub';
+    t.textContent = 'Каждую можно поменять раз за окно; действуют, пока не поменяете. Темп и отбор соперник видит, атаку и угловые — нет.';
+    box.appendChild(t);
+    for (const g of m.sets) {
+      const grp = document.createElement('div'); grp.className = 'setg';
+      const cur = g.opts.find(o => o.k === g.cur) || {};
+      grp.innerHTML = `<b>${esc(g.title)}: ${esc(cur.title || '')}${g.used ? ' <small>· уже меняли в этом окне</small>' : ''}</b>`;
+      const row = document.createElement('div'); row.className = 'setrow';
+      for (const o of g.opts) row.appendChild(btn(esc(o.short), o.k === g.cur ? 'on' : '', () => act({a: 'set', k: g.k, v: o.k}), g.used || o.k === g.cur || !o.ok));
+      grp.appendChild(row);
+      const info = document.createElement('div'); info.className = 'sub';
+      info.textContent = g.opts.filter(o => o.k !== 'normal').map(o => `${o.title} — ${o.info}`).join('\n');
+      info.style.whiteSpace = 'pre-line'; grp.appendChild(info);
+      box.appendChild(grp);
+    }
+    box.appendChild(back());
+  } else if (view === 'word') {
+    box.className = 'list';
+    if (!viewArg) {
+      const t = document.createElement('div'); t.className = 'sub';
+      t.textContent = m.word_used ? 'Слово игроку в этом окне уже сказано. Капитана и пенальтиста можно менять.' : 'Слово одному игроку — раз за окно. Капитана и пенальтиста можно менять без лимита.';
+      box.appendChild(t);
+      for (const w of m.words) box.appendChild(btn(`${esc(w.title)}<small>${esc(w.info)}</small>`, '', () => { viewArg = w.k; renderDec(); }, (!w.free && m.word_used) || !w.to.length));
+    } else {
+      const w = m.words.find(x => x.k === viewArg) || {to: []};
+      const t = document.createElement('div'); t.className = 'sub'; t.textContent = `${w.title || ''} — кому?`; box.appendChild(t);
+      for (const p of m.field.filter(p => w.to.includes(p.s)))
+        box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.cap ? ' ©️' : ''}${p.ptk ? ' 🎯' : ''}<small>${viewArg === 'ptk' ? 'Удар ' + p.shot : esc(p.mood || '')}${p.careful ? ' · осторожно' : ''}</small>`,
+          '', () => act({a: 'word', k: viewArg, s: p.s})));
+    }
+    box.appendChild(viewArg ? btn('⬅️ Назад', 'wide', () => { viewArg = null; renderDec(); }) : back());
   } else if (view === 'rush') {
     box.className = 'list';
     const t = document.createElement('div'); t.className = 'sub';
