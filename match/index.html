@@ -287,7 +287,7 @@ try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
 $('mute').textContent = muted ? '🔇' : '🔊';
 $('cam').onclick = () => {
   camMode = {auto: 'wide', wide: 'follow', follow: 'auto'}[camMode] || 'auto'; camOn = camMode === 'auto'; shotCam = null; baseShot = null;
-  $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam', camMode); } catch (e) {} label(CAM_MODES[camMode]);
+  $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam2', camMode); } catch (e) {} label(CAM_MODES[camMode]);
 };
 $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); toFrame({type: 'mute', on: muted}); };
 function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
@@ -490,7 +490,7 @@ function build(a) {
       const back = {x: off.x + (xf ? 16 : -16), y: off.y + (a.t === 0 ? 10 : -10)};          // откуда разбег
       const drop = at(a.t, rnd(.83, .9), xf ? rnd(.38, .55) : rnd(.45, .62));                   // куда навес: от ближней штанги до точки
       steps.push({d: 3200, poss: a.t, run: () => {             // пока все занимают места в штрафной
-        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.55, 4800, 'ball', a.t, false, aimUp(flag, at(a.t, .86, .5)));   // от флажка на ворота
+        flagUp(flag, a.t, 2000); label('🚩 Угловой · ' + names[a.t]); moveBall(off, 800, 6, 'out'); camTo(1.55, 4800, 'ball', a.t, false, nearRot(aimUp(flag, at(a.t, .86, .5))));   // от флажка на ворота
         if (taker) { ball.recv = null; focus[key(taker.t, taker.s)] = back; }
         crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box', xf};
       }});
@@ -512,7 +512,7 @@ function build(a) {
     case 'fk': {
       const spot = at(a.t, .72, rnd(.35, .65)), taker = nearestTo(spot, teamPlayers(a.t, true));
       steps.push({d: 1700, poss: a.t, run: () => {
-        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out'); camTo(1.6, 2800, 'ball', a.t, false, aimUp(spot, goalOf(a.t)));   // из-за мяча на ворота
+        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); moveBall(spot, 600, 0, 'out'); camTo(1.6, 2800, 'ball', a.t, false, nearRot(aimUp(spot, goalOf(a.t))));   // из-за мяча на ворота
         if (taker) focus[key(taker.t, taker.s)] = lerpPt(spot, goalOf(1 - a.t), .04);
         crowd = {t: 1 - a.t, to: lerpPt(spot, goalOf(a.t), .2), kind: 'wall'}; refTo(near(spot, 40));
       }});
@@ -521,7 +521,7 @@ function build(a) {
     case 'pen': {
       const spot = at(a.t, .885, .5);
       steps.push({d: 1600, poss: a.t, run: () => {
-        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out'); camTo(1.9, 4200, 'ball', a.t, false, aimUp(spot, goalOf(a.t)));   // из-за спины бьющего
+        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); moveBall(spot, 600, 0, 'out'); camTo(1.9, 4200, 'ball', a.t, false, nearRot(aimUp(spot, goalOf(a.t))));   // из-за спины бьющего
         crowd = {t: -1, kind: 'clearbox', att: a.t}; haptic('heavy'); refTo(at(a.t, .8, .78));
         const gk = teamPlayers(1 - a.t).find(p => p.gk); if (gk) focus[key(gk.t, gk.s)] = at(1 - a.t, .01, .5);
       }});
@@ -1667,18 +1667,19 @@ function drawDivots(now) {                      // следы подката: т
    пенальти — из-за спины бьющего, фол и карточка — крупно, «волна» и трибуны. Поле можно поворачивать (r — угол),
    надписи и номера остаются ровными. Только картинка: на матч не влияет.
    🎥 — режим: «Режиссёр» → «Всё поле» → «За мячом». Пока открыта панель решений — всё поле. */
-let cam = {x: W / 2, y: H / 2, z: 1, r: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
-try { const v = localStorage.getItem('fm_cam'); camMode = v === '0' ? 'wide' : ['auto', 'wide', 'follow'].includes(v) ? v : 'auto'; } catch (e) {}
+let cam = {x: W / 2, y: H / 2, z: 1, r: 0, vx: 0, vy: 0, vz: 0, vr: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
+try { const v = localStorage.getItem('fm_cam2'); camMode = ['auto', 'wide', 'follow'].includes(v) ? v : 'auto'; } catch (e) {}   // по умолчанию — «Режиссёр»
 let camOn = camMode === 'auto';
 const CAM_MODES = {auto: '🎥 Режиссёр: планы и ракурсы', wide: '🎥 Всё поле', follow: '🎥 За мячом'};
 $('cam').classList.toggle('off', camMode === 'wide');
 function aimUp(from, to) { return -Math.PI / 2 - Math.atan2(to.y - from.y, to.x - from.x); }   // поворот: «от from к to» — вверх экрана
+function nearRot(r) {                              // ракурс эпизода, только если камере не нужно крутиться больше чем на 100°
+  let d = r - baseRot(); while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+  return Math.abs(d) <= 1.75 ? r : baseRot();
+}
+function baseRot() { return baseShot && baseShot.kind === 'tv' ? baseShot.side * Math.PI / 2 : 0; }
 function camTo(z, ms, target, goalT, free, r) {     // goalT — кто атакует (в кадре мяч и ворота); free — план трибун; r — угол (число или функция)
   if (!camOn) return;
-  if (r === undefined && goalT !== undefined && target === 'ball') {
-    const v = Math.random();                        // ракурс атаки: из-за спины атакующего / с бровки / сверху
-    r = v < .4 ? (goalT === 1 ? -Math.PI : 0) : v < .7 ? (Math.random() < .5 ? 1 : -1) * Math.PI / 2 : 0;
-  }
   shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT, free, r, t0: performance.now()};
 }
 function secCenter(i) {
@@ -1691,26 +1692,27 @@ function fitZ(a, b, zmax) {                         // насколько мож
   const dx = Math.abs(a.x - b.x) + 170, dy = Math.abs(a.y - b.y) + 170;
   return clamp(Math.min(TW / dx, TH / dy), 1, zmax);
 }
-function zMin(r) {                                  // повёрнутый кадр должен целиком лечь на стадион — минимальное приближение
+function zMin(r) {                                  // повёрнутый кадр должен лечь на стадион — минимальное приближение (с запасом на ночь за крышей)
   const c = Math.abs(Math.cos(r)), s2 = Math.abs(Math.sin(r));
-  return Math.max(1, c + s2 * TH / TW, s2 * TW / TH + c);
+  return 1 + (Math.max(1, c + s2 * TH / TW, s2 * TW / TH + c) - 1) * .8;
 }
-function nextBase(now) {                            // фоновый план в спокойной игре: сменяется каждые 8–15 сек
+function nextBase(now) {                            // фоновый план: держится 14–24 сек, ракурс бровки — один на весь отрезок
   const v = Math.random(), side = baseShot && baseShot.side || (Math.random() < .5 ? 1 : -1);
-  const kind = camMode === 'follow' ? 'high' : v < .34 ? 'wide' : v < .7 ? 'tv' : 'high';
-  baseShot = {kind, side, until: now + rnd(8000, 15000)};
+  const kind = camMode === 'follow' ? 'high' : v < .3 ? 'wide' : v < .75 ? 'tv' : 'high';
+  baseShot = {kind, side, until: now + rnd(14000, 24000)};
 }
 function camAim(now) {
   const full = {x: W / 2, y: H / 2, z: 1, r: 0};
   if (camMode === 'wide' || !S || document.body.classList.contains('deciding') || speed() > 1) { shotCam = null; return full; }
-  if (S.phase === 'final') return {x: W / 2, y: H / 2, z: 1 + .12 * Math.max(0, Math.sin(now / 4000)), r: Math.sin(now / 6000) * .12};
+  if (S.phase === 'final') return {x: W / 2, y: H / 2, z: 1 + .1 * Math.max(0, Math.sin(now / 5000)), r: Math.sin(now / 8000) * .1};
   if (S.phase !== 'play' && S.phase !== 'pen') return full;           // до матча, перерыв, окна решений — всё поле
+  if (!baseShot || now > baseShot.until) nextBase(now);
   if (shotCam && now > shotCam.until) shotCam = null;
   if (shotCam) {
-    const a = shotCam.at, r = typeof shotCam.r === 'function' ? shotCam.r(now) : shotCam.r || 0;
+    const a = shotCam.at, r = typeof shotCam.r === 'function' ? shotCam.r(now) : shotCam.r === undefined ? baseRot() : shotCam.r;
     if (a === 'ball') {                              // атака: мяч и ворота, к которым он идёт
       const gl = goalOf(shotCam.goalT !== undefined ? shotCam.goalT : poss);
-      const c = lerpPt(ball, gl, .4);
+      const c = lerpPt(ball, gl, .35);
       return {x: c.x, y: c.y, z: Math.max(Math.min(shotCam.z, fitZ(ball, gl, shotCam.z)), zMin(r)), r};
     }
     const pnt = typeof a === 'function' ? a(now) : a;
@@ -1718,32 +1720,40 @@ function camAim(now) {
   }
   if (wave) {                                        // камера бежит за «волной» по трибунам
     const k = waveAt(now), c = k < 1.02 && secCenter(Math.floor(k * SECTORS));
-    if (c) return {x: lerp(c.x, W / 2, .15), y: lerp(c.y, H / 2, .15), z: 1.6, r: 0};
+    if (c) return {x: lerp(c.x, W / 2, .15), y: lerp(c.y, H / 2, .15), z: Math.max(1.5, zMin(baseRot())), r: baseRot()};
   }
-  if (!baseShot || now > baseShot.until) nextBase(now);
-  const lead = {x: ball.x, y: ball.y + (poss === 0 ? -70 : 70)};            // чуть впереди мяча — по ходу атаки
-  if (baseShot.kind === 'tv') { const r = baseShot.side * Math.PI / 2; return {x: lead.x, y: lead.y, z: Math.max(1.45, zMin(r)), r}; }
-  if (baseShot.kind === 'high') return {x: lead.x, y: lead.y, z: 1.28, r: 0};
+  const lead = {x: ball.x, y: ball.y + (poss === 0 ? -60 : 60)};            // чуть впереди мяча — по ходу атаки
+  if (baseShot.kind === 'tv') { const r = baseRot(); return {x: lead.x, y: lead.y, z: Math.max(1.4, zMin(r)), r}; }
+  if (baseShot.kind === 'high') return {x: lead.x, y: lead.y, z: 1.25, r: 0};
   return full;
 }
+function spring(p, v, target, w, dt) {             // «пружина» с критическим затуханием: мягкий разгон и торможение, без рывков
+  const acc = w * w * (target - p) - 2 * w * v;
+  v += acc * dt; return [p + v * dt, v];
+}
 function camUpdate(now, dt) {
-  const t = camAim(now), kp = 1 - Math.exp(-dt * 4.2), kz = 1 - Math.exp(-dt * 2.4), kr = 1 - Math.exp(-dt * 2);
+  const t = camAim(now);
   let dr = t.r - cam.r; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
-  cam.r += dr * kr;
-  cam.z += (Math.max(t.z, zMin(cam.r)) - cam.z) * kz; cam.x += (t.x - cam.x) * kp; cam.y += (t.y - cam.y) * kp;
-  cam.z = Math.max(cam.z, zMin(cam.r));
+  [cam.r, cam.vr] = spring(cam.r, cam.vr, cam.r + dr, 1.15, dt);            // поворот — медленнее всего
+  [cam.z, cam.vz] = spring(cam.z, cam.vz, Math.max(t.z, zMin(cam.r)), 1.5, dt);
+  [cam.x, cam.vx] = spring(cam.x, cam.vx, t.x, 2.1, dt);
+  [cam.y, cam.vy] = spring(cam.y, cam.vy, t.y, 2.1, dt);
+  cam.z = Math.max(cam.z, 1);
   const co = Math.cos(cam.r), si = Math.sin(cam.r);
-  if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра (в осях экрана)
-    const mx = TW / 2 / cam.z * .78, my = TH / 2 / cam.z * .78, by = ball.y - ball.h;
+  if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: камера мягко подтягивается
+    const mx = TW / 2 / cam.z * .8, my = TH / 2 / cam.z * .8, by = ball.y - ball.h;
     const dx = ball.x - cam.x, dy = by - cam.y, sx = co * dx - si * dy, sy = si * dx + co * dy;
-    const cx = clamp(sx, -mx, mx), cy = clamp(sy, -my, my);
-    if (cx !== sx || cy !== sy) {                     // сдвигаем камеру на разницу, переведя её обратно в мир
-      const ex = sx - cx, ey = sy - cy;
-      cam.x += co * ex + si * ey; cam.y += -si * ex + co * ey;
+    const ex = sx - clamp(sx, -mx, mx), ey = sy - clamp(sy, -my, my);
+    if (ex || ey) {
+      const k = 1 - Math.exp(-dt * 7);
+      const wx = (co * ex + si * ey) * k, wy = (-si * ex + co * ey) * k;
+      cam.x += wx; cam.y += wy; cam.vx += wx / Math.max(dt, .001) * .3; cam.vy += wy / Math.max(dt, .001) * .3;
     }
   }
-  const ex = (Math.abs(co) * TW + Math.abs(si) * TH) / 2 / cam.z, ey = (Math.abs(si) * TW + Math.abs(co) * TH) / 2 / cam.z;   // не показываем пустоту за стадионом
-  cam.x = clamp(cam.x, -ST + ex, W + ST - ex); cam.y = clamp(cam.y, -ST + ey, H + ST - ey);
+  const ex = (Math.abs(co) * TW + Math.abs(si) * TH) / 2 / cam.z, ey = (Math.abs(si) * TW + Math.abs(co) * TH) / 2 / cam.z;
+  const lx = -ST + ex - 30, hx = W + ST - ex + 30, ly = -ST + ey - 30, hy = H + ST - ey + 30;   // за крышу — не дальше 30
+  if (lx > hx) cam.x = W / 2; else if (cam.x < lx || cam.x > hx) { cam.x = clamp(cam.x, lx, hx); cam.vx = 0; }
+  if (ly > hy) cam.y = H / 2; else if (cam.y < ly || cam.y > hy) { cam.y = clamp(cam.y, ly, hy); cam.vy = 0; }
   const k = cv.width / TW * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
   g.setTransform(a, b, c, d, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y));
 }
@@ -1757,100 +1767,138 @@ function camIdle(now) {                              // в спокойной и
   if (now < nextPan || queue.length) return;
   nextPan = now + rnd(25000, 45000);
   const c = secCenter(Math.floor(Math.random() * SECTORS));
-  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true, aimUp({x: W / 2, y: H / 2}, c));   // трибуна вверху кадра
+  if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true, nearRot(aimUp({x: W / 2, y: H / 2}, c)));   // трибуна вверху кадра
 }
 
 /* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
    Горят в секторах своих болельщиков: красное пламя мерцает, летят искры, поднимается дым и сносится ветром к полю. */
 
 /* ---------------- кричалки: трибуна скандирует название клуба и кричалки ----------------
-   Звук — «хор»: несколько голосов на гласных каждого слога (форманты а/о/у/э/и/ы) и хлопки; текст — по слогам внизу поля.
+   Звук — как на стадионе: гул толпы на каждый слог (шум через «окраску» гласной, много слоёв вразнобой), барабан фанатов
+   на ударный слог слова, хлопки, эхо стадиона. Текст внизу поля — словами целиком, подсветка идёт по слогам.
    Только для атмосферы: на матч не влияет. 🔇 выключает и это. */
-const CHANTS = [n => `${n}! ${n}! ${n}!`, n => `Впе-рёд, ${n}!`, n => `Да-вай, да-вай, ${n}!`, () => 'О-ле, о-ле, о-ле, о-ле!',
-                n => `${n} — чем-пи-он!`, n => `Мы с то-бой, ${n}!`, () => 'Толь-ко по-бе-да!', n => `${n}! (хлоп-хлоп-хлоп)`];
-const VOWELS = 'аоуэиыеёюяАОУЭИЫЕЁЮЯaeiouyAEIOUY';
+const CHANTS = [n => `${n}! ${n}! ${n}!`, n => `Вперёд, ${n}!`, n => `Давай, давай, ${n}!`, () => 'Оле, оле, оле, оле!',
+                n => `${n} — чемпион!`, n => `Мы с тобой, ${n}!`, () => 'Только победа!', n => `${n}! 👏👏👏`];
+const VOWELS = 'аоуэиыеёюяАОУЭИЫЕЁЮЯaeiouyAEIOUY', LAT = /[A-Za-z]/;
 const FORMANT = {а: [800, 1250], о: [520, 880], у: [340, 700], э: [560, 1800], и: [300, 2300], ы: [360, 1500]};
 const VMAP = {е: 'э', ё: 'о', ю: 'у', я: 'а', a: 'а', e: 'э', i: 'и', o: 'о', u: 'у', y: 'ы'};
-function syllables(text) {                          // слоги: дефисы и пробелы делят явно, иначе — по гласным
-  const out = [];
-  for (const w of text.split(/\s+/)) {
-    if (!w) continue;
-    const parts = w.split('-');
-    for (const part of parts) {
-      const vs = [...part].filter(ch => VOWELS.includes(ch));
-      if (vs.length <= 1 || parts.length > 1) { out.push({s: part, v: vs[0] || 'а'}); continue; }
-      // слово целиком: между гласными одна согласная уходит к следующему слогу, две и больше — первая остаётся
-      // (Аль-фа, Спар-так, Ди-на-мо); ь и ъ всегда с предыдущим
-      const ch = [...part], vi = ch.map((c, i) => VOWELS.includes(c) ? i : -1).filter(i => i >= 0);
-      let from = 0;
-      for (let k = 0; k < vi.length - 1; k++) {
-        const i = vi[k], j = vi[k + 1];
-        let cut = j - i - 1 <= 1 ? i + 1 : i + 2;
-        while (cut < j && 'ьъЬЪ'.includes(ch[cut])) cut++;
-        out.push({s: ch.slice(from, cut).join(''), v: ch[i]}); from = cut;
-      }
-      out.push({s: ch.slice(from).join(''), v: ch[vi[vi.length - 1]]});
-    }
+function splitWord(word) {                          // слоги одного слова: [{s, v}]
+  const ch = [...word], isV = i => VOWELS.includes(ch[i]) && !(LAT.test(ch[i]) && ch[i].toLowerCase() === 'y' && i === 0);
+  let vi = ch.map((c, i) => isV(i) ? i : -1).filter(i => i >= 0);
+  if (LAT.test(word)) {                             // латиница: «au», «ee»… — один слог; немая «e» на конце — не слог
+    vi = vi.filter((i, k) => !(k > 0 && vi[k - 1] === i - 1));
+    const L = ch.length - 1;
+    if (vi.length > 1 && vi[vi.length - 1] === L && ch[L].toLowerCase() === 'e' && !isV(L - 1)) vi.pop();
   }
+  if (vi.length <= 1) return [{s: word, v: vi.length ? ch[vi[0]] : 'а'}];
+  const out = []; let from = 0;
+  for (let k = 0; k < vi.length - 1; k++) {         // между гласными одна согласная — к следующему слогу, две и больше — делятся
+    let i = vi[k]; while (i + 1 < vi[k + 1] && isV(i + 1)) i++;
+    const j = vi[k + 1], n = j - i - 1;
+    let c2 = n <= 1 ? i + 1 : i + 2;
+    while (c2 < j && 'ьъЬЪ'.includes(ch[c2])) c2++;
+    out.push({s: ch.slice(from, c2).join(''), v: ch[vi[k]]}); from = c2;
+  }
+  out.push({s: ch.slice(from).join(''), v: ch[vi[vi.length - 1]]});
   return out;
+}
+function syllables(text) {                          // слова кричалки: [{syl: [{s, v}], tail}] — tail: знаки препинания после слова
+  return text.split(/\s+/).filter(Boolean).map(w => {
+    const m = w.match(/^([A-Za-zА-Яа-яЁё0-9]*)(.*)$/);
+    return m[1] ? {syl: splitWord(m[1]), tail: m[2]} : {syl: [], tail: w};
+  });
 }
 let chant = null, nextChant = 0, chantEl = null;
 function startChant(t, force) {
   if (!S || !S.teams[t]) return;
   const nm = S.teams[t].name.replace(/[«»"]/g, '').trim(), short = nm.length > 12 ? nm.split(/\s+/)[0] : nm;
   const text = force || CHANTS[Math.floor(Math.random() * CHANTS.length)](short);
-  const claps = /хлоп/.test(text);
-  const syl = syllables(text.replace(/\(хлоп-хлоп-хлоп\)/, '').trim());
-  const beat = 330, t0 = performance.now() + 150;
-  chant = {t, text, syl, beat, t0, end: t0 + (syl.length + (claps ? 4 : 1)) * beat + 400, claps};
+  const words = syllables(text), seq = [];
+  words.forEach((w, wi) => w.syl.forEach((sy, si) => seq.push({wi, si, v: sy.v, first: si === 0, last: si === w.syl.length - 1})));
+  const claps = /👏/.test(text), beat = 300, t0 = performance.now() + 150;
+  // в конце слова — короткая пауза, как в настоящей кричалке («Аль-фа! — Аль-фа!»)
+  let at = 0; seq.forEach(x => { x.at = at; at += x.last ? beat * 1.5 : beat; });
+  chant = {t, text, words, seq, beat, t0, claps, end: t0 + at + (claps ? 4 * beat : 0) + 500};
   if (!chantEl) { chantEl = document.createElement('div'); chantEl.id = 'chant'; $('pitchwrap').appendChild(chantEl); }
   chantEl.style.setProperty('--cc', S.teams[t].shirt);
   chantEl.classList.add('on');
   singChant(chant);
 }
+let chantBus = null, noiseBuf = null;
+function stadiumBus(a) {                            // общий выход кричалок: эхо большого стадиона
+  if (chantBus && chantBus.ctx === a) return chantBus.inp;
+  const inp = a.createGain(), dry = a.createGain(), wet = a.createGain(), conv = a.createConvolver();
+  const n = Math.floor(a.sampleRate * 2.6), ir = a.createBuffer(2, n, a.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.2); }
+  conv.buffer = ir; dry.gain.value = .75; wet.gain.value = .5;
+  inp.connect(dry); inp.connect(conv); conv.connect(wet); dry.connect(a.destination); wet.connect(a.destination);
+  noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+  const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  chantBus = {ctx: a, inp}; return inp;
+}
+function crowdShout(a, out, t, dur, vowel, vol) {   // трибуна выкрикивает слог: тысячи голосов — это шум с окраской гласной
+  const [f1, f2] = FORMANT[vowel] || FORMANT['а'];
+  for (let k = 0; k < 5; k++) {                      // пять «групп» болельщиков: каждая чуть раньше/позже и своим тембром
+    const src = a.createBufferSource(); src.buffer = noiseBuf;
+    const b1 = a.createBiquadFilter(), b2 = a.createBiquadFilter(), lo = a.createBiquadFilter(), gn = a.createGain();
+    b1.type = b2.type = 'bandpass'; lo.type = 'lowpass';
+    b1.frequency.value = f1 * (1 + (Math.random() - .5) * .25); b1.Q.value = 2.2;
+    b2.frequency.value = f2 * (1 + (Math.random() - .5) * .2); b2.Q.value = 3.5; lo.frequency.value = 2600;
+    const st = t + Math.random() * .06, at = .05 + Math.random() * .05, v = vol * (.55 + Math.random() * .45);
+    gn.gain.setValueAtTime(0, st); gn.gain.linearRampToValueAtTime(v, st + at);
+    gn.gain.setTargetAtTime(v * .55, st + at, dur * .5); gn.gain.setTargetAtTime(0, st + dur, .07);
+    src.connect(b1); src.connect(b2); b1.connect(lo); b2.connect(lo); lo.connect(gn); gn.connect(out);
+    src.start(st, Math.random() * 1.5); src.stop(st + dur + .5);
+  }
+  const body = a.createBufferSource(), lp = a.createBiquadFilter(), bg = a.createGain();   // низкий гул голосов под выкриком
+  body.buffer = noiseBuf; lp.type = 'lowpass'; lp.frequency.value = 420;
+  bg.gain.setValueAtTime(0, t); bg.gain.linearRampToValueAtTime(vol * .9, t + .07); bg.gain.setTargetAtTime(0, t + dur, .1);
+  body.connect(lp); lp.connect(bg); bg.connect(out); body.start(t, Math.random()); body.stop(t + dur + .6);
+}
+function fanDrum(a, out, t, vol) {                  // барабан фанатов
+  const o = a.createOscillator(), g2 = a.createGain();
+  o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(48, t + .16);
+  g2.gain.setValueAtTime(vol, t); g2.gain.exponentialRampToValueAtTime(.001, t + .35);
+  o.connect(g2); g2.connect(out); o.start(t); o.stop(t + .4);
+}
 function singChant(c) {
   const a = !muted && audio(); if (!a) return;
-  const base = a.currentTime + .15, vol = c.t === 0 ? .11 : .07;      // хозяев на трибунах больше — громче
-  c.syl.forEach((sy, i) => {
-    const v = VMAP[sy.v.toLowerCase()] || sy.v.toLowerCase(), [f1, f2] = FORMANT[v] || FORMANT['а'];
-    const t = base + i * c.beat / 1000, dur = c.beat / 1000 * (i === c.syl.length - 1 ? 1.6 : .82);
-    const out = a.createGain(); out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(vol, t + .04);
-    out.gain.setValueAtTime(vol, t + dur - .08); out.gain.linearRampToValueAtTime(0, t + dur);
-    const b1 = a.createBiquadFilter(), b2 = a.createBiquadFilter(); b1.type = b2.type = 'bandpass';
-    b1.frequency.value = f1; b2.frequency.value = f2; b1.Q.value = 5; b2.Q.value = 7;
-    const mixG = a.createGain(); mixG.gain.value = 1;
-    b1.connect(out); b2.connect(out); out.connect(a.destination);
-    for (let k = 0; k < 6; k++) {                   // шесть голосов чуть вразнобой — звучит как трибуна, а не робот
-      const o = a.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime((k % 2 ? 125 : 205) * (1 + (Math.random() - .5) * .06), t);
-      o.connect(b1); o.connect(b2); o.start(t + Math.random() * .03); o.stop(t + dur + .05);
-    }
+  const out = stadiumBus(a), base = a.currentTime + .15, vol = c.t === 0 ? .16 : .1;   // хозяев больше — громче
+  c.seq.forEach((x, i) => {
+    const v = VMAP[x.v.toLowerCase()] || x.v.toLowerCase(), last = i === c.seq.length - 1;
+    const t = base + x.at / 1000, dur = c.beat / 1000 * (last ? 1.7 : x.last ? 1.1 : .75);
+    crowdShout(a, out, t, dur, v, vol * (x.first ? 1.15 : 1));
+    if (x.first) fanDrum(a, out, t, vol * 2.4);       // удар барабана на первый слог каждого слова
   });
-  const nClaps = c.claps ? 3 : 0, after = base + c.syl.length * c.beat / 1000;
-  for (let i = 0; i < nClaps; i++) crowdClap(a, after + i * c.beat / 1000 * .7);
+  if (c.claps) { const after = base + (c.seq.length ? c.seq[c.seq.length - 1].at / 1000 + c.beat / 1000 * 1.5 : 0);
+    for (let i = 0; i < 3; i++) { crowdClap(a, after + i * c.beat / 1000 * .75, out); fanDrum(a, out, after + i * c.beat / 1000 * .75, vol * 2); } }
 }
-function crowdClap(a, t) {                          // хлопки трибуны: много коротких щелчков вразнобой
-  for (let k = 0; k < 7; k++) {
-    const n = a.sampleRate * .03, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+function crowdClap(a, t, out) {                     // хлопки трибуны: много коротких щелчков вразнобой
+  for (let k = 0; k < 9; k++) {
+    const n = Math.floor(a.sampleRate * .03), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
     const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
-    f.type = 'bandpass'; f.frequency.value = 1300 + Math.random() * 900; f.Q.value = .9; gn.gain.value = .09;
-    src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(a.destination); src.start(t + Math.random() * .035);
+    f.type = 'bandpass'; f.frequency.value = 1200 + Math.random() * 1000; f.Q.value = .9; gn.gain.value = .08;
+    src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(out || a.destination); src.start(t + Math.random() * .04);
   }
 }
 function chantBeat(now) {                           // какой слог сейчас и насколько сильный удар (для прыжков трибуны)
   if (!chant) return null;
-  const k = (now - chant.t0) / chant.beat;
+  const k = now - chant.t0;
   if (k < 0) return null;
-  const i = Math.floor(k), pulse = Math.max(0, 1 - (k - i) * 2.2);
-  return {i, pulse};
+  let i = -1; for (let j = 0; j < chant.seq.length; j++) if (chant.seq[j].at <= k) i = j;
+  if (i < 0) return null;
+  const since = (k - chant.seq[i].at) / chant.beat;
+  return {i, pulse: Math.max(0, 1 - since * 2.2)};
 }
 function updateChant(now) {
   if (chant && now > chant.end) { chant = null; if (chantEl) chantEl.classList.remove('on'); }
   if (chant && chantEl) {
-    const b = chantBeat(now), i = b ? b.i : -1;
-    const html = chant.syl.map((sy, j) => `<span class="${j < i ? 'was' : j === i ? 'now' : ''}">${esc(sy.s)}</span>`).join(' ')
-      + (chant.claps ? ` <span class="${i >= chant.syl.length ? 'now' : ''}">👏👏👏</span>` : '');
+    const b = chantBeat(now), cur = b ? chant.seq[b.i] : null, done = b && b.i === chant.seq.length - 1 && b.pulse === 0;
+    const html = chant.words.map((w, wi) => w.syl.map((sy, si) => {
+      const st = !cur ? '' : (wi < cur.wi || wi === cur.wi && si < cur.si) || done ? 'was' : wi === cur.wi && si === cur.si ? 'now' : '';
+      return `<span class="${st}">${esc(sy.s)}</span>`;
+    }).join('') + `<span class="${cur && wi <= cur.wi ? 'was' : ''}">${esc(w.tail)}</span>`).join(' ');
     if (chantEl._h !== html) { chantEl.innerHTML = '📣 ' + html; chantEl._h = html; }
   }
   if (!chant && S && (S.phase === 'play' || S.phase === 'half') && !stopped) {
