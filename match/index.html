@@ -348,14 +348,20 @@ function strike(power) {                  // кто бил — выносит н
   for (let i = 0; i < n; i++) fx.push({k: 'turf', x: ball.x + rnd(-4, 4), y: ball.y + rnd(-4, 4), vx: rnd(-.9, .9), vy: rnd(-.9, .9), r: rnd(1.2, 2.4), life: rnd(350, 700), t0: performance.now()});
   if (power > 1) fx.push({k: 'ring', x: ball.x, y: ball.y, vx: 0, vy: 0, r: 6, life: 260, t0: performance.now()});
 }
-function shoot(to, speed, arc) { strike(2); const d = Math.hypot(to.x - ball.x, to.y - ball.y); moveBall(to, d / (speed || 520) * 1000, arc || 8, 'lin'); kick(); }
+function shoot(to, speed, arc) {
+  const hp = holderP(); if (hp) hp.face = {a: Math.atan2(to.y - hp.y, to.x - hp.x), until: performance.now() + 500};
+  strike(2); const d = Math.hypot(to.x - ball.x, to.y - ball.y);
+  moveBall(to, d / ((speed || 520) * 1.3) * 1000, (arc || 8) * .7, 'lin'); kick();
+}
 let oneTouch = false;
 function giveBall(p) { if (!p) return; holder = key(p.t, p.s); poss = p.t; ball.recv = null; dribbleUntil = oneTouch ? -1 : 0; oneTouch = false; }
 function holderP() { return holder ? players[holder] || null : null; }
 function passTo(p, speed) {               // пас в ноги с упреждением: p получит мяч, когда тот доедет
-  if (holderP()) strike(1);
-  const lead = {x: p.x + (p.ux || 0) * .3, y: p.y + (p.uy || 0) * .3}, d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
-  moveBall(lead, d / (speed || 290) * 1000, d > 250 ? d * .07 : 0, 'out');
+  const hp = holderP();
+  const lead = {x: p.x + (p.ux || 0) * .35, y: p.y + (p.uy || 0) * .35}, d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
+  if (hp) { strike(1); hp.face = {a: Math.atan2(lead.y - hp.y, lead.x - hp.x), until: performance.now() + 420}; }
+  p.face = {a: Math.atan2(ball.y - p.y, ball.x - p.x), until: performance.now() + d / (speed || 360) * 1000 + 200};   // принимающий смотрит на мяч
+  moveBall(lead, d / ((speed || 360) * 1.12) * 1000, d > 300 ? d * .06 : 0, 'out');
   ball.recv = key(p.t, p.s); poss = p.t; kick();
 }
 function bring(p, then) {                  // мяч у игрока: в ногах — сразу, иначе пас ему
@@ -597,31 +603,52 @@ function updatePlay(now) {
   updateThrow(now);
   if (!step && S && S.phase === 'play' && !stopped && now > nextIdle && !restart) director(now);
   // кто прессингует и кто бежит к ничейному мячу (раз в кадр)
-  plan = {press: [null, null], chase: [null, null]};
   const free = !holderP() && !ball.recv && now - ball.t0 >= ball.d && !throwIn;
-  for (const t of [0, 1]) {
-    const field = teamPlayers(t, true);
-    if (poss !== t || free) plan.press[t] = nearestTo(ball, field.filter(q => !focus[key(q.t, q.s)]));
-    if (free) plan.chase[t] = plan.press[t];
+  if (!plan || now - plan.at > 250) {
+    const old = plan || {press: [null, null]};
+    plan = {press: [null, null], chase: [null, null], at: now};
+    for (const t of [0, 1]) {
+      const field = teamPlayers(t, true).filter(q => !focus[key(q.t, q.s)]);
+      if (poss !== t || free) {
+        const best = nearestTo(ball, field), cur = old.press[t];
+        plan.press[t] = cur && field.includes(cur) && best && dd(cur, ball) < dd(best, ball) * 1.35 + 12 ? cur : best;
+      }
+      if (free) plan.chase[t] = plan.press[t];
+    }
   }
   // игроки: разгон и торможение к своей цели, не налезают друг на друга
   const list = Object.values(players);
   for (const p of list) {
-    const T = targetOf(p, now);
+    const T0 = targetOf(p, now), sharp = T0.sp === 'sprint' || !!focus[key(p.t, p.s)];
+    if (p.gx === undefined || dd({x: p.gx, y: p.gy}, T0) > 260) { p.gx = T0.x; p.gy = T0.y; }
+    const kt = 1 - Math.exp(-dt * (sharp ? 9 : 2.6));          // к эпизоду — сразу, в «фоне» — плавно
+    p.gx += (T0.x - p.gx) * kt; p.gy += (T0.y - p.gy) * kt;
+    const T = {x: p.gx, y: p.gy, sp: T0.sp};
     const dx = T.x - p.x, dy = T.y - p.y, d = Math.hypot(dx, dy);
     const legs = (.86 + clamp(p.sp || 20, 5, 40) / 40 * .28) * (.78 + .22 * clamp(p.pw === undefined ? 100 : p.pw, 0, 100) / 100);
     const vmax = SPD[T.sp || 'jog'] * legs * (S && S.teams[p.t].rush && T.sp !== 'walk' ? 1.08 : 1);
-    const want = Math.min(vmax, d * 2.8);
-    let ax = (d ? dx / d * want : 0) - (p.ux || 0), ay = (d ? dy / d * want : 0) - (p.uy || 0);
-    const al = Math.hypot(ax, ay), lim = ACC * dt * (T.sp === 'sprint' ? 1.3 : 1);
-    if (al > lim) { ax *= lim / al; ay *= lim / al; }
-    p.ux = (p.ux || 0) + ax; p.uy = (p.uy || 0) + ay;
+    const want = d < 3 ? 0 : Math.min(vmax, (d - 3) * 2.2);     // у цели — стоит, а не топчется
+    // бег как у человека: поворот дугой с ограниченной скоростью поворота, разгон и торможение — постепенно
+    const cur = Math.hypot(p.ux || 0, p.uy || 0), acc = ACC * dt * (T.sp === 'sprint' ? 1.3 : 1);
+    if (cur < 10 || !d) {                                         // с места — сразу в нужную сторону
+      let ax = (d ? dx / d * want : 0) - (p.ux || 0), ay = (d ? dy / d * want : 0) - (p.uy || 0);
+      const al = Math.hypot(ax, ay); if (al > acc) { ax *= acc / al; ay *= acc / al; }
+      p.ux = (p.ux || 0) + ax; p.uy = (p.uy || 0) + ay;
+    } else {
+      const a0 = Math.atan2(p.uy, p.ux), a1 = Math.atan2(dy, dx);
+      let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+      const omega = (T.sp === 'sprint' ? 4.6 : 3) * (1 + 30 / cur) * dt;        // медленнее бежит — круче поворачивает
+      const a = a0 + clamp(da, -omega, omega);
+      const target = Math.abs(da) > 1.9 ? Math.min(want, cur * .5) : want * (1 - .35 * Math.min(1, Math.abs(da)));   // разворот — сначала тормозит
+      const sp = cur + clamp(target - cur, -acc * 1.4, acc);
+      p.ux = Math.cos(a) * sp; p.uy = Math.sin(a) * sp;
+    }
   }
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i], b = list[j], d = dd(a, b);
     if (d > 0 && d < 22 && !(crowd && (crowd.kind === 'celebrate' || crowd.kind === 'mass'))) {
-      const push = (22 - d) * 2.2, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
-      a.ux += nx * push; a.uy += ny * push; b.ux -= nx * push; b.uy -= ny * push;
+      const push = (22 - d) * 3.2 * dt, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
+      a.x += nx * push; a.y += ny * push; b.x -= nx * push; b.y -= ny * push;
     }
   }
   for (const p of list) {
@@ -659,7 +686,7 @@ function director(now) {                   // «фон» игры: ведени�
       const far = mates.filter(q => !q.gk && Math.abs(q.x - hp.x) > W * .35);
       if (far.length) { const q = far[Math.floor(Math.random() * far.length)]; passTo(q, 380); ball.arc = 34; return; }
     }
-    passTo(best, hp.gk ? 340 : rnd(260, 340));
+    passTo(best, hp.gk ? 380 : rnd(330, 400));
     oneTouch = Math.random() < .3;                                   // получивший отдаст в одно касание
     return;
   }
@@ -761,7 +788,7 @@ function target0(p, now) {
   }
   if (S.teams[p.t].rush) depth += .06;
   const pt = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94));
-  return {x: pt.x + jit(5, 1300), y: pt.y + jit(4, 1100), sp: attacking ? 'run' : 'jog'};
+  return {x: pt.x + jit(2, 2600), y: pt.y + jit(2, 2300), sp: attacking ? 'run' : 'jog'};
 }
 function near2(c, p, r) { const ang = (p.s * 2.39 + p.t * 1.3); return {x: c.x + Math.cos(ang) * r, y: c.y + Math.sin(ang) * r}; }
 const ARS = [{side: 1, y0: M, y1: H / 2, t: 1, x: W - M + 12, y: H / 4, flag: null},          // сверху справа — у ворот гостей
@@ -1126,6 +1153,12 @@ function drawPitch(pw, ph) {
   x.globalCompositeOperation = 'source-over';
   const gr = x.createRadialGradient(W / 2, H / 2, 140, W / 2, H / 2, H * .75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.28)');
   x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  const sh = x.createLinearGradient(0, 0, 170, 0);           // тень западной трибуны и крыши ложится на газон
+  sh.addColorStop(0, 'rgba(2,10,6,.34)'); sh.addColorStop(.55, 'rgba(2,10,6,.12)'); sh.addColorStop(1, 'rgba(2,10,6,0)');
+  x.fillStyle = sh; x.fillRect(0, 0, 170, H);
+  const sh2 = x.createLinearGradient(0, 0, 0, 90);           // и полоса от козырька северной трибуны
+  sh2.addColorStop(0, 'rgba(2,10,6,.22)'); sh2.addColorStop(1, 'rgba(2,10,6,0)');
+  x.fillStyle = sh2; x.fillRect(0, 0, W, 90);
   if (S && (S.weather === 'rain' || S.weather === 'snow')) { x.fillStyle = S.weather === 'rain' ? 'rgba(30,64,120,.16)' : 'rgba(255,255,255,.13)'; x.fillRect(0, 0, W, H); }
   x.strokeStyle = 'rgba(255,255,255,.88)'; x.lineWidth = 3; x.shadowColor = 'rgba(255,255,255,.35)'; x.shadowBlur = 2;
   x.strokeRect(M, M, W - 2 * M, H - 2 * M);
@@ -1194,10 +1227,19 @@ const LIGHTS = [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4];
 function looks(p) { const h = (p.t * 7 + p.s * 13 + (p.n || 0) * 3) % 30; return {skin: SKIN[h % SKIN.length], hair: HAIR[(h * 7) % HAIR.length], bald: h % 11 === 0}; }
 function turn(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
 function blob(x, y, rx, ry, col) { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); }
-function shaded(x, y, rx, ry, col) {            // овал с объёмом: тёмный край, сам цвет, блик сверху-слева
-  blob(x, y, rx, ry, mix(col, -.35));
-  blob(x - rx * .06, y - ry * .08, rx * .86, ry * .84, col);
-  blob(x - rx * .3, y - ry * .35, rx * .38, ry * .3, mix(col, .38));
+const SHADE = new Map();                          // градиенты объёма: в своих координатах фигурки одинаковы из кадра в кадр
+function shaded(x, y, rx, ry, col) {            // овал с объёмом: свет сверху-слева, тень к краю, блик
+  x = Math.round(x * 2) / 2; y = Math.round(y * 2) / 2;
+  const id = col + x + ',' + y + ',' + rx + ',' + ry;
+  let gr = SHADE.get(id);
+  if (!gr) {
+    if (SHADE.size > 4000) SHADE.clear();
+    gr = g.createRadialGradient(x - rx * .35, y - ry * .4, Math.min(rx, ry) * .1, x, y, Math.max(rx, ry) * 1.05);
+    gr.addColorStop(0, mix(col, .42)); gr.addColorStop(.45, col); gr.addColorStop(1, mix(col, -.5));
+    SHADE.set(id, gr);
+  }
+  g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill();
+  blob(x - rx * .32, y - ry * .38, rx * .28, ry * .2, 'rgba(255,255,255,.28)');
 }
 function drawPlayer(p, now) {
   // фигурка сверху: четыре тени от прожекторов, ноги в беге, шорты, руки, футболка с объёмом, голова с причёской
@@ -1206,15 +1248,21 @@ function drawPlayer(p, now) {
   const down = downed && downed.k === key(p.t, p.s) && now < downed.until;
   const active = !!focus[key(p.t, p.s)];
   const v = Math.hypot(p.vx || 0, p.vy || 0);
-  const want = v > .25 ? Math.atan2(p.vy, p.vx) : Math.atan2(ball.y - p.y, ball.x - p.x);
-  p.ang = p.ang === undefined ? want : turn(p.ang, want, v > .25 ? .18 : .06);
+  const facing = p.face && now < p.face.until;
+  const want = facing ? p.face.a : v > .25 ? Math.atan2(p.vy, p.vx) : Math.atan2(ball.y - p.y, ball.x - p.x);
+  p.ang = p.ang === undefined ? want : turn(p.ang, want, facing ? .3 : v > .25 ? .14 : .05);
   p.stride = (p.stride || 0) + Math.min(v, 4) * .22;
   const sw = v > .12 ? Math.sin(p.stride) : 0, L = looks(p);
   const pz = p.pose && now < p.pose.until ? p.pose.k : null;      // подкат, прыжок вратаря, празднование
   g.save(); g.translate(p.x, p.y); g.scale(PS, PS);
-  g.fillStyle = 'rgba(0,0,0,.09)';
-  for (const a of LIGHTS) { g.save(); g.rotate(a); g.beginPath(); g.ellipse(9, 0, 9, 4.4, 0, 0, 7); g.fill(); g.restore(); }
-  g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.ellipse(0, 1, 11, 9, 0, 0, 7); g.fill();     // тень под ногами
+  if (!drawPlayer.sg) {
+    drawPlayer.sg = g.createLinearGradient(0, 0, 22, 0); drawPlayer.sg.addColorStop(0, 'rgba(0,0,0,.16)'); drawPlayer.sg.addColorStop(1, 'rgba(0,0,0,0)');
+    drawPlayer.cg = g.createRadialGradient(0, 1, 2, 0, 1, 12); drawPlayer.cg.addColorStop(0, 'rgba(0,0,0,.38)'); drawPlayer.cg.addColorStop(1, 'rgba(0,0,0,0)');
+  }
+  for (const a of LIGHTS) {                                        // четыре мягкие тени от мачт освещения
+    g.save(); g.rotate(a); g.fillStyle = drawPlayer.sg; g.beginPath(); g.ellipse(10, 0, 12, 4.6, 0, 0, 7); g.fill(); g.restore();
+  }
+  g.fillStyle = drawPlayer.cg; g.beginPath(); g.ellipse(0, 1, 12, 10, 0, 0, 7); g.fill();     // тень под ногами — плотная в центре
   if (active) {
     g.strokeStyle = 'rgba(250,204,21,.95)'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 19 + Math.sin(now / 120) * 1.3, 0, 7); g.stroke();
     g.strokeStyle = 'rgba(250,204,21,.35)'; g.lineWidth = 5; g.stroke();
