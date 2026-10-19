@@ -33,7 +33,9 @@ button:active{transform:translateY(1px)}
 /* Пенальти-дуэль: сцена из-за спины бьющего. Логические координаты W×H, вписываются в экран.
    Неподвижное (небо, трибуны, газон) рисуется один раз в запасные холсты и потом только копируется.
    Сейчас — ДЕМО: соперник выбирает случайно, исход считается здесь (см. demoOpponent).
-   В матче исход будет присылать сервер, страница только показывает. */
+   В матче исход будет присылать сервер, страница только показывает.
+   Как именно это выглядит (штанга, отбил или поймал, как радуются), выбирает makePlan по самому исходу —
+   у обоих менеджеров одна и та же картинка, а гол/сейв/мимо не меняется. */
 const W = 720, H = 1040;
 const GOAL = {x0: 150, x1: 570, y0: 300, y1: 470};      // створ: штанги, перекладина, линия ворот
 const BACK = {x0: 190, x1: 530, y0: 322, y1: 452};      // задняя стенка сетки
@@ -151,7 +153,21 @@ function buildBackdrop() {
   c.save(); c.beginPath(); c.rect(BX0, 930, BW, 400); c.clip();
   c.lineWidth = 5; c.beginPath(); c.ellipse(SPOT.x, SPOT.y + 10, 230, 190, 0, 0, 7); c.stroke(); c.restore();
   c.fillStyle = '#fff'; c.beginPath(); c.ellipse(SPOT.x, SPOT.y + 16, 9, 4.5, 0, 0, 7); c.fill();
+  for (const ph of PHOTOGS) drawPhotog(c, ph);
   buildCrowd(rows);
+}
+// фотографы за линией ворот по обе стороны от сетки, смотрят на поле; вспышки — в кадре (drawPhotoFlash)
+const PHOTOGS = [{x: 50, y: 318}, {x: 102, y: 311}, {x: 618, y: 311}, {x: 670, y: 318}];
+function drawPhotog(c, {x, y}) {
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(x, y + 1, 17, 3.5, 0, 0, 7); c.fill();
+  c.fillStyle = '#1f2937'; c.beginPath(); c.roundRect(x - 12, y - 13, 24, 13, 5); c.fill();              // на корточках
+  c.fillStyle = '#f97316'; c.beginPath(); c.roundRect(x - 10, y - 33, 20, 23, 5); c.fill();              // жилет
+  c.fillStyle = 'rgba(255,255,255,.75)'; c.fillRect(x - 10, y - 24, 20, 3);
+  c.fillStyle = '#e6b08f'; c.beginPath(); c.arc(x, y - 39, 6.5, 0, 7); c.fill();
+  c.fillStyle = '#2b1d16'; c.beginPath(); c.arc(x, y - 41, 6.6, Math.PI, 0); c.fill();
+  c.fillStyle = '#0b0d12'; c.fillRect(x - 8, y - 44, 16, 9);                                              // камера перед лицом
+  c.beginPath(); c.arc(x, y - 39, 4.5, 0, 7); c.fill();
+  c.fillStyle = 'rgba(147,197,253,.6)'; c.beginPath(); c.arc(x - 1, y - 40, 1.6, 0, 7); c.fill();       // блик объектива
 }
 function standRows() {
   const rows = []; let y = 4;
@@ -186,24 +202,62 @@ function buildCrowd(rows) {
 }
 
 /* ---------------- звук ---------------- */
-let ac = null, muted = false, noise = null;
+let ac = null, muted = false, noise = null, amb = null, ambLevel = .045;
 function audioOn() {
   if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
     noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
-    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // гул стадиона: всё время тихо фоном, затихает перед ударом и взрывается после
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(); amb = ac.createGain();
+    s.buffer = noise; s.loop = true; f.type = 'lowpass'; f.frequency.value = 620; amb.gain.value = muted ? 0 : ambLevel;
+    s.connect(f).connect(amb).connect(ac.destination); s.start(); }
   if (ac.state === 'suspended') ac.resume();
 }
+function setAmb(v, dur, back, backDur) {   // гул к уровню v за dur секунд, потом (если задано) — к back за backDur
+  ambLevel = back === undefined ? v : back;
+  if (!amb) return; const t = ac.currentTime, gn = amb.gain;
+  gn.cancelScheduledValues(t); gn.setValueAtTime(gn.value, t); gn.linearRampToValueAtTime(muted ? 0 : v, t + dur);
+  if (back !== undefined) gn.linearRampToValueAtTime(muted ? 0 : back, t + dur + backDur);
+}
 function out(v) { const q = ac.createGain(); q.gain.value = muted ? 0 : v; q.connect(ac.destination); return q; }
+function hiss(type, freq, Q, v, len) {   // короткий шумовой звук: сетка, перчатки
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; f.type = type; f.frequency.value = freq; f.Q.value = Q;
+  q.gain.setValueAtTime(muted ? 0 : v, t); q.gain.exponentialRampToValueAtTime(.001, t + len);
+  s.connect(f).connect(q); s.start(t, Math.random()); s.stop(t + len + .05);
+}
+const swish = () => hiss('highpass', 2400, .7, .3, .4);          // мяч в сетке
+const slap = () => hiss('bandpass', 1500, 1.1, .7, .08);         // мяч о перчатки
+function clang() {   // штанга/перекладина: металлический звон
+  if (!ac) return; const t = ac.currentTime;
+  for (const [f, v, d] of [[523, .22, 1.2], [1187, .14, .8], [1962, .09, .5], [3110, .05, .3]]) {
+    const o = ac.createOscillator(), q = out(0); o.frequency.value = f;
+    q.gain.setValueAtTime(muted ? 0 : v, t); q.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(q); o.start(t); o.stop(t + d + .05);
+  }
+  thud(110, .5);
+}
+function whoosh() {   // свист мяча после удара подъёмом
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + .35);
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .35, t + .08); q.gain.exponentialRampToValueAtTime(.001, t + .5);
+  s.connect(f).connect(q); s.start(t); s.stop(t + .55);
+}
+function fansWhistle() {   // часть трибун свистит на разбеге, мешая бьющему
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; s.loop = true; f.type = 'bandpass'; f.frequency.value = 3100; f.Q.value = 9;
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .09, t + .5); q.gain.linearRampToValueAtTime(0, t + 1.3);
+  s.connect(f).connect(q); s.start(t); s.stop(t + 1.4);
+}
 function whistle() {
   if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), q = out(0);
   o.frequency.value = 2750; lfo.frequency.value = 38; lg.gain.value = 140; lfo.connect(lg).connect(o.frequency);
   q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .12, t + .03); q.gain.setValueAtTime(muted ? 0 : .12, t + .38);
   q.gain.linearRampToValueAtTime(0, t + .45); o.connect(q); o.start(t); lfo.start(t); o.stop(t + .5); lfo.stop(t + .5);
 }
-function thud() {
+function thud(f0, v) {   // удар по мячу; ниже и тише — вратарь падает на газон
   if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), q = out(0);
-  o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
-  q.gain.setValueAtTime(muted ? 0 : .7, t); q.gain.exponentialRampToValueAtTime(.001, t + .2); o.connect(q); o.start(t); o.stop(t + .25);
+  o.frequency.setValueAtTime(f0 || 140, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+  q.gain.setValueAtTime(muted ? 0 : (v || .7), t); q.gain.exponentialRampToValueAtTime(.001, t + .2); o.connect(q); o.start(t); o.stop(t + .25);
 }
 function crowd(kind) {   // goal — рёв, save — «у-у-у», miss — вздох
   if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
@@ -214,7 +268,7 @@ function crowd(kind) {   // goal — рёв, save — «у-у-у», miss — в�
   s.connect(f).connect(q); s.start(t); s.stop(t + len + .1);
 }
 document.getElementById('mute').onclick = () => {
-  muted = !muted; document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; audioOn();
+  muted = !muted; document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; audioOn(); setAmb(ambLevel, .05);
 };
 function haptic(kind) {
   if (EMBED) { toParent({type: 'haptic', kind}); return; }
@@ -265,17 +319,45 @@ function drawNet(bulge) {   // bulge: {x,y,k} — мяч прогибает се
   g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2.4;
   g.beginPath(); g.moveTo(GOAL.x0, GOAL.y1); g.lineTo(BACK.x0, BACK.y1); g.lineTo(BACK.x1, BACK.y1); g.lineTo(GOAL.x1, GOAL.y1); g.stroke();
 }
-function drawPosts() {
+function drawPosts(ps) {   // ps: {l, r, b} — дрожание левой/правой штанги и перекладины после удара в каркас
   for (const x of [GOAL.x0, GOAL.x1]) {
     const sh = g.createRadialGradient(x + 14, GOAL.y1 + 3, 1, x + 14, GOAL.y1 + 3, 24);
     sh.addColorStop(0, 'rgba(0,0,0,.4)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.fillRect(x - 12, GOAL.y1 - 8, 52, 22);
   }
   const cyl = (x0, w) => { const gr = g.createLinearGradient(x0, 0, x0 + w, 0);
     gr.addColorStop(0, '#9aa3ae'); gr.addColorStop(.3, '#ffffff'); gr.addColorStop(.55, '#f1f4f7'); gr.addColorStop(1, '#8c95a1'); return gr; };
-  for (const x of [GOAL.x0, GOAL.x1]) { g.fillStyle = cyl(x - 7, 14); g.fillRect(x - 7, GOAL.y0 - 7, 14, GOAL.y1 - GOAL.y0 + 7); }
-  const gb = g.createLinearGradient(0, GOAL.y0 - 8, 0, GOAL.y0 + 6);
+  const bar = ps.b, top = GOAL.y0 - 7 + bar;
+  for (const [x0, d] of [[GOAL.x0, ps.l], [GOAL.x1, ps.r]]) {          // штанга закреплена в газоне: качается только верх
+    const x = x0 - 7; g.fillStyle = cyl(x + d * .5, 14);
+    g.beginPath(); g.moveTo(x + d, top); g.lineTo(x + 14 + d, top); g.lineTo(x + 14, GOAL.y1); g.lineTo(x, GOAL.y1); g.closePath(); g.fill();
+  }
+  const gb = g.createLinearGradient(0, GOAL.y0 - 8 + bar, 0, GOAL.y0 + 6 + bar);
   gb.addColorStop(0, '#9aa3ae'); gb.addColorStop(.3, '#ffffff'); gb.addColorStop(.6, '#eef1f4'); gb.addColorStop(1, '#8c95a1');
-  g.fillStyle = gb; g.beginPath(); g.roundRect(GOAL.x0 - 7, GOAL.y0 - 8, GOAL.x1 - GOAL.x0 + 14, 14, 7); g.fill();
+  g.fillStyle = gb; g.beginPath(); g.roundRect(GOAL.x0 - 7 + ps.l, GOAL.y0 - 8 + bar, GOAL.x1 - GOAL.x0 + 14 + ps.r - ps.l, 14, 7); g.fill();
+}
+
+/* ---------------- трибуны вживую: флаги и вспышки фотографов ---------------- */
+const FLAGS = [{x: -70, y: 120, c: ['#dc2626', '#f5f5f5']}, {x: 112, y: 64, c: ['#2563eb', '#f5f5f5']}, {x: 252, y: 156, c: ['#dc2626', '#111827']},
+               {x: 468, y: 92, c: ['#facc15', '#2563eb']}, {x: 622, y: 146, c: ['#dc2626', '#f5f5f5']}, {x: 792, y: 78, c: ['#16a34a', '#f5f5f5']}];
+function drawFlags(t) {
+  const e = excite, sp = 3 + e * 10;
+  FLAGS.forEach((f, n) => {
+    const bx = f.x + Math.sin(t * (.9 + e * 5) + n * 1.7) * (5 + e * 22), by = f.y, tx = bx + 5, ty = by - 30;   // древко качает болельщик
+    g.strokeStyle = '#d6d3d1'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx, by + 26); g.lineTo(tx, ty); g.stroke();
+    const top = [], bot = [];
+    for (let i = 0; i <= 8; i++) { const wv = Math.sin(t * sp - i * .8 + n) * (1 + i * .5) * (1 + e * 1.5);
+      top.push([tx + i * 6, ty + wv]); bot.push([tx + i * 6, ty + 30 + wv * 1.1]); }
+    for (const [c, k0, k1] of [[f.c[0], 0, .5], [f.c[1], .5, 1]]) {
+      g.fillStyle = c; g.beginPath();
+      top.forEach(([x, y], i) => { const yy = lerp(y, bot[i][1], k0); i ? g.lineTo(x, yy) : g.moveTo(x, yy); });
+      for (let i = 8; i >= 0; i--) g.lineTo(top[i][0], lerp(top[i][1], bot[i][1], k1));
+      g.closePath(); g.fill();
+    }
+  });
+}
+function drawPhotoFlash(x, y) {
+  const fl = g.createRadialGradient(x, y, 0, x, y, 26); fl.addColorStop(0, 'rgba(255,255,255,1)'); fl.addColorStop(.25, 'rgba(255,255,255,.6)'); fl.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = fl; g.fillRect(x - 26, y - 26, 52, 52);
 }
 
 /* ---------------- люди ---------------- */
@@ -296,129 +378,323 @@ function softShadow(x, y, rx, ry, a) {
   const s = g.createRadialGradient(0, 0, 1, 0, 0, rx); s.addColorStop(0, `rgba(0,0,0,${a})`); s.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = s; g.beginPath(); g.arc(0, 0, rx, 0, 7); g.fill(); g.restore();
 }
-function boot(x, y, w, h, ang) {
+function boot(x, y, w, h, ang, sole) {   // sole — видна подошва (пятка поднята в замахе)
   g.save(); g.translate(x, y); g.rotate(ang || 0);
   g.fillStyle = '#0b0d12'; g.beginPath(); g.ellipse(0, 0, w, h, 0, 0, 7); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(-w * .6, -h * .3, w * 1.2, h * .28);
+  if (sole) { g.fillStyle = '#6b7280'; for (const [sx, sy] of [[-.45, -.35], [.45, -.35], [-.4, .3], [.4, .3], [0, -.65], [0, .7]])
+      { g.beginPath(); g.arc(sx * w, sy * h, w * .13, 0, 7); g.fill(); } }
+  else { g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(-w * .6, -h * .3, w * 1.2, h * .28); }
   g.restore();
 }
-function sockLeg(kx, ky, ax, ay, r1, r2, sock) {   // гетра от колена до щиколотки с белой полосой сверху
+function bootSide(x, y) {   // щёчка: стопа развёрнута боком, носок наружу — видна светлая внутренняя сторона бутсы
+  g.save(); g.translate(x, y); g.rotate(-.12);
+  g.fillStyle = '#0b0d12'; g.beginPath(); g.ellipse(10, 0, 33, 12, 0, 0, 7); g.fill();
+  g.fillStyle = '#e5e7eb'; g.beginPath(); g.ellipse(8, -2, 20, 5.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#6b7280'; for (const sx of [-12, -2, 10, 22]) { g.beginPath(); g.arc(sx, 9, 2.2, 0, 7); g.fill(); }   // шипы
+  g.restore();
+}
+function bootHeel(x, y) {   // подъём: носок оттянут вниз — со спины видна пятка и полосы
+  g.save(); g.translate(x, y);
+  g.fillStyle = '#0b0d12'; g.beginPath(); g.ellipse(0, 4, 11, 20, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.88)'; g.beginPath(); g.ellipse(0, -9, 8.5, 5.5, 0, 0, Math.PI); g.fill();
+  g.strokeStyle = '#facc15'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(-8, 6); g.lineTo(8, 6); g.moveTo(-7, 13); g.lineTo(7, 13); g.stroke();
+  g.restore();
+}
+function sockLeg(kx, ky, ax, ay, r1, r2, sock, band) {   // гетра от колена до щиколотки с полосой сверху
   taper(kx, ky, r1, ax, ay, r2, sock);
   const [bx, by] = along(kx, ky, ax, ay, .1), [cx, cy] = along(kx, ky, ax, ay, .2);
-  limb(bx, by, cx, cy, r1 * 1.9, '#f1f5f9', 'butt');
+  limb(bx, by, cx, cy, r1 * 1.9, band || '#f1f5f9', 'butt');
 }
 const SKIN = '#e6b08f', SKIN_D = '#c8906c';
 
-function drawKeeper(p) {
-  // анфас. p: {x, y (ноги), rot, arms 0..1 (0 — стойка, 1 — руки вверх), crouch 0..1, legs 0..1 (1 — ноги вместе, в прыжке)}
-  const shirt = P.keeper.shirt, dark = shade(shirt, -.4), sleeve = shade(shirt, -.08), sock = shade(shirt, -.3);
-  const lying = Math.abs(Math.sin(p.rot));
-  softShadow(p.x, GOAL.y1 + 4, 38 + 70 * lying, 9, .5);
-  g.save(); g.translate(p.x, p.y); g.rotate(p.rot);
-  const cr = p.crouch, lg = p.legs;
-  const hipY = -62 + 10 * cr, kneeY = -33 + 5 * cr, kneeX = lerp(17 + 7 * cr, 6, lg), footX = lerp(16, 6, lg);
-  // ноги: бедро (под шортами и голое до колена), гетра, бутса
-  for (const s of [-1, 1]) {
-    const hx = s * 9, kx = s * kneeX, ax = s * footX;
-    taper(hx, hipY, 7.2, kx, kneeY, 5.4, SKIN);
-    sockLeg(kx, kneeY + 1, ax, -6, 5.4, 3.8, sock);
-    boot(ax + s * 2, -3, 8.5, 5);
+/* Вратарь и судья — одна фигура анфас. Поза — набор чисел 0..1, их можно плавно смешивать (mixPose):
+   arms — руки вверх, crouch — присел, legs — ноги вместе (в прыжке), kneel — на коленях,
+   spread/hold/head/fist/scoop/mouth — руки в стороны, мяч у груди, на голове, кулак вверх, подбор низом, свисток у рта;
+   roar — кричит, tuck — в прыжке верхняя нога согнута (толчковая вытянута); gclap — хлопок перчатками,
+   flex — оба кулака у плеч, slam — кулаком в газон; lead (−1..1) — какая рука ведёт в прыжке (тянется дальше,
+   вторая согнута); look (−1..1) — куда повёрнуто лицо (за мячом). x, y — ступни, rot — наклон всего тела вокруг ступней, s — масштаб. */
+const POSE0 = {x: 360, y: GOAL.y1, s: 1, rot: 0, arms: 0, crouch: .6, legs: 0, kneel: 0,
+               spread: 0, hold: 0, head: 0, fist: 0, scoop: 0, mouth: 0, roar: 0, tuck: 0,
+               gclap: 0, flex: 0, slam: 0, lead: 0, look: 0};
+const pose = o => Object.assign({}, POSE0, o);
+function mixPose(a, b, t) { const o = {}; for (const k in POSE0) o[k] = lerp(a[k], b[k], t); return o; }
+const ARM = {   // [локоть, запястье] относительно линии плеч; s = −1 левая рука, 1 правая
+  down:   s => [[s * 35, 22], [s * 40, 40]],
+  up:     s => [[s * 21, -24], [s * 14, -44]],
+  spread: s => [[s * 44, 6], [s * 68, 0]],
+  hold:   s => [[s * 26, 30], [s * 9, 22]],
+  head:   s => [[s * 30, -14], [s * 9, -30]],
+  fist:   s => s > 0 ? [[30, -12], [24, -46]] : [[-32, 20], [-30, 34]],
+  scoop:  s => [[s * 22, 40], [s * 10, 62]],
+  mouth:  s => s > 0 ? [[26, 6], [5, -10]] : [[-35, 22], [-40, 40]],
+  gclap:  s => [[s * 26, 22], [s * 5, 16]],
+  flex:   s => [[s * 38, -4], [s * 30, -34]],
+  slam:   s => s > 0 ? [[30, 26], [30, 66]] : [[-30, 22], [-24, 42]],
+};
+const LEAD = {ext: s => [[s * 15, -32], [s * 8, -62]], bent: s => [[s * 30, -12], [s * 16, -30]]};
+function keeperBody(p) {
+  const cr = p.crouch, lg = p.legs, kn = p.kneel;
+  const hipY = lerp(-62 + 10 * cr, -30, kn), kneeY = lerp(-33 + 5 * cr, -5, kn);
+  return {hipY, kneeY, shY: hipY - 44, kneeX: lerp(lerp(17 + 7 * cr, 6, lg), 16, kn), footX: lerp(16, 6, lg)};
+}
+function keeperArms(p, shY) {
+  return [-1, 1].map(s => {
+    const D = ARM.down(s), U = ARM.up(s);
+    let e = [lerp(D[0][0], U[0][0], p.arms), lerp(D[0][1], U[0][1], p.arms)], w = [lerp(D[1][0], U[1][0], p.arms), lerp(D[1][1], U[1][1], p.arms)];
+    for (const m of ['spread', 'hold', 'head', 'fist', 'scoop', 'mouth', 'gclap', 'flex', 'slam']) {
+      const k = p[m]; if (!k) continue; const M = ARM[m](s);
+      e = [lerp(e[0], M[0][0], k), lerp(e[1], M[0][1], k)]; w = [lerp(w[0], M[1][0], k), lerp(w[1], M[1][1], k)];
+    }
+    if (p.lead) {                                         // в прыжке одна рука тянется к мячу, другая согнута
+      const k = Math.abs(p.lead) * p.arms, M = (Math.sign(p.lead) === s ? LEAD.ext : LEAD.bent)(s);
+      e = [lerp(e[0], M[0][0], k), lerp(e[1], M[0][1], k)]; w = [lerp(w[0], M[1][0], k), lerp(w[1], M[1][1], k)];
+    }
+    e[1] += shY; w[1] += shY;
+    return {s, sx: s * 18, sy: shY + 5, e, w, gx: w[0] + (w[0] - e[0]) * .35, gy: w[1] + (w[1] - e[1]) * .35};
+  });
+}
+function hipOf(p) {   // таз в координатах сцены: при прыжке летит именно он, а не ступни
+  const h = keeperBody(p).hipY * p.s;
+  return {x: p.x - Math.sin(p.rot) * h, y: p.y + Math.cos(p.rot) * h};
+}
+function atHip(p, H) { const h = hipOf(Object.assign({}, p, {x: 0, y: 0})); p.x = H.x - h.x; p.y = H.y - h.y; return p; }
+function handsWorld(p) {   // перчатки в координатах сцены (сюда прилетает мяч): середина между ними, а в прыжке — ближе к ведущей
+  const A = keeperArms(p, keeperBody(p).shY), Ld = A[p.lead > 0 ? 1 : 0], k = Math.abs(p.lead || 0) * p.arms * .8;
+  const lx = lerp((A[0].gx + A[1].gx) / 2, Ld.gx, k), ly = lerp((A[0].gy + A[1].gy) / 2, Ld.gy, k);
+  const c = Math.cos(p.rot), sn = Math.sin(p.rot);
+  return {x: p.x + (c * lx - sn * ly) * p.s, y: p.y + (sn * lx + c * ly) * p.s};
+}
+function placeHands(p, G) {   // ставит фигуру так, чтобы перчатки оказались в точке G
+  const h = handsWorld(Object.assign({}, p, {x: 0, y: 0}));
+  return Object.assign(p, {x: G.x - h.x, y: G.y - h.y});
+}
+function reachPose(base, G, field) {   // подбирает, насколько выполнить движение field, чтобы перчатки были на высоте G; встаёт под мяч
+  let best = 0, err = 1e9;
+  for (let v = 0; v <= 1.0001; v += .02) {
+    const h = handsWorld(Object.assign({}, base, {[field]: v}));
+    if (Math.abs(h.y - G.y) < err) { err = Math.abs(h.y - G.y); best = v; }
   }
-  g.fillStyle = '#161922';                                                                                          // шорты
+  const p = Object.assign({}, base, {[field]: best});
+  p.x += G.x - handsWorld(p).x;
+  return p;
+}
+const KEEPER_KIT = () => ({shirt: P.keeper.shirt, shorts: '#161922', sock: shade(P.keeper.shirt, -.3), band: '#f1f5f9',
+                           glove: true, num: P.keeper.num, hair: '#2b1d16', ground: GOAL.y1});
+const REF = {x: 108, y: 712, s: 1.62};   // судья сбоку в штрафной: свистит перед ударом
+const REF_KIT = {shirt: '#1a1d24', shorts: '#0b0c10', sock: '#0b0c10', band: '#1a1d24', glove: false, num: null,
+                 hair: '#3b2a1e', ground: REF.y, badge: '#facc15'};
+
+function drawKeeper(p, kit, ghost) {   // ghost — полупрозрачный след в прыжке, без тени
+  const shirt = kit.shirt, dark = shade(shirt, -.4), sleeve = shade(shirt, -.08);
+  const lying = Math.abs(Math.sin(p.rot)), s = p.s, H = hipOf(p);
+  const elev = clamp((kit.ground - H.y - (12 + 50 * Math.abs(Math.cos(p.rot))) * s) / 110, 0, 1);   // чем выше в воздухе, тем меньше и бледнее тень
+  if (!ghost) softShadow(H.x + Math.sin(p.rot) * 20 * s, kit.ground + 4, (38 + 62 * lying) * s * (1 - .35 * elev), 9 * s * (1 - .3 * elev), .5 * (1 - .65 * elev));
+  g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.scale(s, s);
+  const B = keeperBody(p), kn = p.kneel;
+  // ноги: бедро (голое до колена), гетра, бутса; на коленях голени уходят назад и не видны
+  for (const sd of [-1, 1]) {
+    const hx = sd * 9, tk = p.tuck && sd === -Math.sign(p.rot) ? p.tuck : 0;
+    const kx = lerp(sd * B.kneeX, sd * (B.kneeX + 12), tk), ky = lerp(B.kneeY, B.hipY + 16, tk);
+    const ax = lerp(lerp(sd * B.footX, kx, kn), sd * (B.kneeX + 2), tk), ay = lerp(lerp(-6, B.kneeY + 2, kn), B.hipY + 40, tk);
+    taper(hx, B.hipY, 7.2, kx, ky, 5.4, SKIN);
+    if (kn < .85) { sockLeg(kx, ky + 1, ax, ay, 5.4, 3.8, kit.sock, kit.band); if (kn < .6) boot(ax + sd * 2, ay + 3, 8.5, 5); }
+  }
+  const hipY = B.hipY, shY = B.shY;
+  g.fillStyle = kit.shorts;                                                                                         // шорты
   g.beginPath(); g.moveTo(-17, hipY - 12); g.lineTo(17, hipY - 12); g.lineTo(20, hipY + 9); g.lineTo(3, hipY + 10); g.lineTo(0, hipY + 3);
   g.lineTo(-3, hipY + 10); g.lineTo(-20, hipY + 9); g.closePath(); g.fill();
   // корпус: плечи шире пояса, округлые плечи
-  const shY = -106 + 10 * cr;
   const tg = g.createLinearGradient(-24, 0, 24, 0); tg.addColorStop(0, shade(shirt, .28)); tg.addColorStop(.5, shirt); tg.addColorStop(1, dark);
   g.fillStyle = tg; g.beginPath(); g.moveTo(-15, shY - 2); g.quadraticCurveTo(-24, shY - 1, -23, shY + 9);
   g.lineTo(-16, hipY - 8); g.lineTo(16, hipY - 8); g.lineTo(23, shY + 9); g.quadraticCurveTo(24, shY - 1, 15, shY - 2); g.closePath(); g.fill();
   g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(-16, shY + 14, 32, 3);                                         // полоса на груди
   g.fillStyle = dark; g.beginPath(); g.moveTo(-6, shY - 2); g.lineTo(0, shY + 6); g.lineTo(6, shY - 2); g.fill();  // ворот
-  g.fillStyle = 'rgba(255,255,255,.92)'; g.font = `bold 16px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(String(P.keeper.num), 0, (shY + hipY) / 2 + 3);
-  // руки в длинных рукавах: плечо → локоть → запястье, перчатки
-  const a = p.arms;
-  for (const s of [-1, 1]) {
-    const sx = s * 18, sy = shY + 5;
-    const ex = s * lerp(35, 21, a), ey = shY + lerp(22, -24, a);
-    const wx = s * lerp(40, 14, a), wy = shY + lerp(40, -44, a);
-    taper(sx, sy, 6, ex, ey, 4.8, sleeve);
-    taper(ex, ey, 4.8, wx, wy, 4.2, sleeve);
-    const gx = wx + (wx - ex) * .35, gy = wy + (wy - ey) * .35;
-    limb(...along(ex, ey, wx, wy, .82), wx, wy, 9, '#111827', 'butt');                                         // манжета
-    const gl = g.createRadialGradient(gx - 3, gy - 3, 1, gx, gy, 11); gl.addColorStop(0, '#ffffff'); gl.addColorStop(1, '#c4ccd8');
-    g.fillStyle = gl; g.beginPath(); g.ellipse(gx, gy, 8, 9.5, Math.atan2(gy - ey, gx - ex) + Math.PI / 2, 0, 7); g.fill();
-    g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1;                                                       // пальцы
-    for (const k of [-3, 0, 3]) { g.beginPath(); g.moveTo(gx + k, gy - 2); g.lineTo(gx + k * 1.2, gy - 7); g.stroke(); }
+  if (kit.num !== null) { g.fillStyle = 'rgba(255,255,255,.92)'; g.font = `bold 16px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(String(kit.num), 0, (shY + hipY) / 2 + 3); }
+  if (kit.badge) { g.fillStyle = kit.badge; g.fillRect(-14, shY + 9, 7, 5); }                                       // нашивка судьи
+  // руки: плечо → локоть → запястье; у вратаря длинные рукава и перчатки, у судьи короткий рукав и кисть
+  const A = keeperArms(p, shY);
+  const hand = a => {
+    if (kit.glove) {
+      limb(...along(a.e[0], a.e[1], a.w[0], a.w[1], .82), a.w[0], a.w[1], 9, '#111827', 'butt');                  // манжета
+      const gl = g.createRadialGradient(a.gx - 3, a.gy - 3, 1, a.gx, a.gy, 11); gl.addColorStop(0, '#ffffff'); gl.addColorStop(1, '#c4ccd8');
+      g.fillStyle = gl; g.beginPath(); g.ellipse(a.gx, a.gy, 8, 9.5, Math.atan2(a.gy - a.e[1], a.gx - a.e[0]) + Math.PI / 2, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1;                                                       // пальцы
+      for (const k of [-3, 0, 3]) { g.beginPath(); g.moveTo(a.gx + k, a.gy - 2); g.lineTo(a.gx + k * 1.2, a.gy - 7); g.stroke(); }
+    } else { g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(a.gx, a.gy, 4.5, 5.5, 0, 0, 7); g.fill(); }
+  };
+  for (const a of A) {
+    taper(a.sx, a.sy, 6, a.e[0], a.e[1], 4.8, sleeve);
+    taper(a.e[0], a.e[1], 4.8, a.w[0], a.w[1], 4.2, kit.glove ? sleeve : SKIN);
+    hand(a);
   }
-  // голова
+  // голова: лицо поворачивается за мячом (look) — черты сдвигаются, дальнее ухо прячется
+  const lk = clamp(p.look || 0, -1, 1), fx = lk * 4;
   taper(0, shY - 1, 4.5, 0, shY - 8, 4.5, SKIN_D);
+  g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(-10.5 + lk * 2, shY - 17, 2.5 * (1 + Math.min(0, lk) * .8), 3.5, 0, 0, 7);
+  g.ellipse(10.5 + lk * 2, shY - 17, 2.5 * (1 - Math.max(0, lk) * .8), 3.5, 0, 0, 7); g.fill();
   g.fillStyle = SKIN; g.beginPath(); g.ellipse(0, shY - 18, 10.5, 12, 0, 0, 7); g.fill();
-  g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(-10.5, shY - 17, 2.5, 3.5, 0, 0, 7); g.ellipse(10.5, shY - 17, 2.5, 3.5, 0, 0, 7); g.fill();
-  g.fillStyle = '#2b1d16'; g.beginPath(); g.ellipse(0, shY - 25, 11, 6.5, 0, Math.PI, 0); g.fill(); g.fillRect(-11, shY - 25, 22, 3);
-  g.fillStyle = '#1f2937'; g.beginPath(); g.arc(-4, shY - 18, 1.4, 0, 7); g.arc(4, shY - 18, 1.4, 0, 7); g.fill();     // глаза
-  g.strokeStyle = 'rgba(80,40,30,.6)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-3, shY - 11.5); g.lineTo(3, shY - 11.5); g.stroke();
+  g.fillStyle = kit.hair; g.beginPath(); g.ellipse(0, shY - 25, 11, 6.5, 0, Math.PI, 0); g.fill(); g.fillRect(-11, shY - 25, 22, 3);
+  g.fillStyle = '#1f2937'; g.beginPath(); g.arc(-4 + fx, shY - 18, 1.4, 0, 7); g.arc(4 + fx, shY - 18, 1.4, 0, 7); g.fill();     // глаза
+  g.fillStyle = SKIN_D; g.beginPath(); g.ellipse(fx * 1.3, shY - 14.5, 1.6, 2.2, 0, 0, 7); g.fill();                                // нос
+  if (p.roar > .3) { g.fillStyle = '#3f1d1d'; g.beginPath(); g.ellipse(fx, shY - 10.5, 3.5, 3.2 * p.roar, 0, 0, 7); g.fill(); }   // кричит
+  else { g.strokeStyle = 'rgba(80,40,30,.6)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-3 + fx, shY - 11); g.lineTo(3 + fx, shY - 11); g.stroke(); }
+  if (p.head > .6 || p.mouth > .6) for (const a of A) if (p.head > .6 || a.s > 0) hand(a);     // ладони на голове / свисток — поверх лица
+  if (p.mouth > .6) { g.fillStyle = '#d1d5db'; g.fillRect(-1, shY - 12, 6, 3); }
   g.restore();
 }
-function keeperIdle(t) { return {x: 360 + Math.sin(t * 2.3) * 12, y: GOAL.y1, rot: 0, arms: 0, crouch: .6 + .15 * Math.sin(t * 4.6), legs: 0}; }
-function keeperTarget(a) {
-  // конечная поза прыжка: перчатки к мячу, если вратарь угадал сторону (не дотянулся — если гол)
-  const T = zone(a.aim), col = a.aim % 3, high = a.aim < 3;
-  if (a.dive === 1) {
-    if (col === 1 && high) return {x: 360, y: GOAL.y1 - 26, rot: 0, arms: 1, crouch: 0, legs: .6};
-    return {x: 360, y: GOAL.y1, rot: 0, arms: col === 1 ? .15 : .45, crouch: 1, legs: 0};
+function keeperIdle(t, spread) {   // качается на линии, пружинит на носках; время от времени хлопает перчатками
+  const cl = Math.pow(Math.max(0, Math.sin(t * .55 + 2)), 30);
+  return pose({x: 360 + Math.sin(t * 2.3) * 12, crouch: .6 + .15 * Math.sin(t * 4.6), spread: (spread || 0) * (1 - cl), gclap: cl * (spread ? .4 : 1)});
+}
+const smooth = (x, a, b) => easeInOut((x - a) / (b - a));
+function keeperPre(at, a) {
+  // до удара: качается на линии, раскидывает руки (кто-то ещё и «танцует»), перед самым ударом — стойка
+  const pl = a.plan, T = a.t0 / 1000 + at, sp = smooth(at, .3, .6) * (1 - smooth(at, pl.K - .75, pl.K - .4));
+  const p = keeperIdle(T, sp);
+  if (pl.bar) {                                             // ритуал: подпрыгивает и касается перекладины
+    const b = clamp(at / .5, 0, 1), w = Math.sin(Math.PI * b);
+    p.arms = Math.max(p.arms, w); p.crouch = lerp(p.crouch, 0, w); p.y -= 16 * Math.sin(Math.PI * clamp(b * 1.3 - .15, 0, 1)); p.spread *= 1 - w;
   }
-  const dir = a.dive === 0 ? -1 : 1, L = 154;
-  const guessed = col === a.dive && a.outcome !== 'miss';
-  const rot = dir * (guessed ? (high ? .95 : 1.32) : 1.18);
-  let hx, hy;
-  if (guessed) { hx = T.x - (a.outcome === 'goal' ? dir * 48 : 0); hy = T.y + (a.outcome === 'goal' ? 10 : 0); }
-  else { hx = colX(a.dive); hy = 392; }
-  return {x: hx - Math.sin(rot) * L, y: hy + Math.cos(rot) * L, rot, arms: 1, crouch: 0, legs: 1};
+  if (at > .55 && at < 1.1) { const c = (at - .55) / .55; p.gclap = Math.max(p.gclap, Math.pow(Math.abs(Math.sin(c * Math.PI * 2)), 6)); }   // хлоп-хлоп
+  if (pl.dance) { const d = smooth(at, .4, .7) * (1 - smooth(at, pl.K - .6, pl.K - .3));
+    p.x += Math.sin(T * 5.2) * 14 * d; p.arms = .4 * d * Math.abs(Math.sin(T * 6.5)); p.roar = d; }
+  return p;
+}
+function keeperAt(at, a, t) {
+  if (!a) return keeperIdle(t, Math.pow(Math.max(0, Math.sin(t * .8)), 4) * .9);
+  const pl = a.plan, E = pl.KE, dir = pl.kdir, tP = pl.lands ? pl.D0 - .1 : pl.D0, tS = tP - .2;
+  if (at < tS) return keeperPre(at, a);
+  const S = keeperPre(tS, a), set = pose({x: S.x, crouch: .9});
+  if (at < tP) {                                            // подскок в стойку: вес на носках
+    const h = clamp((at - tS) / (tP - tS), 0, 1), p = mixPose(S, set, easeOut(h * 2));
+    p.y = GOAL.y1 - 11 * Math.sin(Math.PI * clamp(h * 1.25, 0, 1)); return p;
+  }
+  // толчковый шаг: ближняя к мячу нога шагает в сторону прыжка, вратарь глубже приседает и наклоняется
+  const step = pose({x: set.x + dir * 16, crouch: 1, rot: dir * .12, spread: .25});
+  if (at < pl.D0) return mixPose(set, step, easeInOut((at - tP) / (pl.D0 - tP)));
+  const Sd = pl.lands ? step : set;
+  if (at < pl.Ta) {                                         // полёт: летит бедро, тело постепенно ложится на бок
+    const d = clamp((at - pl.D0) / (pl.Ta - pl.D0), 0, 1), p = mixPose(Sd, E, easeOut(d));
+    if (!pl.lands) { p.y -= pl.lift * Math.sin(Math.PI * d); return p; }
+    p.rot = lerp(Sd.rot, E.rot, 1 - Math.pow(1 - d, 1.7));
+    const H0 = hipOf(Sd), H1 = hipOf(E);
+    return atHip(p, {x: lerp(H0.x, H1.x, 1 - Math.pow(1 - d, 1.3)), y: lerp(H0.y, H1.y, d) - pl.lift * Math.sin(Math.PI * d)});
+  }
+  let L = Object.assign({}, E);
+  if (pl.lands) {                                           // падает на бок, отскакивает от газона и проскальзывает
+    const f = clamp((at - pl.Ta) / .3, 0, 1), fe = easeOut(f), b = clamp((at - pl.Ta - .3) / .25, 0, 1), H1 = hipOf(E);
+    L.rot = lerp(E.rot, dir * 1.57, fe); L.legs = lerp(E.legs, .3, fe); L.tuck = lerp(E.tuck, .35, fe);
+    if (pl.kind === 'catch') { L.hold = .5 * fe; L.lead = lerp(E.lead, 0, fe); }   // прижимает мяч к себе обеими руками
+    atHip(L, {x: H1.x + dir * (16 * fe + 10 * easeOut(b)), y: lerp(H1.y, Math.max(GOAL.y1 - 12, H1.y), f * f) - 5 * Math.sin(Math.PI * b)});
+  }
+  const u = clamp((at - pl.Tr) / .5, 0, 1);
+  if (u <= 0) return L;
+  const lx = pl.lands ? L.x + dir * 58 : L.x;
+  const U = {down: pose({x: lx, kneel: 1, crouch: 1, head: .9}),
+             slam: pose({x: lx, kneel: 1, crouch: 1, slam: 1, roar: .5}),
+             cheer: pose({x: lx, crouch: .15, fist: 1, roar: 1}),
+             flex: pose({x: lx, crouch: .35, flex: 1, roar: 1}),
+             cheerBall: pose({x: lx, crouch: .15, arms: 1, roar: 1}),
+             clap: pose({x: lx, crouch: .3, spread: 1, roar: 1})}[pl.kr];
+  const pp = mixPose(L, U, easeInOut(u));
+  if (pl.lands) { pp.rot = lerp(L.rot, 0, easeInOut(u)); pp.kneel = Math.max(pp.kneel, Math.sin(Math.PI * u) * .7); }   // встаёт, опираясь на колено
+  if (u >= 1 && pl.kr === 'slam') { const up = (Math.sin((at - pl.Tr - .5) * 9) + 1) / 2; pp.slam = 1 - up; pp.fist = up; }   // кулаком по газону
+  else if (u >= 1 && pl.kr !== 'down') pp.y -= Math.abs(Math.sin((at - pl.Tr - .5) * 6.5)) * (pl.kr === 'clap' ? 5 : pl.kr === 'flex' ? 8 : 15);   // радуется
+  if (u >= 1 && pl.kr === 'down') pp.head = .9 - .4 * Math.max(0, Math.sin((at - pl.Tr) * 2));                              // качает головой
+  return pp;
+}
+function refAt(at, a, t) {
+  const w = a ? smooth(at, .05, .2) * (1 - smooth(at, .55, .75)) : 0;           // свисток ко рту
+  return pose({x: REF.x + Math.sin(t * 1.3) * 2, y: REF.y, s: REF.s, crouch: .08, mouth: w});
 }
 
+/* Бьющий — со спины. Настроение mood плавно (mt 0..1) переводит руки в позу радости или досады. */
+const KICKER_MOODS = {
+  joy:   s => ({e: [s * 80, -352], w: [s * 94, -404]}),      // руки вверх
+  sad:   s => ({e: [s * 76, -308], w: [s * 24, -346]}),      // за голову
+  plane: s => ({e: [s * 104, -284], w: [s * 150, -292]}),    // «самолётик»
+  fist:  s => s > 0 ? {e: [90, -322], w: [92, -382]} : {e: [-82, -246], w: [-62, -210]},
+  hips:  s => ({e: [s * 88, -238], w: [s * 50, -198]}),      // руки на поясе
+};
 function kickerArm(k, s, sw, running) {
   // позы руки (локоть, запястье) относительно плеча; s = −1 левая, 1 правая
+  let r;
   const idle = [[s * 62, -228], [s * 64, -178]];
-  if (k.mood === 'joy') return {e: [s * 80, -352], w: [s * 94, -404], front: false};
-  if (k.mood === 'sad') return {e: [s * 76, -308], w: [s * 24, -346], front: false};
   if (k.kick > 0) {                                   // удар: левая рука в сторону для равновесия, правая назад
-    const q = clamp(k.kick * 1.6, 0, 1);
-    if (s < 0) return {e: [lerp(-62, -100, q), lerp(-228, -262, q)], w: [lerp(-64, -138, q), lerp(-178, -250, q)], front: false};
-    return {e: [lerp(62, 74, q), lerp(-228, -236, q)], w: [lerp(64, 88, q), lerp(-178, -196, q)], front: false};
+    const q = clamp(k.kick * 1.6, 0, 1) * (1 - easeInOut(k.rec || 0)) * (k.tech === 'chip' ? .6 : k.tech === 'power' ? 1.15 : 1);
+    if (s < 0) r = {e: [lerp(-62, -100, q), lerp(-228, -262, q)], w: [lerp(-64, -138, q), lerp(-178, -250, q)], front: false};
+    else r = {e: [lerp(62, 74, q), lerp(-228, -236, q)], w: [lerp(64, 88, q), lerp(-178, -196, q)], front: false};
+  } else if (!running) r = {e: idle[0], w: idle[1], front: false};
+  else {
+    const f = s * sw;                                 // > 0 — рука идёт вперёд (от нас), < 0 — назад (к нам)
+    if (f > 0) r = {e: [s * lerp(62, 58, f), lerp(-228, -244, f)], w: [s * lerp(64, 34, f), lerp(-178, -232, f)], front: f > .45};
+    else { const b = -f; r = {e: [s * lerp(62, 70, b), lerp(-228, -226, b)], w: [s * lerp(64, 80, b), lerp(-178, -184, b)], front: false}; }
   }
-  if (!running) return {e: idle[0], w: idle[1], front: false};
-  const f = s * sw;                                   // > 0 — рука идёт вперёд (от нас), < 0 — назад (к нам)
-  if (f > 0) return {e: [s * lerp(62, 58, f), lerp(-228, -244, f)], w: [s * lerp(64, 34, f), lerp(-178, -232, f)], front: f > .45};
-  const b = -f;
-  return {e: [s * lerp(62, 70, b), lerp(-228, -226, b)], w: [s * lerp(64, 80, b), lerp(-178, -184, b)], front: false};
+  if (!k.mood || !k.mt) return r;
+  const m = KICKER_MOODS[k.mood](s), q = k.mt;
+  return {e: [lerp(r.e[0], m.e[0], q), lerp(r.e[1], m.e[1], q)], w: [lerp(r.w[0], m.w[0], q), lerp(r.w[1], m.w[1], q)], front: r.front && q < .5};
+}
+/* Техника удара (правая нога, координаты — от ступней бьющего, мяч в (53, −42)):
+   последний шаг — опорная левая ставится рядом с мячом; замах — пятка к ягодице, видна подошва;
+   касание — стопа точно у мяча (kick = .545 — момент удара K); дальше проводка к цели.
+   power — подъёмом: большой замах, носок оттянут (со спины видна пятка), нога взлетает высоко, бьющий подпрыгивает;
+   place — щёчкой: стопа развёрнута боком, низкая проводка к углу; chip — «паненка»: короткий замах, стопа подсекает мяч.
+   Мяч справа от бьющего (в (71, −51)), поэтому бьющая нога видна сбоку от корпуса. */
+const KICK_KEYS = {
+  power: [[0, [24, -88], [25, -16]], [.32, [40, -70], [52, -150], 'sole'], [.545, [46, -114], [50, -54]], [.8, [70, -176], [100, -252]], [1, [70, -176], [100, -252]]],
+  place: [[0, [24, -88], [25, -16]], [.32, [38, -76], [48, -120], 'sole'], [.545, [46, -112], [50, -54]], [.8, [66, -108], [96, -118]], [1, [66, -108], [96, -118]]],
+  chip:  [[0, [24, -88], [25, -16]], [.32, [36, -82], [44, -108], 'sole'], [.545, [46, -110], [52, -56]], [.7, [48, -114], [58, -82]], [1, [48, -114], [58, -82]]],
+};
+function kickLegs(k) {
+  const q = k.kick, d = (k.col === undefined ? 1 : k.col) - 1, keys = KICK_KEYS[k.tech || 'place'];
+  let i = 0; while (i < keys.length - 2 && q > keys[i + 1][0]) i++;
+  const [q0, kn0, an0, s0] = keys[i], [q1, kn1, an1] = keys[i + 1], e = easeInOut((q - q0) / (q1 - q0));
+  const knee = [lerp(kn0[0], kn1[0], e), lerp(kn0[1], kn1[1], e)], ankle = [lerp(an0[0], an1[0], e), lerp(an0[1], an1[1], e)];
+  const ft = clamp((q - .545) / .25, 0, 1);              // проводка: нога уходит к выбранному углу
+  const across = k.tech === 'place' ? 16 : k.tech === 'power' ? 10 : 4;
+  knee[0] += d * across * .4 * ft; ankle[0] += d * across * ft;
+  const R = {knee, ankle, front: q > .1 && q < .5, sole: s0 === 'sole' && e < .8, ang: 0,
+             boot: q > .42 && (k.rec || 0) < .4 ? (k.tech === 'place' ? 'side' : k.tech === 'power' ? 'heel' : null) : null};
+  const pq = easeInOut(clamp(q / .3, 0, 1));             // опорная нога: длинный последний шаг к мячу, колено чуть согнуто
+  const L = {knee: [lerp(-24, 0, pq), lerp(-88, -92, pq)], ankle: [lerp(-25, 14, pq), lerp(-16, -26, pq)]};
+  const rc = easeInOut(k.rec || 0);                       // после проводки — шаг вперёд и обратно в стойку
+  if (rc > 0) {
+    const mix = (a, b) => [lerp(a[0], b[0], rc), lerp(a[1], b[1], rc)];
+    R.knee = mix(R.knee, [24, -88]); R.ankle = mix(R.ankle, [25, -16]); R.ang *= 1 - rc;
+    L.knee = mix(L.knee, [-24, -88]); L.ankle = mix(L.ankle, [-25, -16]);
+  }
+  return {R, L};
 }
 function drawKicker(k) {
-  // со спины. k: {x, y (ноги), s (масштаб), run (фаза бега), kick 0..1, mood: null|joy|sad, lean}
-  const c = P.kicker, dark = shade(c.shirt, -.38);
+  // со спины. k: {x, y (ноги), s (масштаб), run (фаза бега), kick 0..1, col (куда бьёт), mood, mt, lean, cr (присел)}
+  const c = P.kicker, dark = shade(c.shirt, -.38), cr = k.cr || 0;
   softShadow(k.x, k.y + 4, 80 * k.s, 18 * k.s, .55);
   g.save(); g.translate(k.x, k.y); g.scale(k.s, k.s); g.rotate(k.lean || 0);
   const sw = Math.sin(k.run), running = k.run !== 0;
+  const kick = k.kick > 0 ? kickLegs(k) : null;
   const leg = (s, v) => {
-    const hip = [s * 21, -160];
-    let knee = [s * 24, -88 - (running ? Math.max(0, v) * 22 : 0)], ankle = [s * 25, -16 - (running ? v * 24 : 0)];
-    if (s === 1 && k.kick > 0) {                      // замах назад-вверх и удар с проносом ноги вперёд
-      const q = k.kick;
-      if (q < .4) { const e = q / .4; knee = [lerp(24, 32, e), lerp(-88, -74, e)]; ankle = [lerp(25, 44, e), lerp(-16, -58, e)]; }
-      else { const e = easeOut((q - .4) / .6); knee = [lerp(32, 48, e), lerp(-74, -150, e)]; ankle = [lerp(44, 70, e), lerp(-58, -196, e)]; }
-    }
+    const hip = [s * 21, -160 + 70 * cr];
+    let knee = [s * (24 + 16 * cr), -88 + 40 * cr - (running ? Math.max(0, v) * 22 : 0)], ankle = [s * 25, -16 - (running ? v * 24 : 0)];
+    let ang = 0, sole = false, bt = null;
+    if (kick) { const L = s > 0 ? kick.R : kick.L; knee = L.knee; ankle = L.ankle; ang = L.ang || 0; sole = !!L.sole; bt = L.boot; }
     taper(hip[0], hip[1], 19, knee[0], knee[1], 13, SKIN);
     sockLeg(knee[0], knee[1] + 6, ankle[0], ankle[1], 13, 9, c.shirt);
-    boot(ankle[0] + s * 3, ankle[1] + 8, 19, 11);
+    if (bt === 'side') bootSide(ankle[0] + 8, ankle[1] + 8);
+    else if (bt === 'heel') bootHeel(ankle[0] + 2, ankle[1] + 6);
+    else boot(ankle[0] + s * 3, ankle[1] + (sole ? -2 : 8), sole ? 11 : 19, sole ? 17 : 11, ang, sole);
   };
   const order = running && sw > 0 ? [[1, -sw], [-1, sw]] : [[-1, sw], [1, -sw]];
-  for (const [s, v] of order) leg(s, v);
+  for (const [s, v] of order) if (!(kick && s > 0 && kick.R.front)) leg(s, v);
+  g.translate(0, 70 * cr - (k.br || 0));              // присел — корпус ниже; вдох — плечи поднимаются
+  if (k.tw) { g.translate(0, -195); g.rotate(k.tw); g.translate(0, 195); }   // поворот корпуса при ударе
   // шорты с лампасами
   g.fillStyle = c.shorts; g.beginPath(); g.moveTo(-48, -200); g.lineTo(48, -200); g.lineTo(55, -138); g.lineTo(5, -134); g.lineTo(0, -152);
   g.lineTo(-5, -134); g.lineTo(-55, -138); g.closePath(); g.fill();
   g.fillStyle = c.shirt; g.beginPath(); g.moveTo(-48, -200); g.lineTo(-42, -200); g.lineTo(-48, -138); g.lineTo(-55, -138); g.fill();
   g.beginPath(); g.moveTo(48, -200); g.lineTo(42, -200); g.lineTo(48, -138); g.lineTo(55, -138); g.fill();
   g.fillStyle = 'rgba(0,0,0,.1)'; g.fillRect(-3, -198, 6, 44);
+  if (kick && kick.R.front) leg(1, 0);                // замах: голень с подошвой видна поверх шорт
   // руки растут из-под футболки: сначала руки, потом футболка, сверху только край рукава
   const arms = [-1, 1].map(s => ({s, ...kickerArm(k, s, sw, running)}));
   const shoulder = s => [s * 54, -280];
@@ -450,24 +726,63 @@ function drawKicker(k) {
   g.fillStyle = SKIN; g.beginPath(); g.ellipse(-25, -332, 5.5, 9, -.15, 0, 7); g.ellipse(25, -332, 5.5, 9, .15, 0, 7); g.fill();
   const hg = g.createRadialGradient(-8, -352, 4, 0, -336, 32); hg.addColorStop(0, '#4a3326'); hg.addColorStop(1, '#1b120d');
   g.fillStyle = hg; g.beginPath(); g.ellipse(0, -337, 25, 29, 0, 0, 7); g.fill();
-  if (k.mood === 'sad') for (const a of arms) forearm(a);                  // ладони на затылке — поверх головы
+  if (k.mood === 'sad' && k.mt > .6) for (const a of arms) forearm(a);    // ладони на затылке — поверх головы
   g.restore();
 }
-function kickerAt(t, a) {
-  const start = {x: 225, y: 1010}, plant = {x: 312, y: 838};
-  if (!a) return {x: start.x, y: start.y, s: 1, run: 0, kick: 0, mood: null, lean: 0};
-  const r = clamp((t - .35) / .8, 0, 1), e = easeInOut(r);
-  const k = {x: lerp(start.x, plant.x, e), y: lerp(start.y, plant.y, e), s: lerp(1, .9, e), run: r > 0 && r < 1 ? t * 15 : 0,
-             kick: 0, mood: null, lean: r > 0 && r < 1 ? .07 : 0};
-  if (t > 1.0) k.kick = clamp((t - 1.0) / .22, 0, 1) * (t < 1.7 ? 1 : clamp(1 - (t - 1.7) / .3, 0, 1));
-  if (t > 2.1) { const good = a.outcome === 'goal'; k.mood = good ? 'joy' : 'sad';
-    if (good) k.y -= Math.abs(Math.sin((t - 2.1) * 7)) * 18; }
+const RUN_START = {long: {x: 205, y: 1030, s: 1.03}, short: {x: 262, y: 968, s: .97}};
+function kickerAt(at, a, t) {
+  const plant = {x: 296, y: 846}, br = Math.sin(t * 1.7) * 2.2;            // перед ударом стоит руки в боки и глубоко дышит
+  if (!a) { const st = RUN_START.long; return {x: st.x, y: st.y, s: st.s, run: 0, kick: 0, mood: 'hips', mt: .9, lean: 0, cr: 0, br}; }
+  const pl = a.plan, K = pl.K, st = RUN_START[pl.run], t0 = pl.run === 'short' ? .7 : .5, t1 = K - .1, u = clamp((at - t0) / (t1 - t0), 0, 1);
+  // разбег по дуге: разгон, ровный бег, длинный последний шаг; «паузинья» — на последних шагах почти замирает и бьёт позже
+  const stut = pl.para && u > .6 && u < .85;
+  const e = !pl.para ? (u < .8 ? .84 * Math.pow(u / .8, 1.25) : .84 + .16 * easeOut((u - .8) / .2))
+                     : u < .6 ? .78 * (u / .6) : u < .85 ? .78 + .04 * (u - .6) / .25 : .82 + .18 * (u - .85) / .15;
+  const runOn = u > 0 && u < 1, ph = at * (stut ? 5 : lerp(11, 16, u));
+  const k = {x: lerp(st.x, plant.x, e) - 16 * Math.sin(Math.PI * e), y: lerp(st.y, plant.y, e) - (runOn && !stut ? Math.abs(Math.sin(ph)) * 6 : 0),
+             s: lerp(st.s, .9, e), run: runOn ? ph : 0, kick: 0, col: a.aim % 3, mood: 'hips', mt: .9 * (1 - smooth(at, .15, .45)), lean: runOn ? (stut ? .02 : lerp(.04, .09, u)) : 0, cr: 0,
+             br: br * (1 - smooth(at, .15, .45))};
+  k.tech = pl.tech;
+  if (at > K - .12) {
+    k.kick = clamp((at - (K - .12)) / .22, 0, 1);
+    k.rec = clamp((at - K - .45) / .35, 0, 1); if (k.rec >= 1) k.kick = 0;
+    if (pl.tech === 'power' && !k.rec) k.y -= 9 * Math.sin(Math.PI * clamp((k.kick - .55) / .45, 0, 1));   // после удара подъёмом — подскок
+  }
+  if (k.kick > 0) {
+    const rr = 1 - (k.rec || 0), q = k.kick;
+    k.lean = (1 - k.col) * .05 * q * rr - (pl.tech === 'power' ? .04 : 0) * rr;
+    // корпус: в замахе правое плечо уходит назад, при ударе — вперёд, сильнее при ударе подъёмом
+    k.tw = (q < .32 ? .07 * q / .32 : q < .545 ? lerp(.07, -.03, (q - .32) / .225) : lerp(-.03, pl.tech === 'power' ? -.1 : -.06, clamp((q - .545) / .25, 0, 1))) * rr;
+  }
+  if (at > K + .25) {                                                      // по инерции — шаг-другой вперёд за мячом
+    const m = easeOut(clamp((at - K - .25) / .6, 0, 1)), d = k.col - 1;
+    k.x += (6 + d * 10) * m; k.y -= 24 * m; k.s -= .02 * m; plant.x += (6 + d * 10) * m; plant.y -= 24 * m;
+  }
+  const Tm = pl.R + .3;
+  if (at <= Tm) { if (at > .45) k.mood = null; return k; }
+  const q = at - Tm;
+  k.mt = clamp(q / .25, 0, 1); k.mood = null;
+  switch (pl.kick) {
+    case 'jump': k.mood = 'joy'; k.y -= Math.abs(Math.sin(q * 7)) * 18; break;
+    case 'fist': k.mood = 'fist'; k.y -= Math.abs(Math.sin(q * 5)) * 10; break;
+    case 'plane': {                                                  // убегает к угловому «самолётиком» и подкатывается на коленях
+      const r = clamp(q / .9, 0, 1), sl = clamp((q - .9) / .45, 0, 1);
+      k.mood = sl > .3 ? 'joy' : 'plane'; k.mt = sl > .3 ? clamp((sl - .3) / .4, 0, 1) : k.mt;
+      k.x = lerp(plant.x, 540, easeInOut(r)) + 32 * easeOut(sl); k.y = lerp(plant.y, 900, easeInOut(r)) + 8 * easeOut(sl);
+      k.s = lerp(.9, 1, r); k.run = r < 1 ? at * 14 : 0; k.lean = r < 1 ? .13 : lerp(.13, -.07, sl); k.cr = easeOut(sl);
+      break;
+    }
+    case 'head': k.mood = 'sad'; break;
+    case 'squat': k.mood = 'sad'; k.cr = easeInOut((q - .7) / .45) * .9; break;
+    case 'hips': k.mood = 'hips'; k.lean = -.03 * Math.sin(q * 2); break;
+  }
   return k;
 }
 
 /* ---------------- мяч ---------------- */
-function drawBall(x, y, r, spin, alpha) {
+function drawBall(x, y, r, spin, alpha, sq) {
   g.save(); g.globalAlpha = alpha === undefined ? 1 : alpha; g.translate(x, y);
+  if (sq) g.scale(1 + sq * .7, 1 - sq);
   const gr = g.createRadialGradient(-r * .4, -r * .45, r * .05, 0, 0, r);
   gr.addColorStop(0, '#ffffff'); gr.addColorStop(.6, '#e5e7eb'); gr.addColorStop(1, '#9ca3af');
   g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
@@ -479,38 +794,154 @@ function drawBall(x, y, r, spin, alpha) {
   g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
   g.restore();
 }
-function ballAt(t, a) {
-  // {x, y, r, gy (земля под мячом), deep (за линией ворот), alpha, fly (в полёте — со следом)}
-  const K = 1.12, F = .62;
-  if (!a || t < K) return {x: SPOT.x, y: SPOT.y - 4, r: 22, gy: SPOT.y + 14, deep: false, spin: 0, alpha: 1};
-  let T = zone(a.aim);
-  if (a.outcome === 'miss') T = a.aim < 3 ? {x: T.x, y: GOAL.y0 - 42} : {x: a.aim % 3 === 0 ? GOAL.x0 - 52 : GOAL.x1 + 52, y: 440};
-  const p = clamp((t - K) / F, 0, 1), e = 1 - Math.pow(1 - p, 1.5);
-  if (p < 1) return {x: lerp(SPOT.x, T.x, e), y: lerp(SPOT.y - 4, T.y, e) - 46 * Math.sin(Math.PI * e), r: lerp(22, 10, e),
-                     gy: lerp(SPOT.y + 14, GOAL.y1 + 2, e), deep: false, spin: t * 18, alpha: 1, fly: true};
-  const q = t - K - F;
-  if (a.outcome === 'goal') {
-    const into = clamp(q / .16, 0, 1), fall = clamp((q - .16) / .45, 0, 1);
-    const x = lerp(T.x, lerp(T.x, VP.x, .3), into), y0 = lerp(T.y, lerp(T.y, VP.y, .3), into);
-    const y = lerp(y0, BACK.y1 - 8, fall * fall) - (fall > .7 ? Math.sin((fall - .7) / .3 * Math.PI) * 10 : 0);
-    return {x, y, r: lerp(10, 8.5, into), gy: BACK.y1, deep: true, spin: t * 6, alpha: 1};
-  }
-  if (a.outcome === 'save') {
-    // отбитый мяч отскакивает вперёд и в сторону — так, чтобы остался на экране телефона
-    const side = T.x === 360 ? (a.dive === 2 ? 1 : -1) : Math.sign(T.x - 360), r = clamp(q / .7, 0, 1), e2 = easeOut(r);
-    return {x: T.x + side * 90 * e2, y: lerp(T.y, GOAL.y1 + 130, e2) - 70 * Math.sin(Math.PI * Math.min(1, r * 1.3)), r: lerp(10, 16, e2),
-            gy: lerp(GOAL.y1 + 2, GOAL.y1 + 140, e2), deep: false, spin: -t * 12, alpha: 1};
-  }
-  const r = clamp(q / .6, 0, 1);                                                           // мимо: улетает дальше
-  return {x: T.x + (a.aim < 3 ? 0 : Math.sign(T.x - 360) * 80 * r), y: T.y - (a.aim < 3 ? 90 * r : 10 * r), r: lerp(10, 7, r),
-          gy: GOAL.y1 - 20, deep: true, spin: t * 18, alpha: 1 - r};
+
+/* План сцены: куда точно летит мяч (C), что с ним происходит (kind), как прыгает вратарь и кто как реагирует.
+   Всё выводится из присланного исхода и имён: обе стороны видят одно и то же, сам исход не меняется.
+   kind: net — в сетку, postIn — от штанги в ворота, fingertip — задел кончиками пальцев, но гол;
+         catch — поймал, parry — отбил в поле, tip — перевёл через перекладину;
+         block — отбил ногами низом по центру;
+         over — выше ворот, bar — в перекладину и вверх, wide — мимо, postOut — в штангу и в поле. */
+function seedOf(a) {
+  let h = 2166136261;
+  for (const ch of [a.aim, a.dive, a.outcome, a.text, P.kicker.num, P.kicker.name, P.keeper.num].join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return (h >>> 0) % 2147483646 + 1;
 }
-function drawBallWithShadow(b, prev) {
+function makePlan(a) {
+  const r = rng(seedOf(a)), col = a.aim % 3, high = a.aim < 3, out = a.outcome;
+  const side = col === 0 ? -1 : col === 2 ? 1 : (r() < .5 ? -1 : 1);
+  const pl = {para: r() < .22, dance: r() < .3, side, kind: 'net', hit: null, drift: (r() - .5) * 60, lift: 0, lands: false};
+  pl.K = pl.para ? 1.8 : 1.5;
+  // точка в плоскости ворот: углы — ближе к штанге, верх — под перекладину, низ — у газона
+  const cx = col === 1 ? 360 + (r() - .5) * 50 : col === 0 ? GOAL.x0 + 38 + r() * 30 : GOAL.x1 - 38 - r() * 30;
+  const cy = high ? GOAL.y0 + 26 + r() * 22 : GOAL.y1 - 14 - r() * 20;
+  let C = {x: cx, y: cy};
+  const dir = a.dive === 0 ? -1 : a.dive === 2 ? 1 : 0, guessed = a.dive === col;
+  if (out === 'goal') {
+    if (col !== 1 && r() < .22) { pl.kind = 'postIn'; C.x = col === 0 ? GOAL.x0 + 17 : GOAL.x1 - 17; pl.hit = col === 0 ? 'l' : 'r'; }
+    else if (dir && guessed && r() < .5) pl.kind = 'fingertip';
+    if (col === 1 && a.dive === 1) C.x = 360 + side * (54 + r() * 14);          // вратарь стоял в центре — мяч мимо его рук
+  } else if (out === 'save') pl.kind = a.dive === 1 ? (!high && r() < .45 ? 'block' : 'catch') : high ? (r() < .55 ? 'tip' : 'parry') : (r() < .35 ? 'catch' : 'parry');
+  else if (high) {
+    if (r() < .3) { pl.kind = 'bar'; C.y = GOAL.y0 - 5; pl.hit = 'b'; }
+    else { pl.kind = 'over'; C = {x: cx + (r() - .5) * 40, y: GOAL.y0 - 34 - r() * 22}; }
+  } else if (r() < .3) { pl.kind = 'postOut'; C = {x: side < 0 ? GOAL.x0 - 16 : GOAL.x1 + 16, y: cy - 8}; pl.hit = side < 0 ? 'l' : 'r'; }
+  else { pl.kind = 'wide'; C = {x: side < 0 ? GOAL.x0 - 40 - r() * 26 : GOAL.x1 + 40 + r() * 26, y: cy}; }
+  // техника: «паненка» — только по центру верхом; низом в угол — чаще щёчкой (с закруткой), верхом — подъёмом (быстро и прямо)
+  pl.tech = col === 1 && high && r() < .35 ? 'chip' : !high && col !== 1 ? (r() < .75 ? 'place' : 'power') : (r() < .7 ? 'power' : 'place');
+  pl.F = pl.tech === 'chip' ? .95 : (high ? (col === 1 ? .6 : .56) : .5) * (pl.tech === 'power' ? .8 : 1);
+  pl.R = pl.K + pl.F;
+  pl.arc = pl.tech === 'chip' ? 135 : high ? (pl.kind === 'over' ? 74 : 58) * (pl.tech === 'power' ? .7 : 1) : 16;
+  pl.bend = Math.sign(C.x - 360) * Math.min(1, Math.abs(C.x - 360) / 200) * 20 * (pl.tech === 'place' ? 1.5 : pl.tech === 'power' ? .4 : 0);   // закрутка
+  pl.spin = pl.tech === 'chip' ? -7 : pl.tech === 'power' ? 30 : 20;
+  pl.slow = pl.tech === 'chip' ? .62 : .42;                  // «паненка» летит с обратным вращением
+  // вратарь
+  pl.kdir = dir || (col === 1 ? 0 : side);
+  if (dir) {
+    pl.D0 = pl.K - .05; pl.Ta = Math.min(pl.R + .02, pl.D0 + .62); pl.lands = true;   // на «паненку» прыгает рано и уже лежит
+    let G;
+    if (guessed && out === 'save') G = {x: C.x, y: C.y};
+    else if (guessed && out === 'goal') G = pl.kind === 'fingertip' ? {x: C.x - dir * 22, y: C.y + 6} : {x: C.x - dir * 50, y: C.y + 12};
+    else if (guessed) G = {x: clamp(C.x - dir * 30, GOAL.x0 + 40, GOAL.x1 - 40), y: clamp(C.y, GOAL.y0 + 28, GOAL.y1 - 24)};
+    else G = {x: colX(a.dive) + dir * 24, y: 392 + r() * 22};
+    // высоко — тянется верхней рукой, низко — нижняя идёт к мячу, верхняя накрывает
+    pl.KE = placeHands(pose({rot: dir * (G.y < 365 ? .95 : G.y > 425 ? 1.34 : 1.14), arms: 1, crouch: 0, legs: 1, tuck: .8,
+                             lead: (G.y < 380 ? -dir : dir) * .85}), G);
+    pl.lift = G.y < 380 ? 54 : 24;
+  } else {
+    pl.D0 = pl.K + .07; pl.Ta = pl.R;
+    if (pl.kind === 'block') {                                                   // низом по центру — ногами: колени вместе, мяч отскакивает в поле
+      C = {x: 360 + (r() - .5) * 30, y: GOAL.y1 - 24};
+      pl.KE = pose({x: C.x, crouch: 1, legs: 1, arms: .05, spread: .5});
+    } else if (col === 1 && out !== 'miss') {
+      const aimAt = pl.kind === 'catch' ? C : {x: C.x - side * 36, y: C.y + (high ? 16 : 0)};
+      pl.KE = high ? reachPose(pose({y: GOAL.y1 - 6, crouch: 0, legs: .5}), aimAt, 'arms')
+                   : reachPose(pose({kneel: 1, crouch: 1}), aimAt, 'scoop');
+      if (pl.kind === 'catch') C = handsWorld(pl.KE);                           // мяч точно в руки
+    } else pl.KE = pose({x: 360 + side * 24, rot: side * .24, arms: high ? .8 : .6, crouch: .4});   // остался в центре — тянется вслед
+  }
+  pl.Tr = pl.R + (pl.lands ? .75 : .5);
+  pl.C = C;
+  // сетка: точка на задней стенке, куда приходит мяч
+  const u = pl.kind === 'postIn' ? (col === 0 ? .32 : .68) : clamp((C.x - GOAL.x0) / (GOAL.x1 - GOAL.x0), .04, .96);
+  pl.N = {x: lerp(BACK.x0, BACK.x1, u), y: lerp(BACK.y0, BACK.y1, clamp((C.y - GOAL.y0) / (GOAL.y1 - GOAL.y0), 0, 1))};
+  pl.into = pl.kind === 'postIn' ? .2 : .14;
+  // реакции
+  pl.kr = out === 'goal' ? (pl.lands ? ['down', 'slam', 'lie'][r() * 3 | 0] : r() < .5 ? 'down' : 'slam')
+        : out === 'save' ? (pl.kind === 'catch' ? 'cheerBall' : r() < .5 ? 'cheer' : 'flex') : (r() < .5 ? 'clap' : 'flex');
+  if (pl.kr === 'lie') { pl.kr = 'down'; pl.Tr += .8; }                  // долго лежит лицом в газон, потом медленно встаёт
+  pl.bar = r() < .45;                                                    // ритуал: касается перекладины
+  pl.run = pl.tech === 'power' ? (r() < .65 ? 'long' : 'short') : (r() < .6 ? 'short' : 'long');
+  pl.kick = out === 'goal' ? ['jump', 'plane', 'fist'][r() * 3 | 0] : ['head', 'squat', 'hips'][r() * 3 | 0];
+  pl.word = {goal: 'ГОЛ!', save: 'СЕЙВ!'}[out] || (pl.kind === 'bar' ? 'ПЕРЕКЛАДИНА!' : pl.kind === 'postOut' ? 'ШТАНГА!' : 'МИМО!');
+  pl.note = pl.kind === 'postIn' ? ' — от штанги!' : pl.kind === 'block' ? ' — отбил ногами!' : '';
+  pl.end = pl.R + 2.75;
+  pl.holdK = {power: .12, place: .06, chip: .04}[pl.tech];
+  pl.holdR = out === 'save' ? .22 : pl.hit ? .18 : 0;
+  pl.tl = timeline(pl);
+  pl.say = pl.tech === 'chip' ? 'ПАНЕНКА! Мяч парит над вратарём' : pl.tech === 'power' ? 'Подъёмом — со всей силы!'
+         : col === 1 ? 'Щёчкой — точно в цель' : 'Щёчкой — в угол, с закруткой';
+  return pl;
+}
+function ballAt(at, a, kp) {
+  // {x, y, r, gy (земля под мячом), deep (за линией ворот — рисуется за штангами), alpha, fly (в полёте — со следом)}
+  if (!a || at < a.plan.K) return {x: SPOT.x, y: SPOT.y - 4, r: 22, gy: SPOT.y + 14, deep: false, spin: 0, alpha: 1};
+  const pl = a.plan, C = pl.C, p = (at - pl.K) / pl.F, s = pl.side;
+  if (p < 1) {
+    const e = 1 - Math.pow(1 - p, 1.45);
+    return {x: lerp(SPOT.x, C.x, e) + pl.bend * Math.sin(Math.PI * e), y: lerp(SPOT.y - 4, C.y, e) - pl.arc * Math.sin(Math.PI * e),
+            r: lerp(22, 10, e), gy: lerp(SPOT.y + 14, GOAL.y1 + 2, e), deep: false, spin: at * pl.spin, alpha: 1, fly: true,
+            sq: (pl.tech === 'chip' ? .15 : pl.tech === 'power' ? .32 : .22) * clamp(1 - p / .09, 0, 1)};   // в момент удара мяч сплющен
+  }
+  const q = at - pl.R, h0 = Math.max(0, GOAL.y1 - 8 - C.y);   // высота мяча над газоном в момент касания
+  const back = (x, y, r, alpha) => ({x, y, r, gy: GOAL.y1 - 10, deep: true, spin: at * 12, alpha});
+  switch (pl.kind) {
+    case 'net': case 'fingertip': case 'postIn': {
+      const N = pl.N, i = clamp(q / pl.into, 0, 1), f = Math.max(0, q - pl.into), floor = 449;
+      if (i < 1) return {x: lerp(C.x, N.x, i), y: lerp(C.y, N.y, i), r: lerp(10, 8.6, i), gy: floor + 8, deep: true, spin: at * 14, alpha: 1};
+      const fall = clamp(f / .3, 0, 1), b = Math.max(0, f - .3);                // падает на газон в воротах, подпрыгивает, катится
+      const y = f < .3 ? lerp(N.y, floor, fall * fall) : floor - 13 * Math.abs(Math.sin(b * 7)) * Math.exp(-b * 4);
+      return {x: N.x + (360 - N.x) * .18 * easeOut(f / 1.3), y, r: 8.6, gy: floor + 8, deep: true, spin: at * 4 * Math.exp(-f), alpha: 1};
+    }
+    case 'block': {                                                               // от голеней — вперёд по газону
+      const u = clamp(q / .7, 0, 1), e = easeOut(u), r = lerp(10, 16, e), gy = lerp(GOAL.y1 + 2, GOAL.y1 + 170, e);
+      return {x: C.x + s * 30 * e, y: gy - r - (lerp(h0, 0, u) + 14 * Math.sin(Math.PI * u)) * r / 10, r, gy, deep: false, spin: -at * 10, alpha: 1};
+    }
+    case 'catch': { const h = handsWorld(kp); return {x: h.x, y: h.y, r: 10.5, gy: GOAL.y1 + 4, deep: false, spin: 0, alpha: 1}; }
+    case 'parry': {                                                               // отбит вперёд и в сторону, катится по газону
+      const u = clamp(q / .6, 0, 1), e = easeOut(u), rl = clamp((q - .6) / .9, 0, 1);
+      const r = lerp(10, 15, e), gy = lerp(GOAL.y1 + 2, GOAL.y1 + 150, e) + 30 * easeOut(rl);
+      const hgt = u < 1 ? lerp(h0, 0, u) + 46 * Math.sin(Math.PI * u) : 12 * Math.abs(Math.sin(rl * 6)) * (1 - rl);
+      return {x: C.x + s * (88 * e + 26 * easeOut(rl)), y: gy - r - hgt * r / 10, r, gy, deep: false, spin: -at * 12, alpha: 1};
+    }
+    case 'tip': {                                                                 // через перекладину на крышу сетки и за ворота
+      const u = clamp(q / .4, 0, 1), v = clamp((q - .4) / .35, 0, 1), w = clamp((q - .75) / .45, 0, 1);
+      const x = C.x + s * (30 * u + 18 * v + 10 * w);
+      const y = q < .4 ? lerp(C.y, GOAL.y0 - 58, easeOut(u)) : q < .75 ? lerp(GOAL.y0 - 58, 303, v * v) : lerp(303, BACK.y0 + 10, w);
+      return back(x, y, lerp(10, 8.4, u), 1 - w);
+    }
+    case 'over': { const u = clamp(q / .7, 0, 1); return back(C.x + pl.drift * u, C.y - 130 * easeOut(u), lerp(10, 6, u), 1 - u); }
+    case 'bar': { const u = clamp(q / .6, 0, 1); return back(C.x + pl.drift * .5 * u, C.y - 110 * easeOut(u), lerp(10, 7, u), 1 - u * .95); }
+    case 'wide': { const u = clamp(q / .6, 0, 1); return back(C.x + s * 75 * u, C.y - 12 * u, lerp(10, 7, u), 1 - u); }
+    case 'postOut': {                                                             // от штанги — в поле
+      const u = clamp(q / .55, 0, 1), e = easeOut(u), rl = clamp((q - .55) / .8, 0, 1);
+      const r = lerp(10, 13, e), gy = lerp(GOAL.y1 + 2, GOAL.y1 + 110, e) + 24 * easeOut(rl);
+      const hgt = u < 1 ? lerp(h0, 0, u) + 20 * Math.sin(Math.PI * u) : 8 * Math.abs(Math.sin(rl * 6)) * (1 - rl);
+      return {x: C.x + s * (46 * e + 14 * easeOut(rl)), y: gy - r - hgt * r / 10, r, gy, deep: false, spin: at * 10, alpha: 1};
+    }
+  }
+}
+function drawBallWithShadow(b, trail, tech) {
   const h = clamp((b.gy - b.y) / 160, 0, 1);
   softShadow(b.x + 3, b.gy, b.r * 1.25, b.r * .38, .5 * (1 - h) * b.alpha);
-  if (b.fly && prev) for (let k = 3; k >= 1; k--)                                          // след в полёте
-    drawBall(lerp(b.x, prev.x, k / 3), lerp(b.y, prev.y, k / 3), b.r * (1 + .05 * k), b.spin, .12 * (4 - k) / 3);
-  drawBall(b.x, b.y, b.r, b.spin, b.alpha);
+  if (b.fly && trail && trail.length) {
+    const n = trail.length;
+    if (tech === 'power') { g.lineCap = 'round';                                          // шлейф скорости
+      for (let i = 0; i < n; i++) { const p0 = i ? trail[i - 1] : b, p1 = trail[i], k = 1 - i / n;
+        g.strokeStyle = `rgba(255,255,255,${.4 * k})`; g.lineWidth = p0.r * 1.7 * k; g.beginPath(); g.moveTo(p0.x, p0.y); g.lineTo(p1.x, p1.y); g.stroke(); } }
+    else for (let i = 1; i < n; i += 1) { const p1 = trail[i], k = 1 - i / n;              // пунктир дуги: видно закрутку
+      g.fillStyle = `rgba(255,255,255,${.6 * k})`; g.beginPath(); g.arc(p1.x, p1.y, Math.max(1.6, p1.r * .22), 0, 7); g.fill(); }
+  }
+  drawBall(b.x, b.y, b.r, b.spin, b.alpha, b.sq);
 }
 
 /* ---------------- выбор и надписи ---------------- */
@@ -541,11 +972,11 @@ function drawChoose(t) {
   }
   g.globalAlpha = 1;
 }
-function pill(text, x, y, size, color) {
-  g.font = `bold ${size}px ${FONT}`; const w = Math.min(g.measureText(text).width, W - 40);
+function pill(text, x, y, size, color) {   // не шире 560: на узком телефоне видна только середина сцены (VIS)
+  g.font = `bold ${size}px ${FONT}`; const w = Math.min(g.measureText(text).width, 560);
   g.fillStyle = 'rgba(8,12,26,.8)'; g.beginPath(); g.roundRect(x - w / 2 - 14, y - size * .85, w + 28, size * 1.7, 12); g.fill();
   g.strokeStyle = 'rgba(255,255,255,.12)'; g.lineWidth = 1.5; g.stroke();
-  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y, W - 40);
+  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, x, y, 560);
 }
 function drawHud() {
   pill(`БЬЁТ  №${P.kicker.num} ${P.kicker.name} · ${P.kicker.stat}`, W / 2, 36, 22, '#fff');
@@ -557,13 +988,22 @@ function drawHud() {
     g.fillStyle = left < 4 ? '#f87171' : '#facc15'; g.beginPath(); g.roundRect(160, 178, Math.max(0, 400 * left / chooseSec), 10, 5); g.fill();
   }
 }
+function drawCaption(at, a) {   // комментатор: чем и как ударил (и «паузинья» на разбеге)
+  const pl = a.plan; let text = null, w = 0;
+  if (pl.para) { w = smooth(at, pl.K - .8, pl.K - .65) * (1 - smooth(at, pl.K - .12, pl.K)); if (w > 0) text = 'Паузинья — выжидает вратаря…'; }
+  const w2 = smooth(at, pl.K, pl.K + .04) * (1 - smooth(at, pl.R + .1, pl.R + .3));
+  if (w2 > 0) { w = w2; text = pl.say; }
+  if (!text) return;
+  g.globalAlpha = w; pill(text, W / 2, 142, 28, '#facc15'); g.globalAlpha = 1;
+}
 function drawResult(t, a) {
-  const since = t - 1.85; if (since < 0) return;
+  const pl = a.plan, since = t - pl.R - .12; if (since < 0) return;
   const good = (a.outcome === 'goal') === (role === 'kick');
-  const word = {goal: 'ГОЛ!', save: 'СЕЙВ!', miss: 'МИМО!'}[a.outcome];
+  const word = pl.word;
   const s = 1 + .6 * Math.exp(-since * 7) * Math.cos(since * 18);
-  g.save(); g.translate(W / 2, 178); g.scale(s, s);                // на трибунах: не закрывает ни ворота, ни бьющего
+  g.save(); g.translate(W / 2, 178);                // на трибунах: не закрывает ни ворота, ни бьющего
   g.font = `900 124px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const fitK = Math.min(1, 500 / g.measureText(word).width); g.scale(s * fitK, s * fitK);   // «ПЕРЕКЛАДИНА!» ужимается по ширине
   for (let d = 9; d >= 1; d -= 2) { g.fillStyle = good ? '#7c2d12' : '#450a0a'; g.fillText(word, d * .6, d); }   // объём
   g.lineWidth = 12; g.strokeStyle = 'rgba(8,12,26,.9)'; g.strokeText(word, 0, 0);
   const gr = g.createLinearGradient(0, -55, 0, 55);
@@ -572,7 +1012,7 @@ function drawResult(t, a) {
   g.shadowColor = good ? 'rgba(250,204,21,.85)' : 'rgba(248,113,113,.7)'; g.shadowBlur = 30;
   g.fillStyle = gr; g.fillText(word, 0, 0);
   g.restore();
-  if (a.text && since > .3) pill(a.text, W / 2, 266, 24, '#fff');
+  if (a.text && since > .3) pill(a.text + pl.note, W / 2, 266, 24, '#fff');
 }
 
 /* ---------------- эффекты ---------------- */
@@ -590,6 +1030,9 @@ function drawFx() {
     g.globalAlpha = clamp(p.l / p.m, 0, 1); g.fillStyle = p.c;
     if (p.kind === 'grass') { g.fillRect(p.x, p.y, 2, 4); continue; }
     if (p.kind === 'spark') { g.beginPath(); g.arc(p.x, p.y, 2.2, 0, 7); g.fill(); continue; }
+    if (p.kind === 'ring') { const k = 1 - p.l / p.m; g.globalAlpha = .7 * (1 - k); g.strokeStyle = '#fff'; g.lineWidth = 3;
+      g.beginPath(); g.ellipse(p.x, p.y, 24 + 34 * k, (24 + 34 * k) * .55, 0, 0, 7); g.stroke(); continue; }   // волна от удара по мячу
+    if (p.kind === 'dust') { g.globalAlpha *= .35; g.beginPath(); g.arc(p.x, p.y, p.s * 1.6, 0, 7); g.fill(); continue; }
     g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.scale(Math.abs(Math.cos(p.r * 1.7)) + .15, 1);          // переворачивается
     g.fillRect(-p.s / 2, -p.s / 3, p.s, p.s / 1.5); g.restore();
   }
@@ -597,44 +1040,79 @@ function drawFx() {
 }
 
 /* ---------------- камера и время ---------------- */
-// замедление у ворот: сцена 1.45–1.75 идёт вдвое медленнее (как в повторе)
-const sceneTime = x => x < 1.45 ? x : x < 2.05 ? 1.45 + (x - 1.45) * .5 : 1.75 + (x - 2.05);
-function camera(at) {   // наезд на ворота после удара
-  if (!anim) return {z: 1, fx: 360, fy: 420};
-  const z = 1 + .2 * easeInOut((at - 1.1) / .65) - .08 * easeInOut((at - 2.8) / .8);
-  return {z, fx: 360, fy: 420};
+// замедление у ворот: от удара до касания мяча идёт в 0.42 скорости (как в повторе); долгую «паненку» — меньше.
+// В момент удара (подъёмом — дольше) и сейва/попадания в каркас — короткий стоп-кадр.
+function timeline(pl) {   // точки [время сцены, реальное время]: замедление у ворот и стоп-кадры в момент удара и касания
+  const s0 = pl.K - .06, s1 = pl.R + .18, pts = [[0, 0], [s0, s0]];
+  const add = (sT, hold) => { const [ps, pr] = pts[pts.length - 1], r = pr + (sT - ps) / pl.slow; pts.push([sT, r]); if (hold) pts.push([sT, r + hold]); };
+  add(pl.K, pl.holdK); add(pl.R, pl.holdR); add(s1, 0);
+  return pts;
+}
+function sceneTime(x, pl) {
+  const T = pl.tl, n = T.length - 1;
+  if (x >= T[n][1]) return T[n][0] + (x - T[n][1]);
+  let i = 0; while (x >= T[i + 1][1]) i++;
+  const [s0, r0] = T[i], [s1, r1] = T[i + 1];
+  return s0 === s1 ? s0 : lerp(s0, s1, (x - r0) / (r1 - r0));
+}
+function camera(at, a) {   // как в трансляции: общий план → крупно нога и мяч → наезд на ворота → снова общий план для реакций
+  const wide = {z: 1, fx: 360, fy: 420};
+  if (!a) return wide;
+  const pl = a.plan, K = pl.K;
+  const foot = {z: 1.85, fx: 345, fy: 790}, goal = {z: 1.4, fx: 360 + clamp(pl.C.x - 360, -150, 150) * .35, fy: 395};
+  const mix = (p, q, t) => ({z: lerp(p.z, q.z, t), fx: lerp(p.fx, q.fx, t), fy: lerp(p.fy, q.fy, t)});
+  let c = mix(wide, foot, easeInOut((at - (K - .5)) / .42));
+  c = mix(c, goal, easeInOut((at - (K + .08)) / .22));
+  return mix(c, wide, easeInOut((at - (pl.R + 1)) / .8));
 }
 
 /* ---------------- ход сцены ---------------- */
 let events = {};
-function onAnimEvents(t, a) {
-  const once = (k, f) => { if (!events[k]) { events[k] = 1; f(); } };
-  if (t > .25) once('wh', whistle);
-  if (t > 1.12) once('kick', () => { thud(); haptic('kick');
-    burst(SPOT.x, SPOT.y + 8, 22, ['#2f9e57', '#3fb56a', '#7c5a3a'], 3.5, .7, .25, 'grass'); });
-  if (t > 1.74) once('out', () => {
-    const T = zone(a.aim), good = (a.outcome === 'goal') === (role === 'kick');
-    crowd(a.outcome); haptic(good ? 'success' : 'error');
-    if (a.outcome === 'goal') { excite = 1; shake = 9; flash = .6; burst(T.x, T.y, 90, ['#facc15', '#ffffff', P.kicker.shirt, '#60a5fa'], 7, 2.6, .12); }
-    if (a.outcome === 'save') { excite = .5; shake = 5; flash = .3; burst(T.x, T.y, 30, ['#ffffff', '#e5e7eb'], 5, .6, .05, 'spark'); }
-    if (a.outcome === 'miss') excite = .25;
+function onAnimEvents(t, a, kp) {
+  const pl = a.plan, C = pl.C, once = (k, f) => { if (!events[k]) { events[k] = 1; f(); } };
+  const good = (a.outcome === 'goal') === (role === 'kick');
+  if (t > .25) once('wh', () => { whistle(); setAmb(.016, .7); });            // свисток — стадион затихает
+  if (t > .7) once('fans', fansWhistle);
+  if (t > pl.K) once('kick', () => { haptic('kick');
+    if (pl.tech === 'power') { thud(120, .95); whoosh(); shake = 4; } else thud(pl.tech === 'chip' ? 230 : 190, pl.tech === 'chip' ? .35 : .5);
+    burst(SPOT.x, SPOT.y + 8, pl.tech === 'power' ? 30 : 18, ['#2f9e57', '#3fb56a', '#7c5a3a'], pl.tech === 'power' ? 4.2 : 3, .7, .25, 'grass');
+    fx.push({kind: 'ring', x: SPOT.x, y: SPOT.y + 4, vx: 0, vy: 0, g: 0, l: .28, m: .28, c: '#fff', s: 0, r: 0}); });
+  if (pl.kind === 'fingertip' && t > pl.R - .03) once('tip', () => { hiss('bandpass', 1500, 1.1, .25, .05);
+    burst(C.x - pl.kdir * 20, C.y, 10, ['#ffffff'], 2.5, .35, .02, 'spark'); });
+  if (t > pl.R) once('hit', () => {
+    haptic(good ? 'success' : 'error');
+    if (pl.hit) { clang(); shake = 5; }
+    if (a.outcome === 'save') {
+      if (pl.kind === 'block') thud(120, .5); else slap(); excite = .55; shake = 5; flash = .3; crowd('save'); setAmb(.08, .3, .045, 2.5);
+      burst(C.x, C.y, pl.kind === 'catch' ? 12 : 30, ['#ffffff', '#e5e7eb'], pl.kind === 'catch' ? 2 : 5, .6, .05, pl.kind === 'catch' ? 'dust' : 'spark');
+      fx.push({kind: 'ring', x: C.x, y: C.y, vx: 0, vy: 0, g: 0, l: .3, m: .3, c: '#fff', s: 0, r: 0});
+    }
+    if (a.outcome === 'miss') { crowd(pl.hit ? 'save' : 'miss'); excite = .25; setAmb(.06, .3, .045, 2); }
   });
-  if (t > 3.6) once('done', finish);
+  if (a.outcome === 'goal' && t > pl.R + pl.into) once('net', () => {
+    swish(); crowd('goal'); excite = 1; shake = 9; flash = .6; setAmb(.13, .3, .05, 4);
+    burst(pl.N.x, pl.N.y, 90, ['#facc15', '#ffffff', P.kicker.shirt, '#60a5fa'], 7, 2.6, .12);
+  });
+  if (pl.lands && t > pl.Ta + .3) once('land', () => { thud(75, .6); shake = 4;   // вратарь падает: трава и облако пыли
+    const bx = kp.x + pl.kdir * 70;
+    burst(bx, GOAL.y1 - 4, 26, ['#2f9e57', '#3fb56a', '#7c5a3a'], 2.8, .7, .2, 'grass'); burst(bx, GOAL.y1 - 6, 16, ['#d6d3d1', '#e7e5e4'], 1.6, 1.1, -.015, 'dust'); });
+  if (t > pl.end) once('done', finish);
 }
-let last = performance.now(), prevBall = null;
+let last = performance.now();
 function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const dt = clamp((now - last) / 1000, 0, .05); last = now;
   const t = now / 1000;
   excite = Math.max(0, excite - dt * .35); shake = Math.max(0, shake - dt * 30); flash = Math.max(0, flash - dt * 1.5);
   stepFx(dt);
-  const a = anim, real = a ? (now - a.t0) / 1000 : 0, at = sceneTime(real);
-  if (a) onAnimEvents(at, a);
+  const a = anim, real = a ? (now - a.t0) / 1000 : 0, at = a ? sceneTime(real, a.plan) : 0, pl = a && a.plan;
+  const kp = keeperAt(at, a, t);
+  if (a) onAnimEvents(at, a, kp);
   // поля за пределами сцены
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = '#02050f'; g.fillRect(0, 0, cv.width, oy + PITCH_Y * sc);
   g.fillStyle = '#1d7a3e'; g.fillRect(0, oy + PITCH_Y * sc, cv.width, cv.height);
   // сцена через камеру
-  const cam = camera(real), z = cam.z;
+  const cam = camera(at, a), z = cam.z;
   const sx = shake ? (Math.random() - .5) * shake * sc : 0, sy = shake ? (Math.random() - .5) * shake * sc : 0;
   g.setTransform(sc * z, 0, 0, sc * z, ox + sc * cam.fx * (1 - z) + sx, oy + sc * cam.fy * (1 - z) + sy);
   g.drawImage(bg, BX0, BY0, BW, BH);
@@ -642,31 +1120,41 @@ function frame(now) {
     const jump = excite > 0 ? Math.abs(Math.sin(t * 9 + b.ph)) * 6 * excite : 0;
     g.drawImage(b.cnv, BX0, b.y0 - jump, BW, b.y1 - b.y0);
   }
-  if (excite > .2) for (let i = 0; i < 8; i++) {                 // вспышки фотоаппаратов
+  drawFlags(t);
+  if (excite > .2) for (let i = 0; i < 8; i++) {                 // вспышки фотоаппаратов на трибунах
     if (Math.random() < .5 * excite) { const x = Math.random() * W, y = 20 + Math.random() * 210, r = 2 + Math.random() * 4;
       const fl = g.createRadialGradient(x, y, 0, x, y, r * 4); fl.addColorStop(0, 'rgba(255,255,255,.95)'); fl.addColorStop(1, 'rgba(255,255,255,0)');
       g.fillStyle = fl; g.fillRect(x - r * 4, y - r * 4, r * 8, r * 8); }
   }
   drawBoards(t);
-  const b = ballAt(at, a), pb = a ? ballAt(at - .05, a) : null;
+  if (a && at > pl.K - .05) for (const ph of PHOTOGS)            // фотографы снимают удар и то, что после
+    if (Math.random() < (at < pl.R + .2 ? .08 : a.outcome === 'goal' && at < pl.R + 2 ? .12 : .02)) drawPhotoFlash(ph.x, ph.y - 39);
+  const b = ballAt(at, a, kp), trail = [];
+  if (a && b.fly) { const n = pl.tech === 'power' ? 7 : 14, st = pl.tech === 'power' ? .016 : .03;
+    for (let i = 1; i <= n && at - i * st >= pl.K; i++) trail.push(ballAt(at - i * st, a, kp)); }
   let bulge = null;
-  if (a && a.outcome === 'goal') { const q = at - 1.74; if (q > 0) { const T = zone(a.aim); bulge = {x: lerp(BACK.x0, BACK.x1, (T.x - GOAL.x0) / (GOAL.x1 - GOAL.x0)), y: lerp(BACK.y0, BACK.y1, (T.y - GOAL.y0) / (GOAL.y1 - GOAL.y0)), k: Math.max(0, Math.sin(Math.min(q / .5, 1) * Math.PI)) * Math.exp(-q * 1.5)}; } }
+  if (a && (pl.kind === 'net' || pl.kind === 'fingertip' || pl.kind === 'postIn')) {
+    const q = at - pl.R - pl.into * .6;
+    if (q > 0) bulge = {x: pl.N.x, y: pl.N.y, k: Math.max(0, Math.sin(Math.min(q / .45, 1) * Math.PI)) * Math.exp(-q * 1.4)};
+  }
   drawNet(bulge);
   if (b.deep) drawBall(b.x, b.y, b.r, b.spin, b.alpha);
-  drawPosts();
-  let kp;
-  if (!a || at < 1.17) kp = keeperIdle(a ? a.t0 / 1000 + at : t);
-  else {
-    const s = keeperIdle(a.t0 / 1000 + 1.17), e = keeperTarget(a), d = clamp((at - 1.17) / .45, 0, 1), de = easeOut(d);
-    kp = {x: lerp(s.x, e.x, de), y: lerp(s.y, e.y, de) - (a.dive !== 1 ? 34 * Math.sin(Math.PI * d) : 0), rot: lerp(0, e.rot, de),
-          arms: lerp(0, e.arms, de), crouch: lerp(s.crouch, e.crouch, de), legs: lerp(0, e.legs, de)};
-    const f = clamp((at - 1.85) / .35, 0, 1);                                   // падает на газон
-    if (f > 0 && a.dive !== 1) { const dir = Math.sign(e.rot); kp.rot = lerp(e.rot, dir * 1.57, easeInOut(f)); kp.y = lerp(e.y, GOAL.y1 - 12, easeInOut(f)); }
+  const ps = {l: 0, r: 0, b: 0};
+  if (a && pl.hit && at > pl.R) ps[pl.hit] = Math.sin((at - pl.R) * 80) * 3.2 * Math.exp(-(at - pl.R) * 5);   // каркас дрожит
+  drawPosts(ps);
+  if (a) {                                                       // вратарь смотрит на бьющего, с удара — следит за мячом
+    const H = hipOf(kp), dx = b.x - H.x, dy = b.y - H.y, w = smooth(at, pl.K - .3, pl.K + .05) * (1 - smooth(at, pl.Tr, pl.Tr + .4));
+    kp.look = clamp((Math.cos(kp.rot) * dx + Math.sin(kp.rot) * dy) / 90, -1, 1) * w;
   }
-  drawKeeper(kp);
+  if (a && pl.lands && at > pl.D0 && at < pl.Ta + .25) {          // след в прыжке: видно, как вратарь летит
+    for (let i = 3; i >= 1; i--) { g.globalAlpha = .1 + .06 * (3 - i); drawKeeper(keeperAt(at - i * .06, a, t), KEEPER_KIT(), true); }
+    g.globalAlpha = 1;
+  }
+  drawKeeper(kp, KEEPER_KIT());
   if (phase === 'choose' || phase === 'wait') drawChoose(t);
-  if (!b.deep) drawBallWithShadow(b, pb);
-  drawKicker(kickerAt(at, a));
+  const ref = () => drawKeeper(refAt(at, a, t), REF_KIT), ball = () => { if (!b.deep) drawBallWithShadow(b, trail, pl && pl.tech); };
+  if (b.gy > REF.y) { ref(); ball(); } else { ball(); ref(); }    // кто ближе к нам — тот рисуется поверх
+  drawKicker(kickerAt(at, a, t));
   drawFx();
   // экран: виньетка, вспышка, надписи
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -676,6 +1164,7 @@ function frame(now) {
   if (flash > 0) { g.fillStyle = `rgba(255,255,255,${flash * .35})`; g.fillRect(0, 0, cv.width, cv.height); }
   g.setTransform(sc, 0, 0, sc, ox, oy);
   drawHud();
+  if (a) drawCaption(at, a);
   if (a) drawResult(at, a);
   if (phase === 'choose' && performance.now() > deadline) {
     if (live || EMBED) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }   // в матче решает сервер
@@ -765,7 +1254,7 @@ function demoOpponent(mine) {
   }, 500 + Math.random() * 900);
 }
 function play(result) {
-  phase = 'play'; events = {}; anim = Object.assign({t0: performance.now()}, result);
+  phase = 'play'; events = {}; anim = Object.assign({t0: performance.now()}, result); anim.plan = makePlan(anim);
   setUi('');
 }
 function finish() {
@@ -788,7 +1277,7 @@ if (EMBED) {
   addEventListener('message', e => {
     if (e.source !== window.parent || e.origin !== location.origin || !e.data) return;
     const m = e.data;
-    if (m.type === 'mute') muted = !!m.on;
+    if (m.type === 'mute') { muted = !!m.on; setAmb(ambLevel, .05); }
     else if (m.type === 'note') { if (phase === 'wait') { phase = 'choose'; myPick = null; } setUi(m.text || ''); }
     else onLive(m);
   });
