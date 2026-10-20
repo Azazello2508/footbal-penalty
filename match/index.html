@@ -27,13 +27,6 @@ body{display:flex;flex-direction:column;height:100dvh;height:var(--vh,100dvh)}
 #status{font-size:13px;text-align:center;min-height:17px;margin-top:3px;color:var(--gold);font-weight:700}
 #pitchwrap{position:relative;flex:none;display:flex;justify-content:center;background:#04170c;overflow:hidden}
 canvas{display:block}
-#chant{position:absolute;left:50%;bottom:8px;transform:translateX(-50%) translateY(6px);max-width:92%;padding:5px 12px;border-radius:14px;
-  background:rgba(5,10,24,.78);border:1.5px solid var(--cc,#facc15);color:#e2e8f0;font-size:14px;font-weight:800;letter-spacing:.3px;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:2}
-#chant.on{opacity:1;transform:translateX(-50%)}
-#chant span{color:#94a3b8;transition:color .1s}
-#chant span.was{color:#e2e8f0}
-#chant span.now{color:#fde047;text-shadow:0 0 8px var(--cc,#facc15)}
 #label{position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(5,10,24,.82);border:1px solid #ffffff22;
   padding:6px 12px;border-radius:12px;font-weight:800;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none;
   max-width:92%;overflow:hidden;text-overflow:ellipsis}
@@ -332,7 +325,7 @@ $('cam').onclick = () => {
   camMode = {auto: 'wide', wide: 'follow', follow: 'auto'}[camMode] || 'auto'; camOn = camMode === 'auto'; shotCam = null; baseShot = null;
   $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam2', camMode); } catch (e) {} label(CAM_MODES[camMode]);
 };
-$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); toFrame({type: 'mute', on: muted}); };
+$('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); setMute(); toFrame({type: 'mute', on: muted}); };
 function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
 addEventListener('pointerdown', audio, {once: true});
 function whistle(long) {
@@ -342,14 +335,6 @@ function whistle(long) {
   const t = a.currentTime, d = long ? .9 : .35;
   gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(.07, t + .03); gn.gain.setValueAtTime(.07, t + d - .05); gn.gain.linearRampToValueAtTime(0, t + d);
   o.connect(gn); gn.connect(a.destination); o.start(t); lfo.start(t); o.stop(t + d); lfo.stop(t + d);
-}
-function roar(sec) {
-  const a = !muted && audio(); if (!a) return;
-  const n = a.sampleRate * sec, buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
-  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / n);
-  const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
-  f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = .6; gn.gain.value = .35;
-  src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(a.destination); src.start();
 }
 function kick() {
   const a = !muted && audio(); if (!a) return;
@@ -372,7 +357,7 @@ function goalFlash(team, text) {
   const cols = S ? [S.teams[team].shirt, S.teams[team].shorts, '#facc15', '#ffffff'] : ['#facc15', '#fff'];
   for (let i = 0; i < 90; i++) fx.push({k: 'conf', x: rnd(0, W), y: rnd(-60, H * .3), vx: rnd(-1.2, 1.2), vy: rnd(1.5, 4), r: rnd(0, 6.3), c: cols[i % cols.length], life: rnd(2200, 3400), t0: performance.now()});
   const sc = $('score'); sc.classList.add('bump'); setTimeout(() => sc.classList.remove('bump'), 900);
-  haptic('goal'); roar(1.8);
+  haptic('goal'); crowdGoal();
 }
 /* ---------------- игра на поле: бег с разгоном, мяч в ногах, пасы, строй команд ----------------
    Эпизоды (гол, сейв, угловой, фол…) присылает бот — страница разыгрывает их правдоподобно. Между эпизодами — «фон»:
@@ -560,7 +545,7 @@ function build(a) {
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
         jump = {t: a.t, until: performance.now() + 4200, big: true};
         lightFlares(a.t, 4 + Math.floor(Math.random() * 3), 5200);
-        setTimeout(() => { if (S) startChant(a.t); nextChant = performance.now() + rnd(20000, 30000); }, 2600);
+        setTimeout(() => { if (S) startDrums(a.t, true); nextDrums = performance.now() + rnd(20000, 30000); }, 3200);   // после рёва — барабаны
         const r0 = cam.r, tg = performance.now();               // празднование крупно, камера медленно облетает героя
         camTo(2.1, 2900, () => { const s2 = shooter(a); return s2 || corner; }, undefined, true, n => r0 + (n - tg) / 1000 * .45);
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
@@ -596,7 +581,7 @@ function build(a) {
       steps.push({d: 1100, poss: d, run: () => {
         const gk = teamPlayers(d).find(p => p.gk);
         label(pen ? '🧤 Вратарь отбил пенальти!' : (catchIt ? '🧤 Вратарь ловит! ' : '🧤 Сейв! ') + (gk ? `№${gk.n} ${gk.nm}` : ''));
-        haptic('medium'); jump = {t: d, until: performance.now() + 1600};
+        haptic('medium'); jump = {t: d, until: performance.now() + 1600}; crowdOoh(pen || !catchIt);
         if (catchIt && gk) giveBall(gk);
         else { const out = {x: clamp(hit.x + (hit.x < W / 2 ? -1 : 1) * rnd(60, 110), M + 10, W - M - 10), y: hit.y + (a.t === 0 ? 1 : -1) * rnd(40, 90)}; moveBall(out, 520, 14, 'out'); }
       }});
@@ -609,7 +594,7 @@ function build(a) {
       if (!setPiece) steps.push(...approach(a));
       steps.push(...shotSteps(a, to, over ? 46 : 12));
       const d = 1 - a.t, spot = at(d, .07, rnd(.4, .6)), gkOf = () => teamPlayers(d).find(p => p.gk);
-      steps.push({d: 900, run: () => { label(over ? '💨 Выше ворот!' : '💨 Мимо!'); }, poss: d});
+      steps.push({d: 900, run: () => { label(over ? '💨 Выше ворот!' : '💨 Мимо!'); crowdOoh(!over); }, poss: d});
       // удар от ворот: вратарь сходит за мяч, несёт его в руках, ставит в площадь и выбивает партнёру
       steps.push({d: 0, max: 3500, poss: d, run: () => { focus = {}; restart = {t: d, until: performance.now() + 9000}; fetchBall(gkOf(), true); }, wait: () => !fetch});
       steps.push({d: 0, max: 3500, run: () => { const gk = gkOf(); if (gk) focus[key(gk.t, gk.s)] = {x: spot.x, y: spot.y, sp: 'jog'}; },
@@ -655,7 +640,7 @@ function build(a) {
       // 3) флажок, свисток; подающий бежит за мячом, все занимают места в штрафной
       let taker = null;
       steps.push({d: 0, max: 4000, poss: a.t, run: () => {
-        focus = {}; flagUp(flag, a.t, 2200); whistle(); label('🚩 Угловой · ' + names[a.t]);
+        focus = {}; flagUp(flag, a.t, 2200); whistle(); label('🚩 Угловой · ' + names[a.t]); drumRoll();
         camTo(1.55, 9000, 'ball', a.t, false, nearRot(aimUp(flag, at(a.t, .86, .5))));   // от флажка на ворота
         taker = nearestTo(ball, teamPlayers(a.t, true).filter(q => q.s !== a.next)); fetchBall(taker, true);
         crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box', xf};
@@ -691,7 +676,7 @@ function build(a) {
     case 'fk': {
       let taker = null, spot = null;
       steps.push({d: 0, max: 4000, poss: a.t, run: () => {            // штрафной — с места фола: бьющий берёт мяч и ставит его
-        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]);
+        whistle(); label('🎯 Опасный штрафной · ' + names[a.t]); drumRoll();
         const bd = depthOf(a.t, ball.y);
         spot = bd >= .6 && bd <= .8 ? {x: clamp(ball.x, M + 40, W - M - 40), y: ball.y} : at(a.t, clamp(bd, .64, .76), clamp(xfOf(ball.x), .25, .75));
         taker = (a.next !== undefined && P(a.t, a.next)) || nearestTo(spot, teamPlayers(a.t, true));
@@ -707,7 +692,7 @@ function build(a) {
       const spot = at(a.t, .885, .5);
       let taker = null;
       steps.push({d: 0, max: 4500, poss: a.t, run: () => {             // бьющий забирает мяч и сам ставит его на точку
-        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); camTo(1.9, 8000, 'ball', a.t, false, nearRot(aimUp(spot, goalOf(a.t))));   // из-за спины бьющего
+        whistle(true); label('🥅 ПЕНАЛЬТИ! · ' + names[a.t], 2000); roar(1.6); setTimeout(drumRoll, 1800); camTo(1.9, 8000, 'ball', a.t, false, nearRot(aimUp(spot, goalOf(a.t))));   // из-за спины бьющего
         crowd = {t: -1, kind: 'clearbox', att: a.t}; haptic('heavy'); refTo(at(a.t, .8, .78), 8000);
         const gk = teamPlayers(1 - a.t).find(p => p.gk); if (gk) focus[key(gk.t, gk.s)] = at(1 - a.t, .01, .5);
         taker = (a.next !== undefined && P(a.t, a.next)) || nearestTo(spot, teamPlayers(a.t, true)); fetchBall(taker, true);
@@ -803,7 +788,7 @@ function build(a) {
       break;
     case 'stop':
       steps.push({d: 2800, poss: null, run: () => {
-        stopped = true; whistle(true); renderStatus(); holder = null;
+        stopped = true; whistle(true); renderStatus(); holder = null; roar(2.2);
         if (a.what === 'fan') {
           const left = Math.random() < .5;
           fan = {t0: performance.now(), y: rnd(H * .25, H * .75), x0: left ? -8 : W + 8, dir: left ? 1 : -1, team: Math.random() < .75 ? 0 : 1};
@@ -1352,7 +1337,7 @@ function speed() { return queue.length > 14 ? 2.5 : queue.length > 8 ? 1.6 : 1; 
    Бетон, кресла, лестницы, щиты рисуются один раз; болельщики — векторами по секторам (встают при голе, «волна»),
    а пока трибуна спокойна — копируются из готовой картинки. */
 const ST = 92, TW = W + 2 * ST, TH = H + 2 * ST, R0 = 12;
-const SECTORS = 32;                       // трибуна поделена на сектора
+const SECTORS = 64;                       // трибуна поделена на сектора (мелко — чтобы «волна» шла плавно)
 const ROWS = [14.5, 21, 27.5, 34, 40.5, 47, 59, 65.5, 72, 78.5];   // ряды (расстояние от газона); между ярусами — проход WALK
 const WALK = [51, 55];
 const SEAT = 7.2, AISLES = 24;            // шаг кресел вдоль ряда; лестниц по кругу
@@ -1477,18 +1462,41 @@ function buildStands() {
   stands = {sectors, key};
   return true;
 }
-const WAVE_MS = 9000;                          // «волна» обходит весь стадион за 9 секунд
-let jump = null, wave = null, nextWave = 0;   // jump — встают фанаты команды {t, until, big}; wave — «волна» {t0}
-function waveAt(now) { return wave ? (now - wave.t0) / WAVE_MS : -1; }
+const WAVE_MS = 11000;                         // «волна» обходит весь стадион за 11 секунд; бывает — два круга
+let jump = null, wave = null, nextWave = 0;   // jump — встают фанаты команды {t, until, big}; wave — «волна» {t0, laps, o — откуда пошла, snd}
+function waveAt(now) { return wave ? (now - wave.t0) / WAVE_MS : -1; }      // сколько кругов прошла
+const smooth = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+function waveLift(i, now) {                    // насколько встал сектор i (0…1): перед волной быстро встают, за ней медленно садятся
+  const F = waveAt(now); if (F < 0) return 0;
+  const q = ((i / SECTORS - wave.o) % 1 + 1) % 1, jit = .006 * Math.sin(i * 7.1);   // где сектор на пути волны (доля круга)
+  let u = 0;
+  if (F >= q) { const n = Math.floor(F - q), s2 = F - q - n; if (n < wave.laps && s2 < .1 + jit) u = 1 - smooth(s2 / (.1 + jit)); }
+  const m = F < q ? 0 : Math.ceil(F - q), ah = q + m - F;
+  if (m < wave.laps && ah < .035) u = Math.max(u, smooth(1 - ah / .035));
+  return u;
+}
+function waveCenter(now) {                     // где сейчас гребень волны (между центрами двух соседних секторов)
+  const f = (wave.o + waveAt(now)) * SECTORS, i0 = Math.floor(f), c0 = secCenter(i0), c1 = secCenter(i0 + 1);
+  return c0 && c1 ? lerpPt(c0, c1, f - i0) : c0 || c1;
+}
+function startWave(now) {                      // волна: трибуна гудит и нарастает вслед за ней (запись crowd), звук идёт за гребнем
+  wave = {t0: now, laps: Math.random() < .4 ? 2 : 1, o: Math.random(), snd: []};
+  for (let l = 0; l < wave.laps; l++) {
+    const h = play('crowd', {at: l * WAVE_MS / 1000, from: .5, dur: WAVE_MS / 1000 + 1.5, vol: .6, fadeIn: 1.6, fadeOut: 1.6});
+    if (h) wave.snd.push(h);
+  }
+}
+function waveSound(now) {                      // панорама: гребень слева на экране — гул слева
+  if (!wave || !wave.snd.length || !actx) return;
+  const c = waveCenter(now); if (!c) return;
+  const pan = clamp((Math.cos(cam.r) * (c.x - cam.x) - Math.sin(cam.r) * (c.y - cam.y)) * cam.z / (W * .6), -1, 1) * .8;
+  for (const h of wave.snd) if (h.p) h.p.pan.setTargetAtTime(pan, actx.currentTime, .12);
+}
 function crowdAmp(sec, i, now) {
   let a = 0;
   if (jump && now < jump.until && sec.team === jump.t) a = Math.abs(Math.sin(now / 95 + i * 1.7)) * (jump.big ? 1 : .5);
-  if (chant && sec.team === chant.t) { const b = chantBeat(now); if (b) a = Math.max(a, .3 + .8 * b.pulse * (.75 + .25 * Math.sin(i * 2.3))); }
-  if (wave) {
-    const k = waveAt(now);
-    let dd = Math.abs(i / SECTORS - k); dd = Math.min(dd, 1 - dd);
-    if (k <= 1.08 && dd < .1) a = Math.max(a, 1.4 * (1 - dd / .1));
-  }
+  if (drums && sec.team === drums.t) { const b = drumBeat(now); if (b) a = Math.max(a, .25 + .8 * b.pulse * (.75 + .25 * Math.sin(i * 2.3))); }
+  if (wave) a = Math.max(a, 1.3 * waveLift(i, now));
   return a;
 }
 let shadeImg = null;                        // тень крыши: верхние ряды темнее
@@ -1536,16 +1544,26 @@ function drawStands(now) {
   if (!stands) return;
   if (!shadeImg || shadeImg.width !== HQW()) shadeImg = buildShade();
   sectorSprites();
-  if (wave && waveAt(now) > 1.1) wave = null;
+  if (wave && waveAt(now) > wave.laps + .15) wave = null;
+  waveSound(now);
   if (jump && now > jump.until) jump = null;
   crowdVec(g, now); g.drawImage(shadeImg, -ST, -ST, TW, TH);
 }
 function crowdVec(c, now) {
   stands.sectors.forEach((sec, i) => {
     if (!sec.img || !sec.img[0]) return;
-    const a = crowdAmp(sec, i, now), [x0, y0, x1, y1] = sec.box;
-    const up = a > .35, k = up && wave ? 1 + .06 * Math.min(a, 1) : 1;      // встали — чуть выше и крупнее
-    const w = (x1 - x0) * k, h = (y1 - y0) * k, cx = (x0 + x1) / 2 + sec.nx * a * 3, cy = (y0 + y1) / 2 + sec.ny * a * 3;
+    const a = crowdAmp(sec, i, now), [x0, y0, x1, y1] = sec.box, wl = wave ? waveLift(i, now) : 0;
+    const bx = (x0 + x1) / 2, by = (y0 + y1) / 2;
+    if (wl > .02 && a <= 1.3 * wl + 1e-6) {   // волна: сектор встаёт и садится плавно, руки вверх
+      const k = 1 + .07 * wl, w = (x1 - x0) * k, h = (y1 - y0) * k, lift = 4.5 * wl;
+      const cx = bx + sec.nx * lift, cy = by + sec.ny * lift;
+      if (wl < .98) c.drawImage(sec.img[0], x0, y0, x1 - x0, y1 - y0);
+      c.save(); c.globalAlpha = wl; c.drawImage(sec.img[1], cx - w / 2, cy - h / 2, w, h);
+      if (wl > .6) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = .2 * (wl - .6) / .4; c.drawImage(sec.img[1], cx - w / 2, cy - h / 2, w, h); }   // встали в свет прожекторов
+      c.restore();
+      return;
+    }
+    const up = a > .35, w = x1 - x0, h = y1 - y0, cx = bx + sec.nx * a * 3, cy = by + sec.ny * a * 3;
     c.drawImage(sec.img[up ? 1 : 0], cx - w / 2, cy - h / 2, w, h);
   });
 }
@@ -2236,7 +2254,7 @@ function camAim(now) {
     if (pnt) return {x: pnt.x, y: pnt.y, z: Math.max(shotCam.z, zMin(r)), r};
   }
   if (wave) {                                        // камера бежит за «волной» по трибунам
-    const k = waveAt(now), c = k < 1.02 && secCenter(Math.floor(k * SECTORS));
+    const c = waveAt(now) < wave.laps + .02 && waveCenter(now);
     if (c) return {x: lerp(c.x, W / 2, .15), y: lerp(c.y, H / 2, .15), z: Math.max(1.5, zMin(baseRot())), r: baseRot()};
   }
   const lead = {x: ball.x, y: ball.y + (poss === 0 ? -60 : 60)};            // чуть впереди мяча — по ходу атаки
@@ -2290,164 +2308,120 @@ function camIdle(now) {                              // в спокойной и
 /* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
    Горят в секторах своих болельщиков: красное пламя мерцает, летят искры, поднимается дым и сносится ветром к полю. */
 
-/* ---------------- кричалки: трибуна скандирует название клуба и кричалки ----------------
-   Голос: бот присылает запись кричалки ({type:"chant"}: русский голос Windows, время каждого слова) — страница делает из
-   одного голоса трибуну: 16 копий чуть вразнобой по высоте и времени, по всей ширине стерео, ближние и дальние ряды,
-   эхо стадиона, гул, барабан на каждое слово, хлопки. Записи нет (демо, бот без голоса) — только ритм: барабан, хлопки, гул.
-   Видно: бегущая строка на рекламных щитах вокруг поля, крупное слово над трибуной поющих, болельщики вскакивают
-   с шарфами на каждое слово. Только атмосфера: на матч не влияет. 🔇 выключает звук. */
-const CHANTS = [n => `${n}! ${n}!`, n => `Вперёд, ${n}!`, n => `Мы с тобой, ${n}!`, n => `${n} — чемпион!`, () => 'Оле, оле, оле, оле!'];
-const chantLib = {0: [], 1: []};                    // записи от бота: {text, words: [[мс, слово]], raw, buf, common}
-function onChantMsg(m) {
-  if (!chantLib[m.t] || chantLib[m.t].some(x => x.text === m.text)) return;
-  let raw = null;
-  try { const bin = atob(m.wav || ''); raw = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) raw[i] = bin.charCodeAt(i); } catch (e) { return; }
-  const it = {text: m.text, words: m.words || [], raw: raw.buffer, buf: null, common: !!m.common};
-  chantLib[m.t].push(it);
-  decodeChant(it);
+/* ---------------- звук стадиона: настоящие записи ----------------
+   Записи с freesound.org (лицензия CC0 — свободно и без условий), вырезаны короткими кусками в match/sounds/:
+   ambience — ровный гул трибун «Миллернтора» (Санкт-Паули): фон всей игры, в перерыв тише, после финала стихает;
+   goal1/goal2 — настоящий взрыв трибун после гола там же; crowd — трибуна нарастает и спадает (волна, стычки, скандал);
+   ooh — «о-о-ох» на сейве и ударе мимо; drums — барабаны фанатов на трибуне (Чили): удары находим в самой записи,
+   и на них подпрыгивает сектор; drum — один удар большого барабана (алфайя): дробь перед угловым, штрафным, пенальти.
+   Записи грузятся сразу, а разбираются после первого касания (до него браузер звук не даёт). 🔇 — общая громкость в 0.
+   Только атмосфера: на матч не влияет. */
+const SND = ['ambience', 'goal1', 'goal2', 'crowd', 'ooh', 'drums', 'drum'];
+const OOH = [[.2, 1.3], [2.2, 1.8], [6, 1.9], [8.3, 1.6], [11.4, 2.1]];   // отдельные «о-о-ох» в ooh.mp3: [начало, длина], с; [2] — самый громкий
+const sndRaw = {}, snd = {};
+SND.forEach(k => window.fetch(`sounds/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) { sndRaw[k] = b; decodeSnd(); } }).catch(() => {}));
+function decodeSnd() {
+  if (!actx) return;
+  for (const k of Object.keys(sndRaw)) {
+    const raw = sndRaw[k]; delete sndRaw[k];
+    actx.decodeAudioData(raw).then(b => { snd[k] = b; if (k === 'drums') drumHits = findHits(b); }).catch(() => {});
+  }
 }
-function decodeChant(it) {                           // звук можно разобрать, только когда есть AudioContext (после касания)
-  if (it.buf || it.busy || !actx) return;
-  it.busy = true;
-  actx.decodeAudioData(it.raw.slice(0)).then(b => { it.buf = b; }).catch(() => {}).finally(() => { it.busy = false; });
+addEventListener('pointerdown', () => setTimeout(decodeSnd, 50));
+let master = null;
+function sndOut(a) {                                // общий выход записей: громкость (🔇) и мягкий компрессор, чтобы гол не «рвал» динамик
+  if (master && master.ctx === a) return master.inp;
+  const inp = a.createGain(), comp = a.createDynamicsCompressor();
+  comp.threshold.value = -10; comp.ratio.value = 2.5; inp.gain.value = muted ? 0 : 1;
+  inp.connect(comp); comp.connect(a.destination);
+  master = {ctx: a, inp}; return inp;
 }
-addEventListener('pointerdown', () => setTimeout(() => [0, 1].forEach(t => chantLib[t].forEach(decodeChant)), 50));
-let chant = null, nextChant = 0;
-function startChant(t) {
+function setMute() { if (master) master.inp.gain.setTargetAtTime(muted ? 0 : 1, master.ctx.currentTime, .05); }
+function sndOn() { return !!(actx && actx.state === 'running'); }
+function play(k, o) {                               // кусок записи: с какой секунды, сколько, громкость, плавный вход/выход, панорама
+  const a = actx, b = snd[k]; if (!sndOn() || !b) return null;
+  const {at = 0, from = 0, dur = 0, vol = 1, fadeIn = .03, fadeOut = .6, rate = 1, pan = 0, to = null} = o || {};
+  const f0 = clamp(from, 0, b.duration - .05), len = Math.min(dur || b.duration, b.duration - f0), real = len / rate;
+  const t = a.currentTime + at, src = a.createBufferSource(), gn = a.createGain();
+  src.buffer = b; src.playbackRate.value = rate;
+  gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(vol, t + Math.min(fadeIn, real / 2));
+  gn.gain.setValueAtTime(vol, t + Math.max(Math.min(fadeIn, real / 2), real - fadeOut)); gn.gain.linearRampToValueAtTime(0, t + real);
+  const p = a.createStereoPanner ? a.createStereoPanner() : null;
+  src.connect(gn);
+  if (p) { p.pan.value = clamp(pan, -1, 1); gn.connect(p); p.connect(to || sndOut(a)); } else gn.connect(to || sndOut(a));
+  src.start(t, f0, len); src.stop(t + real + .05);
+  return {src, gn, p};
+}
+function roar(sec) {                                // трибуна взрывается: стычка, красная, скандал, происшествие
+  play('crowd', {from: rnd(3, 4.5), dur: sec + 1.4, vol: .75, fadeIn: .25, fadeOut: 1});
+}
+function crowdGoal() {                              // гол: настоящий рёв трибун, затем барабаны
+  play(Math.random() < .5 ? 'goal1' : 'goal2', {vol: .85, fadeIn: .02, fadeOut: 3});
+}
+function crowdOoh(big) {                            // сейв, удар мимо: «о-о-ох» — три голоса вразнобой, чтобы звучала трибуна
+  const s = big ? OOH[2] : OOH[Math.floor(Math.random() * OOH.length)];
+  for (const [d, r, p, v] of [[0, 1, 0, .8], [.05, .96, -.5, .5], [.09, 1.04, .5, .5]])
+    play('ooh', {at: d, from: s[0], dur: s[1] + .2, rate: r, pan: p, vol: v * (big ? 1 : .85), fadeIn: .06, fadeOut: .5});
+}
+function drumRoll() {                               // дробь большого барабана перед стандартом: всё чаще, в конце сильный удар
+  if (!snd.drum || !sndOn()) return;
+  let at = 0, gap = .42;
+  for (let i = 0; at < 2.1; i++) {
+    const k = at / 2.1;
+    play('drum', {at, dur: 1.1, vol: .35 + .45 * k, rate: .96 + Math.random() * .07, pan: (Math.random() - .5) * .4, fadeIn: .003, fadeOut: .5});
+    at += gap; gap = Math.max(.085, gap * .8);
+  }
+  play('drum', {at: at + .05, dur: 2.2, vol: 1, rate: .9, fadeIn: .003, fadeOut: 1.2});
+  play('drum', {at: at + .07, dur: 2.2, vol: .7, rate: .86, pan: .3, fadeIn: .003, fadeOut: 1.2});
+}
+let amb = null;                                     // фон: куски по 12 с внахлёст по 2 с — стык записи не слышен
+function ambTick() {
+  if (!sndOn() || !snd.ambience || !S) return;
+  const a = actx;
+  if (!amb || amb.ctx !== a) { const bus = a.createGain(); bus.gain.value = 0; bus.connect(sndOut(a)); amb = {ctx: a, bus, next: a.currentTime, lvl: -1}; }
+  const lvl = S.phase === 'final' ? 0 : S.phase === 'half' ? .4 : S.phase === 'pre' ? .6 : stopped ? .55 : .85;
+  if (lvl !== amb.lvl) { amb.bus.gain.setTargetAtTime(lvl, a.currentTime, S.phase === 'final' ? 2.5 : .8); amb.lvl = lvl; amb.at = a.currentTime; }
+  if (a.currentTime > amb.next - .2 && (lvl > 0 || a.currentTime < amb.at + 8)) {        // стихло — новые куски не нужны
+    play('ambience', {at: Math.max(0, amb.next - a.currentTime), from: rnd(0, snd.ambience.duration - 12.1), dur: 12, fadeIn: 2, fadeOut: 2, to: amb.bus});
+    amb.next += 10;
+    if (amb.next < a.currentTime) amb.next = a.currentTime + 10;
+  }
+}
+
+/* ---------------- барабаны фанатов: настоящая запись, сектор прыгает на каждый удар ---------------- */
+let drums = null, nextDrums = 0, drumHits = [];     // drums: {t, t0, end, hits: [мс от начала]}; drumHits — удары в записи, с
+function findHits(b) {                              // удары барабана в записи: резкий всплеск низких частот над средним
+  const d = b.getChannelData(0), sr = b.sampleRate, n = Math.floor(sr * .01), k = 1 - Math.exp(-2 * Math.PI * 150 / sr), env = [];
+  let y = 0;
+  for (let i = 0; i + n <= d.length; i += n) { let s = 0; for (let j = i; j < i + n; j++) { y += k * (d[j] - y); s += y * y; } env.push(Math.sqrt(s / n)); }
+  const hits = []; let avg = env[0] || 0, last = -99;
+  for (let i = 1; i < env.length; i++) {
+    avg += (env[i] - avg) * .02;
+    if (env[i] > avg * 1.8 && env[i - 1] <= avg * 1.8 && i - last > 15) { hits.push(i / 100); last = i; }
+  }
+  return hits;
+}
+function startDrums(t, big) {
   if (!S || !S.teams[t]) return;
-  const ready = chantLib[t].filter(x => x.buf || x.raw), own = ready.filter(x => !x.common);
-  let it = null;
-  if (ready.length) it = (Math.random() < .8 && own.length ? own : ready)[Math.floor(Math.random() * (Math.random() < .8 && own.length ? own : ready).length)];
-  let words, voiced = false;
-  if (it) {
-    words = it.words.map(([at, w]) => ({w, at}));
-    if (!words.length) words = it.text.split(/\s+/).map((w, i) => ({w, at: i * 420}));
-    voiced = !!it.buf;
-  } else {
-    const nm = S.teams[t].name.replace(/[«»"]/g, '').trim(), short = nm.length > 14 ? nm.split(/\s+/)[0] : nm;
-    const text = CHANTS[Math.floor(Math.random() * CHANTS.length)](short);
-    words = text.split(/\s+/).filter(w => /[A-Za-zА-Яа-яЁё0-9]/.test(w)).map((w, i) => ({w, at: i * 520}));
+  const b = snd.drums, dur = big ? 10 : rnd(7, 12), from = b ? rnd(0, Math.max(0, b.duration - dur)) : 0;
+  let hits = drumHits.filter(h => h >= from && h < from + dur).map(h => (h - from) * 1000);
+  if (!b || !hits.length) { hits = []; for (let m = 0; m < dur * 1000; m += 390) hits.push(m); }   // записи нет — тот же ритм только картинкой
+  play('drums', {from, dur, vol: (t === 0 ? .6 : .4) * (big ? 1.25 : 1), fadeIn: .6, fadeOut: 1.6, pan: t === 0 ? 0 : -.45});
+  const t0 = performance.now() + 30;
+  drums = {t, t0, end: t0 + dur * 1000, hits};
+}
+function drumBeat(now) {                            // насколько свеж последний удар (для прыжков сектора)
+  if (!drums) return null;
+  const k = now - drums.t0; let last = -1;
+  for (const h of drums.hits) { if (h > k) break; last = h; }
+  return last < 0 ? null : {pulse: Math.max(0, 1 - (k - last) / 240) * clamp((drums.end - now) / 900, 0, 1)};
+}
+function updateDrums(now) {
+  if (drums && now > drums.end) drums = null;
+  if (!drums && S && (S.phase === 'play' || S.phase === 'half') && !stopped) {
+    if (!nextDrums) nextDrums = now + rnd(6000, 12000);
+    else if (now > nextDrums) { startDrums(Math.random() < .68 ? 0 : 1); nextDrums = now + rnd(18000, 30000); }
   }
-  const text = it ? it.text : words.map(x => x.w).join(' ');
-  const dur = it && it.buf ? it.buf.duration * 1000 : (words.length ? words[words.length - 1].at + 700 : 1500);
-  const t0 = performance.now() + 120;
-  chant = {t, text, words, t0, dur, end: t0 + dur + 900, voiced};
-  if (!muted && audio()) { if (it && it.buf) playVoiceChant(it, t); else chantRhythm(words, t); }
-}
-let chantBus = null, noiseBuf = null;
-function stadiumBus(a) {                            // общий выход кричалок: эхо большого стадиона, компрессор
-  if (chantBus && chantBus.ctx === a) return chantBus.inp;
-  const inp = a.createGain(), dry = a.createGain(), wet = a.createGain(), conv = a.createConvolver(), comp = a.createDynamicsCompressor();
-  const n = Math.floor(a.sampleRate * 2.8), ir = a.createBuffer(2, n, a.sampleRate);
-  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.4) * (i < a.sampleRate * .02 ? i / (a.sampleRate * .02) : 1); }
-  conv.buffer = ir; dry.gain.value = .7; wet.gain.value = .55;
-  comp.threshold.value = -16; comp.ratio.value = 3;
-  inp.connect(dry); inp.connect(conv); conv.connect(wet); dry.connect(comp); wet.connect(comp); comp.connect(a.destination);
-  noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
-  const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-  chantBus = {ctx: a, inp}; return inp;
-}
-function crowdRoar(a, out, t, dur, vol) {           // гул трибуны под кричалкой: нарастает и спадает
-  const src = a.createBufferSource(), lp = a.createBiquadFilter(), bp = a.createBiquadFilter(), g2 = a.createGain();
-  src.buffer = noiseBuf; src.loop = true; lp.type = 'lowpass'; lp.frequency.value = 900; bp.type = 'peaking'; bp.frequency.value = 350; bp.gain.value = 6;
-  g2.gain.setValueAtTime(0, t); g2.gain.linearRampToValueAtTime(vol, t + .25); g2.gain.setTargetAtTime(0, t + dur, .35);
-  src.connect(lp); lp.connect(bp); bp.connect(g2); g2.connect(out); src.start(t); src.stop(t + dur + 2);
-}
-function playVoiceChant(it, t) {                    // один голос → трибуна
-  const a = audio(), out = stadiumBus(a), base = a.currentTime + .12, vol = t === 0 ? 1 : .7;
-  const hp = a.createBiquadFilter(), eq = a.createBiquadFilter(), sum = a.createGain();
-  hp.type = 'highpass'; hp.frequency.value = 170; eq.type = 'peaking'; eq.frequency.value = 2300; eq.Q.value = .9; eq.gain.value = 5;
-  sum.gain.value = .9 * vol; hp.connect(eq); eq.connect(sum); sum.connect(out);
-  const voice = (rate, delay, pan, gain, far) => {
-    const src = a.createBufferSource(), g2 = a.createGain(), p = a.createStereoPanner ? a.createStereoPanner() : null;
-    src.buffer = it.buf; src.playbackRate.value = rate; g2.gain.value = gain;
-    let node = src;
-    if (far) { const lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; node.connect(lp); node = lp; }   // дальние ряды — глуше
-    node.connect(g2); if (p) { p.pan.value = pan; g2.connect(p); p.connect(hp); } else g2.connect(hp);
-    src.start(base + delay);
-  };
-  voice(1, 0, 0, .34, false);                        // ближние ряды — разборчиво
-  for (let k = 0; k < 16; k++)                       // остальная трибуна: каждый чуть выше/ниже и раньше/позже
-    voice(.95 + Math.random() * .1, Math.random() * .09, Math.random() * 1.8 - .9, .05 + Math.random() * .06, k % 3 === 0);
-  crowdRoar(a, out, base, it.buf.duration + .3, .05 * vol);
-  for (const [at] of it.words) fanDrum(a, out, base + at / 1000, .3 * vol);
-  if (/!.*!/.test(it.text) && !it.common) for (let i = 0; i < 3; i++) crowdClap(a, base + it.buf.duration + .15 + i * .26, out);
-}
-function chantRhythm(words, t) {                    // без записи: только ритм — барабан на слово, гул и хлопки
-  const a = audio(), out = stadiumBus(a), base = a.currentTime + .12, vol = t === 0 ? 1 : .7;
-  const dur = words.length ? words[words.length - 1].at / 1000 + .6 : 1.2;
-  crowdRoar(a, out, base, dur, .07 * vol);
-  for (const w of words) fanDrum(a, out, base + w.at / 1000, .32 * vol);
-  for (let i = 0; i < 3; i++) crowdClap(a, base + dur + .1 + i * .26, out);
-}
-function fanDrum(a, out, t, vol) {                  // барабан фанатов
-  const o = a.createOscillator(), g2 = a.createGain();
-  o.frequency.setValueAtTime(115, t); o.frequency.exponentialRampToValueAtTime(52, t + .16);
-  g2.gain.setValueAtTime(vol, t); g2.gain.exponentialRampToValueAtTime(.001, t + .35);
-  o.connect(g2); g2.connect(out); o.start(t); o.stop(t + .4);
-}
-function crowdClap(a, t, out) {                     // хлопки трибуны: много коротких щелчков вразнобой
-  for (let k = 0; k < 10; k++) {
-    const n = Math.floor(a.sampleRate * .03), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
-    const src = a.createBufferSource(), f = a.createBiquadFilter(), gn = a.createGain();
-    f.type = 'bandpass'; f.frequency.value = 1200 + Math.random() * 1000; f.Q.value = .9; gn.gain.value = .07;
-    src.buffer = buf; src.connect(f); f.connect(gn); gn.connect(out || a.destination); src.start(t + Math.random() * .045);
-  }
-}
-function chantBeat(now) {                           // какое слово сейчас и насколько сильный удар (для прыжков трибуны и строки)
-  if (!chant) return null;
-  const k = now - chant.t0;
-  if (k < 0) return null;
-  let i = -1; for (let j = 0; j < chant.words.length; j++) if (chant.words[j].at <= k) i = j;
-  if (i < 0) return null;
-  return {i, pulse: Math.max(0, 1 - (k - chant.words[i].at) / 260)};
-}
-function updateChant(now) {
-  if (chant && now > chant.end) chant = null;
-  if (!chant && S && (S.phase === 'play' || S.phase === 'half') && !stopped) {
-    if (!nextChant) nextChant = now + rnd(8000, 14000);
-    else if (now > nextChant) { startChant(Math.random() < .68 ? 0 : 1); nextChant = now + rnd(20000, 34000); }
-  }
-}
-function drawChant(now) {                           // бегущая строка на щитах вокруг поля и крупное слово над трибуной
-  if (!chant || !S) return;
-  const tm = S.teams[chant.t], b = chantBeat(now), cur = b ? b.i : -1, pulse = b ? b.pulse : 0;
-  const fade = clamp((chant.end - now) / 600, 0, 1) * clamp((now - chant.t0 + 120) / 300, 0, 1);
-  const msg = chant.words.map(x => x.w.toUpperCase()).join(' ') + '   ★   ';
-  g.save(); g.globalAlpha = fade;
-  g.font = 'bold 5.4px "Trebuchet MS",sans-serif'; g.textBaseline = 'middle';
-  const unit = g.measureText(msg).width, shift = ((now - chant.t0) / 1000 * 26) % unit;
-  const strip = (x, y, w, h, rot) => {               // один щит: чёрный экран, светящиеся буквы цвета клуба
-    g.save(); g.translate(x + w / 2, y + h / 2); g.rotate(rot);
-    const L = Math.abs(rot) > .1 ? h : w, T = Math.abs(rot) > .1 ? w : h;
-    g.fillStyle = '#04060c'; g.fillRect(-L / 2, -T / 2, L, T);
-    g.beginPath(); g.rect(-L / 2, -T / 2, L, T); g.clip();
-    g.shadowColor = tm.shirt; g.shadowBlur = 4;
-    for (let x0 = -L / 2 - shift; x0 < L / 2; x0 += unit) {
-      let x1 = x0;
-      chant.words.forEach((wd, j) => {
-        const w = wd.w.toUpperCase() + ' ';
-        g.fillStyle = j === cur ? '#fef08a' : j < cur ? mix(tm.shirt, .35) : mix(tm.shirt, -.15);
-        g.fillText(w, x1, .3); x1 += g.measureText(w).width;
-      });
-    }
-    g.restore();
-  };
-  strip(0, -8.6, W, 6.2, 0); strip(0, H + 2.4, W, 6.2, 0);
-  strip(-8.6, 0, 6.2, H, -Math.PI / 2); strip(W + 2.4, 0, 6.2, H, Math.PI / 2);
-  if (cur >= 0) {                                    // крупное слово над трибуной поющих (у хозяев — нижняя трибуна, у гостей — их сектор)
-    const at = chant.t === 0 ? {x: W / 2, y: H + 74, r: 0} : {x: -74, y: H * .12, r: -Math.PI / 2};   // верхний ярус, над баннерами
-    const flip = Math.cos(at.r + cam.r) < -.05 ? Math.PI : 0;
-    g.save(); g.translate(at.x, at.y); g.rotate(at.r + flip);
-    const word = chant.words[cur].w.toUpperCase().replace(/[!,.]/g, ''), sz = 26 + 7 * pulse;
-    g.font = `900 ${sz}px "Trebuchet MS",sans-serif`; g.textAlign = 'center';
-    g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.55)'; g.strokeText(word, 0, 0);
-    g.fillStyle = tm.shirt; g.shadowColor = tm.shirt; g.shadowBlur = 10 * pulse; g.fillText(word, 0, 0);
-    g.shadowBlur = 0; g.lineWidth = 1.2; g.strokeStyle = 'rgba(255,255,255,.85)'; g.strokeText(word, 0, 0);
-    g.restore();
-  }
-  g.restore();
 }
 
 /* ---------------- дым и пламя: мягкие облака вместо кругов, пламя языками вверх по экрану ---------------- */
@@ -2622,7 +2596,6 @@ function frame(now) {
     drawStands(now);
     drawBanners(now);
     crowdFlashes(now);
-    drawChant(now);
     drawJumbo(now);
     drawSideline(now);
     drawDivots(now);
@@ -2630,9 +2603,10 @@ function frame(now) {
     drawMonitor(now);
     drawRef(now);
     drawARs(now);
-    if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) wave = {t0: now}; nextWave = now + rnd(25000, 50000); }
+    if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) startWave(now); nextWave = now + rnd(25000, 50000); }
     camIdle(now);
-    updateChant(now);
+    updateDrums(now);
+    ambTick();
     const scr = q => Math.sin(cam.r) * q.x + Math.cos(cam.r) * q.y;          // глубина на экране
     const list = Object.values(players).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => scr(a) - scr(b));   // ушедшие в тоннель не видны
     for (const p of list) drawPlayer(p, now);
@@ -3180,7 +3154,6 @@ function connect() {
     retry = 0;
     if (m.type === 'state') onState(m);
     else if (m.type === 'mine') onMine(m);
-    else if (m.type === 'chant') onChantMsg(m);
     else if (m.type === 'pen') onPen(m);
     else if (m.type === 'mg') onMg(m);
     else if (m.type === 'bets') onBets(m);
