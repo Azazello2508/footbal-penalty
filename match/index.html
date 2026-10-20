@@ -547,7 +547,7 @@ function build(a) {
         whistle(a.w !== 'start'); label(a.w === 'start' ? '🏟 Стартовый свисток!' : a.w === 'half' ? '⏸ Перерыв' : '⏹ Финальный свисток');
         focus = {}; crowd = null;
         if (a.w === 'start') kickoff(0);
-        else { restart = null; holder = null; fetch = acquire = null; ref.job = 'fetch'; ref.dest = null; }   // свисток — судья забирает мяч
+        else { restart = null; holder = null; fetch = acquire = null; ref.job = 'fetch'; ref.dest = CENTER; }   // свисток — судья забирает мяч и ставит на центр
         if (a.w === 'start') { lightFlares(0, 3, 4200); lightFlares(1, 2, 4200); }      // стартовый свисток — фанаты зажигают
       }});
       break;
@@ -938,6 +938,11 @@ function kickoff(t) {                      // разводка с центра: 
   const p = nearestTo(CENTER, teamPlayers(t, true));
   if (p) { ball.recv = key(p.t, p.s); focus[key(p.t, p.s)] = {x: CENTER.x, y: CENTER.y + (t === 0 ? 8 : -8)}; setTimeout(() => { delete focus[key(p.t, p.s)]; }, 1500); }
 }
+const REF_JOB_MAX = 15000;
+function refDrop() {                        // судья сразу отдаёт мяч: ставит на свою точку, а без точки — где стоит
+  if (ref.job === 'carry') { ball.h = 12; placeBall(ref.dest || {x: ref.x, y: ref.y}); }
+  ref.job = ref.dest = null; ref.jobT = 0;
+}
 function refTo(pt, ms) { ref.goal = {x: pt.x, y: pt.y, until: performance.now() + (ms || 2200)}; }
 function divot(p) { divots.push({x: p.x, y: p.y, a: p.ang || 0, t0: performance.now()}); if (divots.length > 14) divots.shift(); }
 
@@ -960,6 +965,7 @@ function updatePlay(now) {
     step = queue.shift() || null;
     if (step && throwIn) { if (throwIn.taker) delete focus[throwIn.taker]; throwIn = null; restart = null; }   // эпизод от бота важнее
     if (step && pendingKick && pendingKick.bg) pendingKick = null;
+    if (step && ref.job) refDrop();                  // новый эпизод — мяч у игроков, судья его больше не держит
     if (step) {
       if (step.poss !== undefined && step.poss !== null) poss = step.poss;
       try { step.run && step.run(); } catch (e) { console.error(e); }
@@ -1003,6 +1009,9 @@ function updatePlay(now) {
   if (ref.job === 'carry' && ref.dest && dd(ref, ref.dest) < 6) {                                              // и поставил на точку
     const d = ref.dest; ref.job = null; ref.dest = null; ball.h = 12; placeBall(d); refTo({x: d.x - 50, y: d.y + 45}, 2500);
   }
+  if (!ref.job) ref.jobT = 0;
+  else if (!ref.jobT) ref.jobT = now;
+  else if (now - ref.jobT > REF_JOB_MAX) refDrop();                                                            // застрял — не дольше 15 с
   if (restart && now > restart.until) restart = null;
   // угловой подан, эпизоды кончились, мяч опустился — игроки больше не стоят в штрафной
   // (стенку и пустую штрафную у пенальти не трогаем: удар может прийти позже, после решения менеджеров)
