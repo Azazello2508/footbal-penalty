@@ -326,7 +326,7 @@ $('cam').onclick = () => {
   $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam2', camMode); } catch (e) {} label(CAM_MODES[camMode]);
 };
 $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); setMute(); toFrame({type: 'mute', on: muted}); };
-function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); decodeSnd(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
 addEventListener('pointerdown', audio, {once: true});
 function whistle(long) {
   const a = !muted && audio(); if (!a) return;
