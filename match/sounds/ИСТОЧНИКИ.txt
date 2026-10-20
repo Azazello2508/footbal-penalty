@@ -1,0 +1,16 @@
+Звуки стадиона для сцены матча (webapp/match/index.html, блок «звук стадиона»).
+Все записи — с freesound.org под лицензией CC0 1.0 (общественное достояние: можно использовать
+и менять без условий и без указания автора). Из превью вырезаны куски без перекодирования (по кадрам mp3).
+
+ambience.mp3 — 829456, itmightgetloud: «Millerntor Stadium Crowd Reaction Mood Waves» (Санкт-Паули), 150–168 с
+  https://freesound.org/people/itmightgetloud/sounds/829456/
+crowd.mp3    — тот же файл 829456, 124–138 с (трибуна нарастает и спадает)
+goal1.mp3    — 829455, itmightgetloud: «Millerntor Stadium Crowd Reaction Goal 01», 0–11 с
+goal2.mp3    — тот же файл 829455, 14,8–26 с
+  https://freesound.org/people/itmightgetloud/sounds/829455/
+ooh.mp3      — 264499, noah0189: «Crowd Ooohs and Ahhhs in Excitement», 0–13,6 с
+  https://freesound.org/people/noah0189/sounds/264499/
+drums.mp3    — 500250, felix.blume: «Soccer fans screaming and playing drums in a small stadium of Chile», 158–174 с
+  https://freesound.org/people/felix.blume/sounds/500250/
+drum.mp3     — 509528, Sassaby: «Alfaia Hit» (один удар большого барабана), целиком
+  https://freesound.org/people/Sassaby/sounds/509528/
