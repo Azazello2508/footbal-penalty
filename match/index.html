@@ -395,7 +395,11 @@ function fetchBall(p, hands) {
   if (holder && holder !== fetch.k) holder = null;      // на остановке игры мяч бросают — он лежит, где был
   if (ball.recv && ball.recv !== fetch.k) ball.recv = null;
 }
-function placeBall(pt) { moveBall(pt, 180, 0, 'out'); }   // опустил мяч из рук на точку
+function placeBall(pt) {                   // опустил мяч из рук на точку; не дошёл до неё — докатывает мяч ногой
+  const d = Math.hypot(pt.x - ball.x, pt.y - ball.y);
+  if (d > 20) { strike(1); kick(); moveBall(pt, d / 260 * 1000, 0, 'out'); }
+  else moveBall(pt, 180, 0, 'out');
+}
 function ballLoose(now) { return !holderP() && (now - ball.t0 >= ball.d || ball.h < 4) && !throwIn && ref.job !== 'carry'; }
 function getBall(p) { acquire = p ? {k: key(p.t, p.s), f: null} : null; }
 function fetchTick(now) {
@@ -426,9 +430,18 @@ function acquireTick(now) {
     delete focus[sk]; A.f = null; giveBall(st);
   }
 }
+function handOver(p) {                     // мяч должен попасть к p, а он не успел: мяч сам не едет — его отдаёт тот, кто рядом
+  const hp = holderP(), k = key(p.t, p.s);
+  if (holder === k || ball.recv === k) return;
+  if (hp && hp.t === p.t) { passTo(p, 420); return; }                       // у партнёра — пас
+  if (hp) { passTo(p, 380); poss = p.t; return; }                           // у соперника — ошибается в передаче, прямо на p
+  const n = nearestTo(ball, teamPlayers(p.t));
+  if (!hp && n && n !== p && dd(n, ball) < 22) { giveBall(n); passTo(p, 420); return; }   // партнёр у ничейного мяча — пас
+  giveBall(p);                                                              // крайний случай: мяч доезжает к нему
+}
 function forceBall() {                     // эпизод затянулся (игроки не успели) — довести мяч до адресата
-  if (acquire) { const p = players[acquire.k]; if (acquire.f) delete focus[acquire.f]; acquire = null; if (p && holder !== key(p.t, p.s)) giveBall(p); }
-  if (fetch) { const p = players[fetch.k], h = fetch.hands; fetch = null; if (p) { giveBall(p); if (h) carry = key(p.t, p.s); } }
+  if (acquire) { const p = players[acquire.k]; if (acquire.f) delete focus[acquire.f]; acquire = null; if (p) handOver(p); }
+  if (fetch) { const p = players[fetch.k], h = fetch.hands; fetch = null; if (p) { handOver(p); if (h && holder === key(p.t, p.s)) carry = holder; } }
 }
 function holderP() { return holder ? players[holder] || null : null; }
 function passTo(p, speed) {               // пас в ноги с упреждением: p получит мяч, когда тот доедет
@@ -481,6 +494,7 @@ function shotSteps(a, to, arc, after) {
   {d: 650, poss: a.t, run: () => {
     const sh = shooter(a); if (sh) delete focus[key(sh.t, sh.s)];
     if (set) setTimeout(() => { if (crowd && (crowd.kind === 'wall' || crowd.kind === 'clearbox')) crowd = null; }, 700);   // после удара стенка расходится
+    setTimeout(() => { if (crowd && crowd.kind === 'box') crowd = null; }, 900);         // удар после углового — штрафная расходится
     if (air && sh) { const head = ball.h > 9; pose(sh, head ? 'head' : 'kick', 600, 0); shoot(to, head ? 430 : 560, 4, true); }   // с лёта или головой — без замаха
     else windup(sh, to, 140, () => { shoot(to, 540, arc); if (!set) ball.cv = rnd(-26, 26); });
     snap(a.t);
@@ -530,7 +544,8 @@ function build(a) {
       let tk = null;
       steps.push({d: 0, max: 3500, wait: () => !fetch});
       steps.push({d: 900, poss: 1 - a.t, run: () => {           // и выбивает его к центру — свой игрок принимает и ставит на точку
-        focus = {}; crowd = null;
+        focus = {}; crowd = null;                                  // праздник окончен — все расходятся по своим половинам
+        restart = {t: 1 - a.t, until: performance.now() + 16000, kick: true};
         const gk = teamPlayers(1 - a.t).find(p => p.gk); tk = nearestTo(CENTER, teamPlayers(1 - a.t, true));
         if (!gk || !tk) return;
         focus[key(tk.t, tk.s)] = {x: CENTER.x, y: CENTER.y, sp: 'run'};
@@ -538,6 +553,9 @@ function build(a) {
         windup(gk, CENTER, 260, () => { if (holderP() === gk) passTo({x: CENTER.x, y: CENTER.y, t: tk.t, s: tk.s, ux: 0, uy: 0}, 420); });
       }});
       steps.push({d: 0, max: 4500, wait: () => !tk || holder === key(tk.t, tk.s) && dd(tk, CENTER) < 14});
+      // разводка — только когда забившие отпраздновали и вернулись: все полевые в своих половинах
+      steps.push({d: 0, max: 8000, wait: () => teamPlayers(a.t, true).every(p => depthOf(p.t, p.y) < .5)
+                                              && teamPlayers(1 - a.t, true).every(p => p === tk || depthOf(p.t, p.y) < .52)});
       steps.push({d: 700, poss: 1 - a.t, run: () => { focus = {}; placeBall(CENTER); kickoff(1 - a.t); }});
       break;
     }
@@ -957,6 +975,9 @@ function updatePlay(now) {
     const d = ref.dest; ref.job = null; ref.dest = null; ball.h = 12; placeBall(d); refTo({x: d.x - 50, y: d.y + 45}, 2500);
   }
   if (restart && now > restart.until) restart = null;
+  // угловой подан, эпизоды кончились, мяч опустился — игроки больше не стоят в штрафной
+  // (стенку и пустую штрафную у пенальти не трогаем: удар может прийти позже, после решения менеджеров)
+  if (!step && crowd && crowd.kind === 'box' && now - ball.t0 > ball.d + 800) crowd = null;
   updateThrow(now);
   brawlTick(now);
   if (!step && S && S.phase === 'play' && !stopped && now > nextIdle && !restart) director(now);
@@ -988,10 +1009,11 @@ function updatePlay(now) {
     const legs = (.86 + clamp(p.sp || 20, 5, 40) / 40 * .28) * (.78 + .22 * clamp(p.pw === undefined ? 100 : p.pw, 0, 100) / 100);
     let gait = T.sp || 'jog';                                     // до места близко — идёт шагом или трусцой, а не бежит
     if (!sharp) { if (d < 18) gait = 'walk'; else if (d < 70 && gait === 'run') gait = 'jog'; }
-    const vmax = SPD[gait] * legs * (S && S.teams[p.t].rush && gait !== 'walk' ? 1.08 : 1);
+    // сцена отстаёт от бота и эпизоды идут быстрее — игроки тоже: иначе не успеют к мячу и его придётся «довозить»
+    const vmax = SPD[gait] * legs * (S && S.teams[p.t].rush && gait !== 'walk' ? 1.08 : 1) * Math.sqrt(speed());
     const want = d < 3 ? 0 : Math.min(vmax, (d - 3) * 2.2);     // у цели — стоит, а не топчется
     // бег как у человека: поворот дугой с ограниченной скоростью поворота, разгон и торможение — постепенно
-    const cur = Math.hypot(p.ux || 0, p.uy || 0), acc = ACC * dt * (T.sp === 'sprint' ? 1.3 : 1);
+    const cur = Math.hypot(p.ux || 0, p.uy || 0), acc = ACC * dt * (T.sp === 'sprint' ? 1.3 : 1) * Math.sqrt(speed());
     if (cur < 10 || !d) {                                         // с места — сразу в нужную сторону
       let ax = (d ? dx / d * want : 0) - (p.ux || 0), ay = (d ? dy / d * want : 0) - (p.uy || 0);
       const al = Math.hypot(ax, ay); if (al > acc) { ax *= acc / al; ay *= acc / al; }
