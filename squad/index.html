@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Состав клуба</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0b1220;--card:#131c31;--card2:#1b2742;--line:#26344f;--text:#e8eefc;--muted:#93a3c3;--accent:#facc15;
+  --ok:#22c55e;--bad:#f87171;--pitch:#166534;--pitch2:#15803d}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+  -webkit-tap-highlight-color:transparent}
+body{padding:calc(10px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom))}
+main{max-width:520px;margin:0 auto}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.hidden{display:none!important}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+#club{font-size:20px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#status{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--card2);white-space:nowrap}
+#status.ok{background:rgba(34,197,94,.18);color:#86efac}
+#status.bad{background:rgba(248,113,113,.16);color:#fecaca}
+.banner{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:14px;margin:8px 0;color:var(--muted)}
+.banner.warn{border-color:#a16207;color:#fde68a}
+.label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center}
+.chip b{display:block;font-size:16px}
+.chip span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.chip.on{border-color:var(--accent);background:rgba(250,204,21,.12)}
+.chip.on span{color:#fde68a}
+#pitch{position:relative;border-radius:16px;padding:12px 6px;background:repeating-linear-gradient(180deg,var(--pitch) 0 44px,var(--pitch2) 44px 88px);
+  border:2px solid rgba(255,255,255,.55);display:flex;flex-direction:column;gap:12px;overflow:hidden}
+#pitch:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid rgba(255,255,255,.4)}
+#pitch:after{content:"";position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border:2px solid rgba(255,255,255,.4);border-radius:50%}
+.line{position:relative;z-index:1;display:flex;justify-content:space-evenly;gap:4px;min-height:74px}
+.line .tag{position:absolute;left:6px;top:-2px;font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.05em}
+.pl{display:flex;flex-direction:column;align-items:center;width:76px;padding:2px;border-radius:12px;background:transparent}
+.pl .shirt{position:relative;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;
+  background:#f8fafc;color:#0f172a;box-shadow:0 3px 8px rgba(0,0,0,.4);border:3px solid #fff}
+.pl.gk .shirt{background:#fb923c;border-color:#fed7aa}
+.pl .nm{margin-top:4px;font-size:12px;line-height:1.15;text-align:center;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.pl .bd{position:absolute;right:-8px;top:-8px;font-size:13px;line-height:1}
+.pl .warn{position:absolute;left:-8px;top:-8px;font-size:13px}
+.pl.sel .shirt{outline:3px solid var(--accent);outline-offset:2px}
+.swapping .pl .shirt{animation:pulse 1.1s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+#bench{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 4px}
+#bench .pl{width:auto}
+#bench .pl .nm{text-shadow:none}
+#swapbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#422006;color:#fde68a;
+  border:1px solid #a16207;border-radius:12px;padding:8px 10px;margin:8px 0;font-size:14px}
+#swapbar button{background:rgba(255,255,255,.12);padding:6px 10px;border-radius:9px}
+.hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
+/* карточка игрока */
+#veil{position:fixed;inset:0;background:rgba(2,6,23,.6);z-index:10}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-height:88vh;overflow:auto;background:var(--card);border-radius:18px 18px 0 0;
+  border-top:1px solid var(--line);padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
+#sheet .in{max-width:520px;margin:0 auto}
+.sh-top{display:flex;align-items:flex-start;gap:10px}
+.sh-top h2{margin:0;font-size:19px;flex:1}
+.sh-top small{display:block;color:var(--muted);font-size:13px;font-weight:400;margin-top:3px}
+.x{background:var(--card2);width:34px;height:34px;border-radius:50%;font-size:18px;flex:none}
+.st{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+.st .t{font-size:14px}
+.st .t b{font-size:16px;margin-left:4px}
+.st .barw{grid-column:1/-1;height:5px;border-radius:3px;background:var(--card2);overflow:hidden}
+.st .bar{height:100%;background:var(--accent)}
+.st .btns{display:flex;gap:4px}
+.st .btns button{width:40px;height:34px;border-radius:9px;background:var(--card2);font-weight:700;font-size:14px}
+.st .btns button:disabled{opacity:.3}
+#left{margin:10px 0;font-size:15px;text-align:center}
+#left.ok{color:#86efac}
+.big{display:block;width:100%;padding:13px;border-radius:13px;font-weight:700;font-size:16px;background:var(--accent);color:#111;margin-top:6px}
+.big:disabled{background:var(--card2);color:var(--muted)}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.acts button{background:var(--card2);padding:11px 8px;border-radius:12px;font-size:14px;text-align:center}
+.acts button.on{outline:2px solid var(--accent)}
+.tal{display:block;width:100%;text-align:left;background:var(--card2);padding:10px 12px;border-radius:12px;margin-top:6px;font-size:14px}
+.tal span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.tal.on{outline:2px solid var(--accent)}
+#toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:20;max-width:90vw;
+  background:#0f172a;border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:12px;font-size:14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
+#toast.show{opacity:1}
+#toast.bad{border-color:#b91c1c;color:#fecaca}
+#conn{text-align:center;color:var(--muted);font-size:14px;margin:40px 0}
+</style>
+</head>
+<body>
+<main>
+  <div id="conn">Подключаемся к клубу…</div>
+  <div id="app" class="hidden">
+    <header><div id="club"></div><div id="status"></div></header>
+    <div id="problems" class="banner warn hidden"></div>
+    <div id="lock" class="banner warn hidden"></div>
+    <div id="swapbar" class="hidden"><span id="swaptext"></span><button id="swapcancel" type="button">Отмена</button></div>
+    <div class="label">Схема</div>
+    <div id="forms" class="chips"></div>
+    <div class="label">На поле</div>
+    <div id="pitch"></div>
+    <div class="label">Запасные</div>
+    <div id="bench"></div>
+    <div class="hint">Нажмите на игрока: очки, место в составе, капитан, пенальтист, талант.</div>
+  </div>
+</main>
+<div id="veil" class="hidden"></div>
+<div id="sheet" class="hidden"><div class="in" id="sheetin"></div></div>
+<div id="toast"></div>
+<script>
+const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+if (TG) { TG.ready(); TG.expand(); try { TG.setHeaderColor('#0b1220'); TG.setBackgroundColor('#0b1220'); } catch (e) { /* старый Telegram */ } }
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+function haptic(kind) { try { if (!TG) return; if (kind === 'ok' || kind === 'bad') TG.HapticFeedback.notificationOccurred(kind === 'ok' ? 'success' : 'error'); else TG.HapticFeedback.impactOccurred('light'); } catch (e) { /* нет вибро */ } }
+let toastT = 0;
+function toast(text, bad) {
+  const t = $('toast'); t.textContent = text; t.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => { t.className = bad ? 'bad' : ''; }, 2600);
+}
+
+/* ---------------- состояние и отрисовка ---------------- */
+let S = null;              // последнее состояние клуба от бота
+let open = null;           // слот игрока в открытой карточке
+let draft = null;          // раскладка очков в карточке (ещё не сохранена)
+let swapFrom = null;       // слот игрока, которого меняем местами
+let talentList = false;    // в карточке открыт выбор таланта
+const LINES = [['att', 'Нападение'], ['mid', 'Полузащита'], ['def', 'Защита']];
+
+function player(slot) { return S.players.find(p => p.slot === slot); }
+function shortName(p) { const parts = p.name.split(' '); return parts[parts.length - 1]; }
+function badges(p) {
+  return (S.captain === p.slot ? '👑' : '') + (S.penalty === p.slot ? '🎯' : '') + (S.talent_slot === p.slot && S.talent ? '⭐' : '');
+}
+function token(p) {
+  const warn = p.injury ? '🚑' : !p.stats ? '⚠️' : '';
+  return `<button type="button" class="pl${p.place === 'gk' ? ' gk' : ''}${swapFrom === p.slot ? ' sel' : ''}" data-slot="${p.slot}">` +
+    `<div class="shirt">${p.number}${badges(p) ? `<span class="bd">${badges(p)}</span>` : ''}${warn ? `<span class="warn">${warn}</span>` : ''}</div>` +
+    `<div class="nm">${esc(shortName(p))}</div></button>`;
+}
+
+function render() {
+  if (!S) return;
+  $('conn').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('club').textContent = S.club;
+  const ready = !S.problems.length;
+  $('status').textContent = ready ? '✅ Готов к матчу' : '⚠️ Не готов';
+  $('status').className = ready ? 'ok' : 'bad';
+  $('problems').classList.toggle('hidden', ready);
+  $('problems').textContent = 'Что мешает: ' + S.problems.join('; ');
+  $('lock').classList.toggle('hidden', !S.locked);
+  $('lock').textContent = S.locked || '';
+  $('forms').innerHTML = S.formations.map(([k, d]) =>
+    `<button type="button" class="chip${k === S.formation ? ' on' : ''}" data-f="${k}"><b>${k}</b><span>${esc(d.split(':')[0])}</span></button>`).join('');
+  const parts = S.formation.split('-').map(Number), want = {def: parts[0], mid: parts[1], att: parts[2]};
+  $('pitch').innerHTML = LINES.map(([key, title]) => {
+    const ps = S.players.filter(p => p.place === 'field' && p.line === key);
+    return `<div class="line"><span class="tag">${title} · ${want[key]}</span>${ps.map(token).join('')}</div>`;
+  }).join('') + `<div class="line"><span class="tag">Вратарь</span>${S.players.filter(p => p.place === 'gk').map(token).join('') ||
+    '<div class="pl"><div class="shirt">?</div><div class="nm">нет вратаря</div></div>'}</div>`;
+  $('bench').innerHTML = S.players.filter(p => p.place === 'bench').map(token).join('') ||
+    '<div class="nm" style="grid-column:1/-1;text-align:center;color:var(--muted)">Нет запасных</div>';
+  $('app').classList.toggle('swapping', swapFrom !== null);
+  $('swapbar').classList.toggle('hidden', swapFrom === null);
+  if (swapFrom !== null) { const p = player(swapFrom); $('swaptext').textContent = p ? `С кем поменять №${p.number} ${shortName(p)}?` : ''; }
+  if (open !== null) renderSheet();
+}
+
+function sum(v) { return v.reduce((a, b) => a + b, 0); }
+function step(v, i, d) {      // как кнопки «+/−» в чате: шаг урезается границами и остатком до 100
+  const L = S.limits, n = v.slice();
+  d = d > 0 ? Math.max(0, Math.min(d, L.max - n[i], L.total - sum(n))) : Math.min(0, Math.max(d, L.min - n[i]));
+  n[i] += d; return n;
+}
+function savedStats(p) { return p.stats ? S.statdefs.map(([k]) => p.stats[k]) : null; }
+
+function renderSheet() {
+  const p = player(open);
+  if (!p) { closeSheet(); return; }
+  const L = S.limits, saved = savedStats(p), v = draft, left = L.total - sum(v);
+  const changed = !saved || v.some((x, i) => x !== saved[i]);
+  const where = p.place === 'gk' ? 'вратарь' : p.place === 'bench' ? 'запасной' : 'на поле';
+  const cond = p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `свежесть ${p.fresh}% · настрой: ${esc(p.mood)}`;
+  let h = `<div class="sh-top"><h2>№${p.number} ${esc(p.name)}<small>${esc(p.pos || 'очки не распределены')} · ${where} · ${p.age} лет<br>${cond}</small></h2>` +
+    `<button type="button" class="x" data-close>✕</button></div>`;
+  if (talentList) {
+    h += `<div class="label">Талант команды — один, у одного игрока</div>` + S.talents.map(([k, t, d]) =>
+      `<button type="button" class="tal${S.talent === k && S.talent_slot === p.slot ? ' on' : ''}" data-talent="${k}">⭐ ${esc(t)}<span>${esc(d)}</span></button>`).join('') +
+      `<button type="button" class="big" data-back style="background:var(--card2);color:var(--text)">Назад</button>`;
+    $('sheetin').innerHTML = h; return;
+  }
+  h += `<div class="label">Очки характеристик</div>`;
+  if (p.grown) h += `<div class="banner">Игрок уже развивался — заново раскладывать очки нельзя. Очки роста: /growth в чате.</div>`;
+  h += S.statdefs.map(([k, t, ic], i) => {
+    const dis = d => p.grown || step(v, i, d)[i] === v[i] ? ' disabled' : '';
+    return `<div class="st"><div class="t">${ic} ${esc(t)}<b>${v[i]}</b></div><div class="btns">` +
+      `<button type="button" data-st="${i}" data-d="-5"${dis(-5)}>−5</button><button type="button" data-st="${i}" data-d="-1"${dis(-1)}>−1</button>` +
+      `<button type="button" data-st="${i}" data-d="1"${dis(1)}>+1</button><button type="button" data-st="${i}" data-d="5"${dis(5)}>+5</button></div>` +
+      `<div class="barw"><div class="bar" style="width:${Math.round(100 * v[i] / L.max)}%"></div></div></div>`;
+  }).join('');
+  h += `<div id="left" class="${left ? '' : 'ok'}">${left ? `Осталось раздать: ${left}` : changed ? '✅ Все 100 очков распределены' : '✅ Сохранено'}</div>`;
+  if (!p.grown) h += `<button type="button" class="big" data-save${left || !changed || S.locked ? ' disabled' : ''}>💾 Сохранить очки</button>`;
+  h += `<div class="acts">` +
+    `<button type="button" data-swap>🔁 Поменять местами</button>` +
+    `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}</button>` +
+    `<button type="button" data-role="penalty" class="${S.penalty === p.slot ? 'on' : ''}">🎯 ${S.penalty === p.slot ? 'Пенальтист' : 'Бьёт пенальти'}</button>` +
+    `<button type="button" data-tl class="${S.talent_slot === p.slot && S.talent ? 'on' : ''}">⭐ Талант</button></div>`;
+  $('sheetin').innerHTML = h;
+}
+
+function openSheet(slot) {
+  const p = player(slot);
+  open = slot; talentList = false;
+  draft = savedStats(p) || S.templates[p.place === 'gk' ? 'gk' : 'field'].slice();
+  $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden');
+  renderSheet();
+}
+function closeSheet() { open = null; draft = null; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+
+/* ---------------- нажатия ---------------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !S) return;
+  if (b.dataset.f) { if (b.dataset.f !== S.formation) send({a: 'formation', f: b.dataset.f}); haptic(); return; }
+  if (b.dataset.slot) {
+    const slot = +b.dataset.slot;
+    if (swapFrom !== null) {
+      if (slot !== swapFrom) send({a: 'swap', slot: swapFrom, with: slot});
+      swapFrom = null; render(); haptic(); return;
+    }
+    haptic(); openSheet(slot); return;
+  }
+  if (b.id === 'swapcancel') { swapFrom = null; render(); return; }
+  if (b.hasAttribute('data-close')) { closeSheet(); return; }
+  if (b.dataset.st !== undefined) { draft = step(draft, +b.dataset.st, +b.dataset.d); haptic(); renderSheet(); return; }
+  if (b.hasAttribute('data-save')) { send({a: 'stats', slot: open, v: draft.slice()}); return; }
+  if (b.hasAttribute('data-swap')) { swapFrom = open; closeSheet(); render(); return; }
+  if (b.dataset.role) { send({a: b.dataset.role, slot: open}); return; }
+  if (b.hasAttribute('data-tl')) { talentList = true; renderSheet(); return; }
+  if (b.hasAttribute('data-back')) { talentList = false; renderSheet(); return; }
+  if (b.dataset.talent) { send({a: 'talent', key: b.dataset.talent, slot: open}); talentList = false; return; }
+});
+$('veil').addEventListener('click', closeSheet);
+
+let actId = 0;
+const waiting = {};
+function send(act) {
+  act.id = ++actId; waiting[act.id] = act;
+  if (!ROOM) { setTimeout(() => demoAct(act), 120); return; }
+  if (!ws || ws.readyState !== 1) { toast('Нет связи — подождите, переподключаемся', true); return; }
+  ws.send(JSON.stringify({type: 'act', act}));
+}
+function onAck(m) {
+  const act = waiting[m.id]; delete waiting[m.id];
+  haptic(m.ok ? 'ok' : 'bad');
+  if (m.note) toast(m.note, !m.ok);
+  if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
+}
+function onState(m) {
+  S = m;
+  if (open !== null && !player(open)) closeSheet();
+  render();
+}
+
+/* ---------------- подключение к комнате ---------------- */
+const Q = new URLSearchParams(location.search);
+const ROOM = Q.get('room');
+const DUEL_WS = 'wss://football-duel.pinkovskyi2508.workers.dev';   // сервер комнат (worker/), только он
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+// адрес сервера и подпись из ссылки — только при проверке на своём компьютере: иначе чужая ссылка увела бы подпись на чужой сервер
+const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
+const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
+let ws = null, retry = 0, ended = false;
+function stop(text) { ended = true; $('app').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
+function connect() {
+  ws = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+  clearInterval(connect.ping);           // молчащее соединение Cloudflare закрывает (~100 сек) — пингуем
+  connect.ping = setInterval(() => { if (ws.readyState === 1) ws.send('ping'); }, 30000);
+  ws.onmessage = e => {
+    if (e.data === 'pong') return;
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    retry = 0;
+    if (m.type === 'state') onState(m);
+    else if (m.type === 'ack') onAck(m);
+    else if (m.type === 'bot_left') toast('Бот перезапускается — если экран не ожил, откройте его снова: /lineup', true);
+  };
+  ws.onclose = e => {
+    if (e.code === 4003) { stop('Этот экран открывает только менеджер клуба.'); return; }
+    if (e.code === 4001) { stop('Экран состава закрыт. Откройте его снова: /lineup → «📱 Состав в приложении».'); return; }
+    if (ended) return;
+    retry++;
+    if (retry > 6) { stop('Нет связи с ботом. Откройте экран снова: /lineup → «📱 Состав в приложении».'); return; }
+    toast('Связь потеряна — переподключаемся…', true);
+    setTimeout(connect, Math.min(10000, 1500 * retry));
+  };
+}
+
+/* ---------------- демо без бота (открыть страницу без ?room=…): те же правила на месте ---------------- */
+function demoState() {
+  const names = ['Иван Петров', 'Олег Сидоров', 'Пётр Иванов', 'Глеб Котов', 'Лев Рябов', 'Марк Жуков', 'Ян Титов', 'Илья Носов', 'Фёдор Блинов', 'Савва Гусев'];
+  const st = [[10, 5, 10, 15, 20, 40], [15, 5, 15, 35, 25, 5], [15, 5, 15, 35, 25, 5], [20, 15, 30, 10, 20, 5], [20, 15, 30, 10, 20, 5],
+              [25, 35, 15, 5, 15, 5], [21, 19, 21, 19, 15, 5], [21, 19, 21, 19, 15, 5], [21, 19, 21, 19, 15, 5], null];
+  const keys = ['speed', 'shot', 'pass', 'defense', 'stamina', 'keeping'];
+  return {type: 'state', club: 'Девятка', formation: '2-2-2', locked: null,
+    formations: [['2-2-2', 'сбалансированно'], ['3-2-1', 'оборона: трое сзади, один впереди'], ['2-3-1', 'контроль: трое в центре поля — больше мяча'], ['3-1-2', 'атака: двое впереди, но центр поля пустее']],
+    players: names.map((n, i) => ({slot: i + 1, number: [1, 4, 5, 8, 6, 9, 10, 12, 14, 16][i], name: n, age: 20 + i, grown: 0,
+      stats: st[i] && Object.fromEntries(keys.map((k, j) => [k, st[i][j]])), place: i === 0 ? 'gk' : i >= 7 ? 'bench' : 'field',
+      pos: '', fresh: 100 - i * 3, mood: 'спокойный', injury: i === 8 ? 2 : 0})),
+    captain: 4, penalty: 6, talent: 'striker', talent_slot: 6,
+    talents: [['striker', 'Бомбардир', 'удары этого игрока на 15% точнее'], ['wall', 'Стена', 'в воротах: +15% к сейвам, +25% на пенальти'],
+      ['maestro', 'Дирижёр', 'атаки с его участием на 10% чаще доходят до удара'], ['engine', 'Мотор', 'устаёт вдвое медленнее'],
+      ['cool', 'Хладнокровный', 'вдвое реже получает карточки, не поддаётся на провокации']],
+    statdefs: [['speed', 'Скорость', '⚡'], ['shot', 'Удар', '🚀'], ['pass', 'Пас', '🔗'], ['defense', 'Защита', '🛡'], ['stamina', 'Выносливость', '🫁'], ['keeping', 'Вратарство', '🧤']],
+    limits: {total: 100, min: 5, max: 40}, templates: {field: [20, 18, 20, 19, 18, 5], gk: [10, 5, 10, 15, 20, 40]}, problems: []};
+}
+function demoRefresh() {     // линии и готовность — как считает бот
+  const f = S.players.filter(p => p.place === 'field').sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
+  const [d, , a] = S.formation.split('-').map(Number);
+  f.forEach((p, i) => { p.line = i < d ? 'def' : i >= f.length - a ? 'att' : 'mid'; });
+  S.players.forEach(p => { p.pos = p.place === 'gk' ? 'Вратарь' : p.stats ? (p.stats.shot >= p.stats.defense ? 'Нападающий' : 'Защитник') : ''; });
+  const pr = [], none = S.players.filter(p => !p.stats).length;
+  if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
+  S.players.filter(p => p.injury && p.place !== 'bench').forEach(p => pr.push(`№${p.number} травмирован — отправьте его в запасные`));
+  S.problems = pr;
+}
+function demoAct(act) {
+  const p = player(act.slot); let r = {ok: true, note: ''};
+  if (act.a === 'stats') {
+    const ok = act.v.length === 6 && act.v.every(x => x >= 5 && x <= 40) && sum(act.v) === 100;
+    if (ok) { p.stats = Object.fromEntries(S.statdefs.map(([k], i) => [k, act.v[i]])); r.note = `Очки №${p.number} сохранены`; }
+    else r = {ok: false, note: 'Сумма должна быть ровно 100, каждая от 5 до 40'};
+  } else if (act.a === 'formation') { S.formation = act.f; r.note = 'Схема ' + act.f; }
+  else if (act.a === 'swap') {
+    const q = player(act.with);
+    if (p.place === 'field' && q.place === 'field') r = {ok: false, note: 'Эти двое и так на поле — поменять нечего'};
+    else { [p.place, q.place] = [q.place, p.place]; r.note = 'Поменялись местами'; }
+  } else if (act.a === 'captain' || act.a === 'penalty') { S[act.a] = p.slot; r.note = `№${p.number} — ` + (act.a === 'captain' ? 'капитан' : 'пенальтист'); }
+  else if (act.a === 'talent') { S.talent = act.key; S.talent_slot = p.slot; r.note = 'Талант назначен'; }
+  if (r.ok) demoRefresh();
+  onAck({type: 'ack', id: act.id, ...r});
+  onState(S);
+}
+
+if (ROOM) connect();
+else { S = demoState(); demoRefresh(); render(); toast('Демо без бота: изменения не сохраняются'); }
+</script>
+</body>
+</html>
