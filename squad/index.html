@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Состав клуба</title>
+<title>Футбольный менеджер</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--bg:#0b1220;--card:#131c31;--card2:#1b2742;--line:#26344f;--text:#e8eefc;--muted:#93a3c3;--accent:#facc15;
@@ -11,7 +11,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
   -webkit-tap-highlight-color:transparent}
-body{padding:calc(10px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom))}
+body{padding:calc(10px + env(safe-area-inset-top)) 16px calc(84px + env(safe-area-inset-bottom))}
 main{max-width:520px;margin:0 auto}
 button{font:inherit;color:inherit;border:0;cursor:pointer}
 .hidden{display:none!important}
@@ -86,12 +86,63 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 #toast.show{opacity:1}
 #toast.bad{border-color:#b91c1c;color:#fecaca}
 #conn{text-align:center;color:var(--muted);font-size:14px;margin:40px 0}
+/* вкладки игры */
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(4,1fr);background:#0f172a;
+  border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+#nav button{background:transparent;padding:4px 0;border-radius:10px;color:var(--muted);font-size:11px;position:relative}
+#nav button i{display:block;font-style:normal;font-size:21px;line-height:1.2}
+#nav button.on{color:var(--accent);background:rgba(250,204,21,.08)}
+#nav .dot{position:absolute;top:0;left:calc(50% + 8px);min-width:17px;height:17px;border-radius:9px;background:#dc2626;color:#fff;
+  font-size:11px;line-height:17px;padding:0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
+.card h3{margin:0 0 6px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .sub{color:var(--muted);font-size:13px;margin-top:3px}
+.card.need{border-color:#a16207;background:#1f1a0b}
+.card.warnc{border-color:#a16207}
+.go{display:block;width:100%;margin-top:9px;padding:10px;border-radius:11px;background:var(--card2);font-size:14px;text-align:center}
+.go.main{background:var(--accent);color:#111;font-weight:700}
+.crest{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
+.badge{flex:none;width:58px;height:66px;border-radius:12px 12px 29px 29px;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:20px;border:3px solid rgba(255,255,255,.85);box-shadow:0 4px 12px rgba(0,0,0,.45);text-shadow:0 1px 2px rgba(0,0,0,.6);color:#fff}
+.crest h1{margin:0;font-size:21px;line-height:1.15}
+.crest small{display:block;color:var(--muted);font-size:13px;margin-top:3px;font-weight:400}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stats3 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
+.stats3 b{display:block;font-size:19px}
+.stats3 span{font-size:11px;color:var(--muted)}
+.form{display:inline-flex;gap:3px;vertical-align:middle}
+.form i{width:16px;height:16px;border-radius:50%;font-style:normal;font-size:10px;line-height:16px;text-align:center;color:#0b1220;font-weight:700}
+.form .В{background:#22c55e}.form .Н{background:#facc15}.form .П{background:#f87171}
+.score{font-weight:800;font-size:18px;white-space:nowrap}
+.res-В{color:#86efac}.res-Н{color:#fde68a}.res-П{color:#fca5a5}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 10px}
+.seg button{background:transparent;padding:8px;border-radius:9px;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--card2);color:var(--text);font-weight:700}
+table.tb{width:100%;border-collapse:collapse;font-size:14px}
+.tb th{font-size:11px;color:var(--muted);font-weight:600;text-align:center;padding:4px 2px}
+.tb td{padding:8px 2px;border-top:1px solid var(--line);text-align:center}
+.tb td.n{text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb tr.me td{background:rgba(250,204,21,.1);font-weight:700}
+.tb td.pts{font-weight:800}
+.note{font-size:13px;color:var(--muted);line-height:1.4}
+.item{padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.35}
+.item:first-of-type{border-top:0}
+.item small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
+.item.new{color:#fff}.item.new small:after{content:" · новое";color:var(--accent)}
+.menu button{display:flex;justify-content:space-between;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:12px;margin-top:6px;font-size:15px}
+.menu button:after{content:"в чате ›";color:var(--muted);font-size:12px;align-self:center}
 </style>
 </head>
 <body>
 <main>
   <div id="conn">Подключаемся к клубу…</div>
   <div id="app" class="hidden">
+   <section id="t-home"></section>
+   <section id="t-league" class="hidden"></section>
+   <section id="t-more" class="hidden"></section>
+   <section id="t-squad" class="hidden">
     <header><div id="club"></div><div id="status"></div></header>
     <div id="problems" class="banner warn hidden"></div>
     <div id="lock" class="banner warn hidden"></div>
@@ -103,8 +154,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
     <div class="label">Запасные</div>
     <div id="bench"></div>
     <div class="hint">Нажмите на игрока: очки, место в составе, капитан, пенальтист, талант.</div>
+   </section>
   </div>
 </main>
+<nav id="nav" class="hidden">
+  <button type="button" data-tab="home"><i>🏠</i>Главная</button>
+  <button type="button" data-tab="squad"><i>📋</i>Состав</button>
+  <button type="button" data-tab="league"><i>🏆</i>Лига</button>
+  <button type="button" data-tab="more"><i>☰</i>Ещё<span id="unseen" class="dot hidden"></span></button>
+</nav>
 <div id="veil" class="hidden"></div>
 <div id="sheet" class="hidden"><div class="in" id="sheetin"></div></div>
 <div id="toast"></div>
@@ -140,9 +198,94 @@ function token(p) {
     `<div class="nm">${esc(shortName(p))}</div></button>`;
 }
 
+/* ---------------- вкладки игры: главная, лига, ещё ---------------- */
+let TAB = new URLSearchParams(location.search).get('tab') || 'home';
+let SEG = 'table';           // вкладка «Лига»: таблица или матчи
+const TABS = ['home', 'squad', 'league', 'more'];
+if (!TABS.includes(TAB)) TAB = 'home';
+const H = () => S.hub || {};
+const formDots = f => f && f.length ? `<span class="form">${f.map(x => `<i class="${x}">${x}</i>`).join('')}</span>` : '';
+function initials(name) { const w = name.replace(/[«»"]/g, '').split(/[\s-]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); }
+function matchCard(m, title) {
+  const where = m.home ? 'дома' : 'в гостях';
+  const score = m.score ? `<span class="score${m.res ? ' res-' + m.res : ''}">${esc(m.score)}</span>` : '';
+  return `<div class="card${m.need && !/ждём/.test(m.need) ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
+    `<div class="row"><div><b>${esc(m.opp)}</b><div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}</div></div>${score}</div>` +
+    (m.need ? `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div><button type="button" class="go main" data-match="${m.id}">Ответить в чате</button>` : '') + `</div>`;
+}
+function renderHome() {
+  const hb = H(), h = hb.home;
+  if (!h) { $('t-home').innerHTML = `<div class="card">У вас пока нет клуба.<button type="button" class="go main" data-sec="club">⚽ Создать клуб в чате</button></div>`; return; }
+  let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
+    `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  if (h.other) x += `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(h.other)}»${h.other_star ? ' ⭐' : ''}</button>`;
+  if (h.place) x += `<div class="stats3" style="margin-top:8px"><div><b>${h.place}</b><span>место из ${h.of}</span></div><div><b>${h.points}</b><span>очков</span></div><div><b>${h.played}</b><span>игр</span></div></div>` +
+    (h.form && h.form.length ? `<div class="sub" style="text-align:center;margin-top:6px">Форма: ${formDots(h.form)}</div>` : '');
+  else x += `<div class="card note">🏆 ${esc(hb.table.note || 'Сезон не идёт')}</div>`;
+  if (h.locked) x += `<div class="banner warn">${esc(h.locked)}</div>`;
+  if (h.need && (!h.next || h.need.id !== h.next.id)) x += matchCard(h.need, 'Нужен ответ');
+  x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч')
+    : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — товарищеский можно в любой момент.</div><button type="button" class="go" data-sec="friendly">🤝 Товарищеский</button></div>`;
+  if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
+    `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div></div>`;
+  const ready = !h.problems.length;
+  x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` +
+    (h.tired || h.hurt ? `<div class="sub">${h.tired ? 'устали: ' + h.tired : ''}${h.tired && h.hurt ? ' · ' : ''}${h.hurt ? 'травмы: ' + h.hurt : ''}</div>` : '') +
+    `<button type="button" class="go${ready ? '' : ' main'}" data-go="squad">📋 Открыть состав</button></div>`;
+  if (h.can_train || h.growth.length) x += `<div class="card"><h3>Сегодня</h3>` +
+    (h.can_train ? `<button type="button" class="go" data-sec="training">🏋️ Тренировка — сегодня ещё не было</button>` : '') +
+    (h.growth.length ? `<button type="button" class="go" data-sec="growth">📈 Вложить очки роста: ${esc(h.growth.join(', '))}</button>` : '') + `</div>`;
+  if (hb.star) x += `<div class="card note">${esc(hb.star)}</div>`;
+  if (hb.news && hb.news[0]) x += `<div class="card"><h3>Новости лиги</h3><div class="note">${esc(hb.news[0].text)}</div><button type="button" class="go" data-go="more">Все новости</button></div>`;
+  $('t-home').innerHTML = x;
+}
+function renderLeague() {
+  const hb = H(), t = hb.table;
+  if (!t) { $('t-league').innerHTML = ''; return; }
+  let x = `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">🏆 Таблица</button>` +
+    `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button></div>`;
+  if (SEG === 'table') {
+    if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
+    if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
+      t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
+      `</table></div>`;
+    if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-sec="league">👥 Лига: создать, вступить, позвать друга</button>`;
+  } else {
+    x += hb.matches.length ? hb.matches.map(m => matchCard(m)).join('') : `<div class="card note">Матчей пока нет.</div>`;
+    x += `<button type="button" class="go" data-sec="friendly">🤝 Товарищеский матч</button>`;
+  }
+  $('t-league').innerHTML = x;
+}
+function renderMore() {
+  const hb = H();
+  let x = `<div class="label">🔔 Уведомления</div><div class="card">` + (hb.notices && hb.notices.length ? hb.notices.map(n =>
+    `<div class="item${n.new ? ' new' : ''}"><small>${esc(n.at)}</small>${esc(n.text)}</div>`).join('') : '<div class="note">Пока пусто: сюда попадают предложения матчей, напоминания, новости лиги.</div>') + `</div>`;
+  x += `<div class="label">📰 Новости лиги</div><div class="card">` + (hb.news && hb.news.length ? hb.news.map(n =>
+    `<div class="item"><small>${esc(n.at)}</small>${esc(n.text)}</div>`).join('') : '<div class="note">Пока тихо: сыграйте матч — комментатор уже точит язык.</div>') + `</div>`;
+  x += `<div class="label">Разделы</div><div class="menu">` + (hb.sections || []).map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
+  $('t-more').innerHTML = x;
+}
+function showTab(t) {
+  TAB = t;
+  TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== t));
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  if (t === 'more' && H().unseen) { send({a: 'seen'}); S.hub.unseen = 0; S.hub.notices.forEach(n => { n.new = false; }); renderNav(); }
+  window.scrollTo(0, 0);
+}
+function renderNav() {
+  const n = H().unseen || 0;
+  $('unseen').textContent = n; $('unseen').classList.toggle('hidden', !n);
+}
 function render() {
   if (!S) return;
-  $('conn').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('conn').classList.add('hidden'); $('app').classList.remove('hidden'); $('nav').classList.remove('hidden');
+  renderHome(); renderLeague(); renderMore(); renderNav();
+  if (S.players && S.players.length) renderSquad();
+  TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== TAB));
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
+}
+
+function renderSquad() {
   $('club').textContent = S.club;
   const ready = !S.problems.length;
   $('status').textContent = ready ? '✅ Готов к матчу' : '⚠️ Не готов';
@@ -191,16 +334,18 @@ function renderSheet() {
     $('sheetin').innerHTML = h; return;
   }
   h += `<div class="label">Очки характеристик</div>`;
-  if (p.grown) h += `<div class="banner">Игрок уже развивался — заново раскладывать очки нельзя. Очки роста: /growth в чате.</div>`;
+  const fixed = p.grown || p.preset;
+  if (p.preset) h += `<div class="banner">Сила задана по реальному уровню (${v.reduce((a, b) => a + b, 0)} очков) — перераспределить нельзя. Расти игрок будет тренировками.</div>`;
+  else if (p.grown) h += `<div class="banner">Игрок уже развивался — заново раскладывать очки нельзя. Очки роста: /growth в чате.</div>`;
   h += S.statdefs.map(([k, t, ic], i) => {
-    const dis = d => p.grown || step(v, i, d)[i] === v[i] ? ' disabled' : '';
+    const dis = d => fixed || step(v, i, d)[i] === v[i] ? ' disabled' : '';
     return `<div class="st"><div class="t">${ic} ${esc(t)}<b>${v[i]}</b></div><div class="btns">` +
       `<button type="button" data-st="${i}" data-d="-5"${dis(-5)}>−5</button><button type="button" data-st="${i}" data-d="-1"${dis(-1)}>−1</button>` +
       `<button type="button" data-st="${i}" data-d="1"${dis(1)}>+1</button><button type="button" data-st="${i}" data-d="5"${dis(5)}>+5</button></div>` +
       `<div class="barw"><div class="bar" style="width:${Math.round(100 * v[i] / L.max)}%"></div></div></div>`;
   }).join('');
-  h += `<div id="left" class="${left ? '' : 'ok'}">${left ? `Осталось раздать: ${left}` : changed ? '✅ Все 100 очков распределены' : '✅ Сохранено'}</div>`;
-  if (!p.grown) h += `<button type="button" class="big" data-save${left || !changed || S.locked ? ' disabled' : ''}>💾 Сохранить очки</button>`;
+  if (!fixed) h += `<div id="left" class="${left ? '' : 'ok'}">${left ? `Осталось раздать: ${left}` : changed ? '✅ Все 100 очков распределены' : '✅ Сохранено'}</div>`;
+  if (!fixed) h += `<button type="button" class="big" data-save${left || !changed || S.locked ? ' disabled' : ''}>💾 Сохранить очки</button>`;
   h += `<div class="acts">` +
     `<button type="button" data-swap>🔁 Поменять местами</button>` +
     `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}</button>` +
@@ -221,6 +366,12 @@ function closeSheet() { open = null; draft = null; $('veil').classList.add('hidd
 /* ---------------- нажатия ---------------- */
 document.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || !S) return;
+  if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
+  if (b.dataset.go) { haptic(); showTab(b.dataset.go); return; }
+  if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
+  if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
+  if (b.dataset.match) { send({a: 'match', id: +b.dataset.match}); return; }
+  if (b.hasAttribute('data-switch')) { send({a: 'switch'}); return; }
   if (b.dataset.f) { if (b.dataset.f !== S.formation) send({a: 'formation', f: b.dataset.f}); haptic(); return; }
   if (b.dataset.slot) {
     const slot = +b.dataset.slot;
@@ -252,8 +403,8 @@ function send(act) {
 }
 function onAck(m) {
   const act = waiting[m.id]; delete waiting[m.id];
-  haptic(m.ok ? 'ok' : 'bad');
-  if (m.note) toast(m.note, !m.ok);
+  if (m.note) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
+  if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
 }
 function onState(m) {
@@ -271,7 +422,8 @@ const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
 const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
 let ws = null, retry = 0, ended = false;
-function stop(text) { ended = true; $('app').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
+const AGAIN = 'Экран закрыт. Откройте игру снова: в чате «🏠 Главная» → «📱 Открыть игру».';
+function stop(text) { ended = true; $('app').classList.add('hidden'); $('nav').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
 function connect() {
   ws = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
   ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
@@ -283,14 +435,14 @@ function connect() {
     retry = 0;
     if (m.type === 'state') onState(m);
     else if (m.type === 'ack') onAck(m);
-    else if (m.type === 'bot_left') toast('Бот перезапускается — если экран не ожил, откройте его снова: /lineup', true);
+    else if (m.type === 'bot_left') toast('Бот перезапускается — если экран не ожил, откройте игру снова кнопкой на пульте', true);
   };
   ws.onclose = e => {
     if (e.code === 4003) { stop('Этот экран открывает только менеджер клуба.'); return; }
-    if (e.code === 4001) { stop('Экран состава закрыт. Откройте его снова: /lineup → «📱 Состав в приложении».'); return; }
+    if (e.code === 4001) { stop(AGAIN); return; }
     if (ended) return;
     retry++;
-    if (retry > 6) { stop('Нет связи с ботом. Откройте экран снова: /lineup → «📱 Состав в приложении».'); return; }
+    if (retry > 6) { stop('Нет связи с ботом. ' + AGAIN); return; }
     toast('Связь потеряна — переподключаемся…', true);
     setTimeout(connect, Math.min(10000, 1500 * retry));
   };
@@ -312,7 +464,29 @@ function demoState() {
       ['maestro', 'Дирижёр', 'атаки с его участием на 10% чаще доходят до удара'], ['engine', 'Мотор', 'устаёт вдвое медленнее'],
       ['cool', 'Хладнокровный', 'вдвое реже получает карточки, не поддаётся на провокации']],
     statdefs: [['speed', 'Скорость', '⚡'], ['shot', 'Удар', '🚀'], ['pass', 'Пас', '🔗'], ['defense', 'Защита', '🛡'], ['stamina', 'Выносливость', '🫁'], ['keeping', 'Вратарство', '🧤']],
-    limits: {total: 100, min: 5, max: 40}, templates: {field: [20, 18, 20, 19, 18, 5], gk: [10, 5, 10, 15, 20, 40]}, problems: []};
+    limits: {total: 100, min: 5, max: 40}, templates: {field: [20, 18, 20, 19, 18, 5], gk: [10, 5, 10, 15, 20, 40]}, problems: [],
+    hub: demoHub()};
+}
+function demoHub() {
+  const rows = [['Девятка', 4, 3, 1, 0, 14, 6], ['Северный Ветер', 4, 2, 1, 1, 11, 8], ['Торпедо Пресни', 4, 1, 2, 1, 9, 9], ['Дворовые Львы', 4, 0, 0, 4, 4, 15]]
+    .map(([name, pl, w, d, l, gf, ga], i) => ({place: i + 1, name, pl, w, d, l, gf, ga, pts: w * 3 + d, mine: i === 0, form: []}));
+  const matches = [
+    {id: 11, label: 'тур 5', opp: 'Северный Ветер', home: true, status: 'proposed', when: 'до 24.10 23:00', need: 'предлагают время: 23.10 20:30'},
+    {id: 12, label: 'тур 6', opp: 'Торпедо Пресни', home: false, status: 'open', when: 'до 26.10 23:00', need: 'время не назначено'},
+    {id: 9, label: 'тур 4', opp: 'Дворовые Львы', home: false, status: 'played', when: '20.10 20:00', score: '4:1', res: 'В'},
+    {id: 7, label: 'тур 3', opp: 'Торпедо Пресни', home: true, status: 'played', when: '18.10 19:00', score: '2:2', res: 'Н'}];
+  return {club: 'Девятка', unseen: 2,
+    home: {club: 'Девятка', star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
+      other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
+      next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
+      problems: [], tired: 1, hurt: 1, growth: ['№9 Жуков'], can_train: true},
+    table: {title: 'Лига «Лига друзей»', rows, note: null}, matches,
+    news: [{at: '20.10 21:10', text: '«Девятка» разгромила «Дворовых Львов» 4:1 — Жуков оформил дубль.'}],
+    star: '⭐ Звезда недели: №9 Марк Жуков («Девятка») — 3 гола за неделю',
+    notices: [{at: '21.10 12:00', text: '«Северный Ветер» предлагает время: 23.10 20:30', new: true},
+      {at: '21.10 09:00', text: 'Новый день — игроки отдохнули', new: true}, {at: '20.10 21:05', text: 'Матч «Дворовые Львы» — «Девятка» завершён: 1:4', new: false}],
+    sections: [['cards', '🃏 Карточки игроков'], ['training', '🏋️ Тренировка'], ['friendly', '🤝 Товарищеский матч'], ['growth', '📈 Рост игроков'],
+      ['kit', '👕 Форма клуба'], ['club', '🏟 Клуб: названия и игроки'], ['league', '👥 Лига: создать, вступить, позвать'], ['official', '⭐ Официальные лиги'], ['help', '📖 Помощь']]};
 }
 function demoRefresh() {     // линии и готовность — как считает бот
   const f = S.players.filter(p => p.place === 'field').sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
@@ -326,7 +500,10 @@ function demoRefresh() {     // линии и готовность — как с
 }
 function demoAct(act) {
   const p = player(act.slot); let r = {ok: true, note: ''};
-  if (act.a === 'stats') {
+  if (act.a === 'section' || act.a === 'match') r.note = 'Демо: в Telegram этот раздел откроется в чате';
+  else if (act.a === 'switch') r = {ok: false, note: 'Демо: переключение клубов работает только в Telegram'};
+  else if (act.a === 'seen') r.note = '';
+  else if (act.a === 'stats') {
     const ok = act.v.length === 6 && act.v.every(x => x >= 5 && x <= 40) && sum(act.v) === 100;
     if (ok) { p.stats = Object.fromEntries(S.statdefs.map(([k], i) => [k, act.v[i]])); r.note = `Очки №${p.number} сохранены`; }
     else r = {ok: false, note: 'Сумма должна быть ровно 100, каждая от 5 до 40'};
@@ -342,7 +519,11 @@ function demoAct(act) {
   onState(S);
 }
 
-if (ROOM) connect();
+if (ROOM) {
+  connect();
+  // бот не подключён к комнате (давно не открывали пульт, перезапуск) — страница сама его не разбудит
+  setTimeout(() => { if (!S && !ended) $('conn').textContent = 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова.'; }, 8000);
+}
 else { S = demoState(); demoRefresh(); render(); toast('Демо без бота: изменения не сохраняются'); }
 </script>
 </body>
