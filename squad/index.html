@@ -314,9 +314,10 @@ function ask(text, yes) {     // подтверждение: окно Telegram, 
   if (confirm(text)) yes();
 }
 function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel(); }
-function sub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
-function back() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
-function head(title, small) {
+// имена с приставкой panel: в Telegram на iPhone глобальное head занято (HTMLHeadElement) — «head is not a function»
+function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
+function panelBack() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
+function panelHead(title, small) {
   return `<div class="sh-top">${PANEL.hist.length ? '<button type="button" class="x" data-pback>‹</button>' : ''}<h2>${title}${small ? `<small>${small}</small>` : ''}</h2>` +
     `<button type="button" class="x" data-close>✕</button></div>`;
 }
@@ -328,15 +329,15 @@ function renderPanel() {
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
   panelSig = sig;
   let h;
-  if (P.report) h = head('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
+  if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
 }
 function panelClub(m, P) {
   if (P.slot != null) {
-    const p = mp(P.slot); if (!p) return head('Игрок не найден');
-    return head(`№${p.number} ${esc(p.first)} ${esc(p.last)}`, years(p.age)) + lockBanner() +
+    const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
+    return panelHead(`№${p.number} ${esc(p.first)} ${esc(p.last)}`, years(p.age)) + lockBanner() +
       `<div class="label">Имя и фамилия</div><div class="own"><input id="pf" value="${esc(p.first)}" maxlength="20" placeholder="Имя">` +
       `<input id="pl" value="${esc(p.last)}" maxlength="20" placeholder="Фамилия"></div><button type="button" class="go" data-pname>✏️ Сохранить имя</button>` +
       `<div class="label">Номер на футболке (1–99)</div><div class="own"><input id="pn" inputmode="numeric" value="${p.number}" maxlength="2"><button type="button" data-pnum>OK</button></div>` +
@@ -345,7 +346,7 @@ function panelClub(m, P) {
       `<div class="own"><input id="rn" inputmode="numeric" maxlength="2" placeholder="Номер"><input id="ra" inputmode="numeric" maxlength="2" placeholder="Возраст 18–38"></div>` +
       `<button type="button" class="go danger" data-prepl>🗑 Удалить и вписать нового</button>`;
   }
-  let h = head('🏟 Клуб и игроки') + `<div class="label">Название</div>`;
+  let h = panelHead('🏟 Клуб и игроки') + `<div class="label">Название</div>`;
   h += m.rename ? `<div class="banner">${esc(m.rename)}</div>` :
     `<div class="own"><input id="cn" value="${esc(m.name)}" maxlength="30"><button type="button" data-cname>OK</button></div>`;
   h += `<div class="label">Игроки — нажмите, чтобы изменить</div>` + m.players.map(p =>
@@ -356,14 +357,14 @@ function panelClub(m, P) {
 }
 function panelCards(m, P) {
   const kit = m.home_kit;
-  if (P.slot == null) return head('🃏 Карточки игроков', 'Нажмите на игрока') + `<div class="cardsgrid">` + m.players.map(p => {
+  if (P.slot == null) return panelHead('🃏 Карточки игроков', 'Нажмите на игрока') + `<div class="cardsgrid">` + m.players.map(p => {
     const sq = player(p.slot) || {};
     return `<button type="button" class="mini" data-card="${p.slot}"><div class="shirt" style="background:${kit[0]};color:${ink(kit[0])}">${p.number}</div>` +
       `<b>${esc(p.last)}</b><span>${esc(sq.pos || 'очки не распределены')}</span></button>`;
   }).join('') + `</div>`;
-  const p = mp(P.slot); if (!p) return head('Игрок не найден');
+  const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
   const sq = player(p.slot) || {};
-  let h = head('🃏 Карточка игрока') + `<div class="pcard"><div class="top" style="background:${kit[0]};border-bottom:6px solid ${kit[1]}">` +
+  let h = panelHead('🃏 Карточка игрока') + `<div class="pcard"><div class="top" style="background:${kit[0]};border-bottom:6px solid ${kit[1]}">` +
     `<div class="shirt" style="background:${kit[1]};color:${ink(kit[1])}">${p.number}</div>` +
     `<div style="color:${ink(kit[0])}"><b>${esc(p.first)} ${esc(p.last)}</b><small style="color:inherit">${esc(sq.pos || '')}${sq.pos ? ' · ' : ''}${years(p.age)} · ${esc(m.name)}</small></div></div>` +
     (p.badges.length ? `<div class="tags" style="background:var(--card);padding-top:8px">${p.badges.map(b => `<i>${esc(b)}</i>`).join('')}</div>` : '') + `<div class="body">`;
@@ -376,7 +377,7 @@ function panelCards(m, P) {
   return h + `<div class="cond">${esc(p.cond)}</div></div></div>`;
 }
 function panelKit(m) {
-  let h = head('👕 Форма клуба', 'Хозяева играют в домашней форме, гости — в выездной. Если цвета футболок совпали, гости надевают свою домашнюю, а если и она совпала — нейтральную.') +
+  let h = panelHead('👕 Форма клуба', 'Хозяева играют в домашней форме, гости — в выездной. Если цвета футболок совпали, гости надевают свою домашнюю, а если и она совпала — нейтральную.') +
     `<div class="kits"><div>${shirtSvg(m.home_kit, 10)}<br>🏠 Дома</div><div>${shirtSvg(m.away, 10)}<br>✈️ В гостях</div></div>`;
   if (!m.kit_ok) h += `<div class="banner warn">⚠️ Выберите все четыре цвета — без этого нельзя начать сезон.</div>`;
   h += m.kit_fields.map(([f, t]) => `<div class="label">${esc(t)}${m.kit[f] ? '' : ' — не выбрано'}</div><div class="colors">` +
@@ -386,21 +387,21 @@ function panelKit(m) {
 function panelTraining(m, P) {
   const t = m.train, pers = t.personal;
   const focusNote = t.focus ? `<div class="card note">💪 Действует акцент ${esc(t.focus)} — до ближайшего матча; новый акцент заменит его.</div>` : '';
-  if (t.block) return head('🏋️ Тренировка', 'Одна в сутки на клуб') + `<div class="banner warn">${esc(t.block)}</div>` + focusNote;
+  if (t.block) return panelHead('🏋️ Тренировка', 'Одна в сутки на клуб') + `<div class="banner warn">${esc(t.block)}</div>` + focusNote;
   if (P.step === 'focus') {
     const f = t.focuses.find(x => x[0] === P.focus);
-    return head(esc(f[1]), esc(f[2]) + '. Какая нагрузка?') + t.loads.map(([k, title, fresh, eff]) =>
+    return panelHead(esc(f[1]), esc(f[2]) + '. Какая нагрузка?') + t.loads.map(([k, title, fresh, eff]) =>
       `<button type="button" class="kind" data-tload="${k}">${esc(title)}<span>свежесть ${fresh}%, ${esc(eff[P.focus])}${k === 'heavy' ? '; форма +1, но уставшие (ниже 40%) рискуют травмой' : ''}</span></button>`).join('');
   }
-  if (P.step === 'personal' && P.slot == null) return head('👤 Персональная', 'С кем занимаемся?') + m.players.filter(p => p.stats && !p.injured).map(p =>
+  if (P.step === 'personal' && P.slot == null) return panelHead('👤 Персональная', 'С кем занимаемся?') + m.players.filter(p => p.stats && !p.injured).map(p =>
     `<button type="button" class="kind" data-tpp="${p.slot}"${p.fresh < pers.min_fresh ? ' disabled' : ''}>${esc(p.label)}<span>свежесть ${p.fresh}%${p.fresh < pers.min_fresh ? ` — слишком устал, нужна от ${pers.min_fresh}%` : ''}</span></button>`).join('');
   if (P.step === 'personal') {
-    const p = mp(P.slot); if (!p) return head('Игрок не найден');
-    return head(esc(p.label), `${esc(p.cond)}<br>Свежесть −${Math.abs(pers.fresh)}%, прогресс +${num(pers.progress)}. Набрался 1 — характеристика вырастет на ${num(p.step)}.`) +
+    const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
+    return panelHead(esc(p.label), `${esc(p.cond)}<br>Свежесть −${Math.abs(pers.fresh)}%, прогресс +${num(pers.progress)}. Набрался 1 — характеристика вырастет на ${num(p.step)}.`) +
       m.statdefs.filter(([k]) => p.stats[k] < S.limits.max).map(([k, title]) =>
         `<button type="button" class="kind" data-tps="${k}">${esc(title)} ${num(p.stats[k])}<span>прогресс ${num(p.progress[k] || 0)}/1</span></button>`).join('');
   }
-  return head('🏋️ Тренировка', 'Одна в сутки на клуб') + lockBanner() + focusNote + `<div class="label">Без акцента</div>` +
+  return panelHead('🏋️ Тренировка', 'Одна в сутки на клуб') + lockBanner() + focusNote + `<div class="label">Без акцента</div>` +
     t.kinds.map(([k, title, d]) => `<button type="button" class="kind" data-tkind="${k}">${esc(title)}<span>${esc(d)}</span></button>`).join('') +
     `<div class="label">С акцентом — бонус к ближайшему матчу</div>` +
     t.focuses.map(([k, title, d]) => `<button type="button" class="kind" data-tfocus="${k}">${esc(title)}<span>${esc(d)}</span></button>`).join('') +
@@ -408,25 +409,25 @@ function panelTraining(m, P) {
     `Набрался 1 — характеристика растёт, как от очка роста (нужна свежесть от ${pers.min_fresh}%).</span></button>`;
 }
 function panelTalk(m, P) {
-  if (P.slot == null) return head('🗣 Разговор с игроками', 'С каждым игроком — раз в сутки') + lockBanner() + m.players.map(p =>
+  if (P.slot == null) return panelHead('🗣 Разговор с игроками', 'С каждым игроком — раз в сутки') + lockBanner() + m.players.map(p =>
     `<button type="button" class="kind" data-talk="${p.slot}"${p.talked || p.injured ? ' disabled' : ''}>${esc(p.label)}` +
     `<span>${p.injured ? 'травмирован — ему не до разговоров' : 'настрой: ' + esc(p.mood) + (p.talked ? ' · сегодня уже говорили' : '')}</span></button>`).join('');
-  const p = mp(P.slot); if (!p) return head('Игрок не найден');
-  return head(esc(p.label), esc(p.cond) + '<br>Что ему сказать?') + lockBanner() +
+  const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
+  return panelHead(esc(p.label), esc(p.cond) + '<br>Что ему сказать?') + lockBanner() +
     m.talks.map(([k, title]) => `<button type="button" class="kind" data-say="${k}"${p.talked ? ' disabled' : ''}>${esc(title)}</button>`).join('') +
     (p.talked ? `<div class="hint">С этим игроком сегодня уже говорили. Завтра можно снова.</div>` : '');
 }
 function panelGrowth(m, P) {
   if (P.slot == null) {
     const can = m.players.filter(p => p.growth >= 1 && p.stats);
-    return head('📈 Рост игроков') + `<div class="note">${esc(m.growth_rule)}</div>` + lockBanner() +
+    return panelHead('📈 Рост игроков') + `<div class="note">${esc(m.growth_rule)}</div>` + lockBanner() +
       (can.length ? `<div class="label">Кому вложить очко?</div>` + can.map(p => `<button type="button" class="kind" data-grow="${p.slot}">${esc(p.label)}<span>${num(p.growth)} очк.</span></button>`).join('')
         : `<div class="card note">Пока вкладывать нечего: играйте матчи тура и официальные товарищеские.</div>`) +
       `<div class="label">Все игроки</div><div class="card">` + m.players.map(p => `<div class="item">№${p.number} ${esc(p.first)} ${esc(p.last)}: ${num(p.growth)} очк. (вложено ${p.grown})</div>`).join('') + `</div>`;
   }
-  const p = mp(P.slot); if (!p) return head('Игрок не найден');
-  if (p.growth < 1) return head(esc(p.label)) + `<div class="card note">Очков роста больше нет.</div><button type="button" class="big" data-pback>Назад</button>`;
-  return head(esc(p.label), `${num(p.growth)} очк. В какую характеристику вложить?`) + lockBanner() +
+  const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
+  if (p.growth < 1) return panelHead(esc(p.label)) + `<div class="card note">Очков роста больше нет.</div><button type="button" class="big" data-pback>Назад</button>`;
+  return panelHead(esc(p.label), `${num(p.growth)} очк. В какую характеристику вложить?`) + lockBanner() +
     m.statdefs.filter(([k]) => p.next[k]).map(([k, title]) => `<button type="button" class="kind" data-gstat="${k}">${esc(title)} ${esc(p.next[k])}</button>`).join('');
 }
 function renderHome() {
@@ -624,10 +625,10 @@ document.addEventListener('click', e => {
 function val(id) { return (($(id) || {}).value || '').trim(); }
 function panelClick(b) {      // нажатия в окнах раздела «Клуб»; true — нажатие обработано
   const P = PANEL, d = b.dataset, m = M();
-  if (b.hasAttribute('data-pback')) { back(); return true; }
+  if (b.hasAttribute('data-pback')) { panelBack(); return true; }
   if (b.hasAttribute('data-pdone')) { PANEL = {k: P.k, hist: []}; renderPanel(); return true; }
-  if (d.pedit) { haptic(); sub({slot: +d.pedit}); return true; }
-  if (d.card) { haptic(); sub({slot: +d.card}); return true; }
+  if (d.pedit) { haptic(); panelSub({slot: +d.pedit}); return true; }
+  if (d.card) { haptic(); panelSub({slot: +d.card}); return true; }
   if (b.hasAttribute('data-cname')) { if (val('cn')) send({a: 'rename', text: val('cn')}); else toast('Напишите название', true); return true; }
   if (b.hasAttribute('data-pname')) { send({a: 'player', op: 'rename', slot: P.slot, text: val('pf') + ' ' + val('pl')}); return true; }
   if (b.hasAttribute('data-pnum')) { send({a: 'player', op: 'number', slot: P.slot, text: val('pn')}); return true; }
@@ -643,22 +644,22 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   }
   if (d.kitf) { haptic(); send({a: 'kit', field: d.kitf, color: d.kitc}); return true; }
   if (d.tkind) { const t = m.train.kinds.find(x => x[0] === d.tkind); ask(`Провести тренировку «${t[1]}»? Тренировка — одна в сутки.`, () => send({a: 'train', kind: d.tkind})); return true; }
-  if (d.tfocus) { haptic(); sub({step: 'focus', focus: d.tfocus}); return true; }
+  if (d.tfocus) { haptic(); panelSub({step: 'focus', focus: d.tfocus}); return true; }
   if (d.tload) {
     const f = m.train.focuses.find(x => x[0] === P.focus), L = m.train.loads.find(x => x[0] === d.tload);
     ask(`Провести тренировку «${f[1]} · ${L[1]}»? Тренировка — одна в сутки.`, () => send({a: 'train', kind: 'focus', focus: P.focus, load: d.tload}));
     return true;
   }
-  if (b.hasAttribute('data-tpers')) { haptic(); sub({step: 'personal'}); return true; }
-  if (d.tpp) { haptic(); sub({slot: +d.tpp}); return true; }
+  if (b.hasAttribute('data-tpers')) { haptic(); panelSub({step: 'personal'}); return true; }
+  if (d.tpp) { haptic(); panelSub({slot: +d.tpp}); return true; }
   if (d.tps) {
     const p = mp(P.slot), t = m.statdefs.find(x => x[0] === d.tps)[1];
     ask(`Персональная тренировка: №${p.number} ${p.last}, «${t}»? Вместо командной — тренировка одна в сутки.`, () => send({a: 'personal', slot: P.slot, stat: d.tps}));
     return true;
   }
-  if (d.talk) { haptic(); sub({slot: +d.talk}); return true; }
+  if (d.talk) { haptic(); panelSub({slot: +d.talk}); return true; }
   if (d.say) { send({a: 'talk', slot: P.slot, kind: d.say}); return true; }
-  if (d.grow) { haptic(); sub({slot: +d.grow}); return true; }
+  if (d.grow) { haptic(); panelSub({slot: +d.grow}); return true; }
   if (d.gstat) { send({a: 'grow', slot: P.slot, stat: d.gstat}); return true; }
   return false;
 }
@@ -680,7 +681,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'propose' && MS) closeSheet();
   if (m.ok && act && act.a === 'friendly') { closeSheet(); OPEN_AFTER = m.open; }
   if (m.ok && m.report && PANEL) { PANEL.report = m.report; renderPanel(); }
-  if (m.ok && act && act.a === 'player' && PANEL) back();
+  if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
 }
 function onState(m) {
