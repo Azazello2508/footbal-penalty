@@ -55,7 +55,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
 /* карточка игрока */
 #veil{position:fixed;inset:0;background:rgba(2,6,23,.6);z-index:10}
-#sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-height:88vh;overflow:auto;background:var(--card);border-radius:18px 18px 0 0;
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-height:var(--sheet-h,88vh);overflow:auto;-webkit-overflow-scrolling:touch;background:var(--card);border-radius:18px 18px 0 0;
   border-top:1px solid var(--line);padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
 #sheet .in{max-width:520px;margin:0 auto}
 .sh-top{display:flex;align-items:flex-start;gap:10px}
@@ -208,6 +208,13 @@ table.tb{width:100%;border-collapse:collapse;font-size:14px}
 <script>
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 if (TG) { TG.ready(); TG.expand(); try { TG.setHeaderColor('#0b1220'); TG.setBackgroundColor('#0b1220'); } catch (e) { /* старый Telegram */ } }
+// высота окон (карточка игрока, матч, раздел «Клуб») — от видимой области Telegram, а не от vh: в Telegram на iPhone
+// vh бывает неверным, и окно выезжало узкой полоской (так же сделано на экране матча — webapp/match, fit)
+function fitSheet() { const vh = (TG && TG.viewportStableHeight) || innerHeight; if (vh > 100) document.documentElement.style.setProperty('--sheet-h', Math.round(vh * .88) + 'px'); }
+fitSheet(); addEventListener('resize', fitSheet);
+if (TG && TG.onEvent) { try { TG.onEvent('viewportChanged', fitSheet); } catch (e) { /* старый Telegram */ } }
+// непредвиденная ошибка — видна на экране (и её можно прислать), а не «ничего не происходит»
+addEventListener('error', e => { try { toast('Ошибка страницы: ' + e.message, true); } catch (err) { /* ещё нет toast */ } });
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 function haptic(kind) { try { if (!TG) return; if (kind === 'ok' || kind === 'bad') TG.HapticFeedback.notificationOccurred(kind === 'ok' ? 'success' : 'error'); else TG.HapticFeedback.impactOccurred('light'); } catch (e) { /* нет вибро */ } }
@@ -306,7 +313,7 @@ function ask(text, yes) {     // подтверждение: окно Telegram, 
   if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) { TG.showConfirm(text, ok => { if (ok) yes(); }); return; }
   if (confirm(text)) yes();
 }
-function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel(); }
+function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel(); }
 function sub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
 function back() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
 function head(title, small) {
