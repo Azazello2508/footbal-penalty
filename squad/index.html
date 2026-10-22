@@ -842,7 +842,7 @@ const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
 const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
 let ws = null, retry = 0, ended = false;
-const AGAIN = 'Экран закрыт. Откройте игру снова: в чате «🏠 Главная» → «📱 Открыть игру».';
+const AGAIN = 'Экран закрыт. Откройте игру снова: кнопка «🎮 Игра» в чате.';
 function stop(text) { ended = true; $('app').classList.add('hidden'); $('nav').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
 function connect() {
   ws = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
@@ -1042,7 +1042,7 @@ function demoAct(act) {
 if (ROOM) {
   connect();
   // бот не подключён к комнате (давно не открывали пульт, перезапуск) — страница сама его не разбудит
-  setTimeout(() => { if (!S && !ended) $('conn').textContent = 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова.'; }, 8000);
+  setTimeout(() => { if (!S && !ended) $('conn').textContent = 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова кнопкой «🎮 Игра».'; }, 8000);
 }
 else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); if (Q.get('demo') === 'new') demoNoClub(); render(); toast('Демо без бота: изменения не сохраняются'); }
 </script>
