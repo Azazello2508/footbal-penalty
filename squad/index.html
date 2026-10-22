@@ -305,6 +305,7 @@ const PANELS = [['club', '🏟 Клуб и игроки', 'название, и�
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
   ['official', '⭐ Официальные лиги', 'клубы пяти топ-лиг: взять свободный, заявка на смену'],
   ['admin', '🛠 Администратор', 'заявки на смену клуба, сезоны официальных лиг']];
+const NO_CLUB_PANELS = ['newclub', 'official', 'friends'];   // окна, которые открываются и без клуба
 const CARDS = {};          // состав клуба официальной лиги: ключ → {card, numbers} (приходит по запросу ofcard)
 const num = v => String(v).replace('.', ',');     // 20.3 → 20,3 — как в чате
 function years(n) { const d = n % 10, h = n % 100; return n + (d === 1 && h !== 11 ? ' год' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' года' : ' лет'); }
@@ -330,14 +331,14 @@ function panelHead(title, small) {
 const lockBanner = () => S.locked ? `<div class="banner warn">${esc(S.locked)}</div>` : '';
 let panelSig = '';
 function renderPanel() {
-  const m = M(); if (!m) { closeSheet(); return; }
+  const m = M(); if (!m && !NO_CLUB_PANELS.includes(PANEL.k)) { closeSheet(); return; }
   const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, !!P.report].join('|'), keep = {};
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
   panelSig = sig;
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    friends: panelFriends, official: panelOfficial, admin: panelAdmin}[P.k](m, P);
+    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
 }
@@ -441,7 +442,7 @@ function panelGrowth(m, P) {
 function panelFriends(m, P) {
   const L = H().leagues || {}, lg = L.league;
   if (!L.own) return panelHead('👥 Лига друзей') + `<div class="card note">Лига друзей — для своего клуба (официальный играет только в своей официальной лиге). Своего клуба пока нет.</div>` +
-    `<button type="button" class="go" data-sec="league">Открыть в чате</button>`;
+    (H().create ? `<button type="button" class="go main" data-ncstep>✍️ Создать свой клуб</button>` : '');
   if (!lg) {
     let h = panelHead('👥 Лига друзей', `Ваш клуб пока не в лиге. Лига — это ваша компания: свой сезон, своя таблица и товарищеские матчи друг с другом. До ${L.max} клубов.`);
     if (L.pending) h += `<div class="banner warn">📨 Вас пригласили в лигу «${esc(L.pending.name)}».</div><button type="button" class="go main" data-lgpend="${L.pending.id}">✅ Вступить в «${esc(L.pending.name)}»</button>`;
@@ -502,9 +503,29 @@ function panelAdmin(m, P) {
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
   return h;
 }
+function panelNewClub(m, P) {
+  const C = H().create, O = H().official || {};
+  if (!C) return panelHead('⚽ Новый клуб') + `<div class="card note">Свой клуб у вас уже есть.</div>`;
+  const invite = C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '';
+  if (P.step !== 'own' && !O.mine) return panelHead('⚽ Новый клуб', 'Как создадим клуб?') + invite + `<div class="report">${esc(C.choice)}</div>` +
+    `<button type="button" class="go main" data-ncoff>⭐ Готовый клуб из топ-лиги</button><button type="button" class="go" data-ncstep>✍️ Свой клуб с нуля</button>`;
+  return panelHead('✍️ Свой клуб', 'Для лиг с друзьями: название и игроки — ваши') + invite +
+    `<div class="label">Название клуба</div><div class="own"><input id="ncname" maxlength="30" placeholder="Например: Дворовые Львы"></div>` +
+    `<button type="button" class="go main" data-ncquick>⚡ Создать — состав, очки и форма сразу</button>` +
+    `<div class="hint">Игроков, очки, роли и форму выдадим — клуб сразу готов к матчу. Имена, номера и очки можно поменять потом.</div>` +
+    `<div class="label">Или свои ${C.size} игроков</div><div class="hint">Каждый — «Имя Фамилия номер возраст» (возраст ${C.ages[0]}–${C.ages[1]}): молодые растут быстрее, опытные реже получают карточки. Ниже — подсказка, меняйте как хотите.</div>` +
+    C.suggest.map((t, i) => `<div class="own"><input id="ncp${i}" value="${esc(t)}" maxlength="40" placeholder="Игрок ${i + 1}"></div>`).join('') +
+    `<button type="button" class="go" data-ncown>✍️ Создать с этими игроками</button><div class="hint">Очки (по 100 на игрока) раздадите на вкладке «Состав».</div>`;
+}
 function renderHome() {
   const hb = H(), h = hb.home;
-  if (!h) { $('t-home').innerHTML = `<div class="card">У вас пока нет клуба.<button type="button" class="go main" data-sec="club">⚽ Создать клуб в чате</button></div>`; return; }
+  if (!h) {
+    const C = hb.create || {};
+    $('t-home').innerHTML = `<div class="card"><h3>⚽ У вас пока нет клуба</h3><div class="note">Создайте его — это минута, а дальше: свой состав 7×7, лига с друзьями и живые матчи.</div>` +
+      (C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '') +
+      `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button></div>`;
+    return;
+  }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
   if (h.other) x += `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(h.other)}»${h.other_star ? ' ⭐' : ''}</button>`;
@@ -738,8 +759,16 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (d.gstat) { send({a: 'grow', slot: P.slot, stat: d.gstat}); return true; }
   return leagueClick(b);
 }
-function leagueClick(b) {     // нажатия в окнах лиг и администратора
+function leagueClick(b) {     // нажатия в окнах лиг, администратора и нового клуба
   const P = PANEL, d = b.dataset, L = H().leagues || {}, lg = L.league;
+  if (b.hasAttribute('data-ncoff')) { haptic(); panelSub({k: 'official'}); return true; }
+  if (b.hasAttribute('data-ncstep')) { haptic(); panelSub({k: 'newclub', step: 'own'}); return true; }
+  if (b.hasAttribute('data-ncquick') || b.hasAttribute('data-ncown')) {
+    if (!val('ncname')) { toast('Напишите название клуба', true); return true; }
+    const players = b.hasAttribute('data-ncown') ? H().create.suggest.map((_, i) => val('ncp' + i)) : null;
+    send({a: 'newclub', name: val('ncname'), players});
+    return true;
+  }
   if (b.hasAttribute('data-lgnew')) { if (val('lgname')) send({a: 'lgnew', text: val('lgname')}); else toast('Напишите название лиги', true); return true; }
   if (b.hasAttribute('data-lgcode')) { if (val('lgcode')) send({a: 'lgjoin', code: val('lgcode')}); else toast('Напишите код лиги', true); return true; }
   if (d.lgpend) { send({a: 'lgjoin', league: +d.lgpend}); return true; }
@@ -795,6 +824,7 @@ function onAck(m) {
   if (m.ok && m.report && PANEL) { PANEL.report = m.report; renderPanel(); }
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
+  if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
 }
 function onState(m) {
@@ -895,7 +925,20 @@ function demoHub() {
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}]},
     sections: [['help', '📖 Помощь']]};
 }
+function demoNoClub() {        // демо без клуба (?demo=new): экран «Создать клуб»
+  const hb = demoHub();
+  S.club = null; S.players = [];
+  S.hub = {club: null, official: Object.assign({}, hb.official, {mine: null, text: 'Свободными клубами играет бот — возьмите любой: место в таблице и сыгранные матчи остаются, а десятым игроком станет ваш воспитанник.'}),
+    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null},
+    create: {choice: 'У менеджера может быть два клуба: ⭐ официальный — один из 96 реальных клубов пяти топ-лиг, и ✍️ свой — для лиг с друзьями.', size: 10, ages: [18, 38], pending: 'Лига Бори',
+      suggest: ['Иван Петров 1 24', 'Олег Сидоров 4 22', 'Пётр Иванов 5 27', 'Глеб Котов 8 21', 'Лев Рябов 6 29', 'Марк Жуков 9 23', 'Ян Титов 10 25', 'Илья Носов 12 20', 'Фёдор Блинов 14 28', 'Савва Гусев 16 26']}};
+}
 function demoLeagueAct(act) {   // демо: лига меняется только на этой странице, остальное — только в Telegram
+  if (act.a === 'newclub') {
+    if (!act.name || act.name.length < 2) return {ok: false, note: 'Название клуба: от 2 до 30 символов.'};
+    S = demoState(); S.club = S.hub.club = S.hub.home.club = act.name; S.hub.manage = demoManage(); demoRefresh();
+    return {ok: true, note: `Клуб «${act.name}» создан! ✅`};
+  }
   const L = S.hub.leagues;
   if (act.a === 'lgleave') { const n = L.league.name; L.league = null; S.hub.home.league = null; return {ok: true, note: `Вы вышли из лиги «${n}».`}; }
   if (act.a === 'lgnew') {
@@ -933,6 +976,7 @@ function demoManage() {      // раздел «Клуб» из демо-сост
     statdefs: S.statdefs.map(([k, t]) => [k, t])};
 }
 function demoClubAct(act) {   // демо: раздел «Клуб» меняется только на этой странице
+  if (!M()) return null;
   const m = M(), q = mp(act.slot), hex = Object.fromEntries(m.colors.map(c => [c[0], c[3]]));
   if (act.a === 'rename') { m.name = S.club = S.hub.home.club = act.text; return {ok: true, note: `Готово, клуб теперь называется «${act.text}» ✅`}; }
   if (act.a === 'player') {
@@ -973,7 +1017,7 @@ function demoRefresh() {     // линии и готовность — как с
 }
 function demoAct(act) {
   const p = player(act.slot); let r = {ok: true, note: ''};
-  const club = demoClubAct(act) || demoLeagueAct(act);
+  const club = demoLeagueAct(act) || demoClubAct(act);
   if (club) { onAck({type: 'ack', id: act.id, ...club}); onState(S); return; }
   if (act.a === 'section') r.note = 'Демо: в Telegram этот раздел откроется в чате';
   else if (['propose', 'respond', 'cancel', 'friendly'].includes(act.a)) r = {ok: false, note: 'Демо: матчи назначаются только в Telegram'};
@@ -1000,7 +1044,7 @@ if (ROOM) {
   // бот не подключён к комнате (давно не открывали пульт, перезапуск) — страница сама его не разбудит
   setTimeout(() => { if (!S && !ended) $('conn').textContent = 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова.'; }, 8000);
 }
-else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); render(); toast('Демо без бота: изменения не сохраняются'); }
+else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); if (Q.get('demo') === 'new') demoNoClub(); render(); toast('Демо без бота: изменения не сохраняются'); }
 </script>
 </body>
 </html>
