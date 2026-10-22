@@ -523,7 +523,8 @@ function renderHome() {
     const C = hb.create || {};
     $('t-home').innerHTML = `<div class="card"><h3>⚽ У вас пока нет клуба</h3><div class="note">Создайте его — это минута, а дальше: свой состав 7×7, лига с друзьями и живые матчи.</div>` +
       (C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '') +
-      `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button></div>`;
+      `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button>` +
+      (hb.community ? `<button type="button" class="go" data-community>💬 Сообщество игры</button>` : '') + `</div>`;
     return;
   }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
@@ -576,6 +577,7 @@ function renderMore() {
   if (hb.manage) x += `<div class="label">Клуб</div><div class="menu app">` + PANELS.map(([k, t, d]) => `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.manage) x += `<div class="label">Лиги</div><div class="menu app">` + LEAGUE_PANELS.filter(([k]) => k !== 'admin' || hb.admin).map(([k, t, d]) =>
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
+  if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
   x += `<div class="label">В чате</div><div class="menu">` + (hb.sections || []).map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
   $('t-more').innerHTML = x;
 }
@@ -687,6 +689,7 @@ document.addEventListener('click', e => {
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
+  if (b.hasAttribute('data-community')) { haptic(); const u = H().community; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
   if (b.hasAttribute('data-fr')) { haptic(); openMatchSheet({fr: true, kind: null}); return; }
   if (b.dataset.kind) { MS.kind = b.dataset.kind; haptic(); renderMatchSheet(); return; }
   if (b.dataset.rival) { if (MS && MS.kind) send({a: 'friendly', kind: MS.kind, opp: +b.dataset.rival}); return; }
@@ -923,7 +926,7 @@ function demoHub() {
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}]},
-    sections: [['help', '📖 Помощь']]};
+    community: 'https://t.me/+demo', sections: [['help', '📖 Помощь']]};
 }
 function demoNoClub() {        // демо без клуба (?demo=new): экран «Создать клуб»
   const hb = demoHub();
