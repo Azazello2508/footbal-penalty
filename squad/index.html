@@ -130,6 +130,19 @@ table.tb{width:100%;border-collapse:collapse;font-size:14px}
 .item:first-of-type{border-top:0}
 .item small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
 .item.new{color:#fff}.item.new small:after{content:" · новое";color:var(--accent)}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.mrow button{padding:10px 6px;border-radius:11px;background:var(--card2);font-size:14px}
+.mrow button.ok{background:#166534;color:#dcfce7}
+.mrow button.no{background:#3f1d1d;color:#fecaca}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.slots button{padding:11px 6px;border-radius:11px;background:var(--card2);font-size:15px}
+.slots button.now{grid-column:1/-1;background:var(--accent);color:#111;font-weight:700}
+.own{display:flex;gap:6px;margin-top:8px}
+.own input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px}
+.own button{background:var(--accent);color:#111;font-weight:700;border-radius:11px;padding:0 14px}
+.kind{display:block;width:100%;text-align:left;background:var(--card2);padding:11px 12px;border-radius:12px;margin-top:6px;font-size:15px}
+.kind span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.kind.on{outline:2px solid var(--accent)}
 .menu button{display:flex;justify-content:space-between;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:12px;padding:12px;margin-top:6px;font-size:15px}
 .menu button:after{content:"в чате ›";color:var(--muted);font-size:12px;align-self:center}
@@ -209,9 +222,44 @@ function initials(name) { const w = name.replace(/[«»"]/g, '').split(/[\s-]+/)
 function matchCard(m, title) {
   const where = m.home ? 'дома' : 'в гостях';
   const score = m.score ? `<span class="score${m.res ? ' res-' + m.res : ''}">${esc(m.score)}</span>` : '';
-  return `<div class="card${m.need && !/ждём/.test(m.need) ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
-    `<div class="row"><div><b>${esc(m.opp)}</b><div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}</div></div>${score}</div>` +
-    (m.need ? `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div><button type="button" class="go main" data-match="${m.id}">Ответить в чате</button>` : '') + `</div>`;
+  const o = m.offer;
+  let x = `<div class="card${o || m.status === 'open' ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
+    `<div class="row"><div><b>${esc(m.opp)}</b>${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
+    `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>`;
+  if (o) x += `<div class="sub" style="color:#fde68a">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
+    `<div class="mrow"><button type="button" class="ok" data-resp="acc" data-id="${m.id}">✅ Принять</button><button type="button" class="no" data-resp="dec" data-id="${m.id}">❌ Отказаться</button></div>` +
+    (m.can_time ? `<button type="button" class="go" data-time="${m.id}">🕐 Предложить другое время</button>` : '');
+  else if (m.sent) x += `<div class="sub">⏳ Вы предложили: ${esc(m.sent)} — ждём ответ соперника</div>`;
+  else if (m.need) x += `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div>`;
+  if (!o && m.can_time) x += `<button type="button" class="go${m.status === 'open' ? ' main' : ''}" data-time="${m.id}">${m.move ? '🔄 Перенести' : m.sent ? '🕐 Предложить другое время' : '🕐 Назначить время'}</button>`;
+  if (m.can_cancel) x += `<button type="button" class="go" data-cancel="${m.id}" style="color:#fca5a5">🗑 Отменить товарищеский</button>`;
+  return x + `</div>`;
+}
+/* ---------------- окна матчей: выбор времени и товарищеский ---------------- */
+let MS = null;             // открытое окно матча: {id} — время, {fr: true, kind} — новый товарищеский
+let OPEN_AFTER = null;     // создали товарищеский — открыть выбор времени, когда придёт новое состояние
+function matchById(id) { return (H().matches || []).find(m => m.id === id); }
+function openMatchSheet(ms) { open = null; MS = ms; $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderMatchSheet(); }
+function renderMatchSheet() {
+  let h = '';
+  if (MS.fr) {
+    const fr = H().friendly || {rivals: []};
+    h = `<div class="sh-top"><h2>🤝 Товарищеский матч<small>Соперник — клуб вашей лиги, готовый к игре</small></h2><button type="button" class="x" data-close>✕</button></div>` +
+      `<button type="button" class="kind${MS.kind === 'friendly' ? ' on' : ''}" data-kind="friendly">🏅 Официальный<span>игроки устают, могут получить травму и растут (0,25 очка роста за 40+ минут). В таблицу не идёт. Один в день на клуб.</span></button>` +
+      `<button type="button" class="kind${MS.kind === 'casual' ? ' on' : ''}" data-kind="casual">🎈 Простой<span>просто сыграть: без усталости, травм, роста и изменения формы. Хоть каждый день.</span></button>` +
+      `<div class="label">С кем играем?</div>` + (fr.note ? `<div class="banner">${esc(fr.note)}</div>` : '') +
+      fr.rivals.map(c => `<button type="button" class="kind" data-rival="${c.id}"${MS.kind ? '' : ' disabled style="opacity:.45"'}>⚽ «${esc(c.name)}»<span>менеджер ${esc(c.manager)}</span></button>`).join('') +
+      (MS.kind ? '' : `<div class="hint">Сначала выберите вид матча</div>`);
+  } else {
+    const m = matchById(MS.id);
+    if (!m || !m.can_time) { closeSheet(); return; }
+    h = `<div class="sh-top"><h2>${m.move ? '🔄 Перенос матча' : '🕐 Время матча'}<small>${esc(m.label)} · против «${esc(m.opp)}»${m.deadline ? ' · дедлайн ' + esc(m.deadline) : ''}<br>Время по Батуми/Баку. ${m.move ? 'Пока соперник не согласится, матч остаётся как есть.' : 'Соперник получит предложение и ответит.'}</small></h2><button type="button" class="x" data-close>✕</button></div>` +
+      `<div class="slots">${m.now ? `<button type="button" class="now" data-slotnow="${m.id}">⚡ Сыграть сейчас (через 5 мин после согласия)</button>` : ''}` +
+      (m.slots || []).map(([ts, t]) => `<button type="button" data-ts="${ts}" data-id="${m.id}">🕐 ${esc(t)}</button>`).join('') + `</div>` +
+      `<div class="label">Своё время</div><div class="own"><input id="owntime" type="text" inputmode="numeric" placeholder="20:30 или 24.10 20:30" maxlength="11">` +
+      `<button type="button" data-own="${m.id}">OK</button></div>`;
+  }
+  $('sheetin').innerHTML = h;
 }
 function renderHome() {
   const hb = H(), h = hb.home;
@@ -225,7 +273,7 @@ function renderHome() {
   if (h.locked) x += `<div class="banner warn">${esc(h.locked)}</div>`;
   if (h.need && (!h.next || h.need.id !== h.next.id)) x += matchCard(h.need, 'Нужен ответ');
   x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч')
-    : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — товарищеский можно в любой момент.</div><button type="button" class="go" data-sec="friendly">🤝 Товарищеский</button></div>`;
+    : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — товарищеский можно в любой момент.</div><button type="button" class="go" data-fr>🤝 Товарищеский</button></div>`;
   if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
     `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div></div>`;
   const ready = !h.problems.length;
@@ -252,7 +300,7 @@ function renderLeague() {
     if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-sec="league">👥 Лига: создать, вступить, позвать друга</button>`;
   } else {
     x += hb.matches.length ? hb.matches.map(m => matchCard(m)).join('') : `<div class="card note">Матчей пока нет.</div>`;
-    x += `<button type="button" class="go" data-sec="friendly">🤝 Товарищеский матч</button>`;
+    x += `<button type="button" class="go" data-fr>🤝 Товарищеский матч</button>`;
   }
   $('t-league').innerHTML = x;
 }
@@ -283,6 +331,8 @@ function render() {
   if (S.players && S.players.length) renderSquad();
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== TAB));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
+  if (MS) renderMatchSheet();
+  if (OPEN_AFTER && matchById(OPEN_AFTER)) { const id = OPEN_AFTER; OPEN_AFTER = null; SEG = 'matches'; renderLeague(); showTab('league'); openMatchSheet({id}); }
 }
 
 function renderSquad() {
@@ -361,7 +411,7 @@ function openSheet(slot) {
   $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden');
   renderSheet();
 }
-function closeSheet() { open = null; draft = null; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+function closeSheet() { open = null; draft = null; MS = null; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
 /* ---------------- нажатия ---------------- */
 document.addEventListener('click', e => {
@@ -370,7 +420,15 @@ document.addEventListener('click', e => {
   if (b.dataset.go) { haptic(); showTab(b.dataset.go); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
-  if (b.dataset.match) { send({a: 'match', id: +b.dataset.match}); return; }
+  if (b.hasAttribute('data-fr')) { haptic(); openMatchSheet({fr: true, kind: null}); return; }
+  if (b.dataset.kind) { MS.kind = b.dataset.kind; haptic(); renderMatchSheet(); return; }
+  if (b.dataset.rival) { if (MS && MS.kind) send({a: 'friendly', kind: MS.kind, opp: +b.dataset.rival}); return; }
+  if (b.dataset.time) { haptic(); openMatchSheet({id: +b.dataset.time}); return; }
+  if (b.dataset.resp) { send({a: 'respond', fx: +b.dataset.id, r: b.dataset.resp}); return; }
+  if (b.dataset.cancel) { if (confirm('Отменить этот товарищеский матч?')) send({a: 'cancel', fx: +b.dataset.cancel}); return; }
+  if (b.dataset.slotnow) { send({a: 'propose', fx: +b.dataset.slotnow, now: true}); return; }
+  if (b.dataset.ts) { send({a: 'propose', fx: +b.dataset.id, ts: +b.dataset.ts}); return; }
+  if (b.dataset.own) { const v = ($('owntime') || {}).value || ''; if (v.trim()) send({a: 'propose', fx: +b.dataset.own, text: v.trim()}); else toast('Напишите время: 20:30 или 24.10 20:30', true); return; }
   if (b.hasAttribute('data-switch')) { send({a: 'switch'}); return; }
   if (b.dataset.f) { if (b.dataset.f !== S.formation) send({a: 'formation', f: b.dataset.f}); haptic(); return; }
   if (b.dataset.slot) {
@@ -396,7 +454,7 @@ $('veil').addEventListener('click', closeSheet);
 let actId = 0;
 const waiting = {};
 function send(act) {
-  act.id = ++actId; waiting[act.id] = act;
+  act.id = ++actId; waiting[act.id] = act;     // номер запроса для ответа бота (ack); номер матча — в поле fx
   if (!ROOM) { setTimeout(() => demoAct(act), 120); return; }
   if (!ws || ws.readyState !== 1) { toast('Нет связи — подождите, переподключаемся', true); return; }
   ws.send(JSON.stringify({type: 'act', act}));
@@ -406,6 +464,8 @@ function onAck(m) {
   if (m.note) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
+  if (m.ok && act && act.a === 'propose' && MS) closeSheet();
+  if (m.ok && act && act.a === 'friendly') { closeSheet(); OPEN_AFTER = m.open; }
 }
 function onState(m) {
   S = m;
@@ -471,8 +531,11 @@ function demoHub() {
   const rows = [['Девятка', 4, 3, 1, 0, 14, 6], ['Северный Ветер', 4, 2, 1, 1, 11, 8], ['Торпедо Пресни', 4, 1, 2, 1, 9, 9], ['Дворовые Львы', 4, 0, 0, 4, 4, 15]]
     .map(([name, pl, w, d, l, gf, ga], i) => ({place: i + 1, name, pl, w, d, l, gf, ga, pts: w * 3 + d, mine: i === 0, form: []}));
   const matches = [
-    {id: 11, label: 'тур 5', opp: 'Северный Ветер', home: true, status: 'proposed', when: 'до 24.10 23:00', need: 'предлагают время: 23.10 20:30'},
-    {id: 12, label: 'тур 6', opp: 'Торпедо Пресни', home: false, status: 'open', when: 'до 26.10 23:00', need: 'время не назначено'},
+    {id: 11, label: 'тур 5', opp: 'Северный Ветер', home: true, status: 'proposed', when: 'до 24.10 23:00', need: 'предлагают время: 23.10 20:30',
+      manager: 'Боря', opp_ready: true, deadline: '24.10 23:00', offer: {when: '23.10 20:30', move: false, from: null, who: 'Северный Ветер'},
+      can_time: true, move: false, now: true, slots: [[1, '22.10 20:00'], [2, '22.10 21:00'], [3, '23.10 19:00'], [4, '23.10 20:00']], can_cancel: false},
+    {id: 12, label: 'тур 6', opp: 'Торпедо Пресни', home: false, status: 'open', when: 'до 26.10 23:00', need: 'время не назначено',
+      manager: 'Вика', opp_ready: false, deadline: '26.10 23:00', can_time: true, move: false, now: true, slots: [[5, '22.10 20:00'], [6, '22.10 21:00']], can_cancel: false},
     {id: 9, label: 'тур 4', opp: 'Дворовые Львы', home: false, status: 'played', when: '20.10 20:00', score: '4:1', res: 'В'},
     {id: 7, label: 'тур 3', opp: 'Торпедо Пресни', home: true, status: 'played', when: '18.10 19:00', score: '2:2', res: 'Н'}];
   return {club: 'Девятка', unseen: 2,
@@ -481,11 +544,12 @@ function demoHub() {
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
       problems: [], tired: 1, hurt: 1, growth: ['№9 Жуков'], can_train: true},
     table: {title: 'Лига «Лига друзей»', rows, note: null}, matches,
+    friendly: {note: null, rivals: [{id: 2, name: 'Северный Ветер', manager: 'Боря'}, {id: 3, name: 'Торпедо Пресни', manager: 'Вика'}]},
     news: [{at: '20.10 21:10', text: '«Девятка» разгромила «Дворовых Львов» 4:1 — Жуков оформил дубль.'}],
     star: '⭐ Звезда недели: №9 Марк Жуков («Девятка») — 3 гола за неделю',
     notices: [{at: '21.10 12:00', text: '«Северный Ветер» предлагает время: 23.10 20:30', new: true},
       {at: '21.10 09:00', text: 'Новый день — игроки отдохнули', new: true}, {at: '20.10 21:05', text: 'Матч «Дворовые Львы» — «Девятка» завершён: 1:4', new: false}],
-    sections: [['cards', '🃏 Карточки игроков'], ['training', '🏋️ Тренировка'], ['friendly', '🤝 Товарищеский матч'], ['growth', '📈 Рост игроков'],
+    sections: [['cards', '🃏 Карточки игроков'], ['training', '🏋️ Тренировка'], ['growth', '📈 Рост игроков'],
       ['kit', '👕 Форма клуба'], ['club', '🏟 Клуб: названия и игроки'], ['league', '👥 Лига: создать, вступить, позвать'], ['official', '⭐ Официальные лиги'], ['help', '📖 Помощь']]};
 }
 function demoRefresh() {     // линии и готовность — как считает бот
@@ -500,7 +564,8 @@ function demoRefresh() {     // линии и готовность — как с
 }
 function demoAct(act) {
   const p = player(act.slot); let r = {ok: true, note: ''};
-  if (act.a === 'section' || act.a === 'match') r.note = 'Демо: в Telegram этот раздел откроется в чате';
+  if (act.a === 'section') r.note = 'Демо: в Telegram этот раздел откроется в чате';
+  else if (['propose', 'respond', 'cancel', 'friendly'].includes(act.a)) r = {ok: false, note: 'Демо: матчи назначаются только в Telegram'};
   else if (act.a === 'switch') r = {ok: false, note: 'Демо: переключение клубов работает только в Telegram'};
   else if (act.a === 'seen') r.note = '';
   else if (act.a === 'stats') {
