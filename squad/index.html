@@ -137,6 +137,23 @@ button.item.more{text-align:center;color:var(--accent);font-weight:600}
 .pstats div{background:var(--card2);border-radius:12px;padding:8px 4px;text-align:center}
 .pstats b{display:block;font-size:20px}.pstats span{font-size:11px;color:var(--muted)}
 tr[data-pedit]{cursor:pointer}
+.scoutb{border-color:var(--accent)!important}
+.ask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}.ask .wtag{color:#7dd3fc}
+.ask h3 small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.ricon{font-size:11px}.ricon.off{opacity:.35;filter:grayscale(1)}
+.chem{display:block;width:100%;margin:6px 0;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:13px;text-align:left}
+.chem .cbar{display:block;height:6px;border-radius:3px;background:var(--card2);margin-top:6px;overflow:hidden}.chem .cbar i{display:block;height:100%;background:#22c55e}
+.acts button small{display:block;font-size:10px;color:var(--muted)}
+.chem .crule{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.35}
+.sublabel{font-size:13px;font-weight:700;margin:12px 0 6px}
+.formrow{display:flex;gap:6px}.formrow .fr{flex:1;text-align:center;border-radius:10px;padding:6px 0;font-weight:800;background:var(--card2)}
+.formrow .fr small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.fr.res-В{background:#14532d}.fr.res-П{background:#7f1d1d}.fr.res-Н{background:#374151}
+.tbar{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:4px 0}.tbar b{text-align:right}
+.tbar .barw{height:8px;border-radius:4px;background:var(--card2);overflow:hidden}.tbar .bar{height:100%;background:var(--accent)}
+.wnew{border:1px solid var(--accent);background:linear-gradient(135deg,rgba(250,204,21,.12),var(--card))}
+.wnew h3{margin:4px 0 6px}.wnew .wtag{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.item .kick{display:block;margin-top:6px;background:none;border:1px solid var(--line);color:#fca5a5;border-radius:10px;padding:5px 10px;font:inherit;font-size:13px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .mrow button{padding:10px 6px;border-radius:11px;background:var(--card2);font-size:14px}
 .mrow button.ok{background:#166534;color:#dcfce7}
@@ -193,6 +210,8 @@ tr[data-pedit]{cursor:pointer}
    <section id="t-squad" class="hidden">
     <header><div id="club"></div><div id="status"></div></header>
     <div id="problems" class="banner warn hidden"></div>
+    <div id="promises" class="banner warn hidden"></div>
+    <button type="button" id="chem" class="chem hidden" data-chem></button>
     <div id="lock" class="banner warn hidden"></div>
     <div id="swapbar" class="hidden"><span id="swaptext"></span><button id="swapcancel" type="button">Отмена</button></div>
     <div class="label">Схема</div>
@@ -201,7 +220,7 @@ tr[data-pedit]{cursor:pointer}
     <div id="pitch"></div>
     <div class="label">Запасные</div>
     <div id="bench"></div>
-    <div class="hint">Нажмите на игрока: очки, место в составе, капитан, пенальтист, талант.</div>
+    <div class="hint">Нажмите на игрока: очки, роль на поле, место в составе, капитан, пенальтист, талант.</div>
    </section>
   </div>
 </main>
@@ -250,8 +269,10 @@ function token(p) {
   const warn = p.injury ? '🚑' : !p.stats ? '⚠️' : '';
   return `<button type="button" class="pl${p.place === 'gk' ? ' gk' : ''}${swapFrom === p.slot ? ' sel' : ''}" data-slot="${p.slot}">` +
     `<div class="shirt">${p.number}${badges(p) ? `<span class="bd">${badges(p)}</span>` : ''}${warn ? `<span class="warn">${warn}</span>` : ''}</div>` +
-    `<div class="nm">${esc(shortName(p))}</div></button>`;
+    `<div class="nm">${esc(shortName(p))}${roleIcon(p) ? ` <span class="ricon${p.role_off ? ' off' : ''}">${roleIcon(p)}</span>` : ''}</div></button>`;
 }
+function roleOf(k) { return (S.field_roles || []).find(r => r[0] === k); }     // [ключ, линия, название, описание]
+function roleIcon(p) { const r = p.role && roleOf(p.role); return r ? r[2].split(' ')[0] : ''; }
 
 /* ---------------- вкладки игры: главная, лига, ещё ---------------- */
 let TAB = new URLSearchParams(location.search).get('tab') || 'home';
@@ -275,6 +296,7 @@ function matchCard(m, title) {
   else if (m.need) x += `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div>`;
   if (!o && m.can_time) x += `<button type="button" class="go${m.status === 'open' ? ' main' : ''}" data-time="${m.id}">${m.move ? '🔄 Перенести' : m.sent ? '🕐 Предложить другое время' : '🕐 Назначить время'}</button>`;
   if (m.can_cancel) x += `<button type="button" class="go" data-cancel="${m.id}" style="color:#fca5a5">🗑 Отменить товарищеский</button>`;
+  if (m.scout) x += `<button type="button" class="go scoutb" data-scout="${m.id}">🔎 Разведка и план на матч${m.plan ? ' · ✅ план готов' : ''}</button>`;
   return x + `</div>`;
 }
 /* ---------------- окна матчей: выбор времени и товарищеский ---------------- */
@@ -312,7 +334,8 @@ const PANELS = [['club', '🏟 Клуб и игроки', 'название, и�
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
   ['official', '⭐ Официальные лиги', 'клубы пяти топ-лиг: взять свободный, заявка на смену'],
   ['admin', '🛠 Администратор', 'заявки на смену клуба, сезоны официальных лиг']];
-const NO_CLUB_PANELS = ['newclub', 'official', 'friends'];   // окна, которые открываются и без клуба
+const NO_CLUB_PANELS = ['newclub', 'official', 'friends', 'help'];   // окна, которые открываются и без клуба
+const HELPS = {};          // разделы помощи: ключ → {title, text} (приходят по запросу help — вся справка в одно сообщение не влезет)
 const CARDS = {};          // состав клуба официальной лиги: ключ → {card, numbers} (приходит по запросу ofcard)
 const num = v => String(v).replace('.', ',');     // 20.3 → 20,3 — как в чате
 function years(n) { const d = n % 10, h = n % 100; return n + (d === 1 && h !== 11 ? ' год' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' года' : ' лет'); }
@@ -339,20 +362,22 @@ const lockBanner = () => S.locked ? `<div class="banner warn">${esc(S.locked)}</
 let panelSig = '';
 function renderPanel() {
   const m = M(); if (!m && !NO_CLUB_PANELS.includes(PANEL.k)) { closeSheet(); return; }
-  const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, !!P.report].join('|'), keep = {};
+  const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, P.sec, P.fx, !!P.report].join('|'), keep = {};
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
   panelSig = sig;
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub}[P.k](m, P);
+    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
 }
 function panelClub(m, P) {
   if (P.slot != null) {
     const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
-    return panelHead(`№${p.number} ${esc(p.first)} ${esc(p.last)}`, years(p.age)) + lockBanner() + playerStatsCard(p, m) +
+    return panelHead(`№${p.number} ${esc(p.first)} ${esc(p.last)}`, years(p.age)) + lockBanner() +
+      (p.trait ? `<div class="label">Характер</div><div class="banner">${esc(p.trait)} — ${esc(p.trait_info || '')}</div>` : '') +
+      (p.promise ? `<div class="banner warn">🤝 ${esc(p.promise)} на ближайший матч</div>` : '') + playerStatsCard(p, m) +
       `<div class="label">Имя и фамилия</div><div class="own"><input id="pf" value="${esc(p.first)}" maxlength="20" placeholder="Имя">` +
       `<input id="pl" value="${esc(p.last)}" maxlength="20" placeholder="Фамилия"></div><button type="button" class="go" data-pname>✏️ Сохранить имя</button>` +
       `<div class="label">Номер на футболке (1–99)</div><div class="own"><input id="pn" inputmode="numeric" value="${p.number}" maxlength="2"><button type="button" data-pnum>OK</button></div>` +
@@ -366,7 +391,7 @@ function panelClub(m, P) {
     `<div class="own"><input id="cn" value="${esc(m.name)}" maxlength="30"><button type="button" data-cname>OK</button></div>`;
   h += statsTable(m);
   h += `<div class="label">Игроки — нажмите, чтобы изменить</div>` + m.players.map(p =>
-    `<button type="button" class="kind" data-pedit="${p.slot}">№${p.number} ${esc(p.first)} ${esc(p.last)}<span>${years(p.age)} · ${esc(p.cond)}</span></button>`).join('');
+    `<button type="button" class="kind" data-pedit="${p.slot}">№${p.number} ${esc(p.first)} ${esc(p.last)}<span>${esc(p.trait || '')} · ${years(p.age)} · ${esc(p.cond)}</span></button>`).join('');
   h += `<div class="label">Удаление клуба</div>` + (m.delete ? `<div class="banner">${esc(m.delete)}</div>` :
     `<button type="button" class="go danger" data-delclub>🗑 Удалить клуб «${esc(m.name)}»</button>`);
   return h;
@@ -449,9 +474,10 @@ function panelTraining(m, P) {
 function panelTalk(m, P) {
   if (P.slot == null) return panelHead('🗣 Разговор с игроками', 'С каждым игроком — раз в сутки') + lockBanner() + m.players.map(p =>
     `<button type="button" class="kind" data-talk="${p.slot}"${p.talked || p.injured ? ' disabled' : ''}>${esc(p.label)}` +
-    `<span>${p.injured ? 'травмирован — ему не до разговоров' : 'настрой: ' + esc(p.mood) + (p.talked ? ' · сегодня уже говорили' : '')}</span></button>`).join('');
+    `<span>${esc(p.trait || '')} · ${p.injured ? 'травмирован — ему не до разговоров' : 'настрой: ' + esc(p.mood) + (p.talked ? ' · сегодня уже говорили' : '')}</span></button>`).join('');
   const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
   return panelHead(esc(p.label), esc(p.cond) + '<br>Что ему сказать?') + lockBanner() +
+    (p.trait ? `<div class="banner">Характер: ${esc(p.trait)} — ${esc(p.trait_info || '')}</div>` : '') +
     m.talks.map(([k, title]) => `<button type="button" class="kind" data-say="${k}"${p.talked ? ' disabled' : ''}>${esc(title)}</button>`).join('') +
     (p.talked ? `<div class="hint">С этим игроком сегодня уже говорили. Завтра можно снова.</div>` : '');
 }
@@ -469,6 +495,51 @@ function panelGrowth(m, P) {
     m.statdefs.filter(([k]) => p.next[k]).map(([k, title]) => `<button type="button" class="kind" data-gstat="${k}">${esc(title)} ${esc(p.next[k])}</button>`).join('');
 }
 /* ---------------- лиги друзей, официальные лиги, администратор (тот же механизм окон) ---------------- */
+const SCOUTS = {};         // разведка и план по матчам: номер матча → данные (приходят по запросу scout)
+function panelScout(m, P) {
+  const s = SCOUTS[P.fx];
+  if (!s) return panelHead('🔎 Разведка') + `<div class="note">Собираю данные о сопернике…</div>`;
+  const D = P.draft || (P.draft = Object.assign({}, s.plan));
+  const ans = {park: 'press', press: 'counter', counter: 'park'}[s.usual];
+  let h = panelHead(`🔎 «${esc(s.club)}»`, 'разведка и ваш план на матч');
+  h += `<div class="label">Форма соперника</div><div class="card">` + (s.form.length ? `<div class="formrow">` +
+    s.form.map(f => `<span class="fr res-${f.res}" title="${esc(f.vs)}">${f.res}<small>${esc(f.score)}</small></span>`).join('') + `</div>` +
+    `<div class="note" style="margin-top:6px">последние матчи, свежий — справа</div>` : `<div class="note">Соперник ещё не играл.</div>`) + `</div>`;
+  h += `<div class="label">Как он играет</div><div class="card">` + (s.tactics.length ? s.tactics.map(t =>
+    `<div class="tbar"><span>${esc(t.title)}</span><div class="barw"><div class="bar" style="width:${t.pct}%"></div></div><b>${t.pct}%</b></div>`).join('') +
+    `<div class="note" style="margin-top:6px">доля игрового времени за ${s.known} матч(а)</div>` : '') +
+    `<div class="banner" style="margin-top:6px">🧠 ${esc(s.hint)}</div>` + (s.chem ? `<div class="note" style="margin-top:6px">${esc(s.chem)}</div>` : '') + `</div>`;
+  if (s.danger.length) h += `<div class="label">Опасные игроки</div><div class="card">` + s.danger.map(p =>
+    `<div class="item">${esc(p.name)}<small>голов ${p.goals} · передач ${p.assists}${p.rating != null ? ' · оценка ' + num(p.rating.toFixed(1)) : ''}</small></div>`).join('') + `</div>`;
+  if (s.roles && s.roles.length) h += `<div class="label">Роли на поле</div><div class="card">` + s.roles.map(r => `<div class="item">${esc(r)}</div>`).join('') + `</div>`;
+  if (s.tired.length || s.hurt.length) h += `<div class="label">Состояние</div><div class="card note">` +
+    (s.hurt.length ? `🚑 травмы: ${esc(s.hurt.join(', '))}<br>` : '') + (s.tired.length ? `😮‍💨 устали: ${esc(s.tired.join(', '))}` : '') + `</div>`;
+  h += `<div class="label">📋 Ваш план</div>`;
+  if (s.locked) return h + `<div class="banner warn">До матча меньше 5 минут — план уже не изменить. Решения — в окне матча.</div>`;
+  h += `<div class="note">Сработает со стартового свистка. Соперник ваш план не видит.</div>` +
+    `<div class="sublabel">Стартовая тактика</div>` + s.tactics_all.map(t =>
+      `<button type="button" class="kind${D.tactic === t.k ? ' on' : ''}" data-ptac="${t.k}">${D.tactic === t.k ? '✔️ ' : ''}${esc(t.title)}${t.k === ans ? ' — 🧠 бьёт его обычную' : ''}<span>${esc(t.info)}</span></button>`).join('') +
+    `<div class="sublabel">Кого опекать с первой минуты</div><div class="chips">` +
+      `<button type="button" class="chip${D.mark == null ? ' on' : ''}" data-pmark="">никого</button>` +
+      s.mark_opts.map(o => `<button type="button" class="chip${D.mark === o.slot ? ' on' : ''}" data-pmark="${o.slot}">${esc(o.name)}</button>`).join('') + `</div>` +
+    `<div class="hint">Ваш лучший защитник будет держать этого игрока: он реже бьёт, а защитник устаёт быстрее.</div>` +
+    `<div class="sublabel">🔮 С какой тактики начнёт соперник?</div><div class="chips">` +
+      `<button type="button" class="chip${D.guess == null ? ' on' : ''}" data-pguess="">не угадывать</button>` +
+      s.tactics_all.map(t => `<button type="button" class="chip${D.guess === t.k ? ' on' : ''}" data-pguess="${t.k}">${esc(t.title)}</button>`).join('') + `</div>` +
+    `<div class="hint">Угадаете — команда выйдет воодушевлённой: +${s.bonus} к настрою.</div>` +
+    `<button type="button" class="big" data-psave>💾 Сохранить план</button>`;
+  return h;
+}
+function panelHelp(m, P) {
+  const toc = H().help || [];
+  if (P.sec) {
+    const s = HELPS[P.sec], t = (toc.find(([k]) => k === P.sec) || [])[1] || '📖 Помощь';
+    return panelHead(esc(t)) + (s ? `<div class="report">${esc(s.text)}</div>` : `<div class="note">Загружаю…</div>`);
+  }
+  return panelHead('📖 Помощь', 'Правила игры и где что найти. Впервые — начните с «Быстрого старта».') +
+    `<div class="menu app">` + toc.map(([k, t]) => `<button type="button" data-help="${k}">${esc(t)}</button>`).join('') + `</div>` +
+    (H().community ? `<button type="button" class="go" data-community>💬 Остались вопросы — в сообщество игры</button>` : '');
+}
 function panelFriends(m, P) {
   const L = H().leagues || {}, lg = L.league;
   if (!L.own) return panelHead('👥 Лига друзей') + `<div class="card note">Лига друзей — для своего клуба (официальный играет только в своей официальной лиге). Своего клуба пока нет.</div>` +
@@ -482,14 +553,20 @@ function panelFriends(m, P) {
       `<div class="hint">Код даёт создатель лиги.</div>`;
   }
   let h = panelHead(`👥 «${esc(lg.name)}»`, `клубов ${lg.members.length} из ${L.max} · сезон: ${esc(lg.season)}`) +
-    `<div class="card">` + lg.members.map(x => `<div class="item">«${esc(x.club)}» — ${esc(x.manager)}${x.owner ? ' 👑' : ''} · ${x.ready ? '✅' : '⚠️ не готов'}</div>`).join('') +
-    `<div class="note" style="margin-top:6px">👑 — создатель лиги: начинает сезоны</div></div>`;
+    `<div class="card">` + lg.members.map(x => `<div class="item">«${esc(x.club)}» — ${esc(x.manager)}${x.owner ? ' 👑' : ''} · ${x.ready ? '✅' : '⚠️ не готов'}` +
+      (lg.owner && !x.owner ? (x.in_season ? `<small>играет в идущем сезоне — исключить можно после его конца</small>` :
+        `<button type="button" class="kick" data-lgkick="${x.id}">🚫 Исключить</button>`) : '') + `</div>`).join('') +
+    `<div class="note" style="margin-top:6px">👑 — создатель лиги: начинает и сбрасывает сезоны</div></div>`;
   h += `<div class="label">📤 Позвать друга</div><div class="card">` + (lg.link ? `<div class="note">Отправьте другу ссылку — по ней он создаст клуб и сразу попадёт в лигу.</div><div class="invite">${esc(lg.link)}</div>` +
     `<div class="mrow2"><button type="button" class="go main" data-lgshare>📤 Отправить</button><button type="button" class="go" data-lgcopy>📋 Скопировать</button></div>` : '') +
     `<div class="note" style="margin-top:8px">Или код <b>${esc(lg.code)}</b> — друг вводит его в «Лига друзей» → «Вступить по коду».</div></div>`;
   if (lg.start) h += `<div class="label">🏁 Сезон</div>` + (lg.start.ok ? `<button type="button" class="go main" data-lgseason>🏁 Начать сезон</button>` : `<div class="banner">${esc(lg.start.text)}</div>`);
   h += `<div class="label">Выход</div>` + (lg.leave.ok ? `<button type="button" class="go danger" data-lgleave>🚪 Выйти из лиги</button>` : `<div class="banner">${esc(lg.leave.text)}</div>`);
-  if (lg.owner) h += `<button type="button" class="go" data-sec="league">✏️ Переименовать, новая ссылка, исключить — в чате</button>`;
+  if (lg.owner) {
+    h += `<div class="label">👑 Создателю лиги</div><div class="own"><input id="lgren" value="${esc(lg.name)}" maxlength="30" placeholder="Новое название"><button type="button" data-lgren>OK</button></div>` +
+      `<button type="button" class="go" data-lgrenew>🔄 Новая ссылка и код (старые перестанут работать)</button>`;
+    if (lg.reset) h += `<button type="button" class="go danger" data-lgreset>🗑 Сбросить сезон</button>`;
+  }
   return h;
 }
 function ofClub(key) { for (const l of (H().official || {}).leagues || []) { const c = l.clubs.find(x => x.key === key); if (c) return [l, c]; } return [null, null]; }
@@ -559,6 +636,15 @@ function renderHome() {
   }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  if (h.ask) x += `<div class="card ask"><div class="wtag">💬 Просьба игрока</div><h3>${esc(h.ask.who)}<small>${esc(h.ask.trait)}</small></h3>` +
+    `<div class="note">«${esc(h.ask.title.slice(2).trim())}»</div>` + h.ask.answers.map(([k, t, d]) =>
+      `<button type="button" class="kind" data-ask="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') +
+    `<div class="hint">Не ответите до следующего матча — он обидится.</div></div>`;
+  const wn = hb.whatsnew || [];      // «Что нового»: по одной карточке, пока менеджер не нажмёт «Понятно»
+  if (wn.length) x += `<div class="card wnew"><div class="wtag">🆕 Новое в игре${wn.length > 1 ? ` · ещё ${wn.length - 1}` : ''}</div>` +
+    `<h3>${esc(wn[0].title)}</h3><div class="note">${esc(wn[0].text)}</div><div class="mrow2">` +
+    (wn[0].help ? `<button type="button" class="go main" data-wnhelp="${wn[0].help}">Подробнее</button>` : '') +
+    `<button type="button" class="go" data-wnok="${wn[0].id}">Понятно</button></div></div>`;
   if (h.other) x += `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(h.other)}»${h.other_star ? ' ⭐' : ''}</button>`;
   if (h.place) x += `<div class="stats3" style="margin-top:8px"><div><b>${h.place}</b><span>место из ${h.of}</span></div><div><b>${h.points}</b><span>очков</span></div><div><b>${h.played}</b><span>игр</span></div></div>` +
     (h.form && h.form.length ? `<div class="sub" style="text-align:center;margin-top:6px">Форма: ${formDots(h.form)}</div>` : '');
@@ -608,7 +694,8 @@ function renderMore() {
   if (hb.manage) x += `<div class="label">Лиги</div><div class="menu app">` + LEAGUE_PANELS.filter(([k]) => k !== 'admin' || hb.admin).map(([k, t, d]) =>
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
-  x += `<div class="label">В чате</div><div class="menu">` + (hb.sections || []).map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
+  if (hb.help && hb.help.length) x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button></div>`;
+  if (hb.sections && hb.sections.length) x += `<div class="label">В чате</div><div class="menu">` + hb.sections.map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
   const ns = hb.notices || [], shown = NOTICES_ALL ? ns : ns.slice(0, NOTICES_SHOWN);
   x += `<div class="label">🔔 Уведомления</div><div class="card">` + (ns.length ? shown.map(n => n.go ?
     `<button type="button" class="item link${n.new ? ' new' : ''}" data-ngo="${n.go}"><small>${esc(n.at)}</small>${esc(n.text)}<i>${n.go === 'matches' ? 'к матчам ›' : 'к таблице ›'}</i></button>` :
@@ -642,6 +729,7 @@ function render() {
   if (OPEN_AFTER && matchById(OPEN_AFTER)) { const id = OPEN_AFTER; OPEN_AFTER = null; SEG = 'matches'; renderLeague(); showTab('league'); openMatchSheet({id}); }
 }
 
+let CHEM_OPEN = false;     // раскрыто правило сыгранности на вкладке «Состав»
 function renderSquad() {
   $('club').textContent = S.club;
   const ready = !S.problems.length;
@@ -649,8 +737,14 @@ function renderSquad() {
   $('status').className = ready ? 'ok' : 'bad';
   $('problems').classList.toggle('hidden', ready);
   $('problems').textContent = 'Что мешает: ' + S.problems.join('; ');
+  const pw = S.promise_warn || [];
+  $('promises').classList.toggle('hidden', !pw.length);
+  $('promises').textContent = '🤝 ' + pw.join('; ') + (pw.length ? '. Нарушите — после матча настрой упадёт.' : '');
   $('lock').classList.toggle('hidden', !S.locked);
   $('lock').textContent = S.locked || '';
+  $('chem').classList.toggle('hidden', S.chem == null);      // сыгранность: нажатие — правило
+  if (S.chem != null) $('chem').innerHTML = `<span>🤝 Сыгранность <b>${S.chem}</b> из 100 · ${esc(S.chem_label)} ${CHEM_OPEN ? '▴' : 'ⓘ'}</span>` +
+    `<i class="cbar"><i style="width:${S.chem}%"></i></i>` + (CHEM_OPEN ? `<span class="crule">${esc(S.chem_rule || '')}</span>` : '');
   $('forms').innerHTML = S.formations.map(([k, d]) =>
     `<button type="button" class="chip${k === S.formation ? ' on' : ''}" data-f="${k}"><b>${k}</b><span>${esc(d.split(':')[0])}</span></button>`).join('');
   const parts = S.formation.split('-').map(Number), want = {def: parts[0], mid: parts[1], att: parts[2]};
@@ -681,7 +775,8 @@ function renderSheet() {
   const L = S.limits, saved = savedStats(p), v = draft, left = L.total - sum(v);
   const changed = !saved || v.some((x, i) => x !== saved[i]);
   const where = p.place === 'gk' ? 'вратарь' : p.place === 'bench' ? 'запасной' : 'на поле';
-  const cond = p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `свежесть ${p.fresh}% · настрой: ${esc(p.mood)}`;
+  const cond = (p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `свежесть ${p.fresh}% · настрой: ${esc(p.mood)}`) +
+    (p.trait ? ` · ${esc(p.trait)}` : '') + (p.promise ? ` · 🤝 ${p.promise === 2 ? 'обещан отдых' : 'обещана основа'}` : '');
   let h = `<div class="sh-top"><h2>№${p.number} ${esc(p.name)}<small>${esc(p.pos || 'очки не распределены')} · ${where} · ${years(p.age)}<br>${cond}</small></h2>` +
     `<button type="button" class="x" data-close>✕</button></div>`;
   if (talentList) {
@@ -703,9 +798,18 @@ function renderSheet() {
   }).join('');
   if (!fixed) h += `<div id="left" class="${left ? '' : 'ok'}">${left ? `Осталось раздать: ${left}` : changed ? '✅ Все 100 очков распределены' : '✅ Сохранено'}</div>`;
   if (!fixed) h += `<button type="button" class="big" data-save${left || !changed || S.locked ? ' disabled' : ''}>💾 Сохранить очки</button>`;
+  if (S.field_roles && p.place === 'field') {      // роль на поле — из ролей линии, где игрок сейчас
+    const LT = S.line_titles || {}, mine = S.field_roles.filter(r => r[1] === p.line);
+    h += `<div class="label">Роль на поле · ${esc(LT[p.line] || '')}</div>` +
+      (p.role_off ? `<div class="banner warn">Роль «${esc((roleOf(p.role) || [, , ''])[2])}» не действует: игрок сейчас в линии «${esc(LT[p.line] || '')}». Выберите роль для этой линии.</div>` : '') +
+      mine.map(([k, , t, d]) => `<button type="button" class="tal${p.role === k ? ' on' : ''}" data-frole="${k}">${p.role === k ? '✔️ ' : ''}${esc(t)}<span>${esc(d)}</span></button>`).join('') +
+      `<button type="button" class="tal${!p.role ? ' on' : ''}" data-frole="">${!p.role ? '✔️ ' : ''}Без роли<span>играет по своим характеристикам, без плюсов и минусов</span></button>`;
+  } else if (S.field_roles && p.place !== 'field') {
+    h += `<div class="hint">Роль на поле есть у полевых игроков основы (защита, центр, атака).</div>`;
+  }
   h += `<div class="acts">` +
     `<button type="button" data-swap>🔁 Поменять местами</button>` +
-    `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}</button>` +
+    `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}${p.lead ? `<small>лидерство ${esc(p.lead)}</small>` : ''}</button>` +
     `<button type="button" data-role="penalty" class="${S.penalty === p.slot ? 'on' : ''}">🎯 ${S.penalty === p.slot ? 'Пенальтист' : 'Бьёт пенальти'}</button>` +
     `<button type="button" data-tl class="${S.talent_slot === p.slot && S.talent ? 'on' : ''}">⭐ Талант</button></div>`;
   $('sheetin').innerHTML = h;
@@ -727,6 +831,10 @@ document.addEventListener('click', e => {
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
+  if (b.dataset.scout) { haptic(); const fx = +b.dataset.scout; if (MS) closeSheet(); openPanel('scout'); PANEL.fx = fx; send({a: 'scout', fx}); renderPanel(); return; }
+  if (b.dataset.ask) { haptic(); send({a: 'ask', key: b.dataset.ask}); return; }
+  if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); renderHome(); return; }
+  if (b.dataset.wnhelp) { haptic(); const k = b.dataset.wnhelp; openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
   if (b.hasAttribute('data-community')) { haptic(); const u = H().community; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
@@ -757,6 +865,8 @@ document.addEventListener('click', e => {
   if (b.hasAttribute('data-save')) { send({a: 'stats', slot: open, v: draft.slice()}); return; }
   if (b.hasAttribute('data-swap')) { swapFrom = open; closeSheet(); render(); return; }
   if (b.dataset.role) { send({a: b.dataset.role, slot: open}); return; }
+  if (b.hasAttribute('data-chem')) { haptic(); CHEM_OPEN = !CHEM_OPEN; renderSquad(); return; }
+  if (b.dataset.frole !== undefined && open !== null) { haptic(); send({a: 'role', slot: open, key: b.dataset.frole || null}); return; }
   if (b.hasAttribute('data-tl')) { talentList = true; renderSheet(); return; }
   if (b.hasAttribute('data-back')) { talentList = false; renderSheet(); return; }
   if (b.dataset.talent) { send({a: 'talent', key: b.dataset.talent, slot: open}); talentList = false; return; }
@@ -823,6 +933,21 @@ function leagueClick(b) {     // нажатия в окнах лиг, админ
   }
   if (b.hasAttribute('data-lgseason')) { ask(lg.start.text, () => send({a: 'lgseason', sure: true})); return true; }
   if (b.hasAttribute('data-lgleave')) { ask(lg.leave.text, () => send({a: 'lgleave', sure: true})); return true; }
+  if (b.hasAttribute('data-lgren')) { if (val('lgren')) send({a: 'lgrename', text: val('lgren')}); else toast('Напишите название лиги', true); return true; }
+  if (b.hasAttribute('data-lgrenew')) { ask('Сделать новую ссылку и код? Старые перестанут работать — кого ещё не позвали, отправьте новую.', () => send({a: 'lgrenew'})); return true; }
+  if (d.lgkick) {
+    const x = lg.members.find(y => y.id === +d.lgkick), club = +d.lgkick;
+    ask(`Исключить «${x ? x.club : '?'}» из лиги? Менеджер получит уведомление.`, () => send({a: 'lgkick', club, sure: true}));
+    return true;
+  }
+  if (b.hasAttribute('data-lgreset')) { ask('🗑 Сбросить сезон лиги? Стираются расписание, назначенные матчи и результаты. Клубы и игроки остаются. Отменить нельзя.', () => send({a: 'lgreset', sure: true})); return true; }
+  if (d.help) { haptic(); if (!HELPS[d.help]) send({a: 'help', key: d.help}); panelSub({sec: d.help}); return true; }
+  if (P.k === 'scout' && P.draft) {                // план на матч: выбор — черновик, сохраняет кнопка
+    if (d.ptac !== undefined) { P.draft.tactic = d.ptac; haptic(); renderPanel(); return true; }
+    if (d.pmark !== undefined) { P.draft.mark = d.pmark === '' ? null : +d.pmark; haptic(); renderPanel(); return true; }
+    if (d.pguess !== undefined) { P.draft.guess = d.pguess || null; haptic(); renderPanel(); return true; }
+    if (b.hasAttribute('data-psave')) { send(Object.assign({a: 'plan', fx: P.fx}, P.draft)); return true; }
+  }
   if (d.oflg) { haptic(); panelSub({lg: d.oflg}); return true; }
   if (d.ofc) { haptic(); if (!CARDS[d.ofc]) send({a: 'ofcard', key: d.ofc}); panelSub({club: d.ofc}); return true; }
   if (d.ofreq) { const [, c] = ofClub(d.ofreq); ask(`Подать заявку на переход в «${c.name}»? Решает администратор.`, () => send({a: 'ofreq', key: d.ofreq})); return true; }
@@ -869,6 +994,9 @@ function onAck(m) {
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
+  if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
+  if (m.ok && m.scout) { SCOUTS[m.scout.fx] = m.scout; if (PANEL && PANEL.k === 'scout' && PANEL.fx === m.scout.fx) { PANEL.draft = null; renderPanel(); } }
+  if (!m.ok && act && act.a === 'scout' && PANEL && PANEL.k === 'scout') closeSheet();
 }
 function onState(m) {
   S = m;
@@ -938,6 +1066,14 @@ function demoState() {
       ['maestro', 'Дирижёр', 'атаки с его участием на 10% чаще доходят до удара'], ['engine', 'Мотор', 'устаёт вдвое медленнее'],
       ['cool', 'Хладнокровный', 'вдвое реже получает карточки, не поддаётся на провокации']],
     statdefs: [['speed', 'Скорость', '⚡'], ['shot', 'Удар', '🚀'], ['pass', 'Пас', '🔗'], ['defense', 'Защита', '🛡'], ['stamina', 'Выносливость', '🫁'], ['keeping', 'Вратарство', '🧤']],
+    field_roles: [['stopper', 'def', '🧱 Стоппер', 'держит оборону: защита +25%, в атаку почти не ходит'],
+      ['wingback', 'def', '🏃 Латераль', 'подключается к атакам и бьёт, но сзади слабее (−15%) и устаёт на 15% быстрее'],
+      ['anchor', 'mid', '🛡 Опорник', 'разрушает атаки: защита +30%, сам бьёт редко'],
+      ['playmaker', 'mid', '🎩 Плеймейкер', 'чаще отдаёт решающий пас, его передачи чаще доходят до удара; в обороне слабее (−25%)'],
+      ['target', 'att', '🐂 Таран', 'бьёт заметно чаще и чуть точнее (+2%), но реже отдаёт пас'],
+      ['support', 'att', '🦊 Под нападающим', 'раздаёт передачи и помогает в обороне, сам бьёт реже']],
+    line_titles: {def: 'защита', mid: 'центр', att: 'атака'},
+    chem: 58, chem_label: 'сыграна', chem_rule: 'Сыгранность растёт, когда основа (вратарь и 6 полевых) выходит тем же составом: вся основа та же — +10,5 за матч, одна перестановка — +6,5, три и больше — падает. Выше 50 — команда лучше борется за мяч и чаще доводит атаку до удара, ниже 50 — хуже.',
     limits: {total: 100, min: 5, max: 40}, templates: {field: [20, 18, 20, 19, 18, 5], gk: [10, 5, 10, 15, 20, 40]}, problems: [],
     hub: demoHub()};
 }
@@ -947,15 +1083,18 @@ function demoHub() {
   const matches = [
     {id: 11, label: 'тур 5', opp: 'Северный Ветер', home: true, status: 'proposed', when: 'до 24.10 23:00', need: 'предлагают время: 23.10 20:30',
       manager: 'Боря', opp_ready: true, deadline: '24.10 23:00', offer: {when: '23.10 20:30', move: false, from: null, who: 'Северный Ветер'},
-      can_time: true, move: false, now: true, slots: [[1, '22.10 20:00'], [2, '22.10 21:00'], [3, '23.10 19:00'], [4, '23.10 20:00']], can_cancel: false},
+      can_time: true, move: false, now: true, slots: [[1, '22.10 20:00'], [2, '22.10 21:00'], [3, '23.10 19:00'], [4, '23.10 20:00']], can_cancel: false, scout: true, plan: false},
     {id: 12, label: 'тур 6', opp: 'Торпедо Пресни', home: false, status: 'open', when: 'до 26.10 23:00', need: 'время не назначено',
-      manager: 'Вика', opp_ready: false, deadline: '26.10 23:00', can_time: true, move: false, now: true, slots: [[5, '22.10 20:00'], [6, '22.10 21:00']], can_cancel: false},
+      manager: 'Вика', opp_ready: false, deadline: '26.10 23:00', can_time: true, move: false, now: true, slots: [[5, '22.10 20:00'], [6, '22.10 21:00']], can_cancel: false, scout: true, plan: true},
     {id: 9, label: 'тур 4', opp: 'Дворовые Львы', home: false, status: 'played', when: '20.10 20:00', score: '4:1', res: 'В'},
     {id: 7, label: 'тур 3', opp: 'Торпедо Пресни', home: true, status: 'played', when: '18.10 19:00', score: '2:2', res: 'Н'}];
   return {club: 'Девятка', unseen: 2,
     home: {club: 'Девятка', star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
+      ask: {slot: 8, kind: 'play', who: '№12 Илья Носов', trait: '🌟 Звезда', title: '🙋 Хочу больше играть',
+        answers: [['promise', '🤝 Обещаю место в основе', 'обещание на ближайший матч: сдержите — настрой вырастет, нет — упадёт'],
+          ['wait', '⏳ Жди своего шанса', 'звезда расстроится, боец примет спокойно'], ['refuse', '🚫 Нет', 'настрой упадёт']]},
       problems: [], tired: 1, hurt: 1, growth: ['№9 Жуков'], can_train: true},
     table: {title: 'Лига «Лига друзей»', rows, note: null}, matches,
     friendly: {note: null, rivals: [{id: 2, name: 'Северный Ветер', manager: 'Боря'}, {id: 3, name: 'Торпедо Пресни', manager: 'Вика'}]},
@@ -968,8 +1107,8 @@ function demoHub() {
       {at: '19.10 10:00', text: '⚽ В «Девятке» новичок: №16 Савва Гусев.', new: false}],
     leagues: {own: true, max: 8, pending: null, league: {name: 'Лига друзей', code: 'AB12CD', link: 'https://t.me/demo_bot?start=LAB12CD',
       share: 'https://t.me/share/url?url=https%3A%2F%2Ft.me%2Fdemo_bot%3Fstart%3DLAB12CD', owner: true, season: 'идёт, осталось матчей: 6', start: null,
-      members: [{club: 'Девятка', manager: 'Аня', owner: true, ready: true}, {club: 'Северный Ветер', manager: 'Боря', owner: false, ready: true},
-        {club: 'Торпедо Пресни', manager: 'Вика', owner: false, ready: false}, {club: 'Дворовые Львы', manager: 'Гена', owner: false, ready: true}],
+      reset: true, members: [{id: 1, club: 'Девятка', manager: 'Аня', owner: true, ready: true}, {id: 2, club: 'Северный Ветер', manager: 'Боря', owner: false, ready: true, in_season: true},
+        {id: 3, club: 'Торпедо Пресни', manager: 'Вика', owner: false, ready: false}, {id: 4, club: 'Дворовые Львы', manager: 'Гена', owner: false, ready: true}],
       leave: {ok: false, text: 'Идёт сезон, в котором играет ваш клуб, — выйти можно после его конца.'}}},
     official: {mine: {name: 'Реал Мадрит', key: 'esp1', league: 'Испания', active: false}, request: null,
       text: 'Клуб официальной лиги удалить нельзя. Можно подать заявку на переход в другой свободный клуб — её рассмотрит администратор.',
@@ -980,13 +1119,17 @@ function demoHub() {
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}]},
-    community: 'https://t.me/+demo', sections: [['help', '📖 Помощь']]};
+    community: 'https://t.me/+demo', sections: [],
+    help: [['quick', '🚀 Быстрый старт'], ['news', '🆕 Что нового'], ['tactics', '🧠 Тактика: кто кого бьёт'], ['club', '🏟 Клуб и игроки'], ['match', '⚽ Как идёт матч'], ['faq', '❓ Частые вопросы']],
+    whatsnew: [{id: 'tactic-circle', title: '🧠 Тактический круг', help: 'tactics',
+      text: 'Тактики бьют друг друга: 🔥 Прессинг → 🛡 Оборону, ⚡ Контратака → 🔥 Прессинг, 🛡 Оборона → ⚡ Контратаку. Угадали ответ — больше мяча и ударов. В окне решений видно, у кого преимущество и чем ответить.'},
+      {id: 'player-stats', title: '📊 Статистика игроков', help: 'club', text: 'Голы, передачи, удары и оценка за каждый матч: «Ещё» → «Клуб и игроки».'}]};
 }
 function demoNoClub() {        // демо без клуба (?demo=new): экран «Создать клуб»
   const hb = demoHub();
   S.club = null; S.players = [];
   S.hub = {club: null, official: Object.assign({}, hb.official, {mine: null, text: 'Свободными клубами играет бот — возьмите любой: место в таблице и сыгранные матчи остаются, а десятым игроком станет ваш воспитанник.'}),
-    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null},
+    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community,
     create: {choice: 'У менеджера может быть два клуба: ⭐ официальный — один из 96 реальных клубов пяти топ-лиг, и ✍️ свой — для лиг с друзьями.', size: 10, ages: [18, 38], pending: 'Лига Бори',
       suggest: ['Иван Петров 1 24', 'Олег Сидоров 4 22', 'Пётр Иванов 5 27', 'Глеб Котов 8 21', 'Лев Рябов 6 29', 'Марк Жуков 9 23', 'Ян Титов 10 25', 'Илья Носов 12 20', 'Фёдор Блинов 14 28', 'Савва Гусев 16 26']}};
 }
@@ -1022,6 +1165,8 @@ function demoManage() {      // раздел «Клуб» из демо-сост
       badges: [S.captain === p.slot && 'капитан', S.penalty === p.slot && 'пенальтист', S.talent_slot === p.slot && 'талант «Бомбардир»', p.place === 'bench' && 'запасной', p.injury && 'травма'].filter(Boolean),
       label: `№${p.number} ${p.name}`, growth: p.slot === 6 ? 1.25 : 0, grown: 0, step: p.age < 22 ? 0.3 : p.age < 29 ? 0.2 : 0.1,
       next: p.stats ? Object.fromEntries(Object.entries(p.stats).filter(([, v]) => v < 40).map(([k, v]) => [k, `${v} → ${num(Math.round((v + 0.2) * 10) / 10)}`])) : {},
+      trait: ['🙂 Спокойный', '💪 Боец', '😰 Ранимый', '🦁 Лидер', '🙂 Спокойный', '🌟 Звезда', '😴 Ленивый', '🌟 Звезда', '💪 Боец', '🙂 Спокойный'][p.slot - 1],
+      trait_info: 'демо: в Telegram здесь описание характера', promise: p.slot === 9 ? 'обещано место в основе' : null,
       progress: p.slot === 4 ? {shot: 0.4} : {}, talked: p.slot === 2, fresh: p.fresh, injured: !!p.injury, mood: p.mood,
       st: p.place === 'bench' && p.slot > 8 ? null : {games: 4, min: 200 + p.slot * 5, goals: [0, 0, 0, 1, 0, 5, 2, 0, 0, 0][p.slot - 1],
         assists: [0, 0, 1, 2, 0, 1, 3, 0, 0, 0][p.slot - 1], shots: [0, 1, 2, 5, 1, 11, 7, 1, 0, 0][p.slot - 1], on: [0, 0, 1, 3, 0, 7, 4, 0, 0, 0][p.slot - 1],
@@ -1070,6 +1215,9 @@ function demoRefresh() {     // линии и готовность — как с
   const f = S.players.filter(p => p.place === 'field').sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
   const [d, , a] = S.formation.split('-').map(Number);
   f.forEach((p, i) => { p.line = i < d ? 'def' : i >= f.length - a ? 'att' : 'mid'; });
+  S.players.forEach(p => { p.lead = p.age >= 28 ? 'сильное' : p.age >= 24 ? 'среднее' : 'слабое'; p.promise = p.slot === 9 ? 1 : 0; });
+  S.promise_warn = S.players.filter(p => p.promise === 1 && p.place === 'bench').map(p => `Обещали место в основе №${p.number} ${p.name} — он в запасе`);
+  S.players.forEach(p => { const r = p.role && roleOf(p.role); p.role_off = !!r && (p.place !== 'field' || r[1] !== p.line); });
   S.players.forEach(p => { p.pos = p.place === 'gk' ? 'Вратарь' : p.stats ? (p.stats.shot >= p.stats.defense ? 'Нападающий' : 'Защитник') : ''; });
   const pr = [], none = S.players.filter(p => !p.stats).length;
   if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
@@ -1081,6 +1229,26 @@ function demoAct(act) {
   const club = demoLeagueAct(act) || demoClubAct(act);
   if (club) { onAck({type: 'ack', id: act.id, ...club}); onState(S); return; }
   if (act.a === 'section') r.note = 'Демо: в Telegram этот раздел откроется в чате';
+  else if (act.a === 'help') r.help = {key: act.key, text: act.key === 'quick' ? '🚀 БЫСТРЫЙ СТАРТ — что сделать по порядку\n\n1. Клуб. Без клуба на «Главной» — «⚽ Создать клуб».\n2. Состав. Вкладка «Состав»: нажмите игрока — очки, место, капитан, талант.\n3. Лига. «Ещё» → «Лига друзей»: позовите друзей ссылкой.' :
+    'Демо: в Telegram здесь полный текст раздела.'};
+  else if (['lgrename', 'lgrenew', 'lgkick', 'lgreset'].includes(act.a)) r = {ok: false, note: 'Демо: это работает только в Telegram'};
+  else if (act.a === 'newsseen') r.note = '';
+  else if (act.a === 'ask') { delete S.hub.home.ask; r.note = 'Ответ принят — настрой игрока изменился'; }
+  else if (act.a === 'scout' || act.a === 'plan') {
+    const tl = [['balance', '⚖️ Баланс', 'без плюсов и минусов'], ['press', '🔥 Прессинг', 'ломает Оборону, боится Контратаки'],
+      ['counter', '⚡ Контратака', 'наказывает Прессинг, вязнет в Обороне'], ['park', '🛡 Оборона', 'гасит Контратаку, задыхается под Прессингом']];
+    const prev = (SCOUTS[act.fx] || {}).plan || {tactic: 'balance', mark: null, guess: null};
+    r.scout = {fx: act.fx, club: 'Северный Ветер', known: 4, usual: 'press', locked: false, bonus: 4,
+      form: [{res: 'В', score: '3:1', vs: 'Торпедо'}, {res: 'П', score: '1:2', vs: 'Девятка'}, {res: 'В', score: '4:2', vs: 'Львы'}, {res: 'Н', score: '2:2', vs: 'Торпедо'}],
+      tactics: [{k: 'press', title: '🔥 Прессинг', pct: 61}, {k: 'balance', title: '⚖️ Баланс', pct: 27}, {k: 'park', title: '🛡 Оборона', pct: 12}],
+      hint: 'Обычно начинает с 🔥 Прессинг — её бьёт ⚡ Контратака.',
+      danger: [{name: '№11 Глеб Котов', goals: 5, assists: 1, rating: 7.6}, {name: '№7 Ян Титов', goals: 2, assists: 3, rating: 7.1}],
+      tired: ['№5 Рябов'], hurt: [],
+      mark_opts: [['4', 'Сидоров'], ['5', 'Рябов'], ['7', 'Титов'], ['8', 'Носов'], ['9', 'Жуков'], ['11', 'Котов']].map(([n, l], i) => ({slot: i + 2, name: `№${n} ${l}`})),
+      plan: act.a === 'plan' ? {tactic: act.tactic, mark: act.mark, guess: act.guess} : prev,
+      tactics_all: tl.map(([k, title, info]) => ({k, title, info}))};
+    if (act.a === 'plan') r.note = '📋 План сохранён — сработает со стартового свистка';
+  }
   else if (['propose', 'respond', 'cancel', 'friendly'].includes(act.a)) r = {ok: false, note: 'Демо: матчи назначаются только в Telegram'};
   else if (act.a === 'switch') r = {ok: false, note: 'Демо: переключение клубов работает только в Telegram'};
   else if (act.a === 'seen') r.note = '';
@@ -1095,6 +1263,11 @@ function demoAct(act) {
     else { [p.place, q.place] = [q.place, p.place]; r.note = 'Поменялись местами'; }
   } else if (act.a === 'captain' || act.a === 'penalty') { S[act.a] = p.slot; r.note = `№${p.number} — ` + (act.a === 'captain' ? 'капитан' : 'пенальтист'); }
   else if (act.a === 'talent') { S.talent = act.key; S.talent_slot = p.slot; r.note = 'Талант назначен'; }
+  else if (act.a === 'role') {
+    const ro = act.key && roleOf(act.key);
+    if (act.key && (!ro || ro[1] !== p.line)) r = {ok: false, note: 'Роль — для полевого игрока в своей линии'};
+    else { p.role = act.key; r.note = ro ? `№${p.number} — ${ro[2]}` : `№${p.number} — без роли`; }
+  }
   if (r.ok) demoRefresh();
   onAck({type: 'ack', id: act.id, ...r});
   onState(S);
