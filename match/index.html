@@ -97,6 +97,9 @@ body.deciding #feed{display:none}
 #dec .sub{color:var(--muted);font-size:13px;margin-bottom:6px;line-height:1.35}
 #dec .res{font-size:14px;margin:6px 0;padding:7px 10px;border-radius:10px;background:#16223f;line-height:1.35}
 #dec .res.bad{background:#3b1420}
+#dec .edge{font-size:13px;margin:6px 0;padding:7px 10px;border-radius:10px;background:#1e293b;line-height:1.35;border-left:3px solid #64748b}
+#dec .edge.up{border-left-color:#22c55e;background:#12301f}
+#dec .edge.down{border-left-color:#f97316;background:#3a1d0c}
 #dec .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 #dec button{font:inherit;font-size:15px;font-weight:700;padding:12px 8px;border-radius:12px;border:1px solid #ffffff14;background:#17254a;
   color:#fff;text-align:left;-webkit-tap-highlight-color:transparent;line-height:1.25}
@@ -2717,6 +2720,10 @@ function renderDec() {
     + (m.my_sets ? ` · ${m.my_sets}` : '') + (m.order ? ` · задание: ${m.order}` : '')
     + (m.opp_sets ? `\nСоперник: ${m.opp_sets}` : '') + (m.reason ? `\nПовод: ${m.reason}` : '');
   sub.style.whiteSpace = 'pre-line'; decEl.appendChild(sub);
+  if (m.edge_text) {               // тактический круг: у кого преимущество и чем ответить
+    const e = document.createElement('div'); e.className = 'edge' + (m.edge > 0 ? ' up' : m.edge < 0 ? ' down' : '');
+    e.textContent = m.edge_text; decEl.appendChild(e);
+  }
   if (pending || m.note) {
     const r = document.createElement('div'); r.className = 'res' + (!pending && m.note && m.note.startsWith('⚠️') ? ' bad' : '');
     r.textContent = pending ? 'Отправляем решение…' : m.note; decEl.appendChild(r);
@@ -2737,9 +2744,9 @@ function renderDec() {
     const ready = bench.filter(p => !p.inj);
     box.appendChild(btn(`🔄 Замена<small>${ready.length ? 'на скамейке: ' + ready.map(p => '№' + p.n).join(', ') : 'выпустить некого'}</small>`, '', () => { view = 'sub'; viewArg = null; renderDec(); }, !ready.length));
     box.appendChild(btn(`📐 Схема<small>сейчас ${m.formation}</small>`, '', () => { view = 'form'; renderDec(); }));
-    box.appendChild(btn(`⚙️ Тактика<small>${m.tactic_used ? 'уже меняли в этом окне' : 'раз за окно'}</small>`, '', () => { view = 'tac'; renderDec(); }, m.tactic_used));
+    box.appendChild(btn(`⚙️ Тактика<small>${m.tactic_used ? 'уже меняли в этом окне' : m.edge < 0 ? '🧠 соперник переиграл — ответьте' : 'раз за окно'}</small>`, m.edge < 0 && !m.tactic_used ? 'hot' : '', () => { view = 'tac'; renderDec(); }, m.tactic_used));
     box.appendChild(btn(`🎯 Задание игроку<small>${m.order_used ? 'уже давали в этом окне' : m.order ? 'есть: ' + esc(m.order) : 'нет'}</small>`, '', () => { view = 'ord'; renderDec(); }));
-    box.appendChild(btn(`🗣 Речь<small>${m.spoke ? 'уже говорили' : 'раз за окно'}</small>`, '', () => { view = 'speech'; renderDec(); }, m.spoke));
+    box.appendChild(btn(`🗣 Речь<small>${m.spoke ? 'уже говорили' : m.kind === 'half' ? 'в перерыве — по счёту' : 'раз за окно'}</small>`, m.kind === 'half' && !m.spoke ? 'hot' : '', () => { view = 'speech'; renderDec(); }, m.spoke));
     if (m.sets) {
       box.appendChild(btn(`🧩 Установки<small>${esc(m.my_sets || 'темп, отбор, атака, угловые')}</small>`, '', () => { view = 'set'; renderDec(); }));
       box.appendChild(btn(`💬 Игроку<small>${m.word_used ? 'слово сказано · капитан, пенальти' : 'похвала, разнос · капитан'}</small>`, '', () => { view = 'word'; renderDec(); }));
@@ -2769,7 +2776,9 @@ function renderDec() {
     box.appendChild(back());
   } else if (view === 'tac') {
     box.className = 'list';
-    for (const x of m.tactics) box.appendChild(btn(`${x.k === m.tactic ? '✔️ ' : ''}${esc(x.title)}<small>${esc(x.info)}</small>`, x.k === m.tactic ? 'on' : '', () => act({a: 'tac', k: x.k}), x.k === m.tactic));
+    if (m.circle) { const c = document.createElement('div'); c.className = 'sub'; c.textContent = m.circle; box.appendChild(c); }
+    for (const x of m.tactics) box.appendChild(btn(`${x.k === m.tactic ? '✔️ ' : ''}${esc(x.title)}${x.answer ? ' — 🧠 бьёт соперника' : ''}<small>${esc(x.info)}</small>`,
+      x.k === m.tactic ? 'on' : x.answer ? 'hot' : '', () => act({a: 'tac', k: x.k}), x.k === m.tactic));
     box.appendChild(back());
   } else if (view === 'ord') {
     box.className = 'list';
@@ -2785,7 +2794,8 @@ function renderDec() {
     box.appendChild(back());
   } else if (view === 'speech') {
     box.className = 'list';
-    for (const x of m.speeches) box.appendChild(btn(esc(x.title), '', () => act({a: 'speech', k: x.k})));
+    if (m.speech_help && m.kind === 'half') { const c = document.createElement('div'); c.className = 'sub'; c.style.whiteSpace = 'pre-line'; c.textContent = m.speech_help.split('\n')[0]; box.appendChild(c); }
+    for (const x of m.speeches) box.appendChild(btn(`${esc(x.title)}${x.info ? `<small>${esc(x.info)}</small>` : ''}`, '', () => act({a: 'speech', k: x.k})));
     box.appendChild(back());
   } else if (view === 'set') {
     box.className = 'list';
