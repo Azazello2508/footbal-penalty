@@ -998,6 +998,7 @@ function windup(p, to, ms, fn, bg) {       // игрок разворачива�
 function updatePlay(now) {
   if (pendingKick && now >= pendingKick.at) { const f = pendingKick.fn; pendingKick = null; f(); }
   const dt = clamp((now - (lastNow || now)) / 1000, 0, .05); lastNow = now;
+  atkHeatTick(dt);
   // шаг эпизода с ожиданием (wait): идёт, пока игроки не сделают своё — добежали, взяли мяч; max — страховка
   let waiting = false;
   if (step && step.wait && now >= stepEnd) {
@@ -2566,13 +2567,27 @@ function drumRoll() {                               // дробь большог
   play('drum', {at: at + .05, dur: 2.2, vol: 1, rate: .9, fadeIn: .003, fadeOut: 1.2});
   play('drum', {at: at + .07, dur: 2.2, vol: .7, rate: .86, pan: .3, fadeIn: .003, fadeOut: 1.2});
 }
+/* Гул по ходу атаки: мяч в чужой трети — трибуны за 2–3 с становятся громче, у штрафной — ещё громче за 1–1,5 с,
+   вынесли или отобрали — стихают за 1–2 с. Атакуют хозяева — гул сильнее, гости — слабее. Только звук: на матч не влияет. */
+let atkHeat = 0;                                    // 0 — игра в середине, 1 — атака у самой штрафной
+function atkHeatTick(dt) {
+  let want = 0;
+  if (S && !['pre', 'half', 'final'].includes(S.phase) && !stopped) {     // и во время окна решений: эпизод на поле доигрывается
+    const dep = depthOf(poss, ball.y);
+    want = dep < .52 ? 0 : dep < .68 ? (dep - .52) / .16 * .6 : .6 + Math.min(1, (dep - .68) / .1) * .4;   // чужая треть — до .6, ударная зона — до 1
+  }
+  const tau = want > atkHeat ? (want > .6 ? .35 : .7) : .5;      // постоянная времени, с: до цели — примерно 3·tau
+  atkHeat += (want - atkHeat) * (1 - Math.exp(-dt / tau));
+}
 let amb = null;                                     // фон: куски по 12 с внахлёст по 2 с — стык записи не слышен
 function ambTick() {
   if (!sndOn() || !snd.ambience || !S) return;
   const a = actx;
   if (!amb || amb.ctx !== a) { const bus = a.createGain(); bus.gain.value = 0; bus.connect(sndOut(a)); amb = {ctx: a, bus, next: a.currentTime, lvl: -1}; }
-  const lvl = S.phase === 'final' ? 0 : S.phase === 'half' ? .4 : S.phase === 'pre' ? .6 : stopped ? .55 : .85;
-  if (lvl !== amb.lvl) { amb.bus.gain.setTargetAtTime(lvl, a.currentTime, S.phase === 'final' ? 2.5 : .8); amb.lvl = lvl; amb.at = a.currentTime; }
+  const live = !['pre', 'half', 'final'].includes(S.phase) && !stopped;   // громкость ведёт atkHeat — меняется плавно сама
+  const lvl = S.phase === 'final' ? 0 : S.phase === 'half' ? .4 : S.phase === 'pre' ? .6 : stopped ? .55
+    : Math.round((.85 + atkHeat * (poss === 0 ? .35 : .2)) * 50) / 50;     // в середине поля — как было (.85), у штрафной — только громче
+  if (lvl !== amb.lvl) { amb.bus.gain.setTargetAtTime(lvl, a.currentTime, S.phase === 'final' ? 2.5 : live && amb.live ? .15 : .8); amb.lvl = lvl; amb.at = a.currentTime; amb.live = live; }
   if (a.currentTime > amb.next - .2 && (lvl > 0 || a.currentTime < amb.at + 8)) {        // стихло — новые куски не нужны
     play('ambience', {at: Math.max(0, amb.next - a.currentTime), from: rnd(0, snd.ambience.duration - 12.1), dur: 12, fadeIn: 2, fadeOut: 2, to: amb.bus});
     amb.next += 10;
