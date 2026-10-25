@@ -645,6 +645,7 @@ function renderHome() {
     `<h3>${esc(wn[0].title)}</h3><div class="note">${esc(wn[0].text)}</div><div class="mrow2">` +
     (wn[0].help ? `<button type="button" class="go main" data-wnhelp="${wn[0].help}">Подробнее</button>` : '') +
     `<button type="button" class="go" data-wnok="${wn[0].id}">Понятно</button></div></div>`;
+  else x += `<button type="button" class="go" data-wnhelp="news">🆕 Что нового в игре</button>`;     // все новинки — всегда под рукой
   if (h.other) x += `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(h.other)}»${h.other_star ? ' ⭐' : ''}</button>`;
   if (h.place) x += `<div class="stats3" style="margin-top:8px"><div><b>${h.place}</b><span>место из ${h.of}</span></div><div><b>${h.points}</b><span>очков</span></div><div><b>${h.played}</b><span>игр</span></div></div>` +
     (h.form && h.form.length ? `<div class="sub" style="text-align:center;margin-top:6px">Форма: ${formDots(h.form)}</div>` : '');
