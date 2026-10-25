@@ -279,7 +279,7 @@ let TAB = new URLSearchParams(location.search).get('tab') || 'home';
 let SEG = 'table';           // вкладка «Лига»: таблица или матчи
 const TABS = ['home', 'squad', 'league', 'more'];
 if (!TABS.includes(TAB)) TAB = 'home';
-const H = () => S.hub || {};
+const H = () => (S && S.hub) || {};   // до первого состояния от бота S ещё нет (секундомер поиска спрашивает каждую секунду)
 let SEEK_HB = null, SEEK_AT = 0;      // поиск соперника: с какого момента (по часам телефона) идёт — для секундомера
 function seekBlock() {
   const hb = H();
