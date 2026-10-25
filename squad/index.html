@@ -280,6 +280,17 @@ let SEG = 'table';           // вкладка «Лига»: таблица ил
 const TABS = ['home', 'squad', 'league', 'more'];
 if (!TABS.includes(TAB)) TAB = 'home';
 const H = () => S.hub || {};
+let SEEK_HB = null, SEEK_AT = 0;      // поиск соперника: с какого момента (по часам телефона) идёт — для секундомера
+function seekBlock() {
+  const hb = H();
+  if (hb.seek == null) return `<button type="button" class="go main" data-seek>🔎 Найти соперника</button>`;
+  if (hb !== SEEK_HB) { SEEK_HB = hb; SEEK_AT = Date.now() - hb.seek * 1000; }
+  return `<div class="card wnew"><h3>🔎 Ищем соперника… <span class="seekt">${seekTime()}</span></h3>` +
+    `<div class="note">Если за минуту живого соперника не найдётся, вызов примет бот (🤖 так и будет подписано). Простой товарищеский: без усталости, травм и таблицы.</div>` +
+    `<button type="button" class="go" data-unseek>Отмена</button></div>`;
+}
+function seekTime() { const t = Math.max(0, Math.floor((Date.now() - SEEK_AT) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+setInterval(() => { if (H().seek != null) document.querySelectorAll('.seekt').forEach(e => { e.textContent = seekTime(); }); }, 1000);
 const formDots = f => f && f.length ? `<span class="form">${f.map(x => `<i class="${x}">${x}</i>`).join('')}</span>` : '';
 function initials(name) { const w = name.replace(/[«»"]/g, '').split(/[\s-]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); }
 function matchCard(m, title) {
@@ -652,8 +663,8 @@ function renderHome() {
   else x += `<div class="card note">🏆 ${esc(hb.table.note || 'Сезон не идёт')}</div>`;
   if (h.locked) x += `<div class="banner warn">${esc(h.locked)}</div>`;
   if (h.need && (!h.next || h.need.id !== h.next.id)) x += matchCard(h.need, 'Нужен ответ');
-  x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч')
-    : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — товарищеский можно в любой момент.</div><button type="button" class="go" data-fr>🤝 Товарищеский</button></div>`;
+  x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч') + (h.next.status === 'live' ? '' : seekBlock())
+    : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — найдите соперника или позовите друга из лиги.</div>${seekBlock()}<button type="button" class="go" data-fr>🤝 Товарищеский с другом</button></div>`;
   if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
     `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div></div>`;
   const ready = !h.problems.length;
@@ -681,7 +692,7 @@ function renderLeague() {
     else x += `<button type="button" class="go" data-panel="official">⭐ Официальные лиги</button>`;
   } else {
     x += hb.matches.length ? hb.matches.map(m => matchCard(m)).join('') : `<div class="card note">Матчей пока нет.</div>`;
-    x += `<button type="button" class="go" data-fr>🤝 Товарищеский матч</button>`;
+    x += seekBlock() + `<button type="button" class="go" data-fr>🤝 Товарищеский матч</button>`;
   }
   $('t-league').innerHTML = x;
 }
@@ -839,6 +850,8 @@ document.addEventListener('click', e => {
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
   if (b.hasAttribute('data-community')) { haptic(); const u = H().community; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
+  if (b.hasAttribute('data-seek')) { haptic(); send({a: 'seek'}); return; }
+  if (b.hasAttribute('data-unseek')) { haptic(); send({a: 'unseek'}); return; }
   if (b.hasAttribute('data-fr')) { haptic(); openMatchSheet({fr: true, kind: null}); return; }
   if (b.dataset.kind) { MS.kind = b.dataset.kind; haptic(); renderMatchSheet(); return; }
   if (b.dataset.rival) { if (MS && MS.kind) send({a: 'friendly', kind: MS.kind, opp: +b.dataset.rival}); return; }
@@ -1251,6 +1264,8 @@ function demoAct(act) {
     if (act.a === 'plan') r.note = '📋 План сохранён — сработает со стартового свистка';
   }
   else if (['propose', 'respond', 'cancel', 'friendly'].includes(act.a)) r = {ok: false, note: 'Демо: матчи назначаются только в Telegram'};
+  else if (act.a === 'seek') { S.hub.seek = 0; SEEK_HB = null; r.note = '🔎 Ищем соперника… (демо: в Telegram через минуту сыграет бот)'; }
+  else if (act.a === 'unseek') { S.hub.seek = null; r.note = 'Поиск отменён'; }
   else if (act.a === 'switch') r = {ok: false, note: 'Демо: переключение клубов работает только в Telegram'};
   else if (act.a === 'seen') r.note = '';
   else if (act.a === 'stats') {
