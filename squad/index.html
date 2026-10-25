@@ -344,7 +344,7 @@ const PANELS = [['club', '🏟 Клуб и игроки', 'название, и�
   ['talk', '🗣 Разговор с игроками', 'с каждым — раз в сутки'], ['growth', '📈 Рост игроков', 'вложить очки роста']];
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
   ['official', '⭐ Официальные лиги', 'клубы пяти топ-лиг: взять свободный, заявка на смену'],
-  ['admin', '🛠 Администратор', 'заявки на смену клуба, сезоны официальных лиг']];
+  ['admin', '🛠 Администратор', 'сводка метрик, заявки на смену клуба, сезоны официальных лиг']];
 const NO_CLUB_PANELS = ['newclub', 'official', 'friends', 'help'];   // окна, которые открываются и без клуба
 const HELPS = {};          // разделы помощи: ключ → {title, text} (приходят по запросу help — вся справка в одно сообщение не влезет)
 const CARDS = {};          // состав клуба официальной лиги: ключ → {card, numbers} (приходит по запросу ofcard)
@@ -611,7 +611,10 @@ function panelOfficial(m, P) {
 function panelAdmin(m, P) {
   const A = H().admin;
   if (!A) return panelHead('🛠 Администратор') + `<div class="card note">Этот раздел — только для администратора.</div>`;
-  let h = panelHead('🛠 Администратор') + `<div class="label">📝 Заявки на смену клуба</div>`;
+  let h = panelHead('🛠 Администратор');
+  if (A.summary && A.summary.length) h += `<div class="label">📊 Сводка метрик</div><div class="card">` + A.summary.map(r =>
+    `<div class="row"><div><b>${esc(r.t)}</b><div class="sub">${esc(r.i)}</div></div><b style="white-space:nowrap">${esc(r.v)}</b></div>`).join('') + `</div>`;
+  h += `<div class="label">📝 Заявки на смену клуба</div>`;
   h += A.requests.length ? A.requests.map(r => `<div class="card"><div class="note">${esc(r.text)}</div><div class="mrow2">` +
     `<button type="button" class="go main" data-creq="${r.rid}" data-v="ok">✅ Одобрить</button><button type="button" class="go danger" data-creq="${r.rid}" data-v="no">❌ Отклонить</button></div></div>`).join('')
     : `<div class="card note">Открытых заявок на смену клуба нет.</div>`;
@@ -1132,7 +1135,14 @@ function demoHub() {
     admin: {requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
-        {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}]},
+        {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
+      summary: [{t: '👥 Менеджеров', v: '42', i: 'с клубом — 88% (37 из 42)'}, {t: '🆕 Новички', v: '3 / 11 / 30', i: 'за сутки / 7 дней / 30 дней'},
+        {t: '⚽ Создали клуб', v: '82%', i: '9 из 11 · из новичков за 7 дней · за 30 дней — 87% (26 из 30)'},
+        {t: '🤝 Матч с человеком', v: '14', i: 'сыграно за 7 дней · играли 19 чел. · с ботом — 23'},
+        {t: '🔁 Вернулись через 1 день', v: '61%', i: '17 из 28 · заходили спустя 1 день после прихода или позже · учёт заходов — с 25.10.2026'},
+        {t: '🔁 Вернулись через 7 дней', v: '35%', i: '6 из 17 · заходили спустя 7 дней после прихода или позже · учёт заходов — с 25.10.2026'},
+        {t: '🔁 Вернулись через 30 дней', v: '—', i: 'заходили спустя 30 дней после прихода или позже · учёт заходов — с 25.10.2026'},
+        {t: '🚫 Неявки', v: '2', i: 'тех. поражения за 7 дней: одной команде — 2, обеим — 0'}]},
     community: 'https://t.me/+demo', sections: [],
     help: [['quick', '🚀 Быстрый старт'], ['news', '🆕 Что нового'], ['tactics', '🧠 Тактика: кто кого бьёт'], ['club', '🏟 Клуб и игроки'], ['match', '⚽ Как идёт матч'], ['faq', '❓ Частые вопросы']],
     whatsnew: [{id: 'tactic-circle', title: '🧠 Тактический круг', help: 'tactics',
