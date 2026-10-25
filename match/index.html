@@ -2924,7 +2924,7 @@ function renderDec() {
     + (m.my_sets ? ` · ${m.my_sets}` : '') + (m.order ? ` · задание: ${m.order}` : '')
     + (m.opp_sets ? `\nСоперник: ${m.opp_sets}` : '') + (m.reason ? `\nПовод: ${m.reason}` : '');
   sub.style.whiteSpace = 'pre-line'; decEl.appendChild(sub);
-  if (m.edge_text) {               // тактический круг: у кого преимущество и чем ответить
+  if (m.edge_text) {               // тактический круг: у кого преимущество (чем ответить — не подсказываем)
     const e = document.createElement('div'); e.className = 'edge' + (m.edge > 0 ? ' up' : m.edge < 0 ? ' down' : '');
     e.textContent = m.edge_text; decEl.appendChild(e);
   }
@@ -2958,7 +2958,7 @@ function renderDec() {
     const r = m.rush;
     box.appendChild(btn(`💥 Штурм ворот<small>${r.active ? 'идёт до ' + r.until + "'" : r.left <= 0 ? 'использован' : !r.allowed ? 'после свистка' : 'раз за матч, 5 минут'}</small>`, 'hot',
       () => { view = 'rush'; renderDec(); }, r.active || r.left <= 0 || !r.allowed));
-    box.appendChild(btn(m.kind === 'half' ? '✅ Готово (перерыв идёт до конца)' : '✅ Готово', 'go wide', () => act({a: 'done'}), m.done));
+    box.appendChild(btn(m.kind === 'half' ? '✅ Готово — оба нажмут, и второй тайм сразу' : '✅ Готово', 'go wide', () => act({a: 'done'}), m.done));
   } else if (view === 'sub') {
     box.className = 'list';
     const ready = m.bench.filter(p => !p.off && !p.inj);
@@ -2981,7 +2981,7 @@ function renderDec() {
   } else if (view === 'tac') {
     box.className = 'list';
     if (m.circle) { const c = document.createElement('div'); c.className = 'sub'; c.textContent = m.circle; box.appendChild(c); }
-    for (const x of m.tactics) box.appendChild(btn(`${x.k === m.tactic ? '✔️ ' : ''}${esc(x.title)}${x.answer ? ' — 🧠 бьёт соперника' : ''}<small>${esc(x.info)}</small>`,
+    for (const x of m.tactics) box.appendChild(btn(`${x.k === m.tactic ? '✔️ ' : ''}${esc(x.title)}<small>${esc(x.info)}</small>`,
       x.k === m.tactic ? 'on' : x.answer ? 'hot' : '', () => act({a: 'tac', k: x.k}), x.k === m.tactic));
     box.appendChild(back());
   } else if (view === 'ord') {
