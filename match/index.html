@@ -3578,7 +3578,10 @@ function demoAct(a) {
 addEventListener('resize', fit); fit();
 if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
   TG.setHeaderColor && TG.setHeaderColor('#0d1730'); TG.setBackgroundColor && TG.setBackgroundColor('#050a18');
-  TG.onEvent && TG.onEvent('viewportChanged', fit); } catch (e) {} }
+  TG.onEvent && TG.onEvent('viewportChanged', fit); } catch (e) {}
+  // открыли из игры («📺 Смотреть матч» на экране игры) — кнопка Telegram «Назад» возвращает в игру
+  try { if (TG.BackButton && history.length > 1 && /\/squad\//.test(document.referrer)) {
+    TG.BackButton.show(); TG.BackButton.onClick(() => history.back()); } } catch (e) {} }
 requestAnimationFrame(frame);
 if (ROOM) connect(); else { demo(); if (Q.get('mg')) setTimeout(() => demoMg(Q.get('mg')), 800); }
 </script>
