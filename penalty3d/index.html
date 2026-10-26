@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Пенальти 3D</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <style>
 html,body{margin:0;height:100%;background:#050a18;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
@@ -110,8 +111,10 @@ button:active{transform:translateY(1px)}
 })();
 </script>
 <script type="module">
-let THREE;
-try { THREE = await import('https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js'); }
+let THREE, MAPPED = true;                                    // MAPPED — карта импорта работает: можно грузить модели людей
+try { THREE = await import('three'); }
+catch (e0) { MAPPED = false; }
+if (!MAPPED) try { THREE = await import('https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js'); }
 catch (e) {
   try { THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js'); }
   catch (e2) { go2D('three.js не загрузился'); throw e2; }
@@ -354,13 +357,33 @@ const grassTex = canvasTex(256, 256, (g, w, h) => {          // травинки
   }
 }, [1, 1]);
 grassTex.colorSpace = THREE.NoColorSpace;
-function grassy(m, rep) {                                     // травинки поверх цвета: повторяются rep раз на текстуру газона
+// трава поверх полос и разметки: сначала нарисованные травинки, после загрузки — фотография настоящего газона (models/grass_*.jpg, CC0);
+// цвет делится на средний цвет снимка — полосы стрижки и линии остаются, добавляется живая трава
+const GRASS = {grassD: {value: grassTex}, grassK: {value: new THREE.Vector3(1.62, 1.62, 1.62)}, grassS: {value: 1}};
+const grassMats = [];
+function grassy(m, rep) {                                     // rep — сколько раз травинки повторяются на текстуре газона
   m.onBeforeCompile = sh => {
-    sh.uniforms.grassD = {value: grassTex};
-    sh.fragmentShader = 'uniform sampler2D grassD;\n' + sh.fragmentShader.replace('#include <map_fragment>',
-      `#include <map_fragment>\n  diffuseColor.rgb *= texture2D(grassD, vMapUv * vec2(${rep[0].toFixed(1)}, ${rep[1].toFixed(1)})).rgb * 1.62;`);
+    Object.assign(sh.uniforms, GRASS);
+    sh.fragmentShader = 'uniform sampler2D grassD;\nuniform vec3 grassK;\nuniform float grassS;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+      `#include <map_fragment>\n  diffuseColor.rgb *= texture2D(grassD, vMapUv * vec2(${rep[0].toFixed(1)}, ${rep[1].toFixed(1)}) * grassS).rgb * grassK;`);
   };
+  grassMats.push({m, rep});
   return m;
+}
+async function loadGrass() {
+  const tl = new THREE.TextureLoader(), base = new URL('models/', location.href).href;
+  const [col, nor] = await Promise.all([tl.loadAsync(base + 'grass_color.jpg'), tl.loadAsync(base + 'grass_normal.jpg')]);
+  col.colorSpace = THREE.SRGBColorSpace;
+  for (const t of [col, nor]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); }
+  const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.drawImage(col.image, 0, 0, 32, 32);
+  const d = g.getImageData(0, 0, 32, 32).data, lin = v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }, avg = [0, 0, 0];
+  for (let i = 0; i < d.length; i += 4) for (let k = 0; k < 3; k++) avg[k] += lin(d[i + k]) / (d.length / 4);
+  const S = .9 / 1.6;                                         // снимок — примерно 1,6 м газона
+  GRASS.grassD.value = col; GRASS.grassS.value = S; GRASS.grassK.value.set(1 / avg[0], 1 / avg[1], 1 / avg[2]).multiplyScalar(.97);
+  for (const {m, rep} of grassMats) {                         // рельеф травинок от прожекторов
+    const n = nor.clone(); n.repeat.set(rep[0] * S, rep[1] * S); n.needsUpdate = true;
+    m.normalMap = n; m.normalScale.set(.55, .55); m.needsUpdate = true;
+  }
 }
 {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(PWm, PHm), grassy(new THREE.MeshStandardMaterial({map: pitchTex, roughness: .93}), [PWm / .9, PHm / .9]));
@@ -575,10 +598,11 @@ function headParts(kit) {                                    // голова: ч
   else { p.push(part(S, hc, [0, .09, -.024], 0, [.103, .116, .11])); p.push(part(L, hc, [0, .15, -.09], 0, [.04, .04, .04])); }
   return p;
 }
-function makeMan(kit) {   // kit: {shirt, shorts, sock, band, skin, hair, style, glove, num}; смотрит в +z, левая рука — +x
+function makeMan(kit) { return HUMAN ? makeHuman(kit) : makeFigure(kit); }
+function makeFigure(kit, bare) {   // kit: {shirt, shorts, sock, band, skin, hair, style, glove, num}; смотрит в +z, левая рука — +x; bare — только каркас
   const root = new THREE.Group(), body = new THREE.Group(), spine = new THREE.Group(), headG = new THREE.Group();
   root.add(body); body.add(spine); spine.add(headG); headG.position.y = .7;
-  const mesh = (parts, parent) => { const o = new THREE.Mesh(mergeParts(parts), manMat); o.castShadow = true; parent.add(o); return o; };
+  const mesh = (parts, parent) => { if (bare) return null; const o = new THREE.Mesh(mergeParts(parts), manMat); o.castShadow = true; parent.add(o); return o; };
   const mark = (parent, x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); parent.add(o); return o; };
   const S = GEO.sph, sh = kit.shirt, sk = kit.skin, coll = kit.collar || shade(sh, -.4);
   mesh([part(GEO.cyl(.16, .15, .2, 18), kit.shorts, [0, .02, 0], 0, [1.22, 1, .84])], body);
@@ -586,8 +610,10 @@ function makeMan(kit) {   // kit: {shirt, shorts, sock, band, skin, hair, style,
         part(S, sh, [.205, .5, 0], 0, [.075, .072, .07]), part(S, sh, [-.205, .5, 0], 0, [.075, .072, .07]),
         part(GEO.cyl(.044, .052, .11, 12), sk, [0, .665, .005])], spine);
   mesh(headParts(kit), headG);
-  const back = new THREE.Mesh(GEO.num, numMat(kit.num)); back.position.set(0, .36, -.138); back.rotation.y = Math.PI; spine.add(back);
-  const front = new THREE.Mesh(GEO.num, numMat(kit.num)); front.position.set(.075, .44, .132); front.scale.setScalar(.42); spine.add(front);
+  if (!bare) {
+    const back = new THREE.Mesh(GEO.num, numMat(kit.num)); back.position.set(0, .36, -.138); back.rotation.y = Math.PI; spine.add(back);
+    const front = new THREE.Mesh(GEO.num, numMat(kit.num)); front.position.set(.075, .44, .132); front.scale.setScalar(.42); spine.add(front);
+  }
   const limbs = {}, gl = kit.glove;
   for (const [k, s] of [['L', 1], ['R', -1]]) {
     const shG = new THREE.Group(); shG.position.set(s * .25, .52, 0); spine.add(shG);
@@ -622,18 +648,159 @@ function buildFanAtlas() {                                   // болельщи
   const prev = {t: renderer.getRenderTarget(), c: renderer.getClearColor(new THREE.Color()), a: renderer.getClearAlpha()};
   renderer.setClearColor(0x000000, 0); renderer.setRenderTarget(fanRT); renderer.clear();
   fanRT.scissorTest = true;
+  let one = null;
   for (let c = 0; c < FAN_CELLS * FAN_CELLS; c++) {
     const shirt = FAN_COLS[(c * 5 + (c >> 3)) % FAN_COLS.length];
-    const m = makeMan({shirt, shorts: ['#1f2937', '#334155', '#0f172a'][c % 3], sock: '#111827', band: '#111827', skin: SKINS[(c * 3 + (c >> 2)) % 4],
-                       hair: HAIRS[(c * 7) % 4], style: (c >> 1) % 4, num: '', collar: shade(shirt, -.3)});
+    const kit = {shirt, shorts: ['#1f2937', '#334155', '#0f172a'][c % 3], sock: '#111827', band: '#111827', skin: SKINS[(c * 3 + (c >> 2)) % 4],
+                 hair: HAIRS[(c * 7) % 4], style: (c >> 1) % 4, num: '', collar: shade(shirt, -.3)};
+    const m = HUMAN ? (one || (one = makeHuman(kit))) : makeMan(kit);
+    if (HUMAN) setKit(m, kit);
     sc.add(m.root); applyPose(m, POSES[c % 4]);
     const x = (c % FAN_CELLS) * FAN_W, y = Math.floor(c / FAN_CELLS) * FAN_H;
     fanRT.viewport.set(x, y, FAN_W, FAN_H); fanRT.scissor.set(x, y, FAN_W, FAN_H);
     renderer.setRenderTarget(fanRT); renderer.render(sc, cam);
-    sc.remove(m.root); m.root.traverse(o => { if (o.isMesh && o.geometry !== GEO.num) o.geometry.dispose(); });
+    sc.remove(m.root); if (!HUMAN) m.root.traverse(o => { if (o.isMesh && o.geometry !== GEO.num) o.geometry.dispose(); });
   }
   fanRT.scissorTest = false; fanRT.viewport.set(0, 0, fanRT.width, fanRT.height); fanRT.scissor.set(0, 0, fanRT.width, fanRT.height);
   renderer.setRenderTarget(prev.t); renderer.setClearColor(prev.c, prev.a);
+}
+/* ---------------- люди из модели Quaternius (CC0, папка models/): тело со скелетом, форма клуба рисуется шейдером ----------------
+   Позы по-прежнему задаёт невидимый каркас из групп (makeFigure без деталей); каждый кадр кости модели поворачиваются так же,
+   как суставы каркаса относительно их покоя. Модель не загрузилась (старый браузер, нет сети) — остаются фигуры из деталей. */
+let HUMAN = null;
+const BONE_MAP = {pelvis: 'body', spine_02: 'spine', Head: 'head', upperarm_l: 'sL', lowerarm_l: 'eL', upperarm_r: 'sR', lowerarm_r: 'eR',
+                  thigh_l: 'hL', calf_l: 'kL', thigh_r: 'hR', calf_r: 'kR'};
+const HAIR_SETS = [['buzz'], ['part'], ['buzz', 'beard'], ['part', 'beard']];
+function skinLum(tex) {                                       // средняя яркость кожи на текстуре (линейная) — по ней форма сохраняет складки и тени тела
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); g.drawImage(tex.image, 0, 0, 64, 64);
+  const d = g.getImageData(0, 0, 64, 64).data, L = [];
+  for (let i = 0; i < d.length; i += 4) {
+    const lin = v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+    const l = .299 * lin(d[i]) + .587 * lin(d[i + 1]) + .114 * lin(d[i + 2]);
+    if (l > .02) L.push(l);
+  }
+  L.sort((a, b) => a - b); return L[L.length >> 1] || .3;
+}
+async function loadHumans() {
+  const [{GLTFLoader}, SU] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/utils/SkeletonUtils.js')]);
+  const base = new URL('models/', location.href).href, ld = new GLTFLoader();
+  const [body, buzz, partH, beard, brows, dark] = await Promise.all([
+    ...['player', 'hair_buzzed', 'hair_parted', 'hair_beard', 'eyebrows'].map(n => ld.loadAsync(base + n + '.gltf')),
+    new THREE.TextureLoader().loadAsync(base + 'body_dark.jpg')]);
+  dark.colorSpace = THREE.SRGBColorSpace; dark.flipY = false;
+  const meshOf = g => { let m = null; g.scene.traverse(o => { if (o.isMesh && !m) m = o; }); return m; };
+  const root = body.scene; root.updateMatrixWorld(true);
+  let skinned = null; const bones = {}, parent = {}, order = [];
+  root.traverse(o => { if (o.isSkinnedMesh && (!skinned || o.geometry.attributes.position.count > skinned.geometry.attributes.position.count)) skinned = o; });
+  const walk = (b, p) => { if (!b.isBone) return; bones[b.name] = b; parent[b.name] = p; order.push(b.name); for (const c of b.children) walk(c, b.name); };
+  root.traverse(o => { if (o.isBone && !(o.parent && o.parent.isBone) && !order.length) walk(o, null); });
+  const rootQ = n => bones[n].getWorldQuaternion(new THREE.Quaternion()), refQ = {};
+  for (const n of order) refQ[n] = rootQ(n);
+  for (const s of ['l', 'r']) {                               // покой модели — руки вниз, как у каркаса (а не «буквой Т»)
+    const a = bones['upperarm_' + s].getWorldPosition(V(0, 0, 0)), b = bones['lowerarm_' + s].getWorldPosition(V(0, 0, 0));
+    const down = new THREE.Quaternion().setFromUnitVectors(b.sub(a).normalize(), V(s === 'l' ? .17 : -.17, -1, .04).normalize());
+    const arm = []; (function sub(n) { arm.push(n); for (const c of order) if (parent[c] === n) sub(c); })('upperarm_' + s);
+    for (const n of arm) refQ[n] = down.clone().multiply(refQ[n]);
+  }
+  const refLocal = {};
+  for (const n of order) refLocal[n] = (parent[n] ? refQ[parent[n]].clone().invert() : new THREE.Quaternion()).multiply(refQ[n]);
+  const rig = makeFigure({shirt: '#888888', shorts: '#888888', sock: '#888888', skin: '#888888', hair: '#888888', num: ''}, true); applyPose(rig, pose({ground: 0})); rig.root.updateMatrixWorld(true);
+  const restQ = {}; for (const j of new Set(Object.values(BONE_MAP))) restQ[j] = rig[j].getWorldQuaternion(new THREE.Quaternion());
+  const hi = skinned.skeleton.bones.indexOf(skinned.skeleton.getBoneByName('Head'));
+  const headInv = skinned.skeleton.boneInverses[hi].clone().multiply(skinned.bindMatrix);
+  const pelvisPar = parent.pelvis;
+  HUMAN = {SU, root, order, parent, refQ, refLocal, restQ, headInv, light: skinned.material.map, dark,
+           lumLight: skinLum(skinned.material.map), lumDark: skinLum(dark),
+           pelvisRoot: bones.pelvis.getWorldPosition(V(0, 0, 0)), parRoot: pelvisPar ? bones[pelvisPar].getWorldPosition(V(0, 0, 0)) : V(0, 0, 0),
+           hair: {buzz: meshOf(buzz), part: meshOf(partH), beard: meshOf(beard), brows: meshOf(brows)}};
+}
+function kitMaterial(src) {                                   // форма поверх тела: области — по положению точки в позе покоя (рост 1,81 м)
+  const m = src.clone(), u = {uShirt: {value: new THREE.Color()}, uShorts: {value: new THREE.Color()}, uSock: {value: new THREE.Color()},
+    uBand: {value: new THREE.Color()}, uCollar: {value: new THREE.Color()}, uGlove: {value: new THREE.Color()}, uBoot: {value: new THREE.Color('#121418')},
+    uNum: {value: null}, uLum: {value: .3}, uKeeper: {value: 0}, uSkinTint: {value: new THREE.Color(1, 1, 1)}};
+  m.userData.u = u;
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'varying vec3 vBind;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBind = position;');
+    sh.fragmentShader = 'varying vec3 vBind;\nuniform vec3 uShirt, uShorts, uSock, uBand, uCollar, uGlove, uBoot, uSkinTint;\nuniform sampler2D uNum;\nuniform float uLum, uKeeper;\n' +
+      sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+  {
+    float y = vBind.y, ax = abs(vBind.x);
+    float sh = clamp(dot(diffuseColor.rgb, vec3(.299, .587, .114)) / uLum, .55, 1.25);
+    bool arm = ax > .235 && y > 1.2;
+    vec3 kit = vec3(-1.);
+    if (y < .095) kit = uBoot * (.8 + .4 * sh);
+    else if (y < .45 && !arm) kit = uSock;
+    else if (y < .5 && !arm) kit = uBand;
+    else if (y > .6 && y <= .93 && !arm) kit = uShorts;
+    else if (!arm && y > .93 && y < 1.5) kit = uShirt;
+    else if (!arm && y >= 1.5 && y < 1.535) kit = uCollar;
+    else if (arm && ax < mix(.37, .64, uKeeper)) kit = uShirt;
+    else if (arm && uKeeper > .5 && ax > .66) kit = uGlove;
+    if (kit.x >= 0.) {
+      vec3 c = kit * sh;
+      if (vBind.z < -.03 && ax < .12 && y > 1.12 && y < 1.36) { vec4 nb = texture2D(uNum, vec2((.12 - vBind.x) / .24, (y - 1.12) / .24)); c = mix(c, vec3(.95), nb.a); }
+      if (vBind.z > .05 && vBind.x > .04 && vBind.x < .12 && y > 1.33 && y < 1.41) { vec4 nb = texture2D(uNum, vec2((vBind.x - .04) / .08, (y - 1.33) / .08)); c = mix(c, vec3(.95), nb.a); }
+      diffuseColor.rgb = c;
+    } else diffuseColor.rgb *= uSkinTint;
+  }`);
+  };
+  m.customProgramCacheKey = () => 'kit';
+  return m;
+}
+function setKit(m, kit) {                                    // цвета формы, кожа, волосы — на уже собранного человека
+  const h = m.human, u = h.mat.userData.u;
+  u.uShirt.value.set(kit.shirt); u.uShorts.value.set(kit.shorts); u.uSock.value.set(kit.sock); u.uBand.value.set(kit.band || shade(kit.sock, -.35));
+  u.uCollar.value.set(kit.collar || shade(kit.shirt, -.4)); u.uGlove.value.set(kit.glove || '#d9f99d'); u.uKeeper.value = kit.glove ? 1 : 0;
+  const si = Math.max(0, SKINS.indexOf(kit.skin)), dark = si === 1;
+  h.mat.map = dark ? HUMAN.dark : HUMAN.light; u.uLum.value = dark ? HUMAN.lumDark : HUMAN.lumLight;
+  u.uSkinTint.value.set(si === 3 ? '#d9b49b' : si === 2 ? '#fff4ec' : '#ffffff');
+  u.uNum.value = numMat(kit.num === undefined ? '' : kit.num).map;
+  h.hairMat.color.set(kit.hair || '#2b1d16');
+  const set = HAIR_SETS[(kit.style || 0) % HAIR_SETS.length];
+  for (const k in h.hair) h.hair[k].visible = k === 'brows' || set.includes(k);
+}
+function makeHuman(kit) {
+  const m = makeFigure(kit, true), sc = HUMAN.SU.clone(HUMAN.root), bones = {};
+  let mat = null, hairMat = null;
+  sc.traverse(o => {
+    if (o.isBone) bones[o.name] = o;
+    if (o.isMesh) { o.castShadow = true; o.frustumCulled = false;
+      if (o.isSkinnedMesh && o.material.name && o.material.name.includes('Superhero')) o.material = mat = kitMaterial(o.material);
+      else if (o.material.name && o.material.name.includes('Hair')) o.material = hairMat = hairMat || o.material.clone(); }
+  });
+  hairMat = hairMat || HUMAN.hair.buzz.material.clone();
+  const hair = {};
+  for (const k in HUMAN.hair) {                               // волосы, брови, борода — неподвижно к кости головы
+    const x = new THREE.Mesh(HUMAN.hair[k].geometry, hairMat); x.matrixAutoUpdate = false; x.matrix.copy(HUMAN.headInv); x.castShadow = true;
+    bones.Head.add(x); hair[k] = x;
+  }
+  m.root.add(sc);
+  m.human = {sc, bones, mat, hairMat, hair, rq: {}};
+  setKit(m, kit);
+  return m;
+}
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _D = {};
+function retarget(m) {                                        // кости модели — вслед за суставами каркаса
+  const H = HUMAN, h = m.human;
+  m.root.updateMatrixWorld(true);
+  const rootInv = m.root.getWorldQuaternion(_qa).invert();
+  for (const bn in BONE_MAP) { const j = BONE_MAP[bn]; (_D[bn] || (_D[bn] = new THREE.Quaternion())).copy(rootInv).multiply(m[j].getWorldQuaternion(_qb)).multiply(_qb.copy(H.restQ[j]).invert()); }
+  for (const n of H.order) {
+    const b = h.bones[n], par = H.parent[n], pq = par ? h.rq[par] : null, q = h.rq[n] || (h.rq[n] = new THREE.Quaternion());
+    if (_D[n] && BONE_MAP[n]) { q.copy(_D[n]).multiply(H.refQ[n]); b.quaternion.copy(pq ? _qb.copy(pq).invert().multiply(q) : q); }
+    else { b.quaternion.copy(H.refLocal[n]); if (pq) q.copy(pq).multiply(H.refLocal[n]); else q.copy(H.refLocal[n]); }
+  }
+  const P = H.pelvisRoot.clone(); P.y += m.body.position.y - .97;      // таз: высота как у каркаса (присел, прыгнул, упал)
+  const par = H.parent.pelvis;
+  h.bones.pelvis.position.copy(par ? P.sub(H.parRoot).applyQuaternion(_qb.copy(h.rq[par]).invert()) : P);
+}
+function humanHands(m, out) {                                 // середина ладоней модели (кость кисти — у запястья, ладонь дальше на 8 см)
+  const b = m.human.bones, o = out || V(0, 0, 0); o.set(0, 0, 0);
+  for (const s of ['l', 'r']) { const w = b['hand_' + s].getWorldPosition(V(0, 0, 0)), e = b['lowerarm_' + s].getWorldPosition(V(0, 0, 0));
+    o.add(w.addScaledVector(w.clone().sub(e).normalize(), .08)); }
+  return o.multiplyScalar(.5);
 }
 const POSE0 = {x: 0, z: 0, yaw: 0, y: .97, roll: 0, lean: 0, sLx: 0, sLz: .12, eL: -.15, sRx: 0, sRz: -.12, eR: -.15,
                hLx: 0, hLz: .04, kL: .05, hRx: 0, hRz: -.04, kR: .05, nod: 0, look: 0, ground: 1, jy: 0};
@@ -652,9 +819,11 @@ function applyPose(m, p) {
     m.root.position.y = -(low - .045) * p.ground;
   }
   m.root.position.y += p.jy;
+  if (m.human) retarget(m);
 }
 function handsAt(m, out) {
   m.root.updateMatrixWorld(true);
+  if (m.human) return humanHands(m, out);
   return (out || V(0, 0, 0)).copy(m.handL.getWorldPosition(tmpV)).add(m.handR.getWorldPosition(tmpV2)).multiplyScalar(.5);
 }
 function freeze(m, p) { applyPose(m, p); return Object.assign({}, p, {y: m.body.position.y + m.root.position.y, ground: 0, jy: 0}); }
@@ -1382,7 +1551,7 @@ function bench(ms) {
   const avg = benchSum / 36;
   if (avg > 42 && tier === 2) { setTier(1); benchN = 0; benchSum = 0; return; }
   if (avg > 55) { go2D('мало кадров: ' + Math.round(1000 / avg) + ' в секунду'); benchDone = true; return; }
-  benchDone = true; ready();
+  benchDone = true; Promise.race([humansReady, new Promise(r => setTimeout(r, 5000))]).then(ready);   // люди успели — показываем сразу с ними
 }
 
 /* ---------------- управление: касание → луч в плоскость ворот ---------------- */
@@ -1511,7 +1680,7 @@ function demoFk(mine) {                                // те же правил
   play({fk, wall, dive, outcome, text});
 }
 function play(result) {
-  phase = 'play'; events = {}; hist.length = 0;
+  phase = 'play'; events = {}; hist.length = 0; boardMat.map = BOARD_N;
   if (isFk() && result.fk !== undefined) {
     anim = Object.assign({t0: performance.now()}, result, {aim: (result.fk < 2 ? 0 : 3) + (result.fk % 2 ? 2 : 0), fkWall: result.wall});
     anim.plan = finishPlan(makeFkPlan(anim));
@@ -1627,7 +1796,12 @@ function ready() {                                             // сцена т�
 }
 
 addEventListener('resize', fit); fit();
-buildFanAtlas(); layout(); hudCards();
+if (!MAPPED) buildFanAtlas();                                 // с моделями болельщиков рисуем один раз — когда модели придут
+layout(); hudCards();
+loadGrass().catch(e => console.warn('Фото травы не загрузилось — остаются нарисованные травинки:', e && e.message));
+const humansReady = (MAPPED ? loadHumans() : Promise.reject(new Error('нет карты импорта'))).then(() => {
+  castSig = ''; if (phase !== 'play') layout(); buildFanAtlas();
+}).catch(e => { HUMAN = null; buildFanAtlas(); console.warn('Модели людей не загрузились — остаются фигуры:', e && e.message); });
 requestAnimationFrame(frame);
 if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
   TG.setHeaderColor && TG.setHeaderColor('#02050f'); TG.setBackgroundColor && TG.setBackgroundColor('#02050f'); } catch (e) {} }
