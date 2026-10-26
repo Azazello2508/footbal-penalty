@@ -381,11 +381,17 @@ function quad(a, b, c, d, mat, ru, rv) {                     // a–b — ниж
 }
 const darkMat = new THREE.MeshLambertMaterial({color: 0x0a0f1e, side: THREE.DoubleSide});
 const seatMat = new THREE.MeshLambertMaterial({vertexColors: true});
-const fanMat = new THREE.MeshLambertMaterial({color: 0xffffff});
-const FAN = {torso: new THREE.CylinderGeometry(.19, .22, .5, 7).scale(1, 1, .66).translate(0, .25, 0), head: new THREE.IcosahedronGeometry(.11, 1).translate(0, .62, 0)};
-FAN.arms = mergeParts([part(new THREE.BoxGeometry(.08, .42, .08), '#ffffff', [.2, .7, 0], [0, 0, -.25]), part(new THREE.BoxGeometry(.08, .42, .08), '#ffffff', [-.2, .7, 0], [0, 0, .25])]);
-FAN.arms.deleteAttribute('color');
-const FAN_COLS = ['#dc2626', '#b91c1c', '#f8fafc', '#e2e8f0', '#2563eb', '#1d4ed8', '#111827', '#1f2937', '#facc15', '#475569', '#0ea5e9', '#7c2d12'];
+/* болельщики — люди: те же фигуры, что игроки, заранее отрисованные в набор картинок 8×8 (сидят, стоят, руки вверх, машут;
+   разные цвета формы, кожи и причёски); на трибуне каждый — плоская картинка из 2 треугольников, лицом к полю */
+const FAN_CELLS = 8, FAN_W = 64, FAN_H = 128;
+const fanRT = new THREE.WebGLRenderTarget(FAN_CELLS * FAN_W, FAN_CELLS * FAN_H, {colorSpace: THREE.SRGBColorSpace, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter});
+const fanMat = new THREE.MeshBasicMaterial({map: fanRT.texture, alphaTest: .45, color: 0xc4cad6, side: THREE.DoubleSide});
+fanMat.onBeforeCompile = sh => {
+  sh.vertexShader = 'attribute float aCell;\n' + sh.vertexShader.replace('#include <uv_vertex>',
+    `#include <uv_vertex>\n  vMapUv = (vMapUv + vec2(mod(aCell, ${FAN_CELLS}.0), floor(aCell / ${FAN_CELLS}.0))) / ${FAN_CELLS}.0;`);
+};
+const FAN_QUAD = new THREE.PlaneGeometry(.95, 1.9).translate(0, .95, 0);
+const FAN_COLS = ['#dc2626', '#b91c1c', '#f8fafc', '#2563eb', '#1d4ed8', '#111827', '#facc15', '#0ea5e9'];
 const FAN_SKIN = ['#e3b08c', '#9a6544', '#f2c9a8', '#c48a62', '#6b4630'];
 const stands = [], crowds = [];
 function buildStand(o, along, back, len, rows, depth, rise, ph) {
@@ -401,18 +407,15 @@ function buildStand(o, along, back, len, rows, depth, rise, ph) {
   const spots = [];
   for (let i = 0; i < rows; i++) for (let u = .3; u < len - .2; u += .54) if (Math.random() < .88) spots.push([u + (Math.random() - .5) * .12, i]);
   for (let k = spots.length - 1; k > 0; k--) { const j = Math.random() * (k + 1) | 0; [spots[k], spots[j]] = [spots[j], spots[k]]; }   // в разброс: при облегчении убираем случайных
-  const n = spots.length, torso = new THREE.InstancedMesh(FAN.torso, fanMat, n), head = new THREE.InstancedMesh(FAN.head, fanMat, n);
-  const armIdx = spots.map((s, k) => k).filter(() => Math.random() < .14), arms = new THREE.InstancedMesh(FAN.arms, fanMat, armIdx.length);
-  const d = new THREE.Object3D(), col = new THREE.Color(), face = Math.atan2(-Bk.x, -Bk.z);
+  const n = spots.length, fans = new THREE.InstancedMesh(FAN_QUAD, fanMat, n), cells = new Float32Array(n);
+  const d = new THREE.Object3D(), look = V(0, 0, 12);
   spots.forEach(([u, i], k) => {
-    const stand = Math.random() < .3 ? 1.3 : 1, p = at(u, i, .02).addScaledVector(Bk, depth * .55);
-    d.position.copy(p); d.rotation.set(0, face + (Math.random() - .5) * .5, 0); d.scale.set(.9 + Math.random() * .25, stand * (.88 + Math.random() * .2), 1); d.updateMatrix();
-    torso.setMatrixAt(k, d.matrix); torso.setColorAt(k, col.set(FAN_COLS[Math.random() * FAN_COLS.length | 0]));
-    d.position.y += (d.scale.y - 1) * .5; d.scale.set(1, 1, 1); d.updateMatrix();
-    head.setMatrixAt(k, d.matrix); head.setColorAt(k, col.set(FAN_SKIN[Math.random() * FAN_SKIN.length | 0]));
+    const p = at(u, i, -.05).addScaledVector(Bk, depth * .55), sc = .9 + Math.random() * .18;
+    d.position.copy(p); d.rotation.set(0, Math.atan2(look.x - p.x, look.z - p.z), 0); d.scale.set(sc, sc, sc); d.updateMatrix();
+    fans.setMatrixAt(k, d.matrix); cells[k] = Math.random() * FAN_CELLS * FAN_CELLS | 0;
   });
-  armIdx.forEach((k, j) => { const m = new THREE.Matrix4(); head.getMatrixAt(k, m); arms.setMatrixAt(j, m); arms.setColorAt(j, col.set(FAN_SKIN[j % FAN_SKIN.length])); });
-  for (const m of [torso, head, arms]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.frustumCulled = false; g.add(m); crowds.push({m, n: m.count}); }
+  fans.geometry = FAN_QUAD.clone(); fans.geometry.setAttribute('aCell', new THREE.InstancedBufferAttribute(cells, 1));
+  fans.instanceMatrix.needsUpdate = true; fans.frustumCulled = false; g.add(fans); crowds.push({m: fans, n});
   g.add(quad([...at(0, 0, -O.y).toArray()], [...at(len, 0, -O.y).toArray()], [...at(len, 0).toArray()], [...at(0, 0).toArray()], darkMat, 1, 1));
   scene.add(g); stands.push({g, ph});
 }
@@ -607,6 +610,30 @@ function makeMan(kit) {   // kit: {shirt, shorts, sock, band, skin, hair, style,
     limbs['s' + k] = shG; limbs['e' + k] = el; limbs['h' + k] = hp; limbs['k' + k] = kn; limbs['hand' + k] = hand; limbs['boot' + k] = boot;
   }
   return Object.assign({root, body, spine, head: headG}, limbs);
+}
+function buildFanAtlas() {                                   // болельщики рисуются один раз: маленькая сцена со своим светом, камера на каждую клетку
+  const sc = new THREE.Scene(), dl = new THREE.DirectionalLight(0xffffff, 1.7);
+  dl.position.set(1.5, 3, 4); sc.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a3a2a, 1.5), dl);
+  const cam = new THREE.OrthographicCamera(-.5, .5, 1.95, -.05, .1, 10); cam.position.set(0, 0, 5);
+  const POSES = [pose({y: .56, ground: 0, lean: .12, hLx: -1.5, kL: 1.5, hRx: -1.5, kR: 1.5, sLx: -.45, sRx: -.45, eL: -1.1, eR: -1.1}),
+                 pose({sLz: .16, sRz: -.16, eL: -.3, eR: -.3}),
+                 pose({sLx: -2.9, sRx: -2.9, sLz: .3, sRz: -.3, eL: -.25, eR: -.25, nod: -.2}),
+                 pose({sRx: -2.6, sRz: -.45, eR: -.6, sLz: .2, sLx: -.6, eL: -1.4})];
+  const prev = {t: renderer.getRenderTarget(), c: renderer.getClearColor(new THREE.Color()), a: renderer.getClearAlpha()};
+  renderer.setClearColor(0x000000, 0); renderer.setRenderTarget(fanRT); renderer.clear();
+  fanRT.scissorTest = true;
+  for (let c = 0; c < FAN_CELLS * FAN_CELLS; c++) {
+    const shirt = FAN_COLS[(c * 5 + (c >> 3)) % FAN_COLS.length];
+    const m = makeMan({shirt, shorts: ['#1f2937', '#334155', '#0f172a'][c % 3], sock: '#111827', band: '#111827', skin: SKINS[(c * 3 + (c >> 2)) % 4],
+                       hair: HAIRS[(c * 7) % 4], style: (c >> 1) % 4, num: '', collar: shade(shirt, -.3)});
+    sc.add(m.root); applyPose(m, POSES[c % 4]);
+    const x = (c % FAN_CELLS) * FAN_W, y = Math.floor(c / FAN_CELLS) * FAN_H;
+    fanRT.viewport.set(x, y, FAN_W, FAN_H); fanRT.scissor.set(x, y, FAN_W, FAN_H);
+    renderer.setRenderTarget(fanRT); renderer.render(sc, cam);
+    sc.remove(m.root); m.root.traverse(o => { if (o.isMesh && o.geometry !== GEO.num) o.geometry.dispose(); });
+  }
+  fanRT.scissorTest = false; fanRT.viewport.set(0, 0, fanRT.width, fanRT.height); fanRT.scissor.set(0, 0, fanRT.width, fanRT.height);
+  renderer.setRenderTarget(prev.t); renderer.setClearColor(prev.c, prev.a);
 }
 const POSE0 = {x: 0, z: 0, yaw: 0, y: .97, roll: 0, lean: 0, sLx: 0, sLz: .12, eL: -.15, sRx: 0, sRz: -.12, eR: -.15,
                hLx: 0, hLz: .04, kL: .05, hRx: 0, hRz: -.04, kR: .05, nod: 0, look: 0, ground: 1, jy: 0};
@@ -1332,6 +1359,7 @@ function frame(now) {
   $('lb1').style.height = $('lb2').style.height = (7.5 * lb).toFixed(2) + 'vh';
   updateHud(at, a);
   renderer.render(scene, camera);
+  fpsMeter(now);
   if (phase === 'choose' && performance.now() > deadline) {
     if (live || EMBED) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }
     else pick(isFk() ? (role === 'kick' ? Math.floor(Math.random() * 4) : fkWall * 3 + Math.floor(Math.random() * 3))
@@ -1378,8 +1406,11 @@ cv.addEventListener('pointerdown', e => {
       if (best >= 0) pick(best);
       return;
     }
-    const ps = L.men.flatMap(m => [screenOf(m.clone().setY(0)), screenOf(m.clone().setY(2.7))]);
-    const x0 = Math.min(...ps.map(p => p.x)) - 30, x1 = Math.max(...ps.map(p => p.x)) + 30, y0 = Math.min(...ps.map(p => p.y)) - 30, y1 = Math.max(...ps.map(p => p.y)) + 25;
+    // ворота важнее: стенка на экране закрывает середину ворот, а «ЦЕНТР» должен выбираться; стенка — ноги игроков и надпись под ней
+    if (h && Math.abs(h.x) < HW + .3 && h.y > -.05 && h.y < GH + .4) { pick(fkWall * 3 + colOf(h.x)); return; }
+    const lbl = L.wallC.clone().addScaledVector(L.toG, -2.2);
+    const ps = [...L.men.flatMap(m => [screenOf(m.clone().setY(0)), screenOf(m.clone().setY(2.7))]), screenOf(lbl.clone().setX(lbl.x - 1.5)), screenOf(lbl.clone().setX(lbl.x + 1.5))];
+    const x0 = Math.min(...ps.map(p => p.x)) - 30, x1 = Math.max(...ps.map(p => p.x)) + 30, y0 = Math.min(...ps.map(p => p.y)) - 30, y1 = Math.max(...ps.map(p => p.y)) + 30;
     if (e.clientX > x0 && e.clientX < x1 && e.clientY > y0 && e.clientY < y1) {
       fkWall = 1 - fkWall; haptic('tap');
       setUi(fkWall ? 'Стенка прыгнет — ловит удар верхом, но низом мяч проскочит. Теперь коснитесь угла для вратаря.'
@@ -1414,7 +1445,7 @@ function pick(v, auto) {
   if (EMBED) { toParent({type: 'pick', value: v}); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
-  demoOpponent(v);
+  if (!selfTesting) demoOpponent(v);
 }
 const Q = new URLSearchParams(location.search);
 const ROOM = Q.get('room');
@@ -1489,7 +1520,70 @@ function play(result) {
   setUi('');
 }
 let dbgReal = null;                                            // для проверки: остановить сцену на нужной секунде (?3d — скриншоты)
-window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, get cam() { return [camera.position, ball.position, kicker.root.position]; }};
+window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, selfTest: () => selfTest(), get cam() { return [camera.position, ball.position, kicker.root.position]; }};
+/* ---------------- самопроверка (?selftest=1): касание по каждой цели → тот ли выбор → туда ли летит мяч и прыгает вратарь на экране ----------------
+   Касания идут через тот же обработчик, что у пальца; сторона проверяется по картинке (проекция на экран), а не по числам выбора. */
+let selfTesting = false;
+async function selfTest() {
+  selfTesting = true;
+  const out = [], wait = ms => new Promise(r => setTimeout(r, ms)), frames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const tap = p => { const s = screenOf(p); cv.dispatchEvent(new PointerEvent('pointerdown', {clientX: s.x, clientY: s.y, bubbles: true})); };
+  const sideOf = p => { const d = screenOf(p).x - screenOf(V(0, 1, 0)).x, tol = Math.abs(screenOf(V(.9, 1, 0)).x - screenOf(V(0, 1, 0)).x);
+                        return d < -tol ? 'влево' : d > tol ? 'вправо' : 'центр'; };
+  const want = c => ['влево', 'центр', 'вправо'][c];
+  const sceneAt = async s => { const T = anim.plan.tl; let r = s;
+    for (let i = 0; i < T.length - 1; i++) { const [s0, r0] = T[i], [s1, r1] = T[i + 1]; if (s <= s1 && s1 > s0) { r = r0 + (s - s0) / (s1 - s0) * (r1 - r0); break; } if (i === T.length - 2) r = r1 + (s - s1); }
+    dbgReal = r; await frames(); };
+  const check = (name, okv, got) => out.push({name, ok: !!okv, got});
+  const modeWas = MODE;
+  for (const mode of ['pen', 'fk']) {
+    MODE = mode; fkSetup(); castSig = '';
+    for (const r of ['kick', 'keep']) {
+      const n = mode === 'pen' ? (r === 'kick' ? 6 : 3) : (r === 'kick' ? 4 : 6);
+      for (let v = 0; v < n; v++) {
+        dbgReal = null; start(r); await frames();
+        const what = `${mode === 'pen' ? 'Пенальти' : 'Штрафной'}, ${r === 'kick' ? 'бьющий' : 'вратарь'}, вариант ${v + 1}`;
+        if (mode === 'fk' && r === 'keep' && v >= 3) { tap(L.wallC.clone().addScaledVector(L.toG, -2.2).setY(.2)); await frames(); }   // сначала касание стенки — «прыгает»
+        const T = mode === 'pen' ? (r === 'kick' ? V(zone(v).x, zone(v).y, 0) : V(colX(v), GH * .6, 0))
+                                 : (r === 'kick' ? V(FKT(v).x, FKT(v).y, 0) : V(colX(v % 3), GH * .6, 0));
+        tap(T); await frames();
+        check(what + ': касание → выбор', myPick === v, myPick === null ? 'нет выбора' : pickWords(myPick));
+        if (myPick !== v) continue;
+        // исход с этим выбором; соперник — в другую сторону, чтобы было видно, куда ушёл именно наш выбор
+        let res;
+        if (mode === 'pen') res = r === 'kick' ? {aim: v, dive: v % 3 === 0 ? 2 : 0, outcome: 'goal', text: 'тест'} : {aim: 4, dive: v, outcome: 'goal', text: 'тест'};
+        else res = r === 'kick' ? {fk: v, wall: 0, dive: 1, outcome: 'goal', text: 'тест'} : {fk: 0, wall: Math.floor(v / 3), dive: v % 3, outcome: 'goal', text: 'тест'};
+        dbgReal = 0; play(res); const pl = anim.plan;
+        if (r === 'kick') {
+          await sceneAt(pl.R - .02);
+          const col = mode === 'pen' ? v % 3 : (v % 2 ? 2 : 0), got = sideOf(ball.position);
+          check(what + ': мяч летит ' + want(col), col === 1 ? got !== (v % 3 === 0 ? 'вправо' : 'влево') && Math.abs(ball.position.x) < 1.4 : got === want(col), got);
+          const high = mode === 'pen' ? v < 3 : null;
+          if (high !== null) check(what + (high ? ': мяч в верх ворот' : ': мяч в низ ворот'), high ? ball.position.y > GH / 2 : ball.position.y < GH / 2, ball.position.y.toFixed(2) + ' м');
+          if (mode === 'fk') { await sceneAt(pl.cross); const over = v < 2;
+            check(what + (over ? ': над стенкой' : ': низом'), over ? ball.position.y > 1.9 : ball.position.y < .6, ball.position.y.toFixed(2) + ' м'); }
+        } else {
+          const dive = mode === 'pen' ? v : v % 3;
+          await sceneAt(pl.Ta); const got = sideOf(handsAt(keeper));
+          check(what + ': вратарь ' + want(dive), got === want(dive), got);
+          if (mode === 'fk') { await sceneAt(pl.cross); const j = wallJump(pl.cross, anim) > .5;
+            check(what + (v >= 3 ? ': стенка прыгает' : ': стенка стоит'), j === v >= 3, j ? 'прыгает' : 'стоит'); }
+        }
+      }
+    }
+  }
+  MODE = modeWas; fkSetup(); castSig = ''; dbgReal = null; anim = null; phase = 'intro'; role = null; selfTesting = false;
+  return out;
+}
+let fpsEl = null, fpsT = 0, fpsN = 0;
+function fpsMeter(now) {                                     // ?fps=1: кадры в секунду и нагрузка — чтобы проверить на своём телефоне
+  if (!fpsEl) return;
+  fpsN++;
+  if (now - fpsT < 1000) return;
+  const i = renderer.info.render;
+  fpsEl.textContent = `${Math.round(fpsN * 1000 / (now - fpsT))} к/с · ${tier === 2 ? 'полное' : 'облегчённое'} · ${i.calls} выз · ${Math.round(i.triangles / 1000)}k треуг`;
+  fpsT = now; fpsN = 0;
+}
 function finish() {
   phase = 'done';
   if (EMBED) { setUi(''); toParent({type: 'done'}); return; }
@@ -1504,7 +1598,7 @@ function start(r, left) {
   if (left !== undefined) chooseSec = Math.max(1, left);
   deadline = performance.now() + chooseSec * 1000;
   if (isFk()) setUi(r === 'kick' ? 'Коснитесь удара: через стенку (прыгнувшая стенка часто ловит) или под стенку (пройдёт, если стенка прыгнет).'
-                                 : 'Коснитесь стенки — стоит или прыгает. Потом коснитесь угла, куда сместится вратарь.');
+                                 : 'Коснитесь стенки (ног игроков или надписи под ними) — стоит или прыгает. Потом коснитесь угла, куда сместится вратарь.');
   else setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
                           : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
 }
@@ -1524,10 +1618,16 @@ function ready() {                                             // сцена т�
   } else if (ROOM) liveConnect();
   else if (isFk()) setUi('Штрафной — демо. Кем будете?', [['🎯 Бить', '', () => start('kick')], ['🧱 Стенка и вратарь', 'alt', () => start('keep')]]);
   else setUi('Пенальти — демо. Кем будете?', [['⚽ Бить', '', () => start('kick')], ['🧤 Стоять в воротах', 'alt', () => start('keep')]]);
+  if (Q.get('fps') === '1') { fpsEl = document.createElement('div'); fpsEl.style.cssText = 'position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom));color:#a3e635;font:12px monospace;z-index:5;text-shadow:0 1px 2px #000;pointer-events:none'; document.body.appendChild(fpsEl); }
+  if (Q.get('selftest') === '1' && !EMBED && !ROOM) selfTest().then(res => {                 // итог самопроверки — прямо на экране
+    const bad = res.filter(x => !x.ok); window.__selftest = res;
+    setUi(bad.length ? `Самопроверка: ошибок ${bad.length} из ${res.length} — ` + bad.map(x => x.name + ' (вышло: ' + x.got + ')').join('; ') : `Самопроверка: всё верно, ${res.length} из ${res.length} ✓`,
+          [['Ещё раз', '', () => location.reload()]]);
+  });
 }
 
 addEventListener('resize', fit); fit();
-layout(); hudCards();
+buildFanAtlas(); layout(); hudCards();
 requestAnimationFrame(frame);
 if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
   TG.setHeaderColor && TG.setHeaderColor('#02050f'); TG.setBackgroundColor && TG.setBackgroundColor('#02050f'); } catch (e) {} }
