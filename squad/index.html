@@ -307,6 +307,7 @@ function matchCard(m, title) {
   else if (m.need) x += `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div>`;
   if (!o && m.can_time) x += `<button type="button" class="go${m.status === 'open' ? ' main' : ''}" data-time="${m.id}">${m.move ? '🔄 Перенести' : m.sent ? '🕐 Предложить другое время' : '🕐 Назначить время'}</button>`;
   if (m.can_cancel) x += `<button type="button" class="go" data-cancel="${m.id}" style="color:#fca5a5">🗑 Отменить товарищеский</button>`;
+  if (m.watch) x += `<button type="button" class="go main" data-watch="${m.id}">📺 Смотреть матч</button>`;
   if (m.scout) x += `<button type="button" class="go scoutb" data-scout="${m.id}">🔎 Разведка и план на матч${m.plan ? ' · ✅ план готов' : ''}</button>`;
   return x + `</div>`;
 }
@@ -764,7 +765,7 @@ function renderSquad() {
     `<button type="button" class="chip${k === S.formation ? ' on' : ''}" data-f="${k}"><b>${k}</b><span>${esc(d.split(':')[0])}</span></button>`).join('');
   const parts = S.formation.split('-').map(Number), want = {def: parts[0], mid: parts[1], att: parts[2]};
   $('pitch').innerHTML = LINES.map(([key, title]) => {
-    const ps = S.players.filter(p => p.place === 'field' && p.line === key);
+    const ps = S.players.filter(p => p.place === 'field' && p.line === key).sort((a, b) => (a.at || 0) - (b.at || 0));
     return `<div class="line"><span class="tag">${title} · ${want[key]}</span>${ps.map(token).join('')}</div>`;
   }).join('') + `<div class="line"><span class="tag">Вратарь</span>${S.players.filter(p => p.place === 'gk').map(token).join('') ||
     '<div class="pl"><div class="shirt">?</div><div class="nm">нет вратаря</div></div>'}</div>`;
@@ -772,7 +773,7 @@ function renderSquad() {
     '<div class="nm" style="grid-column:1/-1;text-align:center;color:var(--muted)">Нет запасных</div>';
   $('app').classList.toggle('swapping', swapFrom !== null);
   $('swapbar').classList.toggle('hidden', swapFrom === null);
-  if (swapFrom !== null) { const p = player(swapFrom); $('swaptext').textContent = p ? `С кем поменять №${p.number} ${shortName(p)}?` : ''; }
+  if (swapFrom !== null) { const p = player(swapFrom); $('swaptext').textContent = p ? `С кем поменять №${p.number} ${shortName(p)}? Можно и с игроком на поле` : ''; }
   if (open !== null) renderSheet();
 }
 
@@ -846,6 +847,11 @@ document.addEventListener('click', e => {
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
+  if (b.dataset.watch) {       // трансляция матча — та же страница и комната, что у кнопки в чате (пускает бот по подписи)
+    const m = matchById(+b.dataset.watch); haptic();
+    if (m && m.watch) location.href = m.watch; else toast('Трансляция ещё не открыта — подождите пару секунд');
+    return;
+  }
   if (b.dataset.scout) { haptic(); const fx = +b.dataset.scout; if (MS) closeSheet(); openPanel('scout'); PANEL.fx = fx; send({a: 'scout', fx}); renderPanel(); return; }
   if (b.dataset.ask) { haptic(); send({a: 'ask', key: b.dataset.ask}); return; }
   if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); renderHome(); return; }
@@ -1235,10 +1241,15 @@ function demoClubAct(act) {   // демо: раздел «Клуб» меняе�
   }
   return null;
 }
+function demoField() {       // полевые сзади вперёд: ручная расстановка (S.order) или по очкам — как считает бот
+  const f = S.players.filter(p => p.place === 'field');
+  if (S.order && S.order.length === f.length && f.every(p => S.order.includes(p.slot))) return S.order.map(player);
+  return f.sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
+}
 function demoRefresh() {     // линии и готовность — как считает бот
-  const f = S.players.filter(p => p.place === 'field').sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
+  const f = demoField();
   const [d, , a] = S.formation.split('-').map(Number);
-  f.forEach((p, i) => { p.line = i < d ? 'def' : i >= f.length - a ? 'att' : 'mid'; });
+  f.forEach((p, i) => { p.line = i < d ? 'def' : i >= f.length - a ? 'att' : 'mid'; p.at = i; });
   S.players.forEach(p => { p.lead = p.age >= 28 ? 'сильное' : p.age >= 24 ? 'среднее' : 'слабое'; p.promise = p.slot === 9 ? 1 : 0; });
   S.promise_warn = S.players.filter(p => p.promise === 1 && p.place === 'bench').map(p => `Обещали место в основе №${p.number} ${p.name} — он в запасе`);
   S.players.forEach(p => { const r = p.role && roleOf(p.role); p.role_off = !!r && (p.place !== 'field' || r[1] !== p.line); });
@@ -1285,8 +1296,9 @@ function demoAct(act) {
   } else if (act.a === 'formation') { S.formation = act.f; r.note = 'Схема ' + act.f; }
   else if (act.a === 'swap') {
     const q = player(act.with);
-    if (p.place === 'field' && q.place === 'field') r = {ok: false, note: 'Эти двое и так на поле — поменять нечего'};
-    else { [p.place, q.place] = [q.place, p.place]; r.note = 'Поменялись местами'; }
+    if (!S.order && p.place === 'field' && q.place === 'field') S.order = demoField().map(x => x.slot);
+    if (S.order) S.order = S.order.map(s => s === p.slot ? q.slot : s === q.slot ? p.slot : s);
+    [p.place, q.place] = [q.place, p.place]; r.note = 'Поменялись местами';
   } else if (act.a === 'captain' || act.a === 'penalty') { S[act.a] = p.slot; r.note = `№${p.number} — ` + (act.a === 'captain' ? 'капитан' : 'пенальтист'); }
   else if (act.a === 'talent') { S.talent = act.key; S.talent_slot = p.slot; r.note = 'Талант назначен'; }
   else if (act.a === 'role') {
