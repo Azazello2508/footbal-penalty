@@ -258,6 +258,15 @@ function syncLineup() {
   });
   for (const k of Object.keys(players)) if (!seen.has(k)) delete players[k];
 }
+// тактика команды: ключ от бота (tk), а в демо — по названию. Видно по расстановке: прессинг — высокая линия и двое на мяч,
+// оборона — низкий плотный блок, контратака — защита глубоко, нападающие ждут выше
+const TAC_BY_TITLE = {'Прессинг': 'press', 'Контратака': 'counter', 'Оборона': 'park'};
+function tac(t) {
+  const tm = S && S.teams[t]; if (!tm) return 'balance';
+  if (tm.tk) return tm.tk;
+  const w = Object.keys(TAC_BY_TITLE).find(x => String(tm.tactic || '').includes(x));
+  return w ? TAC_BY_TITLE[w] : 'balance';
+}
 function teamPlayers(t, field) { return Object.values(players).filter(p => p.t === t && (!field || !p.gk)); }
 function P(t, s) { return players[key(t, s)]; }
 
@@ -292,7 +301,7 @@ function renderStatus() {
   else if (S.phase === 'final') txt = '🏁 Финальный свисток';
   else {
     const r = S.teams.map((x, t) => x.rush ? `💥 ${names[t]} штурмует` : '').filter(Boolean);
-    txt = r.join(' · ');
+    txt = r.length ? r.join(' · ') : S.teams[0].tactic && S.teams[1].tactic ? `${S.teams[0].tactic} — ${S.teams[1].tactic}` : '';
   }
   $('status').textContent = txt;
 }
@@ -1067,12 +1076,14 @@ function updatePlay(now) {
   const free = !holderP() && !ball.recv && now - ball.t0 >= ball.d && !throwIn && !fetch && !ref.job;
   if (!plan || now - plan.at > 250) {
     const old = plan || {press: [null, null]};
-    plan = {press: [null, null], chase: [null, null], support: [null, null], spot: [null, null], overlap: [null, null], at: now};
+    plan = {press: [null, null], press2: [null, null], chase: [null, null], support: [null, null], spot: [null, null], overlap: [null, null], at: now};
     for (const t of [0, 1]) {
       const field = teamPlayers(t, true).filter(q => !focus[key(q.t, q.s)] && !(q.beaten > now));   // обведённый не сразу встаёт
       if (poss !== t || free) {
         const best = nearestTo(ball, field), cur = old.press[t];
         plan.press[t] = cur && field.includes(cur) && best && dd(cur, ball) < dd(best, ball) * 1.35 + 12 ? cur : best;
+        if (tac(t) === 'press' && !free && plan.press[t])     // прессинг: второй закрывает ближний пас
+          plan.press2[t] = nearestTo(ball, field.filter(q => q !== plan.press[t] && q.role !== 'def'));
       }
       if (free) plan.chase[t] = plan.press[t];
     }
@@ -1381,6 +1392,10 @@ function target0(p, now) {
       if (Math.floor(now / 2600 + p.s) % 3 === 0) depth += .07;                         // рывок за спину защитникам
       if (bd < .4 && Math.floor(now / 3100 + p.s) % 3 === 1) depth = bd + .18;           // или открывается навстречу, под пас
     }
+    const tk = tac(p.t);
+    if (tk === 'press') depth += .03;                           // прессинг: вся команда выше
+    else if (tk === 'park') depth -= p.role === 'att' ? 0 : p.role === 'mid' ? .05 : .08;   // оборона: тылы не оголяют
+    else if (tk === 'counter' && p.role === 'att') depth += .05;   // контратака: нападающие сразу в рывок
     if (hp !== p && ball.recv !== k) depth = Math.min(depth, offsideLine(p.t) - .012);  // но не в офсайд
     if (plan && plan.overlap[p.t] === p) return {...at(p.t, clamp(depth, .05, .9), xf), sp: 'sprint'};
   } else {                                                      // без мяча: сжимаются, линия — между мячом и своими воротами
@@ -1390,9 +1405,15 @@ function target0(p, now) {
     }
     // три линии сдвигаются вместе с мячом, но не схлопываются: защита — между мячом и воротами,
     // полузащита и атака остаются выше (нападающий ждёт выхода в контратаку), а не бегут всей командой в штрафную
+    const tk = tac(p.t);
+    if (plan && plan.press2[p.t] === p && hp) {              // прессинг: второй встаёт между мячом и ближним партнёром владельца
+      const mate = nearestTo(hp, teamPlayers(hp.t, true).filter(q => q !== hp));
+      if (mate) { const pt = lerpPt(hp, mate, .45); return {x: pt.x, y: pt.y, sp: 'run'}; }
+    }
     const line = p.role === 'def' ? 0 : p.role === 'mid' ? 1 : 2;
-    const back = clamp(.17 + (bd - .5) * .34, .07, .36);
-    depth = back + line * .13;
+    const back = clamp(.17 + (bd - .5) * .34 + (tk === 'press' ? .08 : tk === 'park' ? -.05 : tk === 'counter' ? -.03 : 0), .06, .44);
+    depth = back + line * (tk === 'park' ? .1 : tk === 'press' ? .12 : .13);
+    if (tk === 'counter' && line === 2) depth += .1;           // контратака: нападающий ждёт у центра — под длинный пас
     if (line === 0) depth = Math.min(depth, Math.max(.05, bd - .03));
     xf = .5 + (b.xf - .5) * .85 + (bx - .5) * .3;
     if (p.role !== 'att') {                                      // опека: ближайший соперник в зоне — встать между ним и воротами, не вплотную
@@ -1482,7 +1503,9 @@ function onTick(m) {
   const prev = S; S = m.state;
   if (!shown) shown = JSON.parse(JSON.stringify(S));
   if (S.left !== undefined) statusUntil = performance.now() + S.left * 1000;
-  const lineupChanged = !prev || JSON.stringify(prev.teams.map(x => [x.gk, x.def, x.mid, x.att])) !== JSON.stringify(S.teams.map(x => [x.gk, x.def, x.mid, x.att]));
+  if (prev && S.phase !== 'pre') S.teams.forEach((tm, t) => {          // сменили тактику — подпись на поле, расстановка меняется
+    if (prev.teams[t] && tm.tactic && prev.teams[t].tactic !== tm.tactic) label(`«${tm.name}»: ${tm.tactic}`, 2600);
+  });
   const fresh = JSON.parse(JSON.stringify(S));
   const steps = [];
   const acts = m.acts || [];
@@ -1497,7 +1520,7 @@ function onTick(m) {
   });
   for (const a of acts) steps.push(...build(a));
   // в конце эпизода — табло, состав и лента (чтобы счёт и строки не обгоняли мяч)
-  steps.push({d: 0, tick: true, run: () => { shown = fresh; if (lineupChanged) syncLineup(); addFeed(m.feed || [], true); renderBoard(); }});
+  steps.push({d: 0, tick: true, run: () => { shown = fresh; syncLineup(); addFeed(m.feed || [], true); renderBoard(); }});
   queue.push(...steps);
   renderBoard();
 }
@@ -1807,7 +1830,7 @@ function drawStadium(x) {
 }
 
 let scale = 1, pitchImg = null;
-const HQ = 1.6;                                   // стадион рисуется крупнее экрана: при приближении камеры не мылится
+let HQ = 1.6;                                     // стадион рисуется крупнее экрана: при приближении камеры не мылится
 const HQW = () => Math.round(cv.width * HQ), HQH = () => Math.round(cv.height * HQ);
 function fit() {
   const wrap = $('pitchwrap'), top = $('top').offsetHeight;
@@ -1817,7 +1840,7 @@ function fit() {
   const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .62, vh - top - 130));
   const cw = Math.min(innerWidth, maxH * TW / TH);
   scale = cw / TW;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(perf.lite ? 1.25 : 2, window.devicePixelRatio || 1);
   cv.style.width = cw + 'px'; cv.style.height = (cw * TH / TW) + 'px';
   cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * TH / TW * dpr);
   g.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);   // дальше — координаты поля
@@ -2101,6 +2124,11 @@ function plate(p, now, shirt, active, down) {
   g.strokeStyle = shirt; g.lineWidth = 1.6; g.stroke();
   g.fillStyle = '#fff'; g.fillText(p.n, p.x, ny + .5);
   if (p.y_ > 0) { g.fillStyle = '#facc15'; g.fillRect(p.x + nw / 2 + 1, ny - 6, 4.5, 6.5); }
+  const pw = p.pw === undefined ? 100 : p.pw;
+  if (pw < 60 && !p.gk) {                                // устал: полоска сил под номером (жёлтая, меньше 35% — красная)
+    g.fillStyle = 'rgba(5,10,24,.7)'; g.fillRect(p.x - nw / 2, ny + 7.5, nw, 3.5);
+    g.fillStyle = pw < 35 ? '#ef4444' : '#facc15'; g.fillRect(p.x - nw / 2 + .5, ny + 8, Math.max(1, (nw - 1) * pw / 100), 2.5);
+  }
   if (active || down || holder === key(p.t, p.s)) {
     g.font = 'bold 13px "Trebuchet MS",sans-serif';
     const w = g.measureText(p.nm).width + 12;
@@ -2790,8 +2818,33 @@ function drawFlares(now) {
   }
 }
 
+/* ---------------- плавность на телефоне ----------------
+   Сцена меряет промежутки между кадрами (пока на экране). Первые ~8 с тормозит (меньше 36 кадр/с) — облегчённый режим:
+   холст и стадион в меньшем разрешении (рисовать в 2–2,5 раза меньше точек), игра та же. Раз в 2 минуты — замер боту:
+   кадров в секунду (по медиане), доля рывков (кадр дольше 50 мс), облегчённый ли режим — строка в сводке администратора. */
+const perf = {last: 0, buf: [], lite: false, checked: false, sent: 0};
+function perfStats(buf) {
+  const a = buf.slice().sort((x, y) => x - y), med = a[Math.floor(a.length / 2)];
+  return {fps: Math.round(1000 / med), jank: Math.round(1000 * a.filter(x => x > 50).length / a.length) / 10};
+}
+function perfTick(now) {
+  if (document.hidden || !S) { perf.last = 0; return; }
+  const d = perf.last ? now - perf.last : 0; perf.last = now;
+  if (d <= 0 || d > 250) return;                         // страницу сворачивали — не кадр, а перерыв
+  perf.buf.push(d);
+  if (!perf.checked && perf.buf.length >= 240) {
+    perf.checked = true;
+    if (perfStats(perf.buf).fps < 36 && Q.get('lite') !== '0') { perf.lite = true; HQ = 1.15; fit(); }
+  }
+  if (perf.buf.length >= 600 && now - perf.sent > 120000) {
+    const st = perfStats(perf.buf);
+    perf.buf = []; perf.sent = now;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'act', act: {a: 'perf', fps: st.fps, jank: st.jank, lite: perf.lite}}));
+  }
+}
 function frame(now) {
   requestAnimationFrame(frame);
+  perfTick(now);
   updatePlay(now);
   if (!pitchImg) return;
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#060b16'; g.fillRect(0, 0, cv.width, cv.height);
@@ -3404,6 +3457,9 @@ function demo() {
   setInterval(() => {
     if (st.minute >= 60) return;
     st.minute++; st.phase = 'play';
+    for (const tm of st.teams) for (const p of field(tm)) p.pw = Math.max(15, Math.round((p.pw === undefined ? 100 : p.pw) - rnd(.4, 1.8)));
+    if (st.minute === 8) st.teams[0].tactic = '🔥 Прессинг';
+    if (st.minute === 14) st.teams[1].tactic = '🛡 Оборона';
     const acts = [], feed = [];
     if (st.minute === 1) acts.push({a: 'whistle', w: 'start'});
     if (Math.random() < .55) {
