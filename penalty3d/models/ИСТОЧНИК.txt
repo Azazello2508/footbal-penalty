@@ -1,0 +1,5 @@
+Модели людей: Quaternius, «Universal Base Characters» (Standard, бесплатная версия), https://quaternius.com/packs/universalbasecharacters.html
+Лицензия: CC0 1.0 (общественное достояние), https://creativecommons.org/publicdomain/zero/1.0/ — указание автора не требуется.
+Скачано 26.10.2026 с https://quaternius.itch.io/universal-base-characters; текстуры уменьшены до 1024/512 px и сохранены в JPEG.
+Трава: ambientCG, материал Grass005, https://ambientcg.com/view?id=Grass005 — лицензия CC0 1.0 (https://docs.ambientcg.com/license/).
+Скачано 26.10.2026 (Grass005_1K-JPG.zip); взяты цвет (1024 px) и карта рельефа NormalGL (уменьшена до 512 px).
