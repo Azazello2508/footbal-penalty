@@ -478,7 +478,7 @@ function reachPose(base, G, field) {   // подбирает, насколько
   p.x += G.x - handsWorld(p).x;
   return p;
 }
-const KEEPER_KIT = () => ({shirt: P.keeper.shirt, shorts: '#161922', sock: shade(P.keeper.shirt, -.3), band: '#f1f5f9',
+const KEEPER_KIT = () => ({shirt: isFk() ? gkShirt(P.keeper.shirt) : P.keeper.shirt, shorts: '#161922', sock: shade(isFk() ? gkShirt(P.keeper.shirt) : P.keeper.shirt, -.3), band: '#f1f5f9',
                            glove: true, num: P.keeper.num, hair: '#2b1d16', ground: GOAL.y1});
 const REF = {x: 108, y: 712, s: 1.62};   // судья сбоку в штрафной: свистит перед ударом
 const REF_KIT = {shirt: '#1a1d24', shorts: '#0b0c10', sock: '#0b0c10', band: '#1a1d24', glove: false, num: null,
@@ -944,6 +944,204 @@ function drawBallWithShadow(b, trail, tech) {
   drawBall(b.x, b.y, b.r, b.spin, b.alpha, b.sq);
 }
 
+/* ---------------- штрафной у самой штрафной (?fk=1 в демо, в матче — kind:'fk' от бота) ----------------
+   Та же сцена, но мяч — за линией штрафной (FKB), между мячом и воротами — стенка из четырёх игроков соперника.
+   Бьющий выбирает один из 4 ударов (через стенку / под стенку × левый / правый угол); защита — стенку (касание стенки:
+   стоит ↔ прыгает) и угол, куда сместится вратарь (касание ворот — выбор уходит боту: стенка × 3 + угол).
+   Исход присылает бот {fk, wall, dive, outcome: goal | save | miss | block}; как это выглядит — makeFkPlan:
+   через стенку мяч уходит дугой над головами (над прыгнувшими — выше) и падает в угол, под стенку — низом по газону
+   (прыгнувшая стенка пропускает его под ногами); блок — рикошет от головы или ног обратно в поле. */
+const FKA = ['через стенку в левый угол', 'через стенку в правый угол', 'под стенку в левый угол', 'под стенку в правый угол'];
+const FKW = ['стенка стоит', 'стенка прыгает'];
+const FKD = ['левый угол', 'центр', 'правый угол'];
+let MODE = new URLSearchParams(location.search).get('fk') === '1' ? 'fk' : 'pen';
+const isFk = () => MODE === 'fk';
+const FKB = {x: 360, y: 985};                          // мяч — сразу за линией штрафной (930)
+const WALL_Y = 640, WALL_S = 1.45, FKS = 1.12;         // стенка — между мячом и воротами; бьющий ближе к камере — крупнее
+const WALL_TOP = 196, WALL_JUMP = 62;                  // макушки стенки над газоном и насколько стенка взлетает в прыжке
+const FK_INFO = {wall: [4, 5, 6, 3], shorts: '#f5f5f5', spot: 0};
+const HAIRS = ['#2b1d16', '#6b4423', '#0f0f10', '#b7791f'];
+let fkWall = 0;                                        // выбор защиты до касания ворот: 0 — стоит, 1 — прыгает
+function fkSetup(info) {
+  if (info) {
+    if (Array.isArray(info.wall) && info.wall.length) FK_INFO.wall = info.wall.slice(0, 4);
+    if (typeof info.shorts2 === 'string') FK_INFO.shorts = info.shorts2;
+    if (typeof info.spot === 'number') FK_INFO.spot = clamp(info.spot, -1, 1);
+  }
+  FKB.x = 360 + FK_INFO.spot * 150;
+}
+const FK_EW = (FKB.y - WALL_Y) / (FKB.y - GOAL.y1);   // доля пути мяча до ворот, где он пересекает линию стенки
+function wallX() { return lerp(FKB.x, 360, FK_EW); }   // стенка закрывает прямую «мяч → центр ворот»
+function wallMen() {
+  const n = FK_INFO.wall.length, cx = wallX(), gap = 30 * WALL_S;
+  return FK_INFO.wall.map((num, i) => ({num, i, x: cx + (i - (n - 1) / 2) * gap}));
+}
+function gkShirt(team) {                               // вратарь — в форме другого цвета, не как его стенка
+  const rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
+  const t = rgb(team);
+  let best = '#22c55e', bd = -1;
+  for (const c of ['#22c55e', '#f97316', '#a855f7', '#facc15', '#06b6d4']) {
+    const d = rgb(c).reduce((s, v, i) => s + (v - t[i]) ** 2, 0); if (d > bd) { bd = d; best = c; }
+  }
+  return best;
+}
+const FKT = z => ({x: z % 2 ? GOAL.x1 - 62 : GOAL.x0 + 62, y: z < 2 ? GOAL.y0 + 42 : GOAL.y1 - 28});   // куда целится каждый удар
+// профиль высоты: мяч быстро взлетает, выше всего — перед стенкой, за ней «падает» в угол; ближе к камере высота крупнее
+const fkArc = e => Math.sin(Math.PI * Math.pow(clamp(e, 0, 1), .8)) * lerp(1.3, .9, e);
+function arcOver(C, jump) {                            // наименьшая дуга, с которой мяч над стенкой всё время выше голов
+  const top = WALL_Y - WALL_TOP - jump * WALL_JUMP - 26;
+  let need = 60;
+  for (let e = .38; e <= FK_EW + .02; e += .02) need = Math.max(need, (lerp(FKB.y - 6, C.y, e) - top) / fkArc(e));
+  return need;
+}
+const fkBend = (col, over) => (col === 0 ? 1 : -1) * (over ? 46 : 22);   // мяч огибает стенку и заворачивает в угол
+function wallJump(at, a) {                             // 0..1 — насколько стенка в воздухе
+  if (a) { if (!a.fkWall) return 0; const q = (at - a.plan.cross + .31) / .62; return q > 0 && q < 1 ? Math.sin(Math.PI * q) : 0; }   // выше всего — когда мяч у стенки
+  return phase === 'choose' && role === 'keep' && fkWall ? Math.max(0, Math.sin(performance.now() / 170)) * .3 : 0;   // выбор — пружинят на носках
+}
+function drawWall(at, a, t, bx) {
+  const j = wallJump(at, a), sh = P.keeper.shirt, pl = a && a.plan;
+  for (const m of wallMen()) {
+    let rot = 0, fist = 0, head = 0;
+    if (pl && pl.kind === 'wall' && at > pl.R) {        // кто заблокировал — отшатнулся; потом стенка радуется
+      const q = at - pl.R;
+      if (Math.abs(m.x - pl.W.x) < 30 * WALL_S) rot = -pl.side * .22 * Math.exp(-q * 4) * Math.sin(Math.min(q * 9, Math.PI));
+      fist = smooth(q, .45, .8);
+    } else if (pl && a.outcome === 'goal' && at > pl.R + .3) head = smooth(at, pl.R + .3, pl.R + .7) * .9;   // пропустили — за голову
+    const p = pose({x: m.x + Math.sin(t * 1.6 + m.i * 1.3) * 1.5, y: WALL_Y - j * WALL_JUMP, s: WALL_S, rot,
+                    crouch: lerp(.18, .04, j), legs: lerp(.35, .95, j), scoop: lerp(.9, .5, j) * (1 - fist) * (1 - head),
+                    fist, head, roar: fist, look: clamp((bx - m.x) / 160, -1, 1) * .8});
+    drawKeeper(p, {shirt: sh, shorts: FK_INFO.shorts, sock: shade(sh, -.3), band: '#f1f5f9', glove: false, num: m.num,
+                   hair: HAIRS[m.i % HAIRS.length], ground: WALL_Y});
+  }
+}
+function drawSpray() {                                 // пена судьи: полукруг у мяча и черта, дальше которой стенке нельзя
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 3.2; g.setLineDash([2, 7]); g.lineCap = 'round';
+  g.beginPath(); g.ellipse(FKB.x, FKB.y + 12, 50, 17, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+  const ms = wallMen();
+  g.beginPath(); g.moveTo(ms[0].x - 44, WALL_Y + 5); g.lineTo(ms[ms.length - 1].x + 44, WALL_Y + 5); g.stroke();
+  g.restore();
+}
+function makeFkPlan(a) {
+  const over = a.fk < 2, col = a.fk % 2 ? 2 : 0, block = a.outcome === 'block', jump = a.fkWall ? 1 : 0;
+  const pl = makePlan({aim: (over ? 0 : 3) + col, dive: a.dive, outcome: block ? 'save' : a.outcome, text: a.text});
+  const r = rng(seedOf(a) + 7);
+  pl.para = false; pl.dance = false; pl.over = over;
+  pl.tech = over ? 'place' : 'power';
+  pl.spin = over ? 24 : 30; pl.slow = .45;
+  pl.F = over ? .98 + r() * .08 : .78 + r() * .06;
+  pl.bend = fkBend(col, over);
+  if (block) {                                           // стенка: в голову (через стенку) или в ноги (под стенку)
+    const xw = lerp(FKB.x, pl.C.x, FK_EW) + pl.bend * Math.sin(Math.PI * FK_EW);
+    const man = wallMen().reduce((b, m) => Math.abs(m.x - xw) < Math.abs(b.x - xw) ? m : b);
+    const wx = lerp(xw, man.x, .6);
+    pl.W = {x: wx, y: over ? WALL_Y - jump * WALL_JUMP - WALL_TOP + 30 : WALL_Y - (jump ? 30 : 16)};
+    pl.kind = 'wall'; pl.side = wx < FKB.x ? -1 : 1;
+    pl.arc = over ? 70 : 4; pl.R = pl.K + pl.F * FK_EW;
+    pl.lands = false; pl.kdir = 0; pl.D0 = pl.R + .25; pl.Ta = pl.R + .65;
+    pl.KE = pose({x: 360 + (col - 1) * 14, crouch: .55, arms: .25});
+    pl.kr = 'clap'; pl.Tr = pl.R + .9; pl.hit = null; pl.holdR = .22;
+    pl.word = 'СТЕНКА!'; pl.note = '';
+    pl.say = over ? 'Через стенку…' : 'Низом под стенку…';
+  } else {
+    pl.arc = over ? arcOver(pl.C, jump) : 8;
+    pl.R = pl.K + pl.F;
+    if (pl.lands) { pl.D0 = Math.max(pl.K + .12, pl.R - .5); pl.Ta = Math.min(pl.R + .02, pl.D0 + .62); }   // летит дольше — вратарь прыгает позже
+    else { pl.D0 = Math.max(pl.K + .12, pl.R - .38); pl.Ta = pl.R; }
+    pl.Tr = pl.R + (pl.lands ? .75 : .5);
+    pl.say = over ? 'Через стенку — с закруткой в угол!' : jump ? 'Низом — под прыгнувшую стенку!' : 'Низом — в обход стенки!';
+  }
+  pl.cross = block ? pl.R : pl.K + (1 - Math.pow(1 - FK_EW, 1 / 1.2)) * (pl.R - pl.K);   // когда мяч у линии стенки
+  pl.end = pl.R + 2.75;
+  pl.tl = timeline(pl);
+  return pl;
+}
+function ballAtFk(at, a, kp) {
+  const B0x = FKB.x, B0y = FKB.y - 6, r0 = 25, g0 = FKB.y + 14;
+  if (!a || at < a.plan.K) return {x: B0x, y: B0y, r: r0, gy: g0, deep: false, spin: 0, alpha: 1};
+  const pl = a.plan, wall = pl.kind === 'wall', T = wall ? pl.W : pl.C, p = (at - pl.K) / (pl.R - pl.K);
+  if (p < 1) {
+    const e = 1 - Math.pow(1 - p, 1.2), gyEnd = wall ? WALL_Y : GOAL.y1 + 2;
+    return {x: lerp(B0x, T.x, e) + pl.bend * Math.sin(Math.PI * e), y: lerp(B0y, T.y, e) - pl.arc * fkArc(e),
+            r: lerp(r0, wall ? 15.5 : 10, e), gy: lerp(g0, gyEnd, e), deep: false, spin: at * pl.spin, alpha: 1, fly: true,
+            sq: .25 * clamp(1 - p / .08, 0, 1)};
+  }
+  if (!wall) return ballAt(at, a, kp);                  // у ворот — так же, как в пенальти
+  const q = at - pl.R, u = clamp(q / .7, 0, 1), e = easeOut(u), rl = clamp((q - .7) / .9, 0, 1);   // рикошет назад и в сторону
+  const h0 = WALL_Y - pl.W.y, r = lerp(15.5, 21, e), gy = lerp(WALL_Y, WALL_Y + 190, e) + 40 * easeOut(rl);
+  const hgt = u < 1 ? lerp(h0, 0, u) + (pl.over ? 90 : 26) * Math.sin(Math.PI * u) : 10 * Math.abs(Math.sin(rl * 6)) * (1 - rl);
+  return {x: pl.W.x + pl.side * (110 * e + 30 * easeOut(rl)), y: gy - hgt, r, gy, deep: false, spin: -at * 12, alpha: 1};
+}
+function kickerAtFk(at, a, t) {                        // бьющий тот же, что в пенальти, — перенесён к мячу штрафного
+  const k = kickerAt(at, a, t);
+  if (!isFk()) return k;
+  k.x = FKB.x + (k.x - SPOT.x) * FKS; k.y = FKB.y + (k.y - SPOT.y) * FKS; k.s *= FKS;
+  return k;
+}
+function cameraFk(at, a) {                             // общий план чуть дальше (видно стенку и мяч), к удару — нога, потом ворота
+  const wide = {z: .86, fx: 360, fy: 500};
+  if (!a) return wide;
+  const pl = a.plan, K = pl.K, T = pl.kind === 'wall' ? pl.W : pl.C;
+  const foot = {z: 1.5, fx: FKB.x - 20, fy: FKB.y - 50};
+  const goal = {z: 1.22, fx: 360 + clamp(T.x - 360, -150, 150) * .35, fy: pl.kind === 'wall' ? 600 : 440};
+  const mix = (p, q, t) => ({z: lerp(p.z, q.z, t), fx: lerp(p.fx, q.fx, t), fy: lerp(p.fy, q.fy, t)});
+  let c = mix(wide, foot, easeInOut((at - (K - .55)) / .45));
+  c = mix(c, goal, easeInOut((at - (K + .1)) / .4));
+  return mix(c, wide, easeInOut((at - (pl.R + 1)) / .8));
+}
+function drawChooseFk(t) {
+  const pulse = .5 + .5 * Math.sin(t * 5);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (role === 'kick') {
+    for (let z = 0; z < 4; z++) {
+      const T = FKT(z), over = z < 2, col = z % 2 ? 2 : 0, mine = myPick === z, dim = myPick !== null && !mine;
+      const arc = over ? arcOver(T, 0) : 8, bend = fkBend(col, over);
+      g.globalAlpha = dim ? .18 : mine ? 1 : .55 + .25 * pulse;       // пунктир: как полетит мяч
+      g.fillStyle = over ? '#facc15' : '#67e8f9';
+      for (let e = .06; e < .97; e += .055) {
+        const x = lerp(FKB.x, T.x, e) + bend * Math.sin(Math.PI * e), y = lerp(FKB.y - 6, T.y, e) - arc * fkArc(e);
+        g.beginPath(); g.arc(x, y, lerp(5, 2.6, e), 0, 7); g.fill();
+      }
+      g.globalAlpha = dim ? .25 : 1;
+      const c = over ? '250,204,21' : '103,232,249';
+      g.save(); g.shadowColor = `rgba(${c},.9)`; g.shadowBlur = mine ? 22 : 10 * pulse;
+      g.fillStyle = mine ? `rgba(${c},.92)` : `rgba(${c},${.18 + .14 * pulse})`; g.strokeStyle = `rgb(${c})`; g.lineWidth = 4;
+      g.beginPath(); g.arc(T.x, T.y, 30 + (mine ? 4 : 2 * pulse), 0, 7); g.fill(); g.stroke(); g.restore();
+      g.font = `bold 30px ${FONT}`; g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.6)';
+      g.fillStyle = mine ? '#111' : '#fff'; if (!mine) g.strokeText(String(z + 1), T.x, T.y + 1); g.fillText(String(z + 1), T.x, T.y + 1);
+      g.font = `bold 15px ${FONT}`; g.fillStyle = '#fff';
+      const lbl = over ? 'ЧЕРЕЗ СТЕНКУ' : 'ПОД СТЕНКУ', ly = over ? T.y - 46 : T.y + 46;
+      g.strokeText(lbl, T.x, ly); g.fillText(lbl, T.x, ly);
+    }
+  } else {
+    const cw = (GOAL.x1 - GOAL.x0) / 3, wd = myPick !== null ? Math.floor(myPick / 3) : fkWall;
+    ['ЛЕВЫЙ', 'ЦЕНТР', 'ПРАВЫЙ'].forEach((w, i) => {
+      const mine = myPick !== null && myPick % 3 === i, dim = myPick !== null && !mine, x = GOAL.x0 + cw * i;
+      g.globalAlpha = dim ? .25 : 1;
+      g.save(); g.shadowColor = 'rgba(147,197,253,.9)'; g.shadowBlur = mine ? 20 : 8 * pulse;
+      g.fillStyle = mine ? 'rgba(96,165,250,.6)' : `rgba(96,165,250,${.12 + .1 * pulse})`; g.strokeStyle = '#93c5fd'; g.lineWidth = 3;
+      g.beginPath(); g.roundRect(x + 6, GOAL.y0 + 10, cw - 12, GOAL.y1 - GOAL.y0 - 40, 14); g.fill(); g.stroke(); g.restore();
+      g.fillStyle = '#fff'; g.font = `bold 22px ${FONT}`; g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.6)';
+      g.strokeText(w, x + cw / 2, GOAL.y0 + 40); g.fillText(w, x + cw / 2, GOAL.y0 + 40);
+    });
+    g.globalAlpha = 1;
+    const ms = wallMen(), x0 = ms[0].x - 48, x1 = ms[ms.length - 1].x + 48, top = WALL_Y - WALL_TOP - 30;
+    g.save(); g.strokeStyle = wd ? '#fbbf24' : '#93c5fd'; g.lineWidth = 3; g.setLineDash([10, 8]); g.globalAlpha = .6 + .4 * pulse;
+    g.beginPath(); g.roundRect(x0, top, x1 - x0, WALL_Y + 22 - top, 18); g.stroke(); g.restore();
+    pill(wd ? '🦘 СТЕНКА ПРЫГАЕТ' : '🧱 СТЕНКА СТОИТ', (x0 + x1) / 2, WALL_Y + 52, 24, wd ? '#fbbf24' : '#93c5fd');
+  }
+  g.globalAlpha = 1;
+}
+function onFkEvents(t, a) {                            // звук и эффекты, которых нет в пенальти: прыжок стенки, рикошет
+  const pl = a.plan, once = (k, f) => { if (!events[k]) { events[k] = 1; f(); } };
+  if (a.fkWall && t > pl.cross + .3) once('wland', () => { thud(80, .35); burst(wallX(), WALL_Y, 14, ['#2f9e57', '#3fb56a'], 2, .5, .2, 'grass'); });
+  if (pl.kind === 'wall' && t > pl.R) once('wall', () => {
+    thud(pl.over ? 170 : 130, .8); slap(); crowd('save'); excite = .5; shake = 6; flash = .25; setAmb(.08, .3, .045, 2.5);
+    burst(pl.W.x, pl.W.y, 24, ['#ffffff', '#e5e7eb'], 4.5, .5, .05, 'spark');
+    fx.push({kind: 'ring', x: pl.W.x, y: pl.W.y, vx: 0, vy: 0, g: 0, l: .3, m: .3, c: '#fff', s: 0, r: 0});
+  });
+}
+
 /* ---------------- выбор и надписи ---------------- */
 function drawChoose(t) {
   const pulse = .5 + .5 * Math.sin(t * 5);
@@ -983,7 +1181,9 @@ function drawHud() {
   pill(`ВРАТАРЬ  №${P.keeper.num} ${P.keeper.name} · ${P.keeper.stat}`, W / 2, 78, 22, '#fff');
   if (phase === 'choose' || phase === 'wait') {
     const left = clamp((deadline - performance.now()) / 1000, 0, chooseSec);
-    pill(role === 'kick' ? 'ВАШ УДАР — КОСНИТЕСЬ УГЛА' : 'ВЫ ВРАТАРЬ — КУДА ПРЫГНУТЬ?', W / 2, 140, 30, role === 'kick' ? '#facc15' : '#93c5fd');
+    const head = isFk() ? (role === 'kick' ? 'ВАШ ШТРАФНОЙ — ВЫБЕРИТЕ УДАР' : 'СТЕНКА И ВРАТАРЬ — ВАШ ВЫБОР')
+                        : (role === 'kick' ? 'ВАШ УДАР — КОСНИТЕСЬ УГЛА' : 'ВЫ ВРАТАРЬ — КУДА ПРЫГНУТЬ?');
+    pill(head, W / 2, 140, 30, role === 'kick' ? '#facc15' : '#93c5fd');
     g.fillStyle = 'rgba(8,12,26,.75)'; g.beginPath(); g.roundRect(158, 176, 404, 14, 7); g.fill();
     g.fillStyle = left < 4 ? '#f87171' : '#facc15'; g.beginPath(); g.roundRect(160, 178, Math.max(0, 400 * left / chooseSec), 10, 5); g.fill();
   }
@@ -1075,8 +1275,10 @@ function onAnimEvents(t, a, kp) {
   if (t > .7) once('fans', fansWhistle);
   if (t > pl.K) once('kick', () => { haptic('kick');
     if (pl.tech === 'power') { thud(120, .95); whoosh(); shake = 4; } else thud(pl.tech === 'chip' ? 230 : 190, pl.tech === 'chip' ? .35 : .5);
-    burst(SPOT.x, SPOT.y + 8, pl.tech === 'power' ? 30 : 18, ['#2f9e57', '#3fb56a', '#7c5a3a'], pl.tech === 'power' ? 4.2 : 3, .7, .25, 'grass');
-    fx.push({kind: 'ring', x: SPOT.x, y: SPOT.y + 4, vx: 0, vy: 0, g: 0, l: .28, m: .28, c: '#fff', s: 0, r: 0}); });
+    const B = isFk() ? FKB : SPOT;
+    burst(B.x, B.y + 8, pl.tech === 'power' ? 30 : 18, ['#2f9e57', '#3fb56a', '#7c5a3a'], pl.tech === 'power' ? 4.2 : 3, .7, .25, 'grass');
+    fx.push({kind: 'ring', x: B.x, y: B.y + 4, vx: 0, vy: 0, g: 0, l: .28, m: .28, c: '#fff', s: 0, r: 0}); });
+  if (isFk()) onFkEvents(t, a);
   if (pl.kind === 'fingertip' && t > pl.R - .03) once('tip', () => { hiss('bandpass', 1500, 1.1, .25, .05);
     burst(C.x - pl.kdir * 20, C.y, 10, ['#ffffff'], 2.5, .35, .02, 'spark'); });
   if (t > pl.R) once('hit', () => {
@@ -1112,7 +1314,7 @@ function frame(now) {
   g.fillStyle = '#02050f'; g.fillRect(0, 0, cv.width, oy + PITCH_Y * sc);
   g.fillStyle = '#1d7a3e'; g.fillRect(0, oy + PITCH_Y * sc, cv.width, cv.height);
   // сцена через камеру
-  const cam = camera(at, a), z = cam.z;
+  const cam = isFk() ? cameraFk(at, a) : camera(at, a), z = cam.z;
   const sx = shake ? (Math.random() - .5) * shake * sc : 0, sy = shake ? (Math.random() - .5) * shake * sc : 0;
   g.setTransform(sc * z, 0, 0, sc * z, ox + sc * cam.fx * (1 - z) + sx, oy + sc * cam.fy * (1 - z) + sy);
   g.drawImage(bg, BX0, BY0, BW, BH);
@@ -1129,9 +1331,9 @@ function frame(now) {
   drawBoards(t);
   if (a && at > pl.K - .05) for (const ph of PHOTOGS)            // фотографы снимают удар и то, что после
     if (Math.random() < (at < pl.R + .2 ? .08 : a.outcome === 'goal' && at < pl.R + 2 ? .12 : .02)) drawPhotoFlash(ph.x, ph.y - 39);
-  const b = ballAt(at, a, kp), trail = [];
+  const BA = isFk() ? ballAtFk : ballAt, b = BA(at, a, kp), trail = [];
   if (a && b.fly) { const n = pl.tech === 'power' ? 7 : 14, st = pl.tech === 'power' ? .016 : .03;
-    for (let i = 1; i <= n && at - i * st >= pl.K; i++) trail.push(ballAt(at - i * st, a, kp)); }
+    for (let i = 1; i <= n && at - i * st >= pl.K; i++) trail.push(BA(at - i * st, a, kp)); }
   let bulge = null;
   if (a && (pl.kind === 'net' || pl.kind === 'fingertip' || pl.kind === 'postIn')) {
     const q = at - pl.R - pl.into * .6;
@@ -1151,10 +1353,19 @@ function frame(now) {
     g.globalAlpha = 1;
   }
   drawKeeper(kp, KEEPER_KIT());
-  if (phase === 'choose' || phase === 'wait') drawChoose(t);
   const ref = () => drawKeeper(refAt(at, a, t), REF_KIT), ball = () => { if (!b.deep) drawBallWithShadow(b, trail, pl && pl.tech); };
-  if (b.gy > REF.y) { ref(); ball(); } else { ball(); ref(); }    // кто ближе к нам — тот рисуется поверх
-  drawKicker(kickerAt(at, a, t));
+  if (isFk()) {                                                  // штрафной: пена, стенка; мяч за стенкой — под ней по порядку
+    drawSpray();
+    if (b.gy < WALL_Y && !b.deep) ball();
+    drawWall(at, a, t, b.x);
+    if (phase === 'choose' || phase === 'wait') drawChooseFk(t);
+    ref();
+    if (b.gy >= WALL_Y && !b.deep) ball();
+  } else {
+    if (phase === 'choose' || phase === 'wait') drawChoose(t);
+    if (b.gy > REF.y) { ref(); ball(); } else { ball(); ref(); }    // кто ближе к нам — тот рисуется поверх
+  }
+  drawKicker(kickerAtFk(at, a, t));
   drawFx();
   // экран: виньетка, вспышка, надписи
   g.setTransform(1, 0, 0, 1, 0, 0);
@@ -1168,7 +1379,8 @@ function frame(now) {
   if (a) drawResult(at, a);
   if (phase === 'choose' && performance.now() > deadline) {
     if (live || EMBED) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }   // в матче решает сервер
-    else pick(Math.floor(Math.random() * (role === 'kick' ? 6 : 3)), true);
+    else pick(isFk() ? (role === 'kick' ? Math.floor(Math.random() * 4) : fkWall * 3 + Math.floor(Math.random() * 3))
+                     : Math.floor(Math.random() * (role === 'kick' ? 6 : 3)), true);
   }
   requestAnimationFrame(frame);
 }
@@ -1177,7 +1389,27 @@ function frame(now) {
 cv.addEventListener('pointerdown', e => {
   audioOn();
   if (phase !== 'choose') return;
-  const x = (e.clientX * dpr - ox) / sc, y = (e.clientY * dpr - oy) / sc;
+  const x0 = (e.clientX * dpr - ox) / sc, y0 = (e.clientY * dpr - oy) / sc;
+  if (isFk()) {                                                   // камера штрафного отъехала: касание — в координаты сцены
+    const c = cameraFk(0, null), x = (x0 - c.fx * (1 - c.z)) / c.z, y = (y0 - c.fy * (1 - c.z)) / c.z;
+    if (role === 'kick') {
+      let best = -1, bd = 95;
+      for (let z = 0; z < 4; z++) { const T = FKT(z), d = Math.hypot(x - T.x, y - T.y); if (d < bd) { bd = d; best = z; } }
+      if (best >= 0) pick(best);
+      return;
+    }
+    const ms = wallMen();
+    if (x > ms[0].x - 60 && x < ms[ms.length - 1].x + 60 && y > WALL_Y - WALL_TOP - 40 && y < WALL_Y + 80) {
+      fkWall = 1 - fkWall; haptic('tap');
+      setUi(fkWall ? 'Стенка прыгнет — ловит удар верхом, но низом мяч проскочит. Теперь коснитесь угла для вратаря.'
+                   : 'Стенка стоит — ловит удар низом, но верхом мяч перелетит. Теперь коснитесь угла для вратаря.');
+      return;
+    }
+    if (x < GOAL.x0 - 40 || x > GOAL.x1 + 40 || y < GOAL.y0 - 60 || y > GOAL.y1) return;
+    pick(fkWall * 3 + clamp(Math.floor((x - GOAL.x0) / ((GOAL.x1 - GOAL.x0) / 3)), 0, 2));
+    return;
+  }
+  const x = x0, y = y0;
   if (role === 'kick') {
     if (x < GOAL.x0 - 50 || x > GOAL.x1 + 50 || y < GOAL.y0 - 60 || y > GOAL.y1 + 40) return;
     const c = clamp(Math.floor((x - GOAL.x0) / ((GOAL.x1 - GOAL.x0) / 3)), 0, 2), r = y < (GOAL.y0 + GOAL.y1) / 2 ? 0 : 1;
@@ -1192,7 +1424,8 @@ function setUi(text, buttons) {
   for (const [label, cls, fn] of buttons || []) { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls;
     b.onclick = () => { audioOn(); fn(); }; btnEl.appendChild(b); }
 }
-const pickWords = v => role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
+const pickWords = v => isFk() ? (role === 'kick' ? `удар ${v + 1} — ${FKA[v]}` : `${FKW[Math.floor(v / 3)]}, вратарь — ${FKD[v % 3]}`)
+  : role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
 function pick(v, auto) {
   if (phase !== 'choose') return;
   myPick = v; phase = 'wait'; haptic('tap');
@@ -1225,6 +1458,7 @@ function liveConnect() {
 function onLive(m) {
   if (m.type === 'state') {
     Object.assign(P.kicker, m.kicker || {}); Object.assign(P.keeper, m.keeper || {});
+    MODE = m.kind === 'fk' ? 'fk' : 'pen'; if (isFk()) fkSetup(m);
     start(m.role, m.left);
     if (m.picked !== null && m.picked !== undefined) markPicked(m.picked);
   } else if (m.type === 'picked') markPicked(m.value);
@@ -1240,6 +1474,7 @@ function closeBtn() { return TG ? [['Закрыть', '', () => TG.close()]] : [
 
 /* ---------------- ДЕМО: соперник и исход (в матче это сделает сервер) ---------------- */
 function demoOpponent(mine) {
+  if (isFk()) { setTimeout(() => demoFk(mine), 500 + Math.random() * 900); return; }
   setTimeout(() => {
     const aim = role === 'kick' ? mine : Math.floor(Math.random() * 6);
     const dive = role === 'keep' ? mine : Math.floor(Math.random() * 3);
@@ -1253,22 +1488,44 @@ function demoOpponent(mine) {
     play({aim, dive, outcome, text});
   }, 500 + Math.random() * 900);
 }
+function demoFk(mine) {                                // те же правила, что у бота (app/engine.py FK_DUEL), без характеристик
+  const fk = role === 'kick' ? mine : Math.floor(Math.random() * 4), dv = role === 'keep' ? mine : Math.floor(Math.random() * 6);
+  const wall = Math.floor(dv / 3), dive = dv % 3, over = fk < 2, col = fk % 2 ? 2 : 0;
+  const block = over ? (wall ? .62 : .2) : (wall ? .14 : .68);
+  let outcome;
+  if (Math.random() < block) outcome = 'block';
+  else if (Math.random() < (over ? .44 : .42)) outcome = 'miss';
+  else if (Math.random() < (dive === col ? .55 : dive === 1 ? .25 : 0)) outcome = 'save';
+  else outcome = 'goal';
+  const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!',
+                save: dive === col ? 'Вратарь достаёт из угла!' : 'Вратарь успевает из центра!'}[outcome]
+             || (dive === col ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь не дотянулся из центра' : 'Вратарь ушёл не в тот угол');
+  play({fk, wall, dive, outcome, text});
+}
 function play(result) {
-  phase = 'play'; events = {}; anim = Object.assign({t0: performance.now()}, result); anim.plan = makePlan(anim);
+  phase = 'play'; events = {};
+  if (isFk() && result.fk !== undefined) {               // штрафной: исход в форме пенальти (угол для вратаря и бьющего) + стенка
+    anim = Object.assign({t0: performance.now()}, result, {aim: (result.fk < 2 ? 0 : 3) + (result.fk % 2 ? 2 : 0), fkWall: result.wall});
+    anim.plan = makeFkPlan(anim); setUi(''); return;
+  }
+  anim = Object.assign({t0: performance.now()}, result); anim.plan = makePlan(anim);
   setUi('');
 }
 function finish() {
   phase = 'done';
   if (EMBED) { setUi(''); toParent({type: 'done'}); return; }
   if (live) { setUi('Матч продолжается в чате.', closeBtn()); return; }
-  setUi('Демо-режим: соперник выбирал случайно.', [['Ещё раз', '', () => start(role)], ['Сменить роль', 'alt', () => start(role === 'kick' ? 'keep' : 'kick')]]);
+  setUi('Демо-режим: соперник выбирал случайно.', [['Ещё раз', '', () => start(role)], ['Сменить роль', 'alt', () => start(role === 'kick' ? 'keep' : 'kick')],
+                                                     [isFk() ? '🥅 Пенальти' : '🎯 Штрафной', 'alt', () => { MODE = isFk() ? 'pen' : 'fk'; fkSetup(); start(role); }]]);
 }
 function start(r, left) {
-  role = r; phase = 'choose'; myPick = null; anim = null; fx.length = 0;
+  role = r; phase = 'choose'; myPick = null; anim = null; fx.length = 0; fkWall = 0;
   if (left !== undefined) chooseSec = Math.max(1, left);
   deadline = performance.now() + chooseSec * 1000;
-  setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
-                     : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
+  if (isFk()) setUi(r === 'kick' ? 'Коснитесь удара: через стенку (прыгнувшая стенка часто ловит) или под стенку (пройдёт, если стенка прыгнет).'
+                                 : 'Коснитесь стенки — стоит или прыгает. Потом коснитесь угла, куда сместится вратарь.');
+  else setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
+                          : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
 }
 /* ---------------- ВНУТРИ СЦЕНЫ МАТЧА: сообщения бота приносит страница матча ---------------- */
 function toParent(m) { try { window.parent.postMessage(m, location.origin); } catch (e) {} }
@@ -1281,10 +1538,11 @@ if (EMBED) {
     else if (m.type === 'note') { if (phase === 'wait') { phase = 'choose'; myPick = null; } setUi(m.text || ''); }
     else onLive(m);
   });
-  setUi('Пенальти!');
+  setUi('');
   toParent({type: 'ready'});
 }
 else if (ROOM) liveConnect();
+else if (isFk()) { fkSetup(); setUi('Штрафной — демо. Кем будете?', [['🎯 Бить', '', () => start('kick')], ['🧱 Стенка и вратарь', 'alt', () => start('keep')]]); }
 else setUi('Пенальти — демо. Кем будете?', [['⚽ Бить', '', () => start('kick')], ['🧤 Стоять в воротах', 'alt', () => start('keep')]]);
 
 addEventListener('resize', fit); fit();
