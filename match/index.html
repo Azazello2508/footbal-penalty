@@ -297,7 +297,7 @@ function renderStatus() {
   else if (S.phase === 'pre') txt = '🧭 Менеджеры дают установку' + sec;
   else if (S.phase === 'window') txt = (S.who && S.who.length === 1 ? `⏸ Решает менеджер ${names[S.who[0]]}` : '⏸ Окно решений — часы стоят') + sec;
   else if (S.phase === 'half') txt = '☕ Перерыв: замены и тактика' + sec;
-  else if (S.phase === 'pen') txt = `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]}` + sec;
+  else if (S.phase === 'pen') txt = (S.fk ? `🎯 Штрафной у ворот ${names[1 - (S.pen || 0)]}` : `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]}`) + sec;
   else if (S.phase === 'final') txt = '🏁 Финальный свисток';
   else {
     const r = S.teams.map((x, t) => x.rush ? `💥 ${names[t]} штурмует` : '').filter(Boolean);
@@ -3114,6 +3114,7 @@ function ping() {
    срочный выбор исполнителя — список в панели), потом — исход. Выбор уходит боту как решение {a:'pen'|'taker'},
    он проверяет его по тому же правилу, что кнопки в чате; исход считает только бот. */
 let pen = null, penFrame = null, penReady = false, penSent = null, penClose = 0;
+const DUELS = ['penalty', 'fk'];                // дуэли во вложенной сцене: пенальти и штрафной у самой штрафной
 const penEl = $('pen');
 function penUrl() { return (LOCAL ? '../penalty/' : '../') + '?embed=1'; }
 function toFrame(m) { if (penFrame && penReady) try { penFrame.contentWindow.postMessage(m, location.origin); } catch (e) {} }
@@ -3133,10 +3134,11 @@ function penHide() {
   penSent = null;
 }
 function penState() {                         // всё, что нужно сцене пенальти, — в её формате (как у отдельной страницы)
-  if (!pen || !pen.open || pen.kind !== 'penalty') return;
+  if (!pen || !pen.open || !DUELS.includes(pen.kind)) return;
   const left = Math.max(1, Math.round((penUntil - performance.now()) / 1000));
   toFrame({type: 'mute', on: muted});
-  toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked});
+  toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked,
+           kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot});      // штрафной: стенка, место мяча
   penSent = pen.wid;
 }
 let penUntil = 0;
@@ -3150,12 +3152,12 @@ function onPen(m) {
   }
   pen = m;
   if (m.open) penUntil = performance.now() + (m.left || 0) * 1000;
-  if (m.open && m.kind === 'penalty') {
+  if (m.open && DUELS.includes(m.kind)) {
     penOpen();
     if (!prev || prev.wid !== m.wid || penSent !== m.wid) { penSent = null; if (penReady) penState(); }
     else if (m.picked !== null && m.picked !== undefined && (prev.picked === null || prev.picked === undefined)) toFrame({type: 'picked', value: m.picked});
     if (!prev || prev.wid !== m.wid) { haptic('heavy'); ping(); }
-  } else if (!m.open && prev && prev.open && prev.kind === 'penalty') {
+  } else if (!m.open && prev && prev.open && DUELS.includes(prev.kind)) {
     penClose = setTimeout(penHide, 6000);     // выбор закрыт — ждём исход; не пришёл — убираем
   } else if (!m.open && penFrame && !penEl.classList.contains('on')) penHide();
   if (m.open && m.kind === 'urgent' && (!prev || prev.wid !== m.wid)) { view = 'main'; haptic('heavy'); ping(); }
@@ -3451,7 +3453,7 @@ function demo() {
   const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
   let seq = 0;
   onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
-  const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'stop'];
+  const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'fkduel', 'stop'];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const field = tm => [...tm.def, ...(tm.mid || []), ...tm.att];
   setInterval(() => {
@@ -3480,6 +3482,7 @@ function demo() {
       else if (k === 'tackle') acts.push({a: 'tackle', t, s});
       else if (k === 'brawl') { const o = pick(field(st.teams[1 - t])).s; acts.push({a: 'brawl', lvl: pick(['scuffle', 'fight', 'mass']), t, s, ot: 1 - t, os: o}); feed.push({m: st.minute, t: `${st.minute}' 🥊 Стычка!`}); }
       else if (k === 'pen' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t); return; }
+      else if (k === 'fkduel' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t, true); return; }
       else if (k === 'pen') { const scored = Math.random() < .7; if (scored) tm.score++; acts.push({a: 'foul', t: 1 - t, s: pick(field(st.teams[1 - t])).s, v: s}, {a: 'pen', t}, {a: scored ? 'goal' : 'save', t, s, how: 'пенальти', score: [st.teams[0].score, st.teams[1].score]}); feed.push({m: st.minute, t: `${st.minute}' 🥅❗ ПЕНАЛЬТИ!`}); }
       else if (k === 'stop') { acts.push({a: 'stop', what: pick(['fan', 'pyro'])}, {a: 'resume'}); feed.push({m: st.minute, t: `${st.minute}' 🚨 Матч остановлен`}); }
       if (Math.random() < .5) feed.push({m: st.minute, c: pick(['Красиво, но бесполезно — как зонтик в метро.', 'Тренер на бровке жуёт жвачку с яростью философа.', 'Мяч круглый, а вот идеи у команды — квадратные.'])});
@@ -3530,11 +3533,12 @@ function demoMgAnswer(i) {
 }
 // демо пенальти в сцене: вы бьёте (команда 0) или ловите; соперник и исход — случайные, как «ответ бота»
 let demoWid = 100;
-function demoPen(t) {
+function demoPen(t, fk) {                       // fk — штрафной у самой штрафной: стенка из полевых соперника
   const tm = S.teams[t], o = S.teams[1 - t], kp = tm.att[0] || tm.def[0];
-  onPen({type: 'pen', open: true, wid: ++demoWid, kind: 'penalty', role: t === 0 ? 'kick' : 'keep', left: 15, picked: null,
+  onPen({type: 'pen', open: true, wid: ++demoWid, kind: fk ? 'fk' : 'penalty', role: t === 0 ? 'kick' : 'keep', left: 15, picked: null,
          kicker: {num: kp.n, name: kp.nm, stat: 'Удар 30', shirt: tm.shirt, shorts: tm.shorts},
-         keeper: {num: o.gk.n, name: o.gk.nm, stat: 'Вратарство 28', shirt: gkColor(1 - t)}});
+         keeper: {num: o.gk.n, name: o.gk.nm, stat: 'Вратарство 28', shirt: fk ? o.shirt : gkColor(1 - t)},
+         wall: [...o.def, ...(o.mid || [])].slice(0, 4).map(p => p.n), shorts2: o.shorts, spot: Math.round((Math.random() * 1.2 - .6) * 100) / 100});
   demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 15000);
 }
 function demoAct(a) {
@@ -3544,6 +3548,22 @@ function demoAct(a) {
   clearTimeout(demoPen.timer);
   const role = pen.role, v = a.v;
   if (v !== null) toFrame({type: 'picked', value: v});
+  if (pen.kind === 'fk') {                      // штрафной: правила как у бота (FK_DUEL), без характеристик
+    const fk = role === 'kick' && v !== null ? v : Math.floor(Math.random() * 4), dv = role === 'keep' && v !== null ? v : Math.floor(Math.random() * 6);
+    const wall = Math.floor(dv / 3), dive = dv % 3, over = fk < 2, col = fk % 2 ? 2 : 0;
+    const outcome = Math.random() < (over ? (wall ? .62 : .2) : (wall ? .14 : .68)) ? 'block' : Math.random() < .43 ? 'miss'
+                  : Math.random() < (dive === col ? .55 : dive === 1 ? .25 : 0) ? 'save' : 'goal';
+    const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!', save: 'Вратарь достаёт из угла!'}[outcome] || 'Вратарь ушёл не в тот угол';
+    setTimeout(() => {
+      onPen({type: 'pen', open: false});
+      onPen({type: 'pen', open: false, result: {fk, wall, dive, outcome, text}});
+      const t = demoPen.t, tm = S.teams[t];
+      if (outcome === 'goal') tm.score++;
+      const act = outcome === 'block' ? {a: 'clear', t} : {a: outcome, t, s: (tm.att[0] || tm.def[0]).s, how: 'штрафной', score: [S.teams[0].score, S.teams[1].score]};
+      onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'fk', t}, act], feed: [{m: S.minute, t: `${S.minute}' 🎯 Штрафной у самой штрафной: ` + text}]});
+    }, 700);
+    return;
+  }
   const aim = role === 'kick' && v !== null ? v : Math.floor(Math.random() * 6), dive = role === 'keep' && v !== null ? v : Math.floor(Math.random() * 3);
   const outcome = Math.random() < .08 ? 'miss' : aim % 3 === dive && Math.random() < .5 ? 'save' : 'goal';
   setTimeout(() => {
