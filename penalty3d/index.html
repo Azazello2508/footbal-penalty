@@ -1,0 +1,1536 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Пенальти 3D</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#050a18;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
+  font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+.ov{position:fixed;inset:0;pointer-events:none}
+#vig{background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 45%,rgba(0,0,0,.55) 100%),
+  linear-gradient(rgba(20,40,110,.18),rgba(20,40,110,0) 45%,rgba(255,180,80,0) 75%,rgba(255,170,60,.08))}
+#glow{opacity:0}
+#flash{background:#fff;opacity:0}
+.lb{position:fixed;left:0;right:0;height:0;background:#000;pointer-events:none}
+#lb1{top:0}#lb2{bottom:0}
+#hud{position:fixed;left:0;right:0;top:calc(8px + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:center;gap:7px;
+  pointer-events:none;color:#fff}
+#tag{display:flex;align-items:center;gap:8px;padding:5px 14px;border-radius:5px;background:linear-gradient(#b91c1c,#7f1d1d);
+  font-weight:900;font-size:14px;letter-spacing:.5px}
+#tag i{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1s infinite alternate}
+@keyframes blink{from{opacity:.4}to{opacity:1}}
+#cards{display:flex;align-items:center;gap:6px;width:calc(100% - 24px);max-width:560px}
+.card{flex:1;display:flex;align-items:stretch;min-width:0;background:linear-gradient(rgba(24,32,58,.92),rgba(6,10,22,.92));border-radius:6px;overflow:hidden;height:44px}
+.card.r{flex-direction:row-reverse;text-align:right}
+.card .num{display:flex;align-items:center;justify-content:center;width:40px;flex:none;font-weight:900;font-size:20px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.card .tx{padding:4px 8px;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.card .nm{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .st{font-size:12px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vs{font-weight:900;color:#facc15;font-size:16px}
+.pill{max-width:calc(100% - 32px);padding:7px 14px;border-radius:6px;background:linear-gradient(rgba(24,32,58,.92),rgba(6,10,22,.92));
+  border-left:4px solid currentColor;font-weight:800;font-size:15px;text-align:center;display:none}
+#timer{display:none;align-items:center;gap:8px;width:min(300px,80%)}
+#timer>div{flex:1;height:10px;border-radius:5px;background:rgba(6,10,22,.85);padding:2px;box-sizing:border-box}
+#bar{display:block;height:100%;border-radius:4px;background:#facc15;box-shadow:0 0 8px currentColor}
+#sec{font-weight:900;font-size:17px;min-width:34px}
+#word{position:fixed;left:0;right:0;top:24%;text-align:center;font-weight:900;font-size:min(17vw,96px);line-height:1;pointer-events:none;
+  -webkit-text-stroke:3px rgba(8,12,26,.9);opacity:0;transform:scale(.4)}
+#word.on{animation:pop .6s cubic-bezier(.2,1.6,.4,1) forwards}
+#word.good{background:linear-gradient(#fff7c2,#facc15 45%,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 #7c2d12) drop-shadow(0 0 18px rgba(250,204,21,.7))}
+#word.bad{background:linear-gradient(#fecaca,#f87171 45%,#dc2626);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 4px 0 #450a0a) drop-shadow(0 0 18px rgba(248,113,113,.6))}
+@keyframes pop{to{opacity:1;transform:scale(1)}}
+#rtext{position:fixed;left:50%;top:calc(24% + min(17vw,96px) + 14px);transform:translateX(-50%);color:#fff;white-space:nowrap}
+#ui{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(16px + env(safe-area-inset-bottom));display:flex;
+  flex-direction:column;gap:10px;align-items:center;pointer-events:none}
+#msg{color:#fff;font-size:17px;line-height:1.3;text-align:center;text-shadow:0 2px 6px #000;max-width:520px}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;pointer-events:auto}
+button{font:inherit;font-size:17px;font-weight:700;padding:13px 20px;border-radius:14px;border:0;background:#facc15;color:#111;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);-webkit-tap-highlight-color:transparent}
+button.alt{background:#60a5fa}
+button:active{transform:translateY(1px)}
+#mute{position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;padding:7px 11px;font-size:18px;
+  background:rgba(10,15,30,.75);color:#fff;pointer-events:auto;z-index:2}
+#load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#cbd5e1;
+  font-size:16px;background:#050a18;z-index:3}
+#load b{width:34px;height:34px;border-radius:50%;border:4px solid #1e293b;border-top-color:#facc15;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ov" id="vig"></div>
+<div class="ov" id="glow"></div>
+<div class="ov" id="flash"></div>
+<div class="lb" id="lb1"></div><div class="lb" id="lb2"></div>
+<div id="hud">
+  <div id="tag"><i></i><span id="tagt">ПЕНАЛЬТИ</span></div>
+  <div id="cards">
+    <div class="card" id="ck"><b class="num"></b><div class="tx"><div class="nm"></div><div class="st"></div></div></div>
+    <span class="vs">VS</span>
+    <div class="card r" id="cg"><b class="num"></b><div class="tx"><div class="nm"></div><div class="st"></div></div></div>
+  </div>
+  <div id="head" class="pill"></div>
+  <div id="timer"><div><i id="bar"></i></div><span id="sec"></span></div>
+  <div id="cap" class="pill" style="color:#facc15"></div>
+</div>
+<div id="word"></div>
+<div id="rtext" class="pill"></div>
+<button id="mute" type="button" aria-label="Звук">🔊</button>
+<div id="ui">
+  <div id="msg"></div>
+  <div class="row" id="buttons"></div>
+</div>
+<div id="load"><b></b><span>Загружаем 3D-стадион…</span></div>
+<script>
+/* Пробная 3D-сцена пенальти и штрафного (three.js). Правила, параметры ссылки (?room, ?embed=1, ?fk=1) и связь с ботом —
+   те же, что у 2D-сцены webapp/penalty: исход решает сервер, сцена только показывает.
+   Запасной путь: нет WebGL, three.js не загрузился за ~9 секунд или телефон не тянет (мало кадров) — уходим на 2D-сцену. */
+(function () {
+  window.go2D = function (why) {
+    if (window.__p3gone) return; window.__p3gone = 1;
+    try { console.warn('3D → 2D:', why); } catch (e) {}
+    const q = new URLSearchParams(location.search); q.delete('3d');
+    const s = q.toString(), local = ['localhost', '127.0.0.1'].includes(location.hostname);
+    location.replace((local ? '../penalty/' : '../') + (s ? '?' + s : ''));
+  };
+  let ok = false;
+  try { const c = document.createElement('canvas'); ok = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) {}
+  if (!ok) { go2D('нет WebGL'); return; }
+  let waited = 0;
+  (function watchdog() {                              // считаем только секунды, когда страница на экране
+    if (window.__p3ok || window.__p3gone) return;
+    if (!document.hidden && ++waited > 9) { go2D('долгая загрузка'); return; }
+    setTimeout(watchdog, 1000);
+  })();
+})();
+</script>
+<script type="module">
+let THREE;
+try { THREE = await import('https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js'); }
+catch (e) {
+  try { THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js'); }
+  catch (e2) { go2D('three.js не загрузился'); throw e2; }
+}
+
+/* ---------------- общее с 2D-сценой ---------------- */
+const AIMS = ['в левый верхний угол', 'под перекладину', 'в правый верхний угол',
+              'в левый нижний угол', 'низом по центру', 'в правый нижний угол'];
+const DIVES = ['прыгает влево', 'остаётся в центре', 'прыгает вправо'];
+const FKA = ['через стенку в левый угол', 'через стенку в правый угол', 'под стенку в левый угол', 'под стенку в правый угол'];
+const FKW = ['стенка стоит', 'стенка прыгает'];
+const FKD = ['левый угол', 'центр', 'правый угол'];
+const EMBED = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
+const TG = !EMBED && window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 2.2);
+const easeInOut = t => { t = clamp(t, 0, 1); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+const smooth = (x, a, b) => easeInOut((x - a) / (b - a));
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, gg = n >> 8 & 255, b = n & 255;
+  const f = v => clamp(Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k), 0, 255);
+  return '#' + [f(r), f(gg), f(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function gkShirt(team) {                               // вратарь — в форме другого цвета, не как его стенка
+  const rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
+  const t = rgb(team);
+  let best = '#22c55e', bd = -1;
+  for (const c of ['#22c55e', '#f97316', '#a855f7', '#facc15', '#06b6d4']) {
+    const d = rgb(c).reduce((s, v, i) => s + (v - t[i]) ** 2, 0); if (d > bd) { bd = d; best = c; }
+  }
+  return best;
+}
+const P = {
+  kicker: {num: 9, name: 'Нападающий', stat: 'Удар 30', shirt: '#dc2626', shorts: '#f5f5f5'},
+  keeper: {num: 1, name: 'Вратарь', stat: 'Вратарство 30', shirt: '#2563eb'},
+};
+const FK_INFO = {wall: [4, 5, 6, 3], shorts: '#f5f5f5', spot: 0};
+const HAIRS = ['#2b1d16', '#6b4423', '#0f0f10', '#b7791f'];
+const SKINS = ['#e3b08c', '#9a6544', '#f2c9a8', '#c48a62'];
+let MODE = new URLSearchParams(location.search).get('fk') === '1' ? 'fk' : 'pen';
+const isFk = () => MODE === 'fk';
+let role = null, phase = 'intro', myPick = null, deadline = 0, chooseSec = 15, anim = null, fkWall = 0;
+let excite = 0, shake = 0, flash = 0, punch = 0, glow = 0, events = {};
+const msgEl = document.getElementById('msg'), btnEl = document.getElementById('buttons');
+function fkSetup(info) {
+  if (info) {
+    if (Array.isArray(info.wall) && info.wall.length) FK_INFO.wall = info.wall.slice(0, 4);
+    if (typeof info.shorts2 === 'string') FK_INFO.shorts = info.shorts2;
+    if (typeof info.spot === 'number') FK_INFO.spot = clamp(info.spot, -1, 1);
+  }
+  if (scene) layout();
+}
+
+/* ---------------- звук (как в 2D) ---------------- */
+let ac = null, muted = false, noise = null, amb = null, ambLevel = .045;
+function audioOn() {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+    const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(); amb = ac.createGain();
+    s.buffer = noise; s.loop = true; f.type = 'lowpass'; f.frequency.value = 620; amb.gain.value = muted ? 0 : ambLevel;
+    s.connect(f).connect(amb).connect(ac.destination); s.start(); }
+  if (ac.state === 'suspended') ac.resume();
+}
+function setAmb(v, dur, back, backDur) {
+  ambLevel = back === undefined ? v : back;
+  if (!amb) return; const t = ac.currentTime, gn = amb.gain;
+  gn.cancelScheduledValues(t); gn.setValueAtTime(gn.value, t); gn.linearRampToValueAtTime(muted ? 0 : v, t + dur);
+  if (back !== undefined) gn.linearRampToValueAtTime(muted ? 0 : back, t + dur + backDur);
+}
+function out(v) { const q = ac.createGain(); q.gain.value = muted ? 0 : v; q.connect(ac.destination); return q; }
+function hiss(type, freq, Q, v, len) {
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; f.type = type; f.frequency.value = freq; f.Q.value = Q;
+  q.gain.setValueAtTime(muted ? 0 : v, t); q.gain.exponentialRampToValueAtTime(.001, t + len);
+  s.connect(f).connect(q); s.start(t, Math.random()); s.stop(t + len + .05);
+}
+const swish = () => hiss('highpass', 2400, .7, .3, .4);
+const slap = () => hiss('bandpass', 1500, 1.1, .7, .08);
+function clang() {
+  if (!ac) return; const t = ac.currentTime;
+  for (const [f, v, d] of [[523, .22, 1.2], [1187, .14, .8], [1962, .09, .5], [3110, .05, .3]]) {
+    const o = ac.createOscillator(), q = out(0); o.frequency.value = f;
+    q.gain.setValueAtTime(muted ? 0 : v, t); q.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(q); o.start(t); o.stop(t + d + .05);
+  }
+  thud(110, .5);
+}
+function whoosh() {
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(2600, t + .35);
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .35, t + .08); q.gain.exponentialRampToValueAtTime(.001, t + .5);
+  s.connect(f).connect(q); s.start(t); s.stop(t + .55);
+}
+function fansWhistle() {
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; s.loop = true; f.type = 'bandpass'; f.frequency.value = 3100; f.Q.value = 9;
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .09, t + .5); q.gain.linearRampToValueAtTime(0, t + 1.3);
+  s.connect(f).connect(q); s.start(t); s.stop(t + 1.4);
+}
+function whistle() {
+  if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), q = out(0);
+  o.frequency.value = 2750; lfo.frequency.value = 38; lg.gain.value = 140; lfo.connect(lg).connect(o.frequency);
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(muted ? 0 : .12, t + .03); q.gain.setValueAtTime(muted ? 0 : .12, t + .38);
+  q.gain.linearRampToValueAtTime(0, t + .45); o.connect(q); o.start(t); lfo.start(t); o.stop(t + .5); lfo.stop(t + .5);
+}
+function thud(f0, v) {
+  if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), q = out(0);
+  o.frequency.setValueAtTime(f0 || 140, t); o.frequency.exponentialRampToValueAtTime(45, t + .15);
+  q.gain.setValueAtTime(muted ? 0 : (v || .7), t); q.gain.exponentialRampToValueAtTime(.001, t + .2); o.connect(q); o.start(t); o.stop(t + .25);
+}
+function crowd(kind) {
+  if (!ac) return; const t = ac.currentTime, s = ac.createBufferSource(), f = ac.createBiquadFilter(), q = out(0);
+  s.buffer = noise; s.loop = true; f.type = 'bandpass';
+  f.frequency.value = kind === 'goal' ? 900 : kind === 'save' ? 450 : 320; f.Q.value = kind === 'goal' ? .6 : 1.4;
+  const peak = muted ? 0 : (kind === 'goal' ? .55 : .35), len = kind === 'goal' ? 3 : 1.6;
+  q.gain.setValueAtTime(0, t); q.gain.linearRampToValueAtTime(peak, t + .18); q.gain.exponentialRampToValueAtTime(.001, t + len);
+  s.connect(f).connect(q); s.start(t); s.stop(t + len + .1);
+}
+document.getElementById('mute').onclick = () => {
+  muted = !muted; document.getElementById('mute').textContent = muted ? '🔇' : '🔊'; audioOn(); setAmb(ambLevel, .05);
+};
+function haptic(kind) {
+  if (EMBED) { toParent({type: 'haptic', kind}); return; }
+  try { if (!TG || !TG.HapticFeedback) return;
+    if (kind === 'tap') TG.HapticFeedback.impactOccurred('light');
+    else if (kind === 'kick') TG.HapticFeedback.impactOccurred('heavy');
+    else TG.HapticFeedback.notificationOccurred(kind); } catch (e) {}
+}
+
+/* ---------------- мир: метры; ворота на z = 0, x — вправо от камеры, y — вверх, камера со стороны +z ---------------- */
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const GW = 7.32, GH = 2.44, HW = GW / 2, BR = .11, SPOT_Z = 11, FK_Z = 20.5, WALL_D = 9.15;
+const NET_TOP = {y: 2.2, z: -1.2}, NET_BOT = -2.0;        // сетка: крыша уходит назад и чуть вниз, задняя стенка — к газону
+const cv = document.getElementById('c');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({canvas: cv, antialias: true, powerPreference: 'high-performance'}); }
+catch (e) { go2D('WebGL не запустился'); throw e; }
+cv.addEventListener('webglcontextlost', () => go2D('потерян WebGL'));
+let tier = 2;                                             // 2 — полное качество, 1 — облегчённое (слабый телефон)
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x060b1a, 80, 190);
+const camera = new THREE.PerspectiveCamera(50, 1, .1, 400);
+
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+scene.background = canvasTex(4, 256, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#02040c'); gr.addColorStop(.55, '#0a1430'); gr.addColorStop(1, '#16244a');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+
+/* свет: два прожектора с крыши за воротами дают две тени к камере, мягкий общий свет и заполняющий со стороны камеры */
+scene.add(new THREE.HemisphereLight(0x9db8ff, 0x16351f, .75));
+const fill = new THREE.DirectionalLight(0xfff1dc, .55); fill.position.set(0, 30, 70); scene.add(fill);
+const keys = [[-38, 46, -26, 2.1], [36, 44, -22, 1.6]].map(([x, y, z, k]) => {
+  const l = new THREE.DirectionalLight(0xf3f6ff, k); l.position.set(x, y, z); l.target.position.set(0, 0, 10);
+  l.castShadow = true; const s = l.shadow; s.mapSize.set(1024, 1024);
+  Object.assign(s.camera, {left: -17, right: 17, top: 17, bottom: -17, near: 10, far: 130}); s.bias = -.0004; s.normalBias = .02;
+  scene.add(l, l.target); return l;
+});
+function setTier(t) {
+  tier = t;
+  renderer.setPixelRatio(t === 2 ? Math.min(devicePixelRatio || 1, 2) : Math.min(devicePixelRatio || 1, 1.25));
+  keys[1].castShadow = t === 2;
+  crowdDensity(t === 2 ? 1 : .5);
+  for (const l of keys) if (l.shadow.map && l.shadow.mapSize.x !== (t === 2 ? 1024 : 512)) { l.shadow.map.dispose(); l.shadow.map = null; }
+  for (const l of keys) l.shadow.mapSize.set(t === 2 ? 1024 : 512, t === 2 ? 1024 : 512);
+  fit();
+}
+
+/* склейка деталей в одну сетку с цветами вершин (люди, ступени трибун) */
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+function part(geo, color, pos, rot, scl) {                   // деталь: своя форма, цвет, место, поворот, масштаб
+  const g = geo.index ? geo.toNonIndexed() : geo.clone();
+  _m4.compose(V(...(pos || [0, 0, 0])), _q.setFromEuler(_e.set(...(rot || [0, 0, 0]))), V(...(scl || [1, 1, 1])));
+  g.applyMatrix4(_m4);
+  const c = new THREE.Color(color), n = g.attributes.position.count, arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  return g;
+}
+function mergeParts(parts) {
+  let n = 0; for (const p of parts) n += p.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  let o = 0;
+  for (const p of parts) { pos.set(p.attributes.position.array, o * 3); nor.set(p.attributes.normal.array, o * 3); col.set(p.attributes.color.array, o * 3); o += p.attributes.position.count; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+/* газон: полосы стрижки, крупные пятна оттенка, вытоптанная трава у точки и вратарской, разметка (x −36…36, z −6…30);
+   поверх в шейдере — мелкие травинки, повторяются часто и видны вблизи */
+const PX0 = -36, PZ0 = -6, PWm = 72, PHm = 36;
+const pitchTex = canvasTex(2048, 1024, (g, w, h) => {
+  const sx = w / PWm, sz = h / PHm, X = x => (x - PX0) * sx, Z = z => (z - PZ0) * sz;
+  for (let i = -2; i < 7; i++) {                              // полосы стрижки поперёк поля, каждая чуть светлее к одному краю
+    const z0 = Z(i * 5.5), gr = g.createLinearGradient(0, z0, 0, z0 + 5.5 * sz), even = i % 2 === 0;
+    gr.addColorStop(0, even ? '#3d9a4f' : '#2f8443'); gr.addColorStop(1, even ? '#379348' : '#2c7e3f');
+    g.fillStyle = gr; g.fillRect(0, z0, w, 5.5 * sz + 1);
+  }
+  for (let i = 0; i < 260; i++) {                             // неровный оттенок большими мягкими пятнами
+    const x = Math.random() * w, y = Math.random() * h, r = (1.5 + Math.random() * 4) * sx, d = Math.random() < .5;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, d ? 'rgba(10,40,10,.07)' : 'rgba(170,210,120,.06)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const wear = (x, z, rx, rz, a) => {                         // вытоптано: желтоватая трава и земля
+    g.save(); g.translate(X(x), Z(z)); g.scale(rx * sx, rz * sz);
+    const rg = g.createRadialGradient(0, 0, 0, 0, 0, 1); rg.addColorStop(0, `rgba(120,110,60,${a})`); rg.addColorStop(.6, `rgba(110,120,60,${a * .5})`); rg.addColorStop(1, 'rgba(110,120,60,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore();
+  };
+  wear(0, SPOT_Z + .4, 1.1, 1.4, .55); wear(0, .7, 3.2, 1.1, .5); wear(-1.4, 1.6, 1.4, 1.2, .3); wear(1.5, 1.4, 1.3, 1.1, .3);
+  for (let i = 0; i < 40; i++) wear((Math.random() - .5) * 14, Math.random() * 6, .2 + Math.random() * .4, .15 + Math.random() * .3, .35);
+  g.strokeStyle = 'rgba(245,248,240,.9)'; g.lineWidth = .12 * sx; g.shadowColor = 'rgba(255,255,255,.5)'; g.shadowBlur = 2;
+  const rect = (x0, z0, x1, z1) => g.strokeRect(X(x0), Z(z0), (x1 - x0) * sx, (z1 - z0) * sz);
+  g.beginPath(); g.moveTo(X(-34), Z(0)); g.lineTo(X(34), Z(0)); g.stroke();
+  g.beginPath(); g.moveTo(X(-34), Z(0)); g.lineTo(X(-34), Z(30)); g.moveTo(X(34), Z(0)); g.lineTo(X(34), Z(30)); g.stroke();
+  rect(-HW - 5.5, 0, HW + 5.5, 5.5); rect(-20.16, 0, 20.16, 16.5);
+  g.fillStyle = 'rgba(245,248,240,.92)'; g.beginPath(); g.arc(X(0), Z(SPOT_Z), .12 * sx, 0, 7); g.fill();
+  const a = Math.acos(5.5 / 9.15);
+  g.beginPath(); g.arc(X(0), Z(SPOT_Z), 9.15 * sx, a, Math.PI - a); g.stroke();
+  for (const s of [-1, 1]) { g.beginPath(); g.arc(X(s * 34), Z(0), 1 * sx, s < 0 ? 0 : Math.PI / 2, s < 0 ? Math.PI / 2 : Math.PI); g.stroke(); }
+  g.shadowBlur = 0;
+});
+const grassTex = canvasTex(256, 256, (g, w, h) => {          // травинки: серые штрихи, множитель к цвету газона (среднее ≈ 0.62)
+  g.fillStyle = '#9e9e9e'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 7000; i++) {
+    const x = Math.random() * w, y = Math.random() * h, l = 3 + Math.random() * 6, an = -Math.PI / 2 + (Math.random() - .5) * .9, v = Math.random() < .5 ? 60 : 210;
+    g.strokeStyle = `rgba(${v},${v},${v},${.25 + Math.random() * .35})`; g.lineWidth = 1 + Math.random();
+    for (const dx of [0, -w, w]) for (const dy of [0, -h, h]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.lineTo(x + dx + Math.cos(an) * l, y + dy + Math.sin(an) * l); g.stroke(); }
+  }
+}, [1, 1]);
+grassTex.colorSpace = THREE.NoColorSpace;
+function grassy(m, rep) {                                     // травинки поверх цвета: повторяются rep раз на текстуру газона
+  m.onBeforeCompile = sh => {
+    sh.uniforms.grassD = {value: grassTex};
+    sh.fragmentShader = 'uniform sampler2D grassD;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+      `#include <map_fragment>\n  diffuseColor.rgb *= texture2D(grassD, vMapUv * vec2(${rep[0].toFixed(1)}, ${rep[1].toFixed(1)})).rgb * 1.62;`);
+  };
+  return m;
+}
+{
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(PWm, PHm), grassy(new THREE.MeshStandardMaterial({map: pitchTex, roughness: .93}), [PWm / .9, PHm / .9]));
+  m.rotation.x = -Math.PI / 2; m.position.set(PX0 + PWm / 2, 0, PZ0 + PHm / 2); m.receiveShadow = true; scene.add(m);
+  const t2 = canvasTex(64, 64, (g, w, h) => { g.fillStyle = '#2f8443'; g.fillRect(0, 0, w, h); g.fillStyle = '#2b7c3e'; g.fillRect(0, 0, w, h / 2); }, [30, 30]);
+  const o = new THREE.Mesh(new THREE.PlaneGeometry(330, 330), grassy(new THREE.MeshStandardMaterial({map: t2, roughness: 1}), [6, 6]));
+  o.rotation.x = -Math.PI / 2; o.position.set(0, -.02, 60); o.receiveShadow = true; scene.add(o);
+}
+
+/* трибуны: ступени рядов и болельщики — тысячи отдельных фигур (туловище, голова, у части — руки вверх), по три вызова отрисовки
+   на сектор; после гола секторы подпрыгивают каждый в своём ритме */
+function quad(a, b, c, d, mat, ru, rv) {                     // a–b — нижний край, d–c — верхний
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...d], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, ru, 0, ru, rv, 0, rv], 2));
+  g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+const darkMat = new THREE.MeshLambertMaterial({color: 0x0a0f1e, side: THREE.DoubleSide});
+const seatMat = new THREE.MeshLambertMaterial({vertexColors: true});
+const fanMat = new THREE.MeshLambertMaterial({color: 0xffffff});
+const FAN = {torso: new THREE.CylinderGeometry(.19, .22, .5, 7).scale(1, 1, .66).translate(0, .25, 0), head: new THREE.IcosahedronGeometry(.11, 1).translate(0, .62, 0)};
+FAN.arms = mergeParts([part(new THREE.BoxGeometry(.08, .42, .08), '#ffffff', [.2, .7, 0], [0, 0, -.25]), part(new THREE.BoxGeometry(.08, .42, .08), '#ffffff', [-.2, .7, 0], [0, 0, .25])]);
+FAN.arms.deleteAttribute('color');
+const FAN_COLS = ['#dc2626', '#b91c1c', '#f8fafc', '#e2e8f0', '#2563eb', '#1d4ed8', '#111827', '#1f2937', '#facc15', '#475569', '#0ea5e9', '#7c2d12'];
+const FAN_SKIN = ['#e3b08c', '#9a6544', '#f2c9a8', '#c48a62', '#6b4630'];
+const stands = [], crowds = [];
+function buildStand(o, along, back, len, rows, depth, rise, ph) {
+  const up = V(0, 1, 0), O = V(...o), A = V(along[0], 0, along[1]), Bk = V(back[0], 0, back[1]);
+  const at = (u, i, h) => O.clone().addScaledVector(A, u).addScaledVector(Bk, i * depth).addScaledVector(up, i * rise + (h || 0));
+  const seats = [];
+  for (let i = 0; i < rows; i++) {                            // ступень ряда: тёмная бетонная полка и цветные кресла
+    const c = at(len / 2, i).addScaledVector(Bk, depth / 2), yaw = Math.atan2(A.x, A.z);
+    seats.push(part(new THREE.BoxGeometry(depth, rise + .02, len), i % 2 ? '#1c2438' : '#202a42', [c.x, c.y - rise / 2, c.z], [0, yaw, 0]));
+    seats.push(part(new THREE.BoxGeometry(.06, .42, len), i % 6 < 3 ? '#1e3a8a' : '#7f1d1d', [c.x + Bk.x * depth * .35, c.y + .2, c.z + Bk.z * depth * .35], [0, yaw, 0]));
+  }
+  const g = new THREE.Group(); g.add(new THREE.Mesh(mergeParts(seats), seatMat));
+  const spots = [];
+  for (let i = 0; i < rows; i++) for (let u = .3; u < len - .2; u += .54) if (Math.random() < .88) spots.push([u + (Math.random() - .5) * .12, i]);
+  for (let k = spots.length - 1; k > 0; k--) { const j = Math.random() * (k + 1) | 0; [spots[k], spots[j]] = [spots[j], spots[k]]; }   // в разброс: при облегчении убираем случайных
+  const n = spots.length, torso = new THREE.InstancedMesh(FAN.torso, fanMat, n), head = new THREE.InstancedMesh(FAN.head, fanMat, n);
+  const armIdx = spots.map((s, k) => k).filter(() => Math.random() < .14), arms = new THREE.InstancedMesh(FAN.arms, fanMat, armIdx.length);
+  const d = new THREE.Object3D(), col = new THREE.Color(), face = Math.atan2(-Bk.x, -Bk.z);
+  spots.forEach(([u, i], k) => {
+    const stand = Math.random() < .3 ? 1.3 : 1, p = at(u, i, .02).addScaledVector(Bk, depth * .55);
+    d.position.copy(p); d.rotation.set(0, face + (Math.random() - .5) * .5, 0); d.scale.set(.9 + Math.random() * .25, stand * (.88 + Math.random() * .2), 1); d.updateMatrix();
+    torso.setMatrixAt(k, d.matrix); torso.setColorAt(k, col.set(FAN_COLS[Math.random() * FAN_COLS.length | 0]));
+    d.position.y += (d.scale.y - 1) * .5; d.scale.set(1, 1, 1); d.updateMatrix();
+    head.setMatrixAt(k, d.matrix); head.setColorAt(k, col.set(FAN_SKIN[Math.random() * FAN_SKIN.length | 0]));
+  });
+  armIdx.forEach((k, j) => { const m = new THREE.Matrix4(); head.getMatrixAt(k, m); arms.setMatrixAt(j, m); arms.setColorAt(j, col.set(FAN_SKIN[j % FAN_SKIN.length])); });
+  for (const m of [torso, head, arms]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.frustumCulled = false; g.add(m); crowds.push({m, n: m.count}); }
+  g.add(quad([...at(0, 0, -O.y).toArray()], [...at(len, 0, -O.y).toArray()], [...at(len, 0).toArray()], [...at(0, 0).toArray()], darkMat, 1, 1));
+  scene.add(g); stands.push({g, ph});
+}
+for (let i = 0; i < 3; i++) {                                // за воротами: три сектора внизу и три наверху
+  buildStand([-54 + i * 36, 1.2, -8.2], [1, 0], [0, -1], 36, 26, .86, .5, i * 1.7);
+  buildStand([-54 + i * 36, 17.6, -33.4], [1, 0], [0, -1], 36, 18, .9, .6, i * 1.7 + .8);
+  scene.add(quad([-54 + i * 36, 14.2, -30.8], [-18 + i * 36, 14.2, -30.8], [-18 + i * 36, 17.6, -33.4], [-54 + i * 36, 17.6, -33.4], darkMat, 1, 1));
+}
+for (const s of [-1, 1]) for (let i = 0; i < 2; i++)         // по бокам
+  buildStand([s * 41, 1.2, -8 + i * 30], [0, 1], [s, 0], 30, 22, .86, .6, 4 + i * 1.3 + s);
+function crowdDensity(k) { for (const c of crowds) c.m.count = Math.floor(c.n * k); }
+const roofMat = new THREE.MeshLambertMaterial({color: 0x111829, side: THREE.DoubleSide});
+scene.add(quad([-60, 33, -28], [60, 33, -28], [60, 36, -56], [-60, 36, -56], roofMat, 1, 1));
+const glowTex = canvasTex(64, 64, (g, w, h) => {
+  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.25, 'rgba(220,235,255,.55)'); r.addColorStop(1, 'rgba(200,220,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, w, h);
+});
+{
+  const lampMat = new THREE.MeshBasicMaterial({color: 0xf4f8ff});
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(110, .5, .5), lampMat); strip.position.set(0, 32.6, -28.2); scene.add(strip);
+  const spr = new THREE.SpriteMaterial({map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false});
+  for (let x = -50; x <= 50; x += 10) { const s = new THREE.Sprite(spr); s.position.set(x, 32.4, -27.6); s.scale.set(9, 9, 1); scene.add(s); }
+  for (const s of [-1, 1]) for (const z of [-10, 8, 26]) {    // мачты по бокам
+    const sp = new THREE.Sprite(spr); sp.position.set(s * 60, 30, z); sp.scale.set(11, 11, 1); scene.add(sp);
+  }
+}
+
+/* рекламные щиты за воротами: бегущая строка; после гола — «ГОЛ!» в цвете забившей команды */
+function boardTex(text, fg, bg) {
+  return canvasTex(1024, 64, (g, w, h) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    g.font = '900 40px "Trebuchet MS",sans-serif'; g.textBaseline = 'middle'; g.fillStyle = fg;
+    let x = 10; while (x < w) { g.fillText(text, x, h / 2 + 2); x += g.measureText(text).width + 40; }
+  }, [4, 1]);
+}
+const BOARD_N = boardTex('ФУТБОЛЬНЫЙ МЕНЕДЖЕР  ★  ЛИГА ДРУЗЕЙ  ★', '#e2e8f0', '#0b2a6b');
+let boardGoal = null;
+const boardMat = new THREE.MeshBasicMaterial({map: BOARD_N, toneMapped: false});
+{
+  const b = new THREE.Mesh(new THREE.PlaneGeometry(64, .9), boardMat); b.position.set(0, .45, -4.6); scene.add(b);
+  for (const s of [-1, 1]) {
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(26, .9), boardMat); c.position.set(s * 36.2, .45, 8.5); c.rotation.y = -s * Math.PI / 2; scene.add(c);
+  }
+}
+
+/* ворота: штанги и перекладина, рама сетки и сама сетка — сетка из полос-плоскостей, вершины прогибаются от мяча */
+const postMat = new THREE.MeshStandardMaterial({color: 0xffffff, roughness: .35, emissive: 0x333333});
+const frameMat = new THREE.MeshStandardMaterial({color: 0x9ca3af, roughness: .6});
+const goalG = new THREE.Group(); scene.add(goalG);
+function bar(a, b, r, mat) {
+  const A = V(...a), Bv = V(...b), len = A.distanceTo(Bv);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat);
+  m.position.copy(A).add(Bv).multiplyScalar(.5); m.quaternion.setFromUnitVectors(V(0, 1, 0), Bv.clone().sub(A).normalize());
+  m.castShadow = true; goalG.add(m); return m;
+}
+const posts = {l: bar([-HW - .06, 0, 0], [-HW - .06, GH + .06, 0], .06, postMat), r: bar([HW + .06, 0, 0], [HW + .06, GH + .06, 0], .06, postMat),
+               b: bar([-HW - .12, GH + .06, 0], [HW + .12, GH + .06, 0], .06, postMat)};
+for (const s of [-1, 1]) { bar([s * HW, GH, -.02], [s * HW, NET_TOP.y, NET_TOP.z], .025, frameMat); bar([s * HW, NET_TOP.y, NET_TOP.z], [s * HW, 0, NET_BOT], .025, frameMat); }
+bar([-HW, NET_TOP.y, NET_TOP.z], [HW, NET_TOP.y, NET_TOP.z], .025, frameMat); bar([-HW, .02, NET_BOT], [HW, .02, NET_BOT], .025, frameMat);
+const netTex = canvasTex(64, 64, (g, w, h) => {
+  g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h); g.moveTo(w, 0); g.lineTo(0, h); g.stroke();
+}, [1, 1]);
+const netMat = new THREE.MeshLambertMaterial({map: netTex, transparent: true, side: THREE.DoubleSide, depthWrite: false, color: 0xe5e7eb, emissive: 0x222222});
+const netPanels = [];
+function netPanel(c00, c10, c01, c11, nu, nv) {               // билинейная сетка: c00 — u0 v0 (низ/перед), c11 — u1 v1
+  const g = new THREE.PlaneGeometry(1, 1, nu, nv), pos = g.attributes.position, uv = g.attributes.uv;
+  const A = V(...c00), B = V(...c10), C = V(...c01), D = V(...c11), lu = A.distanceTo(B), lv = A.distanceTo(C);
+  const base = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const u = uv.getX(i), v = uv.getY(i);
+    const p = A.clone().lerp(B, u).lerp(C.clone().lerp(D, u), v);
+    base.set([p.x, p.y, p.z], i * 3); pos.setXYZ(i, p.x, p.y, p.z); uv.setXY(i, u * lu / .16, v * lv / .16);
+  }
+  const m = new THREE.Mesh(g, netMat); m.renderOrder = 2; goalG.add(m);
+  netPanels.push({m, base, pos}); return m;
+}
+netPanel([-HW, GH, 0], [HW, GH, 0], [-HW, NET_TOP.y, NET_TOP.z], [HW, NET_TOP.y, NET_TOP.z], 30, 6);       // крыша
+netPanel([-HW, 0, NET_BOT], [HW, 0, NET_BOT], [-HW, NET_TOP.y, NET_TOP.z], [HW, NET_TOP.y, NET_TOP.z], 30, 12);   // задняя стенка
+for (const s of [-1, 1]) netPanel([s * HW, 0, 0], [s * HW, 0, NET_BOT], [s * HW, GH, 0], [s * HW, NET_TOP.y, NET_TOP.z], 10, 12);
+let netWas = false;
+function bulgeAt(p, b) { if (!b) return null; const d2 = p.distanceToSquared(b.N); return b.dir.clone().multiplyScalar(b.k * Math.exp(-d2 / .7)); }
+function updateNet(b) {                                       // b: {N, dir, k} — точка удара, направление, сила
+  if (!b && !netWas) return;
+  const tmp = V(0, 0, 0);
+  for (const pn of netPanels) {
+    const {base, pos} = pn;
+    for (let i = 0; i < pos.count; i++) {
+      tmp.set(base[i * 3], base[i * 3 + 1], base[i * 3 + 2]);
+      if (b) { const d = bulgeAt(tmp, b); pos.setXYZ(i, tmp.x + d.x, tmp.y + d.y, tmp.z + d.z); } else pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
+    }
+    pos.needsUpdate = true;
+  }
+  netWas = !!b;
+}
+
+/* мяч: белый с тёмными пятиугольниками (по вершинам икосаэдра) */
+const ballTex = canvasTex(1024, 512, (g, w, h) => {
+  g.fillStyle = '#f8fafc'; g.fillRect(0, 0, w, h);
+  const f = (1 + Math.sqrt(5)) / 2, vs = [];
+  for (const [a, b] of [[1, f], [1, -f], [-1, f], [-1, -f]]) vs.push([0, a, b], [a, b, 0], [b, 0, a]);
+  for (const v of vs) {
+    const n = Math.hypot(...v), x = v[0] / n, y = v[1] / n, z = v[2] / n;
+    const lat = Math.asin(y), lon = Math.atan2(z, x), u = (lon / (2 * Math.PI) + .5) * w, vv = (.5 - lat / Math.PI) * h;
+    for (const du of [-w, 0, w]) {
+      g.save(); g.translate(u + du, vv); g.scale(1 / Math.cos(lat), 1);
+      g.fillStyle = '#111827'; g.beginPath();
+      for (let k = 0; k < 5; k++) { const an = k / 5 * 2 * Math.PI - Math.PI / 2; g.lineTo(Math.cos(an) * 46, Math.sin(an) * 46); }
+      g.fill(); g.restore();
+    }
+  }
+});
+const ball = new THREE.Mesh(new THREE.SphereGeometry(BR, 32, 18), new THREE.MeshStandardMaterial({map: ballTex, roughness: .4}));
+ball.castShadow = true; scene.add(ball);
+const trailN = 12, trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(trailN * 3), 3));
+trailGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(trailN * 4), 4));
+const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({size: .2, map: glowTex, vertexColors: true, transparent: true, depthWrite: false,
+                                                                     blending: THREE.AdditiveBlending}));
+trail.frustumCulled = false; scene.add(trail);
+
+/* ---------------- люди: плавное тело из деталей, лицо, волосы, форма с номером ----------------
+   Суставы — группы (поза вращает их), детали каждой группы склеены в одну сетку с цветами вершин: мало вызовов отрисовки. */
+const lathe = (pts, seg) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+const GEO = {
+  torso: lathe([[.001, -.021], [.135, -.02], [.14, .06], [.134, .16], [.146, .28], [.166, .4], [.172, .48], [.158, .55], [.115, .6], [.06, .632], [.001, .636]], 22),
+  calf: lathe([[.001, .02], [.056, .01], [.062, -.07], [.066, -.14], [.056, -.24], [.042, -.35], [.038, -.42], [.001, -.43]], 14),
+  sph: new THREE.SphereGeometry(1, 20, 14), sphLo: new THREE.SphereGeometry(1, 10, 8),
+  cyl: (rt, rb, h, s) => new THREE.CylinderGeometry(rt, rb, h, s || 12),
+  box: (x, y, z) => new THREE.BoxGeometry(x, y, z), torus: new THREE.TorusGeometry(.056, .016, 6, 18),
+  num: new THREE.PlaneGeometry(.22, .22),
+};
+const manMat = new THREE.MeshStandardMaterial({vertexColors: true, roughness: .66});
+const numTexs = {};
+function numMat(n) {
+  if (numTexs[n]) return numTexs[n];
+  const t = canvasTex(128, 128, (g, w, h) => {
+    g.font = '900 96px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 10; g.strokeStyle = 'rgba(0,0,0,.55)'; g.strokeText(String(n), w / 2, h / 2 + 6); g.fillStyle = '#fff'; g.fillText(String(n), w / 2, h / 2 + 6);
+  });
+  return (numTexs[n] = new THREE.MeshStandardMaterial({map: t, transparent: true, roughness: .8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2}));
+}
+function headParts(kit) {                                    // голова: череп, челюсть, уши, нос, глаза, брови, рот, причёска
+  const S = GEO.sph, L = GEO.sphLo, sk = kit.skin, hc = kit.hair, dark = shade(sk, -.25);
+  const p = [part(S, sk, [0, .07, 0], 0, [.097, .116, .105]), part(S, sk, [0, .005, .022], 0, [.074, .066, .078]),
+             part(L, sk, [.098, .06, -.005], 0, [.014, .028, .022]), part(L, sk, [-.098, .06, -.005], 0, [.014, .028, .022]),
+             part(L, dark, [0, .05, .106], [-.2, 0, 0], [.016, .026, .024]),
+             part(L, '#f4f1ea', [.036, .085, .089], 0, [.017, .012, .01]), part(L, '#f4f1ea', [-.036, .085, .089], 0, [.017, .012, .01]),
+             part(L, '#2a1a10', [.036, .085, .097], 0, [.008, .008, .005]), part(L, '#2a1a10', [-.036, .085, .097], 0, [.008, .008, .005]),
+             part(GEO.box(.036, .008, .012), hc, [.037, .106, .094], [0, 0, -.12]), part(GEO.box(.036, .008, .012), hc, [-.037, .106, .094], [0, 0, .12]),
+             part(GEO.box(.036, .007, .01), '#8a4a3c', [0, .013, .099])];
+  const st = kit.style;                                       // волосы: сфера чуть больше черепа, сдвинута назад — спереди прячется в голове
+  if (st === 0) p.push(part(S, hc, [0, .092, -.024], 0, [.104, .118, .11]));
+  else if (st === 1) p.push(part(S, hc, [0, .082, -.012], 0, [.1, .114, .108]));
+  else if (st === 2) { p.push(part(S, hc, [0, .1, -.028], 0, [.118, .13, .12]));
+    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; p.push(part(L, hc, [Math.cos(a) * .08, .17 + Math.sin(i * 1.7) * .02, Math.sin(a) * .06 - .03], 0, [.045, .045, .045])); } }
+  else { p.push(part(S, hc, [0, .09, -.024], 0, [.103, .116, .11])); p.push(part(L, hc, [0, .15, -.09], 0, [.04, .04, .04])); }
+  return p;
+}
+function makeMan(kit) {   // kit: {shirt, shorts, sock, band, skin, hair, style, glove, num}; смотрит в +z, левая рука — +x
+  const root = new THREE.Group(), body = new THREE.Group(), spine = new THREE.Group(), headG = new THREE.Group();
+  root.add(body); body.add(spine); spine.add(headG); headG.position.y = .7;
+  const mesh = (parts, parent) => { const o = new THREE.Mesh(mergeParts(parts), manMat); o.castShadow = true; parent.add(o); return o; };
+  const mark = (parent, x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); parent.add(o); return o; };
+  const S = GEO.sph, sh = kit.shirt, sk = kit.skin, coll = kit.collar || shade(sh, -.4);
+  mesh([part(GEO.cyl(.16, .15, .2, 18), kit.shorts, [0, .02, 0], 0, [1.22, 1, .84])], body);
+  mesh([part(GEO.torso, sh, 0, 0, [1.32, 1, .79]), part(GEO.torus, coll, [0, .618, .004], [Math.PI / 2 - .25, 0, 0], [1.05, 1, 1]),
+        part(S, sh, [.205, .5, 0], 0, [.075, .072, .07]), part(S, sh, [-.205, .5, 0], 0, [.075, .072, .07]),
+        part(GEO.cyl(.044, .052, .11, 12), sk, [0, .665, .005])], spine);
+  mesh(headParts(kit), headG);
+  const back = new THREE.Mesh(GEO.num, numMat(kit.num)); back.position.set(0, .36, -.138); back.rotation.y = Math.PI; spine.add(back);
+  const front = new THREE.Mesh(GEO.num, numMat(kit.num)); front.position.set(.075, .44, .132); front.scale.setScalar(.42); spine.add(front);
+  const limbs = {}, gl = kit.glove;
+  for (const [k, s] of [['L', 1], ['R', -1]]) {
+    const shG = new THREE.Group(); shG.position.set(s * .25, .52, 0); spine.add(shG);
+    mesh([part(GEO.cyl(.05, .043, .27), gl ? sh : sk, [0, -.15, 0]), part(GEO.cyl(.064, .057, .15), sh, [0, -.06, 0])], shG);
+    const el = new THREE.Group(); el.position.y = -.3; shG.add(el);
+    const fore = [part(S, gl ? sh : sk, [0, 0, 0], 0, [.044, .044, .044]), part(GEO.cyl(.042, .034, .24), gl ? sh : sk, [0, -.13, 0])];
+    if (gl) fore.push(part(GEO.cyl(.05, .05, .05), shade(gl, -.3), [0, -.24, 0]), part(S, gl, [0, -.3, .005], 0, [.058, .075, .036]),
+                      part(S, gl, [s * .045, -.27, .02], [0, 0, s * .5], [.022, .04, .022]));
+    else fore.push(part(S, sk, [0, -.285, 0], 0, [.034, .052, .022]), part(S, sk, [s * .028, -.265, .012], [0, 0, s * .4], [.012, .026, .012]));
+    mesh(fore, el);
+    const hand = mark(el, 0, -.28, .01);
+    const hp = new THREE.Group(); hp.position.set(s * .095, -.05, 0); body.add(hp);
+    mesh([part(GEO.cyl(.096, .088, .2, 14), kit.shorts, [0, -.08, 0]), part(GEO.cyl(.085, .062, .42, 14), sk, [0, -.21, 0])], hp);
+    const kn = new THREE.Group(); kn.position.y = -.42; hp.add(kn);
+    mesh([part(S, sk, [0, 0, .005], 0, [.06, .06, .06]), part(GEO.calf, kit.sock), part(GEO.cyl(.068, .066, .03, 14), kit.band || shade(kit.sock, -.35), [0, -.06, 0]),
+          part(S, '#111318', [0, -.455, .05], 0, [.052, .042, .14]), part(S, '#111318', [0, -.44, -.02], 0, [.045, .05, .07]),
+          part(GEO.box(.07, .012, .2), '#3a3f47', [0, -.49, .05]),
+          part(GEO.box(.012, .02, .1), kit.bootStripe || '#facc15', [s * .048, -.455, .05])], kn);
+    const boot = mark(kn, 0, -.46, .045);
+    limbs['s' + k] = shG; limbs['e' + k] = el; limbs['h' + k] = hp; limbs['k' + k] = kn; limbs['hand' + k] = hand; limbs['boot' + k] = boot;
+  }
+  return Object.assign({root, body, spine, head: headG}, limbs);
+}
+const POSE0 = {x: 0, z: 0, yaw: 0, y: .97, roll: 0, lean: 0, sLx: 0, sLz: .12, eL: -.15, sRx: 0, sRz: -.12, eR: -.15,
+               hLx: 0, hLz: .04, kL: .05, hRx: 0, hRz: -.04, kR: .05, nod: 0, look: 0, ground: 1, jy: 0};
+const pose = o => Object.assign({}, POSE0, o);
+function mixPose(a, b, t) { const o = {}; for (const k in POSE0) o[k] = lerp(a[k], b[k], t); return o; }
+const tmpV = V(0, 0, 0), tmpV2 = V(0, 0, 0);
+function applyPose(m, p) {
+  m.root.position.set(p.x, 0, p.z); m.root.rotation.y = p.yaw;
+  m.body.position.y = p.y; m.body.rotation.set(0, 0, p.roll); m.spine.rotation.x = p.lean;
+  m.sL.rotation.set(p.sLx, 0, p.sLz); m.eL.rotation.x = p.eL; m.sR.rotation.set(p.sRx, 0, p.sRz); m.eR.rotation.x = p.eR;
+  m.hL.rotation.set(p.hLx, 0, p.hLz); m.kL.rotation.x = p.kL; m.hR.rotation.set(p.hRx, 0, p.hRz); m.kR.rotation.x = p.kR;
+  m.head.rotation.set(p.nod, p.look, 0);
+  if (p.ground > 0) {                                         // ступни на газон: тело опускается/поднимается под позу ног
+    m.root.updateMatrixWorld(true);
+    const low = Math.min(m.bootL.getWorldPosition(tmpV).y, m.bootR.getWorldPosition(tmpV2).y);
+    m.root.position.y = -(low - .045) * p.ground;
+  }
+  m.root.position.y += p.jy;
+}
+function handsAt(m, out) {
+  m.root.updateMatrixWorld(true);
+  return (out || V(0, 0, 0)).copy(m.handL.getWorldPosition(tmpV)).add(m.handR.getWorldPosition(tmpV2)).multiplyScalar(.5);
+}
+function freeze(m, p) { applyPose(m, p); return Object.assign({}, p, {y: m.body.position.y + m.root.position.y, ground: 0, jy: 0}); }
+function placeHands(m, p, G, limitY) {                        // сдвигает позу так, чтобы перчатки оказались в точке G
+  const q = freeze(m, p); applyPose(m, q); const h = handsAt(m);
+  q.x += G.x - h.x; q.y += clamp(G.y - h.y, -(limitY || 9), limitY || 9); q.z += (G.z === undefined ? 0 : G.z - h.z);
+  return q;
+}
+
+let kicker = null, keeper = null, wall = [], castSig = '';
+function keeperKit() { const sh = isFk() ? gkShirt(P.keeper.shirt) : P.keeper.shirt;
+  return {shirt: sh, shorts: '#161922', sock: shade(sh, -.3), skin: SKINS[(P.keeper.num + 1) % 4], hair: HAIRS[(P.keeper.num + 2) % 4],
+          style: (P.keeper.num + 1) % 4, glove: '#d9f99d', num: P.keeper.num}; }
+function buildCast() {
+  const sig = JSON.stringify([MODE, P.kicker.shirt, P.kicker.shorts, P.kicker.num, P.keeper.shirt, P.keeper.num, FK_INFO.wall, FK_INFO.shorts]);
+  if (sig === castSig) return; castSig = sig;
+  for (const m of [kicker, keeper, ...wall]) if (m) scene.remove(m.root);
+  const ks = P.kicker.shirt || '#dc2626';
+  kicker = makeMan({shirt: ks, shorts: P.kicker.shorts || '#f5f5f5', sock: shade(ks, -.3), skin: SKINS[P.kicker.num % 4], hair: HAIRS[P.kicker.num % 4],
+                    style: P.kicker.num % 4, num: P.kicker.num});
+  keeper = makeMan(keeperKit());
+  wall = isFk() ? FK_INFO.wall.map((num, i) => makeMan({shirt: P.keeper.shirt, shorts: FK_INFO.shorts, sock: shade(P.keeper.shirt, -.3),
+                                                         skin: SKINS[(i + 1) % 4], hair: HAIRS[i % HAIRS.length], style: (num + i) % 4, num})) : [];
+  for (const m of [kicker, keeper, ...wall]) scene.add(m.root);
+}
+
+/* ---------------- расстановка: мяч, стенка, откуда разбегается бьющий ---------------- */
+const L = {};
+function layout() {
+  buildCast();
+  const B = isFk() ? V(FK_INFO.spot * 5.5, BR, FK_Z) : V(0, BR, SPOT_Z);
+  const toG = V(-B.x, 0, -B.z).normalize(), perp = V(-toG.z, 0, toG.x);
+  L.B = B; L.toG = toG; L.dist = Math.hypot(B.x, B.z);
+  L.wallC = B.clone().addScaledVector(toG, WALL_D).setY(0); L.perp = perp;
+  L.men = wall.map((m, i) => L.wallC.clone().addScaledVector(perp, (i - (wall.length - 1) / 2) * .56));
+  L.wallYaw = Math.atan2(-toG.x, -toG.z);
+  L.kyaw = Math.atan2(toG.x, toG.z);
+  // точка, откуда бьющий бьёт: правая бутса касается мяча сзади (подбирается по самой позе удара)
+  const KC = kickPoses().C, q = Object.assign({}, KC, {x: 0, z: 0, yaw: L.kyaw});
+  applyPose(kicker, q); kicker.root.updateMatrixWorld(true);
+  const bt = kicker.bootR.getWorldPosition(V(0, 0, 0));
+  const back = B.clone().addScaledVector(toG, -(BR + .1));
+  L.plant = V(back.x - bt.x, 0, back.z - bt.z);
+  const runDir = toG.clone().applyAxisAngle(V(0, 1, 0), -.38);   // разбег под углом слева-сзади (правша)
+  L.runDir = runDir; L.start = L.plant.clone().addScaledVector(runDir, -2.5);
+  spray.visible = isFk(); if (isFk()) placeSpray();
+  buildMarkers();
+}
+/* пена судьи: дуга у мяча и черта перед стенкой */
+const sprayMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: .7, depthWrite: false});
+const spray = new THREE.Group(); scene.add(spray);
+function placeSpray() {
+  spray.clear();
+  const arc = new THREE.Mesh(new THREE.RingGeometry(.55, .6, 28, 1, 0, Math.PI), sprayMat);
+  arc.rotation.x = -Math.PI / 2; arc.position.set(L.B.x, .012, L.B.z); arc.rotation.z = -L.kyaw + Math.PI;
+  const line = new THREE.Mesh(new THREE.PlaneGeometry(3.2, .08), sprayMat);
+  line.rotation.x = -Math.PI / 2; line.rotation.z = Math.atan2(L.perp.z, L.perp.x) * -1;
+  line.position.copy(L.wallC).addScaledVector(L.toG, -.35).setY(.012);
+  spray.add(arc, line);
+}
+
+/* ---------------- исход → как это выглядит (тот же разбор, что в 2D, но в метрах) ---------------- */
+function seedOf(a) {
+  let h = 2166136261;
+  for (const ch of [a.aim, a.dive, a.outcome, a.text, P.kicker.num, P.kicker.name, P.keeper.num].join('|')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return (h >>> 0) % 2147483646 + 1;
+}
+const colX = c => (c - 1) * GW / 3;
+function zone(aim) { return {x: colX(aim % 3), y: aim < 3 ? GH * .73 : GH * .27}; }
+function flight(pl, at) {                                    // полёт: прямая + дуга от тяжести + боковой изгиб от подкрутки
+  const p = clamp((at - pl.K) / (pl.R - pl.K), 0, 1), e = 1 - Math.pow(1 - p, pl.ease);
+  const o = pl.S.clone().lerp(pl.T, e); o.y += pl.arc * 4 * e * (1 - e); o.x += pl.bend * Math.sin(Math.PI * e);
+  return o;
+}
+function simulate(p0, v0, opt) {                             // после касания — честная физика: тяжесть, отскоки, сетка, щиты
+  const out = [], p = p0.clone(), v = v0.clone(), dt = 1 / 240;
+  for (let i = 0; i < 960; i++) {
+    v.y -= 9.8 * dt; v.multiplyScalar(1 - .1 * dt); p.addScaledVector(v, dt);
+    if (p.y < BR) { p.y = BR; if (v.y < 0) { v.y = -v.y * .5; v.x *= .82; v.z *= .82; if (v.y < .5) v.y = 0; } v.x *= 1 - 1.4 * dt; v.z *= 1 - 1.4 * dt; }
+    if (opt.goal) {
+      const zb = NET_BOT + (NET_TOP.z - NET_BOT) * clamp(p.y / NET_TOP.y, 0, 1) + BR;
+      if (p.z < zb) { p.z = zb; if (v.z < 0) v.z = -v.z * .15; v.x *= .5; }
+      if (Math.abs(p.x) > HW - BR) { p.x = Math.sign(p.x) * (HW - BR); v.x = -v.x * .2; }
+      if (p.y > NET_TOP.y - BR) { p.y = NET_TOP.y - BR; if (v.y > 0) v.y = -v.y * .2; }
+      if (p.z > -.05 && v.z > 0 && p.z < .2) { v.z *= .3; }
+    }
+    if (p.z < -4.45 && p.z > -4.8 && p.y < .95 && v.z < 0) { p.z = -4.45; v.z = -v.z * .35; }
+    if (i % 2 === 0) out.push(p.clone());
+  }
+  return out;
+}
+function sampleAt(arr, q) { const i = clamp(q * 120, 0, arr.length - 1), i0 = Math.floor(i), i1 = Math.min(arr.length - 1, i0 + 1);
+  return arr[i0].clone().lerp(arr[i1], i - i0); }
+function timeline(pl) {   // точки [время сцены, реальное время]: замедление у ворот и стоп-кадры в момент удара и касания
+  const s0 = pl.K - .06, s1 = pl.R + .18, pts = [[0, 0], [s0, s0]];
+  const add = (sT, hold) => { const [ps, pr] = pts[pts.length - 1], r = pr + (sT - ps) / pl.slow; pts.push([sT, r]); if (hold) pts.push([sT, r + hold]); };
+  add(pl.K, pl.holdK); add(pl.R, pl.holdR); add(s1, 0);
+  return pts;
+}
+function sceneTime(x, pl) {
+  const T = pl.tl, n = T.length - 1;
+  if (x >= T[n][1]) return T[n][0] + (x - T[n][1]);
+  let i = 0; while (x >= T[i + 1][1]) i++;
+  const [s0, r0] = T[i], [s1, r1] = T[i + 1];
+  return s0 === s1 ? s0 : lerp(s0, s1, (x - r0) / (r1 - r0));
+}
+const READY = () => pose({z: .35, lean: .3, sLx: -.4, sLz: .62, eL: -.95, sRx: -.4, sRz: -.62, eR: -.95,
+                          hLx: -.55, hLz: .17, kL: 1.05, hRx: -.55, hRz: -.17, kR: 1.05});
+function makePlan(a) {
+  const r = rng(seedOf(a)), col = a.aim % 3, high = a.aim < 3, out = a.outcome;
+  const side = col === 0 ? -1 : col === 2 ? 1 : (r() < .5 ? -1 : 1);
+  const pl = {para: r() < .22, side, kind: 'net', hit: null, drift: (r() - .5) * 1.4, lands: false, ease: 1.45};
+  pl.K = pl.para ? 1.8 : 1.5;
+  const cx = col === 1 ? (r() - .5) * .9 : col === 0 ? -HW + .5 + r() * .45 : HW - .5 - r() * .45;
+  const cy = high ? GH - .32 - r() * .3 : .22 + r() * .3;
+  let C = {x: cx, y: cy, z: 0};
+  const dir = a.dive === 0 ? -1 : a.dive === 2 ? 1 : 0, guessed = a.dive === col;
+  if (out === 'goal') {
+    if (col !== 1 && r() < .22) { pl.kind = 'postIn'; C.x = col === 0 ? -HW + .06 : HW - .06; pl.hit = col === 0 ? 'l' : 'r'; }
+    else if (dir && guessed && r() < .5) pl.kind = 'fingertip';
+    if (col === 1 && a.dive === 1) C.x = side * (1.0 + r() * .25);           // вратарь стоял в центре — мяч мимо его рук
+  } else if (out === 'save') pl.kind = a.dive === 1 ? (!high && r() < .45 ? 'block' : 'catch') : high ? (r() < .55 ? 'tip' : 'parry') : (r() < .35 ? 'catch' : 'parry');
+  else if (high) {
+    if (r() < .3) { pl.kind = 'bar'; C.y = GH + .07; pl.hit = 'b'; }
+    else { pl.kind = 'over'; C = {x: cx + (r() - .5) * .7, y: GH + .5 + r() * .4, z: 0}; }
+  } else if (r() < .3) { pl.kind = 'postOut'; C = {x: side * (HW + .1), y: cy + .1, z: 0}; pl.hit = side < 0 ? 'l' : 'r'; }
+  else { pl.kind = 'wide'; C = {x: side * (HW + .5 + r() * .45), y: cy, z: 0}; }
+  pl.tech = col === 1 && high && r() < .35 ? 'chip' : !high && col !== 1 ? (r() < .75 ? 'place' : 'power') : (r() < .7 ? 'power' : 'place');
+  pl.F = pl.tech === 'chip' ? .95 : (high ? (col === 1 ? .6 : .56) : .5) * (pl.tech === 'power' ? .8 : 1);
+  pl.R = pl.K + pl.F;
+  pl.arc = pl.tech === 'chip' ? 2.1 : high ? (pl.kind === 'over' ? 1.1 : .75) * (pl.tech === 'power' ? .6 : 1) : .1;
+  pl.bend = Math.sign(C.x) * Math.min(1, Math.abs(C.x) / 3.3) * (pl.tech === 'place' ? .8 : pl.tech === 'power' ? .2 : 0);
+  pl.spin = pl.tech === 'chip' ? -7 : pl.tech === 'power' ? 30 : 20;
+  pl.slow = pl.tech === 'chip' ? .62 : .42;
+  // вратарь: куда тянется, как прыгает
+  pl.kdir = dir || (col === 1 ? 0 : side);
+  if (dir) {
+    pl.D0 = pl.K - .05; pl.Ta = Math.min(pl.R + .02, pl.D0 + .62); pl.lands = true;
+    let G;
+    if (guessed && out === 'save') G = {x: C.x, y: C.y};
+    else if (guessed && out === 'goal') G = pl.kind === 'fingertip' ? {x: C.x - dir * .3, y: C.y - .08} : {x: C.x - dir * .75, y: C.y - .15};
+    else if (guessed) G = {x: clamp(C.x - dir * .5, -HW + .6, HW - .6), y: clamp(C.y, .45, GH - .35)};
+    else G = {x: colX(a.dive) + dir * .35, y: .55 + r() * .4};
+    const phi = G.y > 1.6 ? .95 : G.y < .6 ? 1.32 : 1.12;
+    const KE = pose({z: .35, roll: -dir * phi, sLz: 2.9, eL: -.12, sRz: -2.9, eR: -.12, sLx: .1, sRx: .1,
+                     hLx: -.3, hLz: .35, kL: .55, hRx: .15, hRz: -.25, kR: .8, ground: 0, y: 1});
+    pl.KE = placeHands(keeper, KE, {x: G.x, y: G.y, z: .35});
+    pl.KE.y = Math.max(.28, pl.KE.y);
+    pl.lift = G.y > 1.5 ? .3 : .12;
+    if (out === 'save') { applyPose(keeper, pl.KE); const h = handsAt(keeper); C = {x: h.x, y: h.y, z: h.z}; }
+  } else {
+    pl.D0 = pl.K + .07; pl.Ta = pl.R;
+    if (pl.kind === 'block') {                                                   // низом по центру — ногами
+      C = {x: (r() - .5) * .3, y: .22, z: .62};
+      pl.KE = pose({x: C.x, z: .35, lean: .45, hLx: -1.0, hLz: .03, kL: 1.5, hRx: -1.0, hRz: -.03, kR: 1.5, sLz: .5, sRz: -.5, sLx: -.3, sRx: -.3});
+    } else if (col === 1 && out !== 'miss') {
+      const aimAt = pl.kind === 'catch' ? C : {x: C.x - side * .45, y: C.y + (high ? .15 : 0)};
+      const el = Math.asin(clamp((aimAt.y - 1.35) / .62, -1, 1));
+      const base = high ? pose({z: .35, sLx: -Math.PI / 2 - el, sRx: -Math.PI / 2 - el, sLz: .18, sRz: -.18, eL: -.1, eR: -.1})
+                        : pose({z: .35, lean: .6, sLx: -.9, sRx: -.9, sLz: .1, sRz: -.1, hLx: -1.1, kL: 1.9, hRx: -.6, kR: 1.2});
+      pl.KE = placeHands(keeper, base, {x: aimAt.x, y: aimAt.y, z: .5}, .55);
+      if (pl.kind === 'catch') { applyPose(keeper, pl.KE); const h = handsAt(keeper); C = {x: h.x, y: h.y, z: h.z}; }
+    } else pl.KE = pose({x: side * .3, z: .35, roll: -side * .2, sLx: high ? -2.6 : -1.2, sRx: high ? -2.6 : -1.2, sLz: .4, sRz: -.4, hLx: -.3, kL: .6, hRx: -.3, kR: .6});
+  }
+  pl.Tr = pl.R + (pl.lands ? .75 : .5);
+  pl.C = C;
+  const u = pl.kind === 'postIn' ? (col === 0 ? .3 : .7) : clamp((C.x + HW) / GW, .04, .96), vv = clamp(C.y / GH, .05, .95);
+  pl.N = V(lerp(-HW, HW, u) * .96, vv * NET_TOP.y, NET_BOT + (NET_TOP.z - NET_BOT) * vv + .12);
+  pl.into = pl.kind === 'postIn' ? .2 : .14;
+  pl.kr = out === 'goal' ? ['plane', 'jump', 'fist'][r() * 3 | 0] : ['head', 'squat', 'hips'][r() * 3 | 0];
+  pl.gr = out === 'save' ? 'cheer' : out === 'goal' ? 'down' : 'clap';
+  pl.word = {goal: 'ГОЛ!', save: 'СЕЙВ!'}[out] || (pl.kind === 'bar' ? 'ПЕРЕКЛАДИНА!' : pl.kind === 'postOut' ? 'ШТАНГА!' : 'МИМО!');
+  pl.note = pl.kind === 'postIn' ? ' — от штанги!' : pl.kind === 'block' ? ' — отбил ногами!' : '';
+  pl.end = pl.R + 2.9;
+  pl.holdK = {power: .2, place: .14, chip: .1}[pl.tech];
+  pl.holdR = out === 'save' ? .28 : pl.hit ? .2 : out === 'goal' ? .08 : 0;
+  pl.say = pl.tech === 'chip' ? 'ПАНЕНКА! Мяч парит над вратарём' : pl.tech === 'power' ? 'Подъёмом — со всей силы!'
+         : col === 1 ? 'Щёчкой — точно в цель' : 'Щёчкой — в угол, с закруткой';
+  return pl;
+}
+function finishPlan(pl) {                                    // путь мяча после касания — один раз, заранее
+  pl.S = L.B.clone(); pl.T = pl.T || V(pl.C.x, pl.C.y, pl.C.z);
+  const vin = flight(pl, pl.R).sub(flight(pl, pl.R - .004)).divideScalar(.004 * 1).multiplyScalar(1);
+  // flight() считает по времени сцены — скорость в м/с сцены (до замедления)
+  pl.vin = vin; const T = pl.T, s = pl.side;
+  const k = pl.kind;
+  if (k === 'net' || k === 'fingertip' || k === 'postIn') {
+    pl.ndir = pl.N.clone().sub(T).normalize();
+    pl.after = simulate(pl.N, vin.clone().multiplyScalar(.06).add(V(0, -.4, .7)), {goal: true});
+  } else if (k === 'parry') pl.after = simulate(T, V(s * 3.4, 2.6, 5.5), {});
+  else if (k === 'tip') pl.after = simulate(T, V(s * .8, 4.6, -1.8), {});
+  else if (k === 'block') pl.after = simulate(T, V(s * 1.2, 1.4, 7.5), {});
+  else if (k === 'over' || k === 'wide') pl.after = simulate(T, vin, {});
+  else if (k === 'bar') pl.after = simulate(T, V(vin.x * .25 + pl.drift * .5, 5.4, -2.6), {});
+  else if (k === 'postOut') pl.after = simulate(T, V(s * 1.6, 1.0, 7.5), {});
+  else if (k === 'wall') pl.after = simulate(T, V(s * 3, pl.over ? 3.6 : 1.2, 9), {});
+  pl.tl = timeline(pl);
+  return pl;
+}
+/* штрафной: через стенку — дуга над головами (над прыгнувшими — выше), под стенку — низом в обход или под ногами */
+const FKT = z => ({x: z % 2 ? HW - .75 : -HW + .75, y: z < 2 ? GH - .45 : .32});
+function fkPath(z, jump, T) {                                // дуга и изгиб удара z при стенке (jump: 0/1)
+  const over = z < 2, col = z % 2 ? 2 : 0, S = L.B, Tt = T || V(FKT(z).x, FKT(z).y, 0);
+  const along = Tt.clone().sub(S).setY(0), ew = clamp(WALL_D / Math.max(1, along.dot(L.toG)), .2, .8);
+  let bend, arc;
+  if (over) {
+    bend = (col === 0 ? 1 : -1) * 1.0;
+    const need = 1.95 + jump * .6 + .35, base = lerp(BR, Tt.y, ew);
+    arc = Math.max(.9, (need - base) / (4 * ew * (1 - ew)));
+  } else {
+    arc = .03; bend = 0;
+    if (!jump) for (let b = 0; b < 2.6; b += .1) {           // стенка стоит — мяч огибает её снаружи
+      bend = (col === 0 ? -1 : 1) * b;
+      const p = S.clone().lerp(Tt, ew); p.x += bend * Math.sin(Math.PI * ew);
+      if (Math.abs(p.clone().sub(L.wallC).dot(L.perp)) > 1.35) break;
+    } else bend = (col === 0 ? -1 : 1) * .3;
+  }
+  return {S, T: Tt, arc, bend, ew, over, col};
+}
+function makeFkPlan(a) {
+  const over = a.fk < 2, col = a.fk % 2 ? 2 : 0, block = a.outcome === 'block', jump = a.fkWall ? 1 : 0;
+  const pl = makePlan({aim: (over ? 0 : 3) + col, dive: a.dive, outcome: block ? 'save' : a.outcome, text: a.text});
+  const r = rng(seedOf(a) + 7);
+  pl.para = false; pl.over = over; pl.tech = over ? 'place' : 'power';
+  pl.spin = over ? 24 : 30; pl.slow = .45; pl.ease = 1.2;
+  pl.F = over ? .98 + r() * .08 : .78 + r() * .06;
+  const path = fkPath(a.fk, jump, V(pl.C.x, pl.C.y, pl.C.z));
+  pl.bend = path.bend; pl.arc = path.arc;
+  if (block) {                                                // стенка: в голову (через стенку) или в ноги (под стенку)
+    const cross = path.S.clone().lerp(path.T, path.ew); cross.x += path.bend * Math.sin(Math.PI * path.ew);
+    const man = L.men.reduce((b, m) => m.distanceTo(cross) < b.distanceTo(cross) ? m : b);
+    const W = man.clone().lerp(cross.setY(0), .4).addScaledVector(L.toG, -.18);
+    W.y = over ? 1.72 + jump * .55 : .28;
+    pl.T = W; pl.kind = 'wall'; pl.side = W.clone().sub(L.B).dot(L.perp) > 0 ? 1 : -1;
+    pl.arc = over ? .7 : .03; pl.bend = path.bend * .5; pl.R = pl.K + pl.F * path.ew;
+    pl.lands = false; pl.kdir = 0; pl.D0 = pl.R + .25; pl.Ta = pl.R + .65;
+    pl.KE = pose({x: (col - 1) * .2, z: .35, lean: .45, hLx: -.8, kL: 1.3, hRx: -.8, kR: 1.3, sLx: -.5, sRx: -.5, sLz: .5, sRz: -.5});
+    pl.gr = 'clap'; pl.Tr = pl.R + .9; pl.hit = null; pl.holdR = .28;
+    pl.word = 'СТЕНКА!'; pl.note = '';
+    pl.say = over ? 'Через стенку…' : 'Низом под стенку…';
+    pl.wallMan = L.men.indexOf(man);
+  } else {
+    pl.R = pl.K + pl.F;
+    if (pl.lands) { pl.D0 = Math.max(pl.K + .12, pl.R - .5); pl.Ta = Math.min(pl.R + .02, pl.D0 + .62); }
+    else { pl.D0 = Math.max(pl.K + .12, pl.R - .38); pl.Ta = pl.R; }
+    pl.Tr = pl.R + (pl.lands ? .75 : .5);
+    pl.say = over ? 'Через стенку — с закруткой в угол!' : jump ? 'Низом — под прыгнувшую стенку!' : 'Низом — в обход стенки!';
+  }
+  pl.cross = block ? pl.R : pl.K + (1 - Math.pow(1 - path.ew, 1 / 1.2)) * (pl.R - pl.K);
+  pl.end = pl.R + 2.9;
+  return pl;
+}
+
+/* ---------------- движения ---------------- */
+function kickPoses() {
+  return {
+    B: pose({lean: .08, hLx: -.3, kL: .3, hRx: 1.0, kR: 1.8, sLx: -.45, sLz: 1.0, sRx: .55, sRz: -.45, eL: -.4, roll: .06}),
+    C: pose({lean: -.06, hLx: -.25, kL: .25, hRx: -.5, kR: .3, sLx: -.3, sLz: 1.15, sRx: .4, sRz: -.6, eL: -.3, roll: .04}),
+    F: pose({lean: -.18, hLx: -.05, kL: .15, hRx: -1.5, kR: .12, sLx: -.2, sLz: 1.2, sRx: .7, sRz: -.5, eL: -.3}),
+  };
+}
+function runPose(ph, k) {                                    // бег: ноги и руки в противофазе, наклон вперёд
+  const s = Math.sin(ph);
+  return pose({lean: .22 * k, hLx: -.75 * s * k, hRx: .75 * s * k, kL: (.25 + 1.1 * Math.max(0, s)) * k, kR: (.25 + 1.1 * Math.max(0, -s)) * k,
+               sLx: .65 * s * k, sRx: -.65 * s * k, eL: -1.1 * k - .15, eR: -1.1 * k - .15, jy: Math.abs(Math.cos(ph)) * .05 * k});
+}
+function kickerPose(at, a, t) {
+  const KP = kickPoses(), yawRun = Math.atan2(L.runDir.x, L.runDir.z);
+  const stand = pose({x: L.start.x, z: L.start.z, yaw: L.kyaw, lean: .05, sLz: .18, sRz: -.18, jy: 0, hLx: -.05 + .02 * Math.sin(t * 2), hRx: .05});
+  if (!a) { stand.lean += .02 * Math.sin(t * 1.7); return stand; }
+  const pl = a.plan, K = pl.K, run = .85;
+  if (at < K - run - (pl.para ? .35 : 0)) return stand;
+  if (at < K - .2) {                                          // разбег (с «паузиньей» — с замедлением перед ударом)
+    let u = (at - (K - run - (pl.para ? .35 : 0))) / (run - .2 + (pl.para ? .35 : 0));
+    if (pl.para) u = u < .55 ? u * 1.15 : u < .8 ? .63 + (u - .55) * .3 : .705 + (u - .8) * 1.47;
+    u = clamp(u, 0, 1);
+    const p = runPose(u * 3.2 * Math.PI * 2 / 2, smooth(u, 0, .15));
+    p.x = lerp(L.start.x, L.plant.x, u); p.z = lerp(L.start.z, L.plant.z, u);
+    p.yaw = lerp(L.kyaw, yawRun, smooth(u, 0, .2)) ; p.yaw = lerp(p.yaw, L.kyaw, smooth(u, .7, 1));
+    return p;
+  }
+  const at0 = Object.assign({}, KP.B, {x: L.plant.x, z: L.plant.z, yaw: L.kyaw});
+  const c = Object.assign({}, KP.C, {x: L.plant.x, z: L.plant.z, yaw: L.kyaw});
+  const f = Object.assign({}, KP.F, {x: L.plant.x, z: L.plant.z, yaw: L.kyaw});
+  if (at < K - .08) return mixPose(Object.assign(runPose(Math.PI, 1), {x: L.plant.x, z: L.plant.z, yaw: L.kyaw}), at0, smooth(at, K - .2, K - .1));
+  if (at < K) return mixPose(at0, c, smooth(at, K - .08, K));
+  if (at < K + .3) return mixPose(c, f, easeOut((at - K) / .28));
+  // после удара: пара шагов к воротам, потом реакция
+  const fwd = L.plant.clone().addScaledVector(L.toG, 1.1);
+  const walk = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw, lean: .05, sLz: .2, sRz: -.2});
+  let p = mixPose(f, walk, smooth(at, K + .3, K + .9));
+  if (at < pl.R + .25) return p;
+  const q = at - pl.R - .25, w = smooth(q, 0, .35);
+  let r;
+  if (a.outcome === 'goal') {
+    if (pl.kr === 'plane') {                                  // «самолётик» к угловому
+      const sd = pl.side || 1, u = clamp(q / 2.4, 0, 1), d = V(sd * .8, 0, .6).normalize();
+      const pos = fwd.clone().addScaledVector(d, easeOut(u) * 6.5);
+      r = runPose(q * 11, 1 - smooth(u, .8, 1)); Object.assign(r, {x: pos.x, z: pos.z, yaw: Math.atan2(d.x, d.z), sLz: 1.5, sRz: -1.5, sLx: 0, sRx: 0, eL: -.1, eR: -.1, roll: -sd * .25});
+    } else if (pl.kr === 'jump') {
+      r = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw + Math.PI * .8, sRx: -3.0, sRz: -.2, eR: -.2, sLx: -.4, sLz: .9, jy: Math.abs(Math.sin(q * 4.5)) * .5 * (q < 2.2 ? 1 : 0)});
+    } else {
+      r = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw + Math.PI * .85, lean: .25, sRx: -1.7 - .8 * Math.abs(Math.sin(q * 6)), eR: -1.6, sRz: -.3, sLx: .3, sLz: .5, hLx: -.6, kL: 1, hRx: -.3, kR: .5});
+    }
+  } else if (pl.kr === 'head') r = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw, lean: -.15, nod: -.3, sLx: -2.5, sLz: .55, eL: -2.1, sRx: -2.5, sRz: -.55, eR: -2.1});
+  else if (pl.kr === 'squat') r = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw, lean: .7, nod: .4, hLx: -1.4, kL: 2.1, hRx: -1.4, kR: 2.1, sLx: -.7, sRx: -.7, eL: -.3, eR: -.3});
+  else r = pose({x: fwd.x, z: fwd.z, yaw: L.kyaw, nod: .25, sLz: .6, sRz: -.6, eL: -1.8, eR: -1.8, sLx: .25, sRx: .25});
+  return mixPose(p, r, w);
+}
+function keeperPose(at, a, t) {
+  const R0 = READY(), sway = Math.sin(t * 1.3);
+  const idle = Object.assign({}, R0, {x: .2 * sway, jy: Math.abs(Math.sin(t * 3.4)) * .03, sLx: -.35 + .1 * Math.sin(t * 2.3), sRx: -.35 + .1 * Math.sin(t * 2.3 + 1)});
+  if (!a) return idle;
+  const pl = a.plan, set = Object.assign({}, R0, {kL: 1.2, kR: 1.2, hLx: -.65, hRx: -.65});
+  if (at < pl.D0 - .12) return mixPose(idle, set, smooth(at, pl.K - .5, pl.K - .15));
+  if (at < pl.D0) return mixPose(set, Object.assign({}, set, {x: pl.kdir * .12, kL: 1.4, kR: 1.4, hLx: -.8, hRx: -.8}), (at - pl.D0 + .12) / .12);
+  const KE = pl.KE;
+  if (at < pl.Ta) { const u = (at - pl.D0) / (pl.Ta - pl.D0), p = mixPose(set, KE, easeOut(u)); p.jy += (pl.lift || 0) * Math.sin(Math.PI * u); return p; }
+  let p = KE;
+  if (pl.lands) {                                             // падает на газон боком, руки на газоне (с мячом — прижимает к груди)
+    const dir = pl.kdir, hold = a.outcome === 'save' && pl.kind === 'catch';
+    const lie = Object.assign({}, KE, {y: .2, x: KE.x + dir * .3, roll: -dir * (Math.PI / 2 - .08), jy: 0,
+                                       sLz: hold ? 1.6 : 2.6, sRz: hold ? -1.6 : -2.6, eL: hold ? -1.9 : -.4, eR: hold ? -1.9 : -.4, sLx: hold ? -.9 : 0, sRx: hold ? -.9 : 0});
+    p = mixPose(KE, lie, easeInOut((at - pl.Ta) / .4));
+    if (at > pl.Tr + .2) {
+      if (a.outcome === 'save') {                             // вскочил и радуется
+        const up = pose({x: lie.x, z: .35, sLx: -3, sRx: -3, sLz: .25, sRz: -.25, eL: -.2, eR: -.2, jy: at > pl.Tr + .9 ? Math.abs(Math.sin(at * 5)) * .35 : 0});
+        p = mixPose(lie, up, smooth(at, pl.Tr + .2, pl.Tr + .8));
+      } else {                                                // сел на газон
+        const sit = pose({x: lie.x, z: .35, y: .3, ground: 0, lean: .35, hLx: -1.45, kL: .4, hRx: -1.45, kR: .9, sLx: .6, sRx: .6, sLz: .3, sRz: -.3, nod: .3});
+        p = mixPose(lie, sit, smooth(at, pl.Tr + .9, pl.Tr + 1.8));
+      }
+    }
+    return p;
+  }
+  if (at > pl.Tr) {
+    if (a.outcome === 'save' || pl.gr === 'clap') {
+      const up = pose({x: KE.x, z: .35, sLx: -2.9, sRx: -2.9, sLz: .3, sRz: -.3, eL: -.2, eR: -.2, jy: Math.abs(Math.sin(at * 5)) * .25});
+      if (pl.kind === 'catch') Object.assign(up, {sLx: -1.1, sRx: -1.1, eL: -1.5, eR: -1.5, sLz: .15, sRz: -.15, jy: 0});
+      return mixPose(KE, up, smooth(at, pl.Tr, pl.Tr + .5));
+    }
+    const sad = pose({x: KE.x, z: .35, lean: .4, nod: .5, hLx: -.4, kL: .7, hRx: -.4, kR: .7, sLx: -.9, sRx: -.9, eL: -.4, eR: -.4});
+    return mixPose(KE, sad, smooth(at, pl.Tr, pl.Tr + .7));
+  }
+  return p;
+}
+function wallJump(at, a) {
+  if (a) { if (!a.fkWall) return 0; const q = (at - a.plan.cross + .33) / .66; return q > 0 && q < 1 ? Math.sin(Math.PI * q) : 0; }
+  return phase === 'choose' && role === 'keep' && fkWall ? Math.max(0, Math.sin(performance.now() / 170)) * .3 : 0;
+}
+function wallPose(i, at, a, t) {
+  const j = wallJump(at, a), pl = a && a.plan, c = L.men[i];
+  const p = pose({x: c.x, z: c.z, yaw: L.wallYaw, sLx: -.45, sLz: -.32, eL: -.7, sRx: -.45, sRz: .32, eR: -.7, lean: .05,
+                  hLx: lerp(-.1, -.7, j), kL: lerp(.15, 1.2, j), hRx: lerp(-.1, -.7, j), kR: lerp(.15, 1.2, j), jy: j * .55, nod: .1 * Math.sin(t * 1.6 + i)});
+  if (pl && pl.kind === 'wall' && at > pl.R) {
+    const q = at - pl.R, cheer = pose({x: c.x, z: c.z, yaw: L.wallYaw, sLx: -2.9, sRx: -2.9, sLz: .3, sRz: -.3, eL: -.3, eR: -.3, jy: Math.abs(Math.sin(q * 5)) * .25});
+    if (i === pl.wallMan) p.lean = -.35 * Math.exp(-q * 4) * Math.sin(Math.min(q * 9, Math.PI));
+    return mixPose(p, cheer, smooth(q, .45, .9));
+  }
+  if (pl && a.outcome === 'goal' && at > pl.R + .3)
+    return mixPose(p, pose({x: c.x, z: c.z, yaw: L.wallYaw + Math.PI, sLx: -2.5, sLz: .55, eL: -2.1, sRx: -2.5, sRz: -.55, eR: -2.1}), smooth(at, pl.R + .3, pl.R + .8));
+  return p;
+}
+function ballAt(at, a) {                                     // {p, fly, deep} — где мяч, в полёте ли
+  if (!a || at < a.plan.K) return {p: L.B.clone(), fly: false};
+  const pl = a.plan;
+  if (at < pl.R) return {p: flight(pl, at), fly: true};
+  const q = at - pl.R, k = pl.kind;
+  if (k === 'catch') return {p: handsAt(keeper), fly: false};
+  if (k === 'net' || k === 'fingertip' || k === 'postIn') {
+    if (q < pl.into) return {p: pl.T.clone().lerp(pl.N, q / pl.into), fly: true};
+    const p = sampleAt(pl.after, q - pl.into), b = netBulge(at, a), d = bulgeAt(p, b);
+    if (d) p.add(d.multiplyScalar(.9));
+    return {p, fly: false};
+  }
+  return {p: sampleAt(pl.after, q), fly: q < .25};
+}
+function netBulge(at, a) {
+  const pl = a && a.plan;
+  if (!pl || !(pl.kind === 'net' || pl.kind === 'fingertip' || pl.kind === 'postIn')) return null;
+  const q = at - pl.R - pl.into * .6;
+  if (q <= 0) return null;
+  const k = Math.max(0, Math.sin(Math.min(q / .45, 1) * Math.PI)) * Math.exp(-q * 1.4) * .55;
+  return k > .002 ? {N: pl.N, dir: pl.ndir, k} : null;
+}
+
+/* ---------------- камера, как в трансляции ---------------- */
+function shotWide() {
+  const B = L.B, fk = isFk(), vf = 50, tanH = Math.tan(vf / 2 * Math.PI / 180) * camera.aspect;
+  const halfW = fk ? HW + 3.3 : HW + .55, D = clamp(halfW / tanH, fk ? 30 : 18, 70);
+  const back = V(B.x, 0, B.z).normalize();
+  const pos = back.clone().multiplyScalar(D).setY(fk ? 5.6 : 3.1);
+  const look = V(0, 1.15, 0).lerp(B, fk ? .52 : .28); look.y = fk ? .3 : .6;
+  return {pos, look, fov: vf};
+}
+function mixShot(p, q, t) { return {pos: p.pos.clone().lerp(q.pos, t), look: p.look.clone().lerp(q.look, t), fov: lerp(p.fov, q.fov, t)}; }
+function camAt(at, a, t) {
+  const W = shotWide();
+  if (!a) return W;
+  const pl = a.plan, K = pl.K, B = L.B, toG = L.toG, T = pl.T;
+  const right = V(-toG.z, 0, toG.x);                         // вправо от линии удара (бьющий разбегается слева)
+  const foot = {pos: B.clone().addScaledVector(toG, -3.4).addScaledVector(right, 2.1).setY(1.15), look: B.clone().addScaledVector(right, -.45).setY(.6), fov: 50};
+  let c = mixShot(W, foot, smooth(at, K - .6, K - .12));
+  if (at > K) {
+    const bp = ballAt(Math.min(at, pl.R), a).p;
+    const fk = isFk(), follow = {pos: bp.clone().addScaledVector(toG, fk ? -6.5 : -4.2).addScaledVector(right, .5).setY(Math.max(fk ? 2.9 : 1.1, bp.y + .55)),
+                    look: bp.clone().addScaledVector(toG, 5).setY(Math.max(.9, bp.y * .7 + .4)), fov: 48};
+    const close = pl.kind === 'wall'
+      ? {pos: T.clone().addScaledVector(toG, -6).addScaledVector(right, 1.2).setY(1.8), look: T.clone().setY(1.1), fov: 46}
+      : {pos: V(T.x * .45, 1.55, 6.8), look: V(clamp(T.x, -HW, HW) * .8, clamp(T.y, 0, GH) * .55 + .5, -.4), fov: 46};
+    c = mixShot(c, follow, smooth(at, K, K + .12));
+    c = mixShot(c, close, smooth(at, lerp(K, pl.R, .5), pl.R - .03));
+    if (at > pl.R) {
+      let after;
+      if (a.outcome === 'goal') {                             // облёт ворот после гола
+        const q = at - pl.R - pl.into, sd = pl.side || 1, th = sd * lerp(0, 1.15, smooth(q, .2, 3.4)), rad = lerp(6.8, 9.5, smooth(q, 0, 3));
+        const cen = V(T.x * .3, 1.0, -.6);
+        after = {pos: cen.clone().add(V(Math.sin(th) * rad, lerp(1.55, 3.1, smooth(q, 0, 3)), Math.cos(th) * rad)), look: cen.clone().setY(.95), fov: 46};
+        const kp = kicker.body.getWorldPosition(V(0, 0, 0));          // потом — крупно радость бьющего (он развернулся к камере)
+        after = mixShot(after, {pos: kp.clone().add(V(1.2, 1.1, 5.6)), look: kp.clone().setY(1.45), fov: 46}, smooth(q, 1.5, 2.3));
+      } else if (pl.kind === 'wall') after = {pos: L.wallC.clone().addScaledVector(toG, -8).addScaledVector(right, 2.5).setY(2.6), look: L.wallC.clone().setY(1), fov: 48};
+      else after = {pos: V(T.x * .25, 2.7, 11.5), look: V(clamp(T.x, -HW, HW) * .3, 1.0, 0), fov: 48};
+      c = mixShot(c, after, smooth(at, pl.R + .25, pl.R + 1.1));
+    }
+  }
+  return c;
+}
+
+/* ---------------- частицы: трава, искры, конфетти, салют, вспышки фотоаппаратов ---------------- */
+function particles(n, size, additive) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 4), 4));
+  const m = new THREE.PointsMaterial({size, vertexColors: true, transparent: true, depthWrite: false, map: additive ? glowTex : null,
+                                      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, fog: false});
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; scene.add(pts);
+  return {pts, list: [], n};
+}
+const FX = {grass: particles(220, .06, false), conf: particles(500, .1, false), spark: particles(260, .12, true), sky: particles(700, .9, true)};
+function emit(sys, p, v, life, color, grav, drag, onDie) {
+  if (sys.list.length >= sys.n) sys.list.shift();
+  sys.list.push({p: p.clone(), v, l: life, m: life, c: new THREE.Color(color), g: grav, d: drag || 0, onDie, w: Math.random() * 6});
+}
+function burst(sys, p, n, colors, speed, life, grav, up) {
+  for (let i = 0; i < n; i++) {
+    const v = V(Math.random() - .5, Math.random() - .5 + (up || 0), Math.random() - .5).normalize().multiplyScalar(speed * (.3 + Math.random()));
+    emit(sys, p, v, life * (.6 + Math.random() * .6), colors[i % colors.length], grav, sys === FX.conf ? 1.6 : .4);
+  }
+}
+function stepFx(dt) {
+  for (const k in FX) {
+    const s = FX[k], pos = s.pts.geometry.attributes.position, col = s.pts.geometry.attributes.color;
+    let j = 0;
+    for (let i = 0; i < s.list.length; i++) {
+      const f = s.list[i]; f.l -= dt;
+      if (f.l <= 0) { if (f.onDie) f.onDie(f); continue; }
+      f.v.y -= f.g * dt; f.v.multiplyScalar(1 - f.d * dt);
+      if (s === FX.conf) f.v.x += Math.sin(f.l * 9 + f.w) * dt * 1.2;
+      f.p.addScaledVector(f.v, dt);
+      if (s === FX.grass && f.p.y < .01) { f.p.y = .01; f.v.set(0, 0, 0); }
+      s.list[j++] = f;
+      const al = Math.min(1, f.l / (f.m * .4));
+      pos.setXYZ(j - 1, f.p.x, f.p.y, f.p.z); col.setXYZW(j - 1, f.c.r, f.c.g, f.c.b, al);
+    }
+    s.list.length = j; s.pts.geometry.setDrawRange(0, j); pos.needsUpdate = true; col.needsUpdate = true;
+  }
+}
+function rocket(color) {
+  const x = (Math.random() - .5) * 70, p = V(x, 14, -26 - Math.random() * 10);
+  emit(FX.sky, p, V((Math.random() - .5) * 3, 20 + Math.random() * 5, 3), .9 + Math.random() * .25, '#ffd28a', 9.8, 0,
+       f => { for (let i = 0; i < 70; i++) { const v = V(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize().multiplyScalar(7 + Math.random() * 4);
+                                             emit(FX.sky, f.p, v, 1.3 + Math.random() * .5, i % 3 ? color : '#ffffff', 3, 1.2); } });
+}
+const flashN = 90, flashGeo = new THREE.BufferGeometry(), flashPos = [];
+for (let i = 0; i < flashN; i++) {
+  const side = Math.random();
+  if (side < .6) { const u = Math.random(); flashPos.push((Math.random() - .5) * 100, lerp(2, 28, u), lerp(-9, -48, u)); }
+  else { const s = side < .8 ? -1 : 1, u = Math.random(); flashPos.push(s * lerp(43, 61, u), lerp(2, 16, u), -6 + Math.random() * 56); }
+}
+flashGeo.setAttribute('position', new THREE.Float32BufferAttribute(flashPos, 3));
+flashGeo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(flashN * 4), 4));
+const flashes = new THREE.Points(flashGeo, new THREE.PointsMaterial({size: 1.6, map: glowTex, vertexColors: true, transparent: true, depthWrite: false,
+                                                                      blending: THREE.AdditiveBlending, fog: false}));
+flashes.frustumCulled = false; scene.add(flashes);
+const flares = [];
+{
+  const fm = new THREE.SpriteMaterial({map: glowTex, color: 0xff5a1f, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0, fog: false});
+  for (let i = 0; i < 5; i++) { const s = new THREE.Sprite(fm.clone()); s.position.set(-40 + i * 20 + Math.random() * 8, 6 + Math.random() * 6, -16 - Math.random() * 8); s.scale.set(4, 4, 1); scene.add(s); flares.push({s, t: 0}); }
+}
+
+/* ---------------- метки выбора ---------------- */
+function labelTex(text, o) {
+  return canvasTex(o.w || 128, o.h || 128, (g, w, h) => {
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (o.circle) {
+      g.beginPath(); g.arc(w / 2, h / 2, w / 2 - 8, 0, 7); g.fillStyle = o.fill; g.fill(); g.lineWidth = 7; g.strokeStyle = o.stroke; g.stroke();
+    } else if (o.panel) {
+      g.beginPath(); g.roundRect ? g.roundRect(6, 6, w - 12, h - 12, 22) : g.rect(6, 6, w - 12, h - 12);
+      g.fillStyle = o.fill; g.fill(); g.lineWidth = 6; g.strokeStyle = o.stroke; g.stroke();
+    } else if (o.pill) {
+      g.fillStyle = 'rgba(8,14,32,.9)'; g.beginPath(); g.roundRect ? g.roundRect(4, 4, w - 8, h - 8, 12) : g.rect(4, 4, w - 8, h - 8); g.fill();
+      g.fillStyle = o.stroke; g.fillRect(4, 10, 8, h - 20);
+    }
+    g.font = `900 ${o.size || 64}px "Trebuchet MS",sans-serif`; g.lineWidth = 8; g.strokeStyle = 'rgba(0,0,0,.6)';
+    const y = o.ty !== undefined ? o.ty * h : h / 2 + 4;
+    if (o.outline !== false) g.strokeText(text, w / 2, y);
+    g.fillStyle = o.color || '#fff'; g.fillText(text, w / 2, y);
+  });
+}
+const markers = new THREE.Group(); markers.renderOrder = 10; scene.add(markers);
+let mk = [];
+function spriteM(tex) { return new THREE.SpriteMaterial({map: tex, depthTest: false, transparent: true, fog: false}); }
+function buildMarkers() {
+  markers.clear(); mk = [];
+  if (isFk()) {
+    for (let z = 0; z < 4; z++) {
+      const over = z < 2, col = over ? '#facc15' : '#67e8f9', T = FKT(z);
+      const s = new THREE.Sprite(spriteM(labelTex(String(z + 1), {circle: 1, fill: over ? 'rgba(250,204,21,.28)' : 'rgba(103,232,249,.28)', stroke: col})));
+      s.position.set(T.x, T.y, .1); s.renderOrder = 11; markers.add(s);
+      const sel = labelTex(String(z + 1), {circle: 1, fill: col, stroke: col, color: '#111', outline: false});
+      const lbl = new THREE.Sprite(spriteM(labelTex(over ? 'ЧЕРЕЗ СТЕНКУ' : 'ПОД СТЕНКУ', {w: 512, h: 96, size: 52})));
+      lbl.position.set(T.x, over ? T.y + .95 : T.y - .8, .1); lbl.renderOrder = 11; markers.add(lbl);
+      const path = fkPath(z, 0), pts = [];
+      const pl = {K: 0, R: 1, ease: 1, S: path.S, T: path.T, arc: path.arc, bend: path.bend};
+      for (let e = .06; e < .97; e += .045) pts.push(...flight(pl, e).toArray());
+      const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+      const dots = new THREE.Points(dg, new THREE.PointsMaterial({size: .22, color: col, transparent: true, depthTest: false, map: glowTex, fog: false}));
+      dots.renderOrder = 10; markers.add(dots);
+      mk.push({s, lbl, dots, base: s.material.map, sel, kind: 'kick'});
+    }
+  } else {
+    for (let z = 0; z < 6; z++) {
+      const {x, y} = zone(z), s = new THREE.Sprite(spriteM(labelTex(String(z + 1), {circle: 1, fill: 'rgba(250,204,21,.25)', stroke: '#facc15'})));
+      s.position.set(x, y, .1); s.renderOrder = 11; markers.add(s);
+      mk.push({s, base: s.material.map, sel: labelTex(String(z + 1), {circle: 1, fill: '#facc15', stroke: '#facc15', color: '#111', outline: false}), kind: 'kick'});
+    }
+  }
+  ['ЛЕВЫЙ', 'ЦЕНТР', 'ПРАВЫЙ'].forEach((w, i) => {
+    const t0 = labelTex(isFk() ? w : ['ВЛЕВО', 'ЦЕНТР', 'ВПРАВО'][i], {w: 256, h: 208, panel: 1, fill: 'rgba(96,165,250,.16)', stroke: '#93c5fd', size: 40, ty: .2});
+    const t1 = labelTex(isFk() ? w : ['ВЛЕВО', 'ЦЕНТР', 'ВПРАВО'][i], {w: 256, h: 208, panel: 1, fill: 'rgba(96,165,250,.6)', stroke: '#dbeafe', size: 40, ty: .2});
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(GW / 3 - .14, GH - .14), new THREE.MeshBasicMaterial({map: t0, transparent: true, depthTest: false, fog: false}));
+    m.position.set(colX(i), GH / 2, .12); m.renderOrder = 10; markers.add(m);
+    mk.push({s: m, base: t0, sel: t1, kind: 'keep', i});
+  });
+  if (isFk()) {
+    const ws = new THREE.Sprite(spriteM(labelTex('🧱 СТЕНКА СТОИТ', {w: 512, h: 96, pill: 1, stroke: '#93c5fd', size: 46, color: '#93c5fd', outline: false})));
+    const wj = labelTex('🦘 СТЕНКА ПРЫГАЕТ', {w: 512, h: 96, pill: 1, stroke: '#fbbf24', size: 46, color: '#fbbf24', outline: false});
+    ws.position.copy(L.wallC).addScaledVector(L.toG, -2.2).setY(.2); ws.scale.set(3.4, .64, 1); ws.renderOrder = 11; markers.add(ws);
+    mk.push({s: ws, base: ws.material.map, sel: wj, kind: 'wall'});
+  }
+}
+function updateMarkers(t) {
+  const on = phase === 'choose' || phase === 'wait';
+  markers.visible = on && !!role;
+  if (!markers.visible) return;
+  const pulse = .5 + .5 * Math.sin(t * 5), dist = camera.position.distanceTo(V(0, 1, 0)), sc = dist / 22;
+  for (const m of mk) {
+    if (m.kind === 'wall') { m.s.visible = role === 'keep'; m.s.scale.set(2.8 * sc, .53 * sc, 1); m.s.material.map = (myPick !== null ? Math.floor(myPick / 3) : fkWall) ? m.sel : m.base; continue; }
+    const vis = m.kind === role || (m.kind === 'keep' && role === 'keep');
+    m.s.visible = vis; if (m.lbl) m.lbl.visible = vis; if (m.dots) m.dots.visible = vis;
+    if (!vis) continue;
+    const idx = mk.filter(x => x.kind === m.kind).indexOf(m);
+    const mine = m.kind === 'keep' ? myPick !== null && myPick % 3 === m.i : myPick === idx, dim = myPick !== null && !mine;
+    m.s.material.map = mine ? m.sel : m.base; m.s.material.opacity = dim ? .25 : 1;
+    if (m.lbl) { m.lbl.material.opacity = dim ? .25 : 1; m.lbl.scale.set(2.6 * sc, .49 * sc, 1); }
+    if (m.dots) { m.dots.material.opacity = dim ? .15 : mine ? 1 : .5 + .3 * pulse; m.dots.material.size = .38 * sc; }
+    if (m.kind === 'kick') m.s.scale.setScalar((mine ? 1.15 : 1 + .07 * pulse) * sc);
+  }
+}
+
+/* ---------------- надписи поверх сцены ---------------- */
+const $ = id => document.getElementById(id);
+function hudCards() {
+  const set = (el, p, color) => { el.querySelector('.num').textContent = p.num; el.querySelector('.num').style.background = color;
+    el.querySelector('.nm').textContent = p.name; el.querySelector('.st').textContent = p.stat || ''; };
+  set($('ck'), P.kicker, P.kicker.shirt); set($('cg'), P.keeper, isFk() ? gkShirt(P.keeper.shirt) : P.keeper.shirt);
+  $('tagt').textContent = isFk() ? 'ШТРАФНОЙ' : 'ПЕНАЛЬТИ';
+}
+function showPill(el, text, color) { if (text) { if (el.textContent !== text) el.textContent = text; el.style.display = 'block'; if (color) el.style.color = color; } else el.style.display = 'none'; }
+let wordShown = false;
+function updateHud(at, a) {
+  const choosing = phase === 'choose' || phase === 'wait';
+  const col = role === 'kick' ? '#facc15' : '#93c5fd';
+  showPill($('head'), choosing && role ? (isFk() ? (role === 'kick' ? 'ВАШ ШТРАФНОЙ — ВЫБЕРИТЕ УДАР' : 'СТЕНКА И ВРАТАРЬ — ВАШ ВЫБОР')
+                                                  : (role === 'kick' ? 'ВАШ УДАР — КОСНИТЕСЬ УГЛА' : 'ВЫ ВРАТАРЬ — КУДА ПРЫГНУТЬ?')) : '', col);
+  $('timer').style.display = choosing && role ? 'flex' : 'none';
+  if (choosing && role) {
+    const left = clamp((deadline - performance.now()) / 1000, 0, chooseSec), c = left < 4 ? '#f87171' : col;
+    $('bar').style.width = (100 * left / chooseSec) + '%'; $('bar').style.background = c; $('bar').style.color = c;
+    $('sec').textContent = Math.ceil(left) + ' с'; $('sec').style.color = left < 4 ? '#f87171' : '#fff';
+  }
+  let cap = '';
+  if (a) { const pl = a.plan;
+    if (pl.para && at > pl.K - .8 && at < pl.K - .05) cap = 'Паузинья — выжидает вратаря…';
+    if (at > pl.K && at < pl.R + .25) cap = pl.say; }
+  showPill($('cap'), cap);
+  const w = $('word');
+  if (a && at > a.plan.R + .12) {
+    if (!wordShown) { wordShown = true; const good = (a.outcome === 'goal') === (role === 'kick');
+      w.textContent = a.plan.word; w.className = good ? 'good' : 'bad'; void w.offsetWidth; w.className += ' on'; }
+    showPill($('rtext'), at > a.plan.R + .45 && a.text ? a.text + a.plan.note : '');
+  } else if (wordShown || w.className) { wordShown = false; w.className = ''; showPill($('rtext'), ''); }
+}
+
+/* ---------------- ход сцены: звук и эффекты по времени ---------------- */
+function onAnimEvents(t, a) {
+  const pl = a.plan, T = pl.T, once = (k, f) => { if (!events[k]) { events[k] = 1; f(); } };
+  const good = (a.outcome === 'goal') === (role === 'kick');
+  if (t > .25) once('wh', () => { whistle(); setAmb(.016, .7); });
+  if (t > .7) once('fans', fansWhistle);
+  if (t > pl.K) once('kick', () => { haptic('kick');
+    const pw = pl.tech === 'power';
+    if (pw) { thud(120, .95); whoosh(); shake = 4; } else thud(pl.tech === 'chip' ? 230 : 190, pl.tech === 'chip' ? .35 : .5);
+    burst(FX.grass, L.B.clone().setY(.03), pw ? 50 : 32, ['#2f9e57', '#3fb56a', '#7c5a3a', '#4a3520'], pw ? 3.4 : 2.4, .9, 9.8, .9);
+    punch = pw ? 1 : .7; });
+  if (isFk()) {
+    if (a.fkWall && t > pl.cross + .33) once('wland', () => { thud(80, .35); for (const m of L.men) burst(FX.grass, m.clone().setY(.03), 6, ['#2f9e57', '#3fb56a'], 1.5, .5, 9.8, .8); });
+    if (pl.kind === 'wall' && t > pl.R) once('wall', () => {
+      thud(pl.over ? 170 : 130, .8); slap(); crowd('save'); excite = .8; shake = 6; flash = .25; punch = .7; setAmb(.08, .3, .045, 2.5);
+      burst(FX.spark, T, 26, ['#ffffff', '#e5e7eb'], 3.5, .5, 0);
+    });
+  }
+  if (pl.kind === 'fingertip' && t > pl.R - .03) once('tip', () => { hiss('bandpass', 1500, 1.1, .25, .05); burst(FX.spark, T, 10, ['#ffffff'], 2, .35, 0); });
+  if (t > pl.R) once('hit', () => {
+    haptic(good ? 'success' : 'error');
+    if (pl.hit) { clang(); shake = 5; burst(FX.spark, T, 14, ['#ffffff', '#fde68a'], 2.5, .35, 0); }
+    if (a.outcome === 'save' && pl.kind !== 'wall') {
+      if (pl.kind === 'block') thud(120, .5); else slap(); excite = .8; shake = 5; flash = .3; punch = .6; crowd('save'); setAmb(.08, .3, .045, 2.5);
+      burst(FX.spark, T, pl.kind === 'catch' ? 12 : 30, ['#ffffff', '#e5e7eb'], pl.kind === 'catch' ? 1.5 : 3.5, .5, 0);
+    }
+    if (a.outcome === 'miss') { crowd(pl.hit ? 'save' : 'miss'); excite = .25; setAmb(.06, .3, .045, 2); }
+  });
+  if (a.outcome === 'goal' && t > pl.R + pl.into) once('net', () => {
+    swish(); crowd('goal'); excite = 1; shake = 9; flash = .6; setAmb(.13, .3, .05, 4); punch = .8; glow = 1;
+    burst(FX.conf, pl.N.clone().setZ(pl.N.z + .3), 140, ['#facc15', '#ffffff', P.kicker.shirt, '#60a5fa'], 5, 3, 2.2, 1.1);
+    boardGoal = boardGoal || boardTex('ГОЛ!  ГОЛ!  ГОЛ!', '#ffffff', P.kicker.shirt); boardMat.map = boardGoal;
+    for (const f of flares) f.t = 4 + Math.random() * 1.5;
+  });
+  if (a.outcome === 'goal') for (const [i, dt] of [[1, .35], [2, .95], [3, 1.6]])
+    if (t > pl.R + pl.into + dt) once('fw' + i, () => { for (let n = 0; n < 3; n++) rocket(n % 2 ? P.kicker.shirt : '#facc15'); });
+  if (pl.lands && t > pl.Ta + .3) once('land', () => { thud(75, .6); shake = 4;
+    const kp = keeper.body.getWorldPosition(V(0, 0, 0)).setY(.03);
+    burst(FX.grass, kp, 26, ['#2f9e57', '#3fb56a', '#7c5a3a'], 2.2, .8, 9.8, .7); });
+  if (t > pl.end) once('done', finish);
+}
+
+/* ---------------- кадр ---------------- */
+let last = performance.now(), spinQ = new THREE.Quaternion(), prevBall = V(0, 0, 0);
+const hist = [];
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = clamp((now - last) / 1000, 0, .05); bench(now - last); last = now;
+  const t = now / 1000;
+  excite = Math.max(0, excite - dt * .35); shake = Math.max(0, shake - dt * 30); flash = Math.max(0, flash - dt * 1.5);
+  punch = Math.max(0, punch - dt * 3.2); glow = Math.max(0, glow - dt * .45);
+  const a = anim, real = a ? (dbgReal !== null ? dbgReal : (now - a.t0) / 1000) : 0, at = a ? sceneTime(real, a.plan) : 0, pl = a && a.plan;
+  if (a) onAnimEvents(at, a);
+  // фигуры
+  applyPose(kicker, kickerPose(at, a, t));
+  applyPose(keeper, keeperPose(at, a, t));
+  wall.forEach((m, i) => applyPose(m, wallPose(i, at, a, t)));
+  // мяч и сетка
+  const b = ballAt(at, a);
+  const nb = netBulge(at, a); updateNet(nb);
+  ball.position.copy(b.p);
+  const mv = b.p.clone().sub(prevBall); prevBall.copy(b.p);
+  if (a && at > pl.K && at < pl.R) {                          // подкрутка: вращение по технике удара
+    const ax = pl.tech === 'place' ? V(0, -Math.sign(pl.bend || 1), 0) : V(1, 0, 0), w = pl.tech === 'chip' ? -7 : pl.tech === 'power' ? -30 : 20;
+    ball.quaternion.premultiply(spinQ.setFromAxisAngle(ax.normalize(), w * dt * (pl.slow || 1)));
+  } else if (mv.lengthSq() > 1e-8 && mv.length() < 1) {      // катится — вращается по ходу
+    const ax = V(mv.z, 0, -mv.x); if (ax.lengthSq() > 1e-10) ball.quaternion.premultiply(spinQ.setFromAxisAngle(ax.normalize(), Math.hypot(mv.x, mv.z) / BR));
+  }
+  // след мяча при сильном ударе
+  if (b.fly && pl && pl.tech === 'power') { hist.unshift(b.p.clone()); if (hist.length > trailN) hist.pop(); } else if (hist.length) hist.pop();
+  const tp = trailGeo.attributes.position, tc = trailGeo.attributes.color;
+  for (let i = 0; i < trailN; i++) { const h = hist[i]; if (h) { tp.setXYZ(i, h.x, h.y, h.z); const k = (1 - i / trailN) * .5; tc.setXYZW(i, k, k, k, k); } else tc.setXYZW(i, 0, 0, 0, 0); }
+  tp.needsUpdate = tc.needsUpdate = true;
+  // каркас дрожит после удара в штангу
+  for (const k in posts) posts[k].position.x = posts[k].userData.x0 ?? (posts[k].userData.x0 = posts[k].position.x);
+  if (a && pl.hit && at > pl.R) { const s = Math.sin((at - pl.R) * 80) * .02 * Math.exp(-(at - pl.R) * 5); posts[pl.hit].position.x += s; posts.b.position.y = GH + .06 + (pl.hit === 'b' ? s : 0); }
+  // трибуны, вспышки, файеры, щиты
+  for (const s of stands) s.g.position.y = excite > 0 ? Math.abs(Math.sin(t * 9 + s.ph)) * .35 * excite : 0;
+  const fc = flashGeo.attributes.color, rate = a && at > pl.K - .05 ? (at < pl.R + .2 ? .05 : a.outcome === 'goal' && at < pl.R + 2.5 ? .07 : .01) + excite * .05 : .002;
+  for (let i = 0; i < flashN; i++) { const on = Math.random() < rate ? 1 : 0; fc.setXYZW(i, on, on, on, on); }
+  fc.needsUpdate = true;
+  for (const f of flares) { f.t = Math.max(0, f.t - dt); f.s.material.opacity = f.t > 0 ? Math.min(1, f.t) * (.6 + .4 * Math.random()) : 0; }
+  boardMat.map.offset.x = (t * .06) % 1;
+  if (!a && boardMat.map !== BOARD_N) boardMat.map = BOARD_N;
+  stepFx(dt);
+  updateMarkers(t);
+  // камера
+  const c = camAt(at, a, t);
+  camera.position.copy(c.pos);
+  if (shake) camera.position.add(V((Math.random() - .5) * shake * .012, (Math.random() - .5) * shake * .012, 0));
+  camera.fov = c.fov * (1 - .06 * punch); camera.updateProjectionMatrix(); camera.lookAt(c.look);
+  // экран
+  const [r, gg, bb] = hexRgb(P.kicker.shirt);
+  $('glow').style.opacity = glow ? (glow * (.65 + .35 * Math.sin(t * 9))).toFixed(3) : '0';
+  if (glow) $('glow').style.boxShadow = `inset 0 0 ${Math.round(innerWidth * .25)}px rgba(${r},${gg},${bb},.9)`;
+  $('flash').style.opacity = (flash * .35).toFixed(3);
+  const lb = a ? smooth(at, pl.K - .3, pl.K - .05) * (1 - smooth(at, pl.R + .5, pl.R + .95)) : 0;
+  $('lb1').style.height = $('lb2').style.height = (7.5 * lb).toFixed(2) + 'vh';
+  updateHud(at, a);
+  renderer.render(scene, camera);
+  if (phase === 'choose' && performance.now() > deadline) {
+    if (live || EMBED) { phase = 'wait'; setUi('Время вышло — сторону выберет случай. Ждём исход…'); }
+    else pick(isFk() ? (role === 'kick' ? Math.floor(Math.random() * 4) : fkWall * 3 + Math.floor(Math.random() * 3))
+                     : Math.floor(Math.random() * (role === 'kick' ? 6 : 3)), true);
+  }
+}
+function hexRgb(h) { const n = parseInt(String(h).slice(1), 16) || 0; return [n >> 16, n >> 8 & 255, n & 255]; }
+function fit() {
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / Math.max(1, innerHeight); camera.updateProjectionMatrix();
+}
+
+/* проверка скорости: первые кадры — компиляция, дальше меряем; медленно — облегчаем, всё равно медленно — 2D */
+let benchN = 0, benchSum = 0, benchDone = false;
+function bench(ms) {
+  if (benchDone || document.hidden) return;
+  if (++benchN <= 12) return;
+  benchSum += ms;
+  if (benchN < 12 + 36) return;
+  const avg = benchSum / 36;
+  if (avg > 42 && tier === 2) { setTier(1); benchN = 0; benchSum = 0; return; }
+  if (avg > 55) { go2D('мало кадров: ' + Math.round(1000 / avg) + ' в секунду'); benchDone = true; return; }
+  benchDone = true; ready();
+}
+
+/* ---------------- управление: касание → луч в плоскость ворот ---------------- */
+const ray = new THREE.Raycaster(), goalPlane = new THREE.Plane(V(0, 0, 1), 0);
+function goalHit(e) {
+  const r = cv.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+  return ray.ray.intersectPlane(goalPlane, V(0, 0, 0));
+}
+function screenOf(p) { const v = p.clone().project(camera); return {x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight}; }
+cv.addEventListener('pointerdown', e => {
+  audioOn();
+  if (phase !== 'choose') return;
+  const h = goalHit(e);
+  const colOf = x => clamp(Math.floor((x + HW) / (GW / 3)), 0, 2);
+  if (isFk()) {
+    if (role === 'kick') {
+      if (!h) return;
+      let best = -1, bd = 1.7;
+      for (let z = 0; z < 4; z++) { const T = FKT(z), d = Math.hypot(h.x - T.x, h.y - T.y); if (d < bd) { bd = d; best = z; } }
+      if (best >= 0) pick(best);
+      return;
+    }
+    const ps = L.men.flatMap(m => [screenOf(m.clone().setY(0)), screenOf(m.clone().setY(2.7))]);
+    const x0 = Math.min(...ps.map(p => p.x)) - 30, x1 = Math.max(...ps.map(p => p.x)) + 30, y0 = Math.min(...ps.map(p => p.y)) - 30, y1 = Math.max(...ps.map(p => p.y)) + 25;
+    if (e.clientX > x0 && e.clientX < x1 && e.clientY > y0 && e.clientY < y1) {
+      fkWall = 1 - fkWall; haptic('tap');
+      setUi(fkWall ? 'Стенка прыгнет — ловит удар верхом, но низом мяч проскочит. Теперь коснитесь угла для вратаря.'
+                   : 'Стенка стоит — ловит удар низом, но верхом мяч перелетит. Теперь коснитесь угла для вратаря.');
+      return;
+    }
+    if (!h || h.x < -HW - 1.2 || h.x > HW + 1.2 || h.y < -.6 || h.y > GH + 1.4) return;
+    pick(fkWall * 3 + colOf(h.x));
+    return;
+  }
+  if (!h) return;
+  if (role === 'kick') {
+    if (h.x < -HW - 1 || h.x > HW + 1 || h.y < -.8 || h.y > GH + 1.2) return;
+    pick((h.y > GH / 2 ? 0 : 3) + colOf(h.x));
+  } else {
+    if (e.clientY > innerHeight * .72) return;
+    pick(colOf(h.x));
+  }
+});
+
+/* ---------------- логика выбора и связи — как в 2D ---------------- */
+function setUi(text, buttons) {
+  msgEl.textContent = text; btnEl.innerHTML = '';
+  for (const [label, cls, fn] of buttons || []) { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls;
+    b.onclick = () => { audioOn(); fn(); }; btnEl.appendChild(b); }
+}
+const pickWords = v => isFk() ? (role === 'kick' ? `удар ${v + 1} — ${FKA[v]}` : `${FKW[Math.floor(v / 3)]}, вратарь — ${FKD[v % 3]}`)
+  : role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
+function pick(v, auto) {
+  if (phase !== 'choose') return;
+  myPick = v; phase = 'wait'; haptic('tap');
+  if (EMBED) { toParent({type: 'pick', value: v}); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
+  if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
+  setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
+  demoOpponent(v);
+}
+const Q = new URLSearchParams(location.search);
+const ROOM = Q.get('room');
+const DUEL_WS = 'wss://football-duel.pinkovskyi2508.workers.dev';
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
+const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
+let live = null;
+function liveConnect() {
+  if (!WS_BASE) { setUi('Сервер пенальти не настроен — выберите кнопкой в чате.', closeBtn()); return; }
+  setUi('Подключаемся к матчу…');
+  const ws = live = new WebSocket(WS_BASE.replace(/^http/, 'ws') + '/rooms/' + encodeURIComponent(ROOM) + '/player');
+  ws.onopen = () => ws.send(JSON.stringify({type: 'hello', initData: INIT}));
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } onLive(m); };
+  ws.onclose = e => {
+    if (phase === 'play' || phase === 'done') return;
+    setUi(e.code === 4003 ? 'Это пенальти не для вас.' : 'Связь с матчем потеряна — выберите кнопкой в чате.', closeBtn());
+  };
+}
+function onLive(m) {
+  if (m.type === 'state') {
+    Object.assign(P.kicker, m.kicker || {}); Object.assign(P.keeper, m.keeper || {});
+    MODE = m.kind === 'fk' ? 'fk' : 'pen'; fkSetup(isFk() ? m : null); layout();
+    start(m.role, m.left);
+    if (m.picked !== null && m.picked !== undefined) markPicked(m.picked);
+  } else if (m.type === 'picked') markPicked(m.value);
+  else if (m.type === 'result') play(m);
+  else if (m.type === 'bot_left' && phase !== 'play' && phase !== 'done') setUi('Матч прервал связь — выберите кнопкой в чате.', closeBtn());
+}
+function markPicked(v) {
+  if (phase === 'play' || phase === 'done') return;
+  myPick = v; phase = 'wait';
+  setUi(`Ваш выбор: ${pickWords(v)}. Ждём соперника…`);
+}
+function closeBtn() { return TG ? [['Закрыть', '', () => TG.close()]] : []; }
+function demoOpponent(mine) {
+  if (isFk()) { setTimeout(() => demoFk(mine), 500 + Math.random() * 900); return; }
+  setTimeout(() => {
+    const aim = role === 'kick' ? mine : Math.floor(Math.random() * 6);
+    const dive = role === 'keep' ? mine : Math.floor(Math.random() * 3);
+    const high = aim < 3, guessed = aim % 3 === dive;
+    let outcome;
+    if (Math.random() < (high ? .2 : .07)) outcome = 'miss';
+    else if (guessed && Math.random() < (high ? .38 : .62)) outcome = 'save';
+    else outcome = 'goal';
+    const text = outcome === 'goal' ? (guessed ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь остался в центре' : 'Вратарь прыгнул в другую сторону')
+               : outcome === 'save' ? 'Вратарь угадал угол!' : (high ? 'Выше перекладины!' : 'Мимо, рядом со штангой!');
+    play({aim, dive, outcome, text});
+  }, 500 + Math.random() * 900);
+}
+function demoFk(mine) {                                // те же правила, что у бота (app/engine.py FK_DUEL), без характеристик
+  const fk = role === 'kick' ? mine : Math.floor(Math.random() * 4), dv = role === 'keep' ? mine : Math.floor(Math.random() * 6);
+  const wall = Math.floor(dv / 3), dive = dv % 3, over = fk < 2, col = fk % 2 ? 2 : 0;
+  const block = over ? (wall ? .62 : .2) : (wall ? .14 : .68);
+  let outcome;
+  if (Math.random() < block) outcome = 'block';
+  else if (Math.random() < (over ? .44 : .42)) outcome = 'miss';
+  else if (Math.random() < (dive === col ? .55 : dive === 1 ? .25 : 0)) outcome = 'save';
+  else outcome = 'goal';
+  const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!',
+                save: dive === col ? 'Вратарь достаёт из угла!' : 'Вратарь успевает из центра!'}[outcome]
+             || (dive === col ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь не дотянулся из центра' : 'Вратарь ушёл не в тот угол');
+  play({fk, wall, dive, outcome, text});
+}
+function play(result) {
+  phase = 'play'; events = {}; hist.length = 0;
+  if (isFk() && result.fk !== undefined) {
+    anim = Object.assign({t0: performance.now()}, result, {aim: (result.fk < 2 ? 0 : 3) + (result.fk % 2 ? 2 : 0), fkWall: result.wall});
+    anim.plan = finishPlan(makeFkPlan(anim));
+  } else { anim = Object.assign({t0: performance.now()}, result); anim.plan = finishPlan(makePlan(anim)); }
+  anim.t0 = performance.now();                                 // разбор исхода позирует фигуры — время сцены считаем после него
+  setUi('');
+}
+let dbgReal = null;                                            // для проверки: остановить сцену на нужной секунде (?3d — скриншоты)
+window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, get cam() { return [camera.position, ball.position, kicker.root.position]; }};
+function finish() {
+  phase = 'done';
+  if (EMBED) { setUi(''); toParent({type: 'done'}); return; }
+  if (live) { setUi('Матч продолжается в чате.', closeBtn()); return; }
+  setUi('Демо-режим: соперник выбирал случайно.', [['Ещё раз', '', () => start(role)], ['Сменить роль', 'alt', () => start(role === 'kick' ? 'keep' : 'kick')],
+                                                     [isFk() ? '🥅 Пенальти' : '🎯 Штрафной', 'alt', () => { MODE = isFk() ? 'pen' : 'fk'; fkSetup(); start(role); }]]);
+}
+function start(r, left) {
+  role = r; phase = 'choose'; myPick = null; anim = null; fkWall = 0; events = {};
+  for (const k in FX) FX[k].list.length = 0;
+  layout(); hudCards();
+  if (left !== undefined) chooseSec = Math.max(1, left);
+  deadline = performance.now() + chooseSec * 1000;
+  if (isFk()) setUi(r === 'kick' ? 'Коснитесь удара: через стенку (прыгнувшая стенка часто ловит) или под стенку (пройдёт, если стенка прыгнет).'
+                                 : 'Коснитесь стенки — стоит или прыгает. Потом коснитесь угла, куда сместится вратарь.');
+  else setUi(r === 'kick' ? 'Коснитесь угла ворот, куда бить. Верх — вратарю труднее, но легче промахнуться.'
+                          : 'Коснитесь стороны ворот, куда прыгнуть. Угадаете — шанс отбить.');
+}
+function toParent(m) { try { window.parent.postMessage(m, location.origin); } catch (e) {} }
+function ready() {                                             // сцена тянет — показываем и подключаемся
+  window.__p3ok = 1; $('load').style.display = 'none';
+  if (EMBED) {
+    $('mute').style.display = 'none';
+    addEventListener('message', e => {
+      if (e.source !== window.parent || e.origin !== location.origin || !e.data) return;
+      const m = e.data;
+      if (m.type === 'mute') { muted = !!m.on; setAmb(ambLevel, .05); }
+      else if (m.type === 'note') { if (phase === 'wait') { phase = 'choose'; myPick = null; } setUi(m.text || ''); }
+      else onLive(m);
+    });
+    setUi(''); toParent({type: 'ready'});
+  } else if (ROOM) liveConnect();
+  else if (isFk()) setUi('Штрафной — демо. Кем будете?', [['🎯 Бить', '', () => start('kick')], ['🧱 Стенка и вратарь', 'alt', () => start('keep')]]);
+  else setUi('Пенальти — демо. Кем будете?', [['⚽ Бить', '', () => start('kick')], ['🧤 Стоять в воротах', 'alt', () => start('keep')]]);
+}
+
+addEventListener('resize', fit); fit();
+layout(); hudCards();
+requestAnimationFrame(frame);
+if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes();
+  TG.setHeaderColor && TG.setHeaderColor('#02050f'); TG.setBackgroundColor && TG.setBackgroundColor('#02050f'); } catch (e) {} }
+</script>
+</body>
+</html>
