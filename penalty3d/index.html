@@ -95,7 +95,7 @@ button:active{transform:translateY(1px)}
   window.go2D = function (why) {
     if (window.__p3gone) return; window.__p3gone = 1;
     try { console.warn('3D → 2D:', why); } catch (e) {}
-    const q = new URLSearchParams(location.search); q.delete('3d');
+    const q = new URLSearchParams(location.search); q.set('3d', '0');   // 3d=0 — 2D-страница не отправит обратно в 3D
     const s = q.toString(), local = ['localhost', '127.0.0.1'].includes(location.hostname);
     location.replace((local ? '../penalty/' : '../') + (s ? '?' + s : ''));
   };
