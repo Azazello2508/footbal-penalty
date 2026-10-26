@@ -47,6 +47,10 @@ const AIMS = ['в левый верхний угол', 'под переклад�
 const DIVES = ['прыгает влево', 'остаётся в центре', 'прыгает вправо'];
 // ?embed=1 — пенальти внутри сцены матча (webapp/match): связь с ботом и вибрация — через неё (postMessage)
 const EMBED = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
+// ?3d=1 — пробная 3D-сцена (webapp/penalty3d, на Pages — penalty3d/): та же логика и связь; нет WebGL или мало кадров —
+// она сама вернётся сюда без 3d=1. Пока 3D не одобрено, по умолчанию остаётся эта сцена.
+const TO3D = new URLSearchParams(location.search).get('3d') === '1';
+if (TO3D) location.replace((['localhost', '127.0.0.1'].includes(location.hostname) ? '../penalty3d/' : 'penalty3d/') + location.search);
 const TG = !EMBED && window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 const FONT = '"Trebuchet MS","Segoe UI",sans-serif';
 
@@ -1709,7 +1713,8 @@ function start(r, left) {
 }
 /* ---------------- ВНУТРИ СЦЕНЫ МАТЧА: сообщения бота приносит страница матча ---------------- */
 function toParent(m) { try { window.parent.postMessage(m, location.origin); } catch (e) {} }
-if (EMBED) {
+if (TO3D) setUi('Загружаем 3D…');                       // страница уже уходит в 3D — к матчу подключится она
+else if (EMBED) {
   document.getElementById('mute').style.display = 'none';     // звук включает/выключает сцена матча
   addEventListener('message', e => {
     if (e.source !== window.parent || e.origin !== location.origin || !e.data) return;
