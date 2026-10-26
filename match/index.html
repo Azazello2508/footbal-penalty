@@ -3116,7 +3116,7 @@ function ping() {
 let pen = null, penFrame = null, penReady = false, penSent = null, penClose = 0;
 const DUELS = ['penalty', 'fk'];                // дуэли во вложенной сцене: пенальти и штрафной у самой штрафной
 const penEl = $('pen');
-function penUrl() { return (LOCAL ? '../penalty/' : '../') + '?embed=1' + (Q.get('3d') === '1' ? '&3d=1' : ''); }   // ?3d=1 — пробная 3D-сцена
+function penUrl() { return (LOCAL ? '../penalty/' : '../') + '?embed=1' + (Q.get('3d') === '0' ? '&3d=0' : ''); }   // по умолчанию — 3D-сцена; ?3d=0 — только 2D
 function toFrame(m) { if (penFrame && penReady) try { penFrame.contentWindow.postMessage(m, location.origin); } catch (e) {} }
 function penOpen() {
   clearTimeout(penClose);
