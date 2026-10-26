@@ -47,9 +47,9 @@ const AIMS = ['в левый верхний угол', 'под переклад�
 const DIVES = ['прыгает влево', 'остаётся в центре', 'прыгает вправо'];
 // ?embed=1 — пенальти внутри сцены матча (webapp/match): связь с ботом и вибрация — через неё (postMessage)
 const EMBED = new URLSearchParams(location.search).get('embed') === '1' && window.parent !== window;
-// ?3d=1 — пробная 3D-сцена (webapp/penalty3d, на Pages — penalty3d/): та же логика и связь; нет WebGL или мало кадров —
-// она сама вернётся сюда без 3d=1. Пока 3D не одобрено, по умолчанию остаётся эта сцена.
-const TO3D = new URLSearchParams(location.search).get('3d') === '1';
+// Основная сцена — 3D (webapp/penalty3d, на Pages — penalty3d/): та же логика и связь. Нет WebGL, долгая загрузка или мало кадров —
+// 3D сама вернётся сюда с ?3d=0, и тогда остаётся эта 2D-сцена (запасная).
+const TO3D = new URLSearchParams(location.search).get('3d') !== '0';
 if (TO3D) location.replace((['localhost', '127.0.0.1'].includes(location.hostname) ? '../penalty3d/' : 'penalty3d/') + location.search);
 const TG = !EMBED && window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 const FONT = '"Trebuchet MS","Segoe UI",sans-serif';
