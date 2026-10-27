@@ -120,6 +120,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .seg button{background:transparent;padding:8px;border-radius:9px;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--card2);color:var(--text);font-weight:700}
 table.tb{width:100%;border-collapse:collapse;font-size:14px}
+.cupm{padding:8px 0;border-top:1px solid var(--line);gap:8px}.cupm:first-child{border-top:0}
+.cupm .w{font-weight:700;color:var(--accent)}.cupm.me,.row.me{background:rgba(250,204,21,.08);border-radius:8px}
 .tb th{font-size:11px;color:var(--muted);font-weight:600;text-align:center;padding:4px 2px}
 .tb td{padding:8px 2px;border-top:1px solid var(--line);text-align:center}
 .tb td.n{text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -380,7 +382,7 @@ function renderPanel() {
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout}[P.k](m, P);
+    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
 }
@@ -542,6 +544,10 @@ function panelScout(m, P) {
     `<button type="button" class="big" data-psave>💾 Сохранить план</button>`;
   return h;
 }
+function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
+  const r = P.which === 'cup' ? (H().cup || {}).rules : (H().table || {}).rules;
+  return panelHead(P.which === 'cup' ? '📜 Правила кубка' : '📜 Правила лиги') + (r ? `<div class="report">${esc(r)}</div>` : `<div class="note">Правил пока нет.</div>`);
+}
 function panelHelp(m, P) {
   const toc = H().help || [];
   if (P.sec) {
@@ -621,8 +627,14 @@ function panelAdmin(m, P) {
     : `<div class="card note">Открытых заявок на смену клуба нет.</div>`;
   h += `<div class="label">🏁 Сезоны официальных лиг</div>` + A.seasons.map(r => `<div class="card"><div class="row"><div><b>${esc(r.title)}</b>` +
     `<div class="sub">${r.active ? `идёт: сыграно ${r.done} из ${r.total}` : 'не начат'} · менеджеров ${r.people}</div></div></div>` +
-    (r.active ? `<button type="button" class="go danger" data-ofreset="${r.key}">🗑 Сбросить сезон</button>` : `<button type="button" class="go main" data-ofstart="${r.key}">🏁 Начать сезон</button>`) + `</div>`).join('');
+    (r.active ? `<button type="button" class="go danger" data-ofreset="${r.key}">🗑 Сбросить сезон</button>` : `<button type="button" class="go main" data-ofstart="${r.key}">🏁 Начать сезон</button>`) +
+    `<div class="sub" style="margin-top:8px">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div>` +
+    (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
+  const mg = A.managed || [];     // клубы официальных лиг с менеджером: снять — клуб снова ведёт бот
+  h += `<div class="label">👤 Менеджеры официальных клубов</div>` + (mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b>` +
+    `<div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div><button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('')
+    : `<div class="card note">Официальные клубы пока никто не ведёт.</div>`);
   return h;
 }
 function panelNewClub(m, P) {
@@ -682,16 +694,31 @@ function renderHome() {
   if (hb.news && hb.news[0]) x += `<div class="card"><h3>Новости лиги</h3><div class="note">${esc(hb.news[0].text)}</div><button type="button" class="go" data-go="more">Все новости</button></div>`;
   $('t-home').innerHTML = x;
 }
+function cupBlock(c) {          // кубок страны: сетка по стадиям (сверху — ранняя), свой матч подсвечен
+  let x = `<div class="card"><h3>🏆 ${esc(c.title)}</h3><div class="note">${c.active ? 'На вылет, один матч; ничья — серия пенальти. Время матча назначается, как в туре.' :
+    c.winner ? `Разыгран. Обладатель — «${esc(c.winner)}» 🏆` : esc(c.note || '')}</div></div>`;
+  x += c.stages.map(st => `<div class="label">${esc(st.title)}</div><div class="card" style="padding:4px 10px">` + st.matches.map(m =>
+    `<div class="row cupm${m.mine ? ' me' : ''}"><div><span class="${m.win === 'home' ? 'w' : ''}">${esc(m.home)}</span> — <span class="${m.win === 'away' ? 'w' : ''}">${esc(m.away)}</span>` +
+    `${m.pens ? `<div class="sub">пенальти ${esc(m.pens)}</div>` : ''}</div><b style="white-space:nowrap">${esc(m.score || m.when || '')}</b></div>`).join('') + `</div>`).join('');
+  if (c.rules) x += `<button type="button" class="go" data-rules="cup">📜 Правила кубка</button>`;
+  if (c.past && c.past.length) x += `<div class="label">Обладатели кубка</div><div class="card">` + c.past.map(p =>
+    `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.when)}</span></div>`).join('') + `</div>`;
+  return x;
+}
 function renderLeague() {
   const hb = H(), t = hb.table;
   if (!t) { $('t-league').innerHTML = ''; return; }
-  let x = `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">🏆 Таблица</button>` +
-    `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button></div>`;
-  if (SEG === 'table') {
+  if (SEG === 'cup' && !hb.cup) SEG = 'table';
+  let x = `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
+    `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button>` +
+    (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') + `</div>`;
+  if (SEG === 'cup') x += cupBlock(hb.cup);
+  else if (SEG === 'table') {
     if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
     if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
       t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
       `</table></div>`;
+    if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
     if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-panel="friends">👥 Лига друзей: создать, вступить, позвать</button>`;
     else x += `<button type="button" class="go" data-panel="official">⭐ Официальные лиги</button>`;
   } else {
@@ -868,6 +895,7 @@ document.addEventListener('click', e => {
   if (b.dataset.resp) { send({a: 'respond', fx: +b.dataset.id, r: b.dataset.resp}); return; }
   if (b.dataset.cancel) { const fx = +b.dataset.cancel; ask('Отменить этот товарищеский матч?', () => send({a: 'cancel', fx})); return; }
   if (b.dataset.panel) { haptic(); openPanel(b.dataset.panel); return; }
+  if (b.dataset.rules) { haptic(); openPanel('rules'); PANEL.which = b.dataset.rules; renderPanel(); return; }
   if (PANEL && panelClick(b)) return;
   if (b.dataset.slotnow) { send({a: 'propose', fx: +b.dataset.slotnow, now: true}); return; }
   if (b.dataset.ts) { send({a: 'propose', fx: +b.dataset.id, ts: +b.dataset.ts}); return; }
@@ -985,6 +1013,24 @@ function leagueClick(b) {     // нажатия в окнах лиг, админ
   if (d.ofstart) {
     const A = H().admin, r = A.seasons.find(x => x.key === d.ofstart), key = d.ofstart;
     ask(r ? `Начать сезон: ${r.title}? Каждый с каждым в один круг, на тур — 2 дня.` : 'Начать сезон во всех официальных лигах без сезона?', () => send({a: 'ofstart', key}));
+    return true;
+  }
+  if (d.cupstart) {
+    const r = H().admin.seasons.find(x => x.key === d.cupstart), key = d.cupstart;
+    ask(`🏆 Начать Кубок «${r ? r.name : ''}»? Жеребьёвка среди всех клубов лиги: на вылет, один матч, ничья — серия пенальти, стадия — раз в 4 дня. Менеджеры получат уведомление.`,
+      () => send({a: 'cupstart', key}));
+    return true;
+  }
+  if (d.cupreset) {
+    const r = H().admin.seasons.find(x => x.key === d.cupreset), key = d.cupreset;
+    ask(`🗑 Сбросить Кубок «${r ? r.name : ''}»? Сетка и все матчи кубка стираются, обладателя не будет. Отменить нельзя.`,
+      () => send({a: 'cupreset', key, sure: true}));
+    return true;
+  }
+  if (d.ofkick) {
+    const c = (H().admin.managed || []).find(x => x.key === d.ofkick), key = d.ofkick;
+    ask(`🚫 Снять менеджера ${c ? c.who : ''} с «${c ? c.name : ''}»? Клубом снова будет играть бот: место в таблице, матчи и игроки остаются, воспитанник уходит. Свой клуб менеджера не трогается. Менеджер получит сообщение.`,
+      () => send({a: 'ofkick', key, sure: true}));
     return true;
   }
   if (d.ofreset) {
@@ -1119,7 +1165,11 @@ function demoHub() {
         answers: [['promise', '🤝 Обещаю место в основе', 'обещание на ближайший матч: сдержите — настрой вырастет, нет — упадёт'],
           ['wait', '⏳ Жди своего шанса', 'звезда расстроится, боец примет спокойно'], ['refuse', '🚫 Нет', 'настрой упадёт']]},
       problems: [], tired: 1, hurt: 1, growth: ['№9 Жуков'], can_train: true},
-    table: {title: 'Лига «Лига друзей»', rows, note: null}, matches,
+    table: {title: 'Лига «Лига друзей»', rows, note: null, rules: '📜 ПРАВИЛА ЛИГИ\n\n1. Формат. Каждый с каждым в два круга. На каждый тур — 2 дня.\n2. Очки. Победа — 3, ничья — 1, поражение — 0.\n3. Места при равенстве очков: разница мячей, забитые, личные встречи.\n(демо: в Telegram — полный текст)'}, matches,
+    cup: {title: 'Кубок «Англия»', active: true, note: null, winner: null, rules: '📜 ПРАВИЛА КУБКА\n\n1. На вылет, один матч.\n2. Ничья — серия пенальти.\n(демо: в Telegram — полный текст)', past: [{when: '01.09.2026', name: 'Ливерпуль', mine: false}],
+      stages: [{title: 'отборочный раунд', matches: [{home: 'Девятка', away: 'Бернли', mine: true, score: '1:1', pens: '4:3', win: 'home'},
+        {home: 'Лутон', away: 'Шеффилд', mine: false, score: '0:2', pens: null, win: 'away'}]},
+        {title: '1/8 финала', matches: [{home: 'Девятка', away: 'Арсенал', mine: true, when: 'до 31.10 23:59'}, {home: 'Челси', away: 'Шеффилд', mine: false, when: '29.10 20:00'}]}]},
     friendly: {note: null, rivals: [{id: 2, name: 'Северный Ветер', manager: 'Боря'}, {id: 3, name: 'Торпедо Пресни', manager: 'Вика'}]},
     news: [{at: '20.10 21:10', text: '«Девятка» разгромила «Дворовых Львов» 4:1 — Жуков оформил дубль.'}],
     star: '⭐ Звезда недели: №9 Марк Жуков («Девятка») — 3 гола за неделю',
@@ -1142,6 +1192,7 @@ function demoHub() {
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
+      managed: [{key: 'liv', name: 'Ливорно', who: 'Вика', league: '🇮🇹 Италия'}],
       summary: [{t: '👥 Менеджеров', v: '42', i: 'с клубом — 88% (37 из 42)'}, {t: '🆕 Новички', v: '3 / 11 / 30', i: 'за сутки / 7 дней / 30 дней'},
         {t: '⚽ Создали клуб', v: '82%', i: '9 из 11 · из новичков за 7 дней · за 30 дней — 87% (26 из 30)'},
         {t: '🤝 Матч с человеком', v: '14', i: 'сыграно за 7 дней · играли 19 чел. · с ботом — 23'},
@@ -1180,7 +1231,7 @@ function demoLeagueAct(act) {   // демо: лига меняется толь�
     return {ok: true, note: `🎉 Лига «${act.text}» создана! Вы её создатель.`};
   }
   if (act.a === 'ofcard') return {ok: true, note: '', key: act.key, card: 'Демо: в Telegram здесь состав клуба — 9 игроков с позициями и силой.', numbers: [1, 2, 4, 5, 7, 8, 9, 10, 11]};
-  if (['lgjoin', 'lgseason', 'oftake', 'ofreq', 'creq', 'ofstart', 'ofreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
+  if (['lgjoin', 'lgseason', 'oftake', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
   return null;
 }
 function demoManage() {      // раздел «Клуб» из демо-состава — те же поля, что присылает бот (hub.club_state)
