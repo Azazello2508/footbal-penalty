@@ -165,6 +165,19 @@ tr[data-pedit]{cursor:pointer}
 .tbar{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:4px 0}.tbar b{text-align:right}
 .tbar .barw{height:8px;border-radius:4px;background:var(--card2);overflow:hidden}.tbar .bar{height:100%;background:var(--accent)}
 .wnew{border:1px solid var(--accent);background:linear-gradient(135deg,rgba(250,204,21,.12),var(--card))}
+/* первые шаги, разрешение писать в чат, подсказки «один раз» (app/onboarding.py) */
+.obs{border:1px solid #22c55e;background:linear-gradient(135deg,rgba(34,197,94,.12),var(--card))}
+.obs .wtag{font-size:12px;color:#86efac;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+.obs .obar{height:8px;border-radius:6px;background:var(--card2);margin:8px 0 4px;overflow:hidden}.obs .obar i{display:block;height:100%;background:#22c55e;border-radius:6px}
+.obstep{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}.obstep:first-of-type{border-top:0}
+.obstep .ck{flex:0 0 22px;height:22px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px}
+.obstep.done .ck{background:#22c55e;border-color:#22c55e;color:#06210f}.obstep.done .tx b{color:var(--muted);text-decoration:line-through}
+.obstep .tx{flex:1;min-width:0}.obstep .tx b{display:block;font-size:14px;font-weight:600}.obstep .tx span{display:block;font-size:12px;color:var(--muted)}
+.obstep .do{flex:0 0 auto;padding:6px 10px;border-radius:9px;background:var(--accent);color:#111;font-weight:700;font-size:13px}
+.obhide{display:block;margin:8px auto 0;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
+.wask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}
+.tip{background:rgba(250,204,21,.1);border:1px solid #a16207;border-radius:12px;padding:9px 12px;margin:8px 0;font-size:13px;line-height:1.4;display:flex;gap:8px;align-items:flex-start}
+.tip span{flex:1}.tip button{flex:0 0 auto;padding:5px 10px;border-radius:9px;background:var(--accent);color:#111;font-weight:700;font-size:12px}
 .wnew h3{margin:4px 0 6px}.wnew .wtag{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .item .kick{display:block;margin-top:6px;background:none;border:1px solid var(--line);color:#fca5a5;border-radius:10px;padding:5px 10px;font:inherit;font-size:13px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
@@ -222,6 +235,7 @@ tr[data-pedit]{cursor:pointer}
    <section id="t-more" class="hidden"></section>
    <section id="t-squad" class="hidden">
     <header><div id="club"></div><div id="status"></div></header>
+    <div id="sqtip"></div>
     <div id="problems" class="banner warn hidden"></div>
     <div id="promises" class="banner warn hidden"></div>
     <button type="button" id="chem" class="chem hidden" data-chem></button>
@@ -710,6 +724,43 @@ function dailyBlock(d) {        // «❓ Вопрос дня»: ответ од�
     `<h3>${esc(d.text)}</h3><div class="dtheme">${esc(d.theme)}</div>${opts}${res}` +
     `<div class="dstreak"><b>${esc(d.streak_text)}</b>${d.next ? ' · ' + esc(d.next.text) : ''}</div></div>`;
 }
+/* ---------------- первые шаги, разрешение писать в чат, подсказки «один раз» (app/onboarding.py) ----------------
+   Галочки ставит только бот по событиям, которые он видит сам; страница лишь ведёт на нужный экран. */
+function stepsBlock(o) {
+  const pct = Math.round(100 * o.done / o.total);
+  return `<div class="card obs"><div class="wtag"><span>🚀 Первые шаги · ${o.done} из ${o.total}</span><span>+${o.reward} 👥 за шаг</span></div>` +
+    `<div class="obar"><i style="width:${pct}%"></i></div>` +
+    o.steps.map(s => `<div class="obstep${s.done ? ' done' : ''}"><div class="ck">${s.done ? '✓' : ''}</div><div class="tx"><b>${esc(s.title)}</b>` +
+      (s.done ? '' : `<span>${esc(s.how)}</span>`) + `</div>` + (!s.done && s.go ? `<button type="button" class="do" data-obgo="${s.go}">Сделать</button>` : '') + `</div>`).join('') +
+    (o.bonus ? `<div class="sub" style="margin-top:6px">Все шаги — ещё +${o.bonus} болельщиков</div>` : '') +
+    `<button type="button" class="obhide" data-obhide>Скрыть</button></div>`;
+}
+const CAN_ASK = () => !!(TG && TG.requestWriteAccess && (!TG.isVersionAtLeast || TG.isVersionAtLeast('6.9')));
+function writeBlock(w) {       // бот не может писать в чат: просьба разрешить (первый вход) или мягкая плашка (запретили)
+  if (w === 'ask') return `<div class="card wask"><h3>🔔 Разрешите боту писать вам</h3><div class="note">Так в чат придут трансляция ваших матчей, ` +
+    `«ваш ход» в окне решений и напоминания о матчах. Без спама: не больше двух напоминаний в сутки.</div>` +
+    `<button type="button" class="go main" data-wask>✅ Разрешить</button></div>`;
+  if (w === 'denied') return `<div class="banner">🔕 Бот не может писать вам в чат — матчи и напоминания туда не придут. ` +
+    `<button type="button" class="obhide" style="display:inline;margin:0" data-wask>Разрешить</button></div>`;
+  return '';
+}
+function tipBlock(key) {       // подсказка «один раз»: «Понятно» — отметка на сервере (на другом устройстве не всплывёт)
+  const t = (H().hints || {})[key];
+  return t ? `<div class="tip"><span>💡 ${esc(t)}</span><button type="button" data-tipok="${key}">Понятно</button></div>` : '';
+}
+function obGo(go) {
+  if (go === 'squad') { showTab('squad'); return; }
+  if (go === 'seek' || go === 'matches') { SEG = 'matches'; renderLeague(); showTab('league'); return; }
+  if (go === 'friends') { openPanel('friends'); return; }
+  if (go === 'daily') { showTab('home'); const d = document.querySelector('#t-home .daily'); if (d) d.scrollIntoView({behavior: 'smooth', block: 'center'}); }
+}
+function askWrite() {
+  const done = ok => { send({a: 'pm', ok: !!ok}); S.hub.write = ok ? null : 'denied'; renderHome(); };
+  if (CAN_ASK()) TG.requestWriteAccess(done);
+  else if (!ROOM) done(true);                      // демо: как будто разрешили
+  else toast('Обновите Telegram — в этой версии разрешение не запросить', true);
+}
+let PVIEW_SENT = false;        // карточка игрока открыта — сообщаем боту один раз (шаг «Посмотреть состав»)
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -717,11 +768,13 @@ function renderHome() {
     $('t-home').innerHTML = `<div class="card"><h3>⚽ У вас пока нет клуба</h3><div class="note">Создайте его — это минута, а дальше: свой состав 7×7, лига с друзьями и живые матчи.</div>` +
       (C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '') +
       `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button>` +
-      (hb.community ? `<button type="button" class="go" data-community>💬 Сообщество игры</button>` : '') + `</div>`;
+      (hb.community ? `<button type="button" class="go" data-community>💬 Сообщество игры</button>` : '') + `</div>` + writeBlock(hb.write);
     return;
   }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  x += writeBlock(hb.write);
+  if (hb.onboarding) x += stepsBlock(hb.onboarding);
   if (hb.daily) x += dailyBlock(hb.daily);
   if (h.ask) x += askBlock(h.ask);
   const wn = hb.whatsnew || [];      // «Что нового»: по одной карточке, пока менеджер не нажмёт «Понятно»
@@ -766,7 +819,7 @@ function renderLeague() {
   const hb = H(), t = hb.table;
   if (!t) { $('t-league').innerHTML = ''; return; }
   if (SEG === 'cup' && !hb.cup) SEG = 'table';
-  let x = `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
+  let x = tipBlock('league') + `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
     `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button>` +
     (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') + `</div>`;
   if (SEG === 'cup') x += cupBlock(hb.cup);
@@ -835,6 +888,7 @@ function render() {
 let CHEM_OPEN = false;     // раскрыто правило сыгранности на вкладке «Состав»
 function renderSquad() {
   $('club').textContent = S.club;
+  $('sqtip').innerHTML = tipBlock('squad');
   const ready = !S.problems.length;
   $('status').textContent = ready ? '✅ Готов к матчу' : '⚠️ Не готов';
   $('status').className = ready ? 'ok' : 'bad';
@@ -924,6 +978,8 @@ function openSheet(slot) {
   draft = savedStats(p) || S.templates[p.place === 'gk' ? 'gk' : 'field'].slice();
   $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden');
   renderSheet();
+  const ob = H().onboarding;     // шаг «Посмотреть состав» ещё не пройден — бот проверит, что игрок из вашего клуба
+  if (ob && !PVIEW_SENT && ob.steps.some(s => s.key === 'player' && !s.done)) { PVIEW_SENT = true; send({a: 'pview', slot}); }
 }
 function closeSheet() { open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
@@ -944,6 +1000,10 @@ document.addEventListener('click', e => {
   if (b.dataset.ask) { haptic(); const tok = +b.dataset.tok; send(tok ? {a: 'ask', key: b.dataset.ask, token: tok} : {a: 'ask', key: b.dataset.ask}); return; }
   if (b.dataset.dq) { const d = H().daily; if (!d || d.answered || DAILY_WAIT) return; haptic(); DAILY_WAIT = true; renderHome();
     send({a: 'daily', day: d.day, qid: d.qid, choice: +b.dataset.dq}); return; }
+  if (b.dataset.obgo) { haptic(); obGo(b.dataset.obgo); return; }
+  if (b.hasAttribute('data-obhide')) { haptic(); ask('Скрыть «Первые шаги»? Награды за шаги всё равно придут, а список — в «Помощи».', () => send({a: 'obhide'})); return; }
+  if (b.hasAttribute('data-wask')) { haptic(); askWrite(); return; }
+  if (b.dataset.tipok) { haptic(); const k = b.dataset.tipok; send({a: 'hint', key: k}); if (S.hub.hints) delete S.hub.hints[k]; render(); return; }
   if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); renderHome(); return; }
   if (b.dataset.wnhelp) { haptic(); const k = b.dataset.wnhelp; openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
@@ -1139,16 +1199,20 @@ function onState(m) {
   S = m;
   if (open !== null && !player(open)) closeSheet();
   render();
+  if (PANEL_AFTER && S.hub && S.hub.manage) { const k = PANEL_AFTER; PANEL_AFTER = null; openPanel(k); }
 }
 
 /* ---------------- подключение к комнате ---------------- */
 const Q = new URLSearchParams(location.search);
-const ROOM = Q.get('room');
 const DUEL_WS = 'wss://football-duel.pinkovskyi2508.workers.dev';   // сервер комнат (worker/), только он
 const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 // адрес сервера и подпись из ссылки — только при проверке на своём компьютере: иначе чужая ссылка увела бы подпись на чужой сервер
 const WS_BASE = LOCAL && Q.get('ws') ? Q.get('ws') : DUEL_WS;
 const INIT = (TG && TG.initData) || (LOCAL ? Q.get('init') || '' : '');
+// игру открыли без адреса комнаты, но в Telegram (Main Mini App, ссылка ?startapp=…): входная комната со случайным
+// именем — бот проверит подпись, при необходимости создаст менеджера и пришлёт адрес его комнаты (app/app_entry.py)
+let ROOM = Q.get('room') || (INIT ? 'entry-' + Array.from(crypto.getRandomValues(new Uint8Array(15)), b => (b % 36).toString(36)).join('') : null);
+let PANEL_AFTER = null;        // открыть окно, когда придёт первое состояние (приглашение в лигу по ссылке)
 let ws = null, retry = 0, ended = false;
 const AGAIN = 'Экран закрыт. Откройте игру снова: кнопка «🎮 Игра» в чате.';
 function stop(text) { ended = true; $('app').classList.add('hidden'); $('nav').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
@@ -1170,6 +1234,11 @@ function connect() {
     if (m.type === 'bot_left') { toast('Бот перезапускается — подождите, экран оживёт сам', true); waitBot(sock); return; }
     retry = 0;
     clearTimeout(waitBot.t);
+    if (m.type === 'goto' && typeof m.room === 'string') {     // из входной комнаты — в свою (адрес прислал бот)
+      ROOM = m.room; ws = null; try { sock.close(); } catch (err) { /* уже закрыт */ }
+      if (m.tab === 'league') PANEL_AFTER = 'friends';
+      connect(); return;
+    }
     if (m.type === 'state') onState(m);
     else if (m.type === 'ack') onAck(m);
   };
@@ -1271,8 +1340,20 @@ function demoHub() {
         {t: '🔁 Вернулись через 1 день', v: '61%', i: '17 из 28 · заходили спустя 1 день после прихода или позже · учёт заходов — с 25.10.2026'},
         {t: '🔁 Вернулись через 7 дней', v: '35%', i: '6 из 17 · заходили спустя 7 дней после прихода или позже · учёт заходов — с 25.10.2026'},
         {t: '🔁 Вернулись через 30 дней', v: '—', i: 'заходили спустя 30 дней после прихода или позже · учёт заходов — с 25.10.2026'},
-        {t: '🚫 Неявки', v: '2', i: 'тех. поражения за 7 дней: одной команде — 2, обеим — 0'}]},
+        {t: '🚫 Неявки', v: '2', i: 'тех. поражения за 7 дней: одной команде — 2, обеим — 0'},
+        {t: '🚀 Воронка новичков за 7 дней', v: '11 → 9 → 9 → 7 → 5 → 3 → 6 → 2', i: 'пришли → открыли игру 82% → создали клуб 82% → открыли игрока 64% → сыграли матч 45% → открыли стадион 27% → вопрос дня 55% → лига или друг 18%'}]},
     community: 'https://t.me/+demo', sections: [],
+    // первые шаги (app/onboarding.py): в демо ставятся на месте; в игре — только ботом по событиям
+    onboarding: {done: 2, total: 6, reward: 10, bonus: 50, steps: [
+      {key: 'app', title: '🎮 Открыть игру в приложении', how: 'Готово — вы уже здесь', go: null, done: true},
+      {key: 'player', title: '📋 Посмотреть состав', how: 'Откройте любого игрока: очки, роль, характер', go: 'squad', done: false},
+      {key: 'match', title: '⚽ Сыграть матч', how: 'Любой настоящий матч или «🔎 Найти соперника» — за минуту', go: 'seek', done: false},
+      {key: 'stadium', title: '📺 Посмотреть матч на стадионе', how: 'Во время своего матча — кнопка «📺 Смотреть матч»', go: 'matches', done: false},
+      {key: 'daily', title: '❓ Ответить на вопрос дня', how: 'Он на «Главной», ответ — один раз в день', go: 'daily', done: true},
+      {key: 'league', title: '👥 Лига друзей или друг в игре', how: 'Вступите в лигу друзей или позовите друга — засчитаем, когда он придёт по вашей ссылке и сыграет матч', go: 'friends', done: false}]},
+    write: Q.get('demo') === 'denied' ? 'denied' : 'ask',
+    hints: {squad: 'Это ваш состав: 7 на поле и 3 запасных. Нажмите на игрока — очки, роль, капитан, пенальтист. Схема — кнопками сверху.',
+      league: 'Здесь таблица, расписание и кубок. Чтобы играть с друзьями — «👥 Лига друзей»: создайте свою лигу и отправьте друзьям ссылку.'},
     help: [['quick', '🚀 Быстрый старт'], ['news', '🆕 Что нового'], ['tactics', '🧠 Тактика: кто кого бьёт'], ['club', '🏟 Клуб и игроки'], ['match', '⚽ Как идёт матч'], ['faq', '❓ Частые вопросы']],
     whatsnew: [{id: 'tactic-circle', title: '🧠 Тактический круг', help: 'tactics',
       text: 'Тактики бьют друг друга: 🔥 Прессинг → 🛡 Оборону, ⚡ Контратака → 🔥 Прессинг, 🛡 Оборона → ⚡ Контратаку. Угадали ответ — больше мяча и ударов. В окне решений видно, у кого преимущество и чем ответить.'},
@@ -1282,7 +1363,7 @@ function demoNoClub() {        // демо без клуба (?demo=new): экр
   const hb = demoHub();
   S.club = null; S.players = [];
   S.hub = {club: null, official: Object.assign({}, hb.official, {mine: null, text: 'Свободными клубами играет бот — возьмите любой: место в таблице и сыгранные матчи остаются, а десятым игроком станет ваш воспитанник.'}),
-    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community,
+    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community, write: hb.write,
     create: {choice: 'У менеджера может быть два клуба: ⭐ официальный — один из 96 реальных клубов пяти топ-лиг, и ✍️ свой — для лиг с друзьями.', size: 10, ages: [18, 38], pending: 'Лига Бори',
       suggest: ['Иван Петров 1 24', 'Олег Сидоров 4 22', 'Пётр Иванов 5 27', 'Глеб Котов 8 21', 'Лев Рябов 6 29', 'Марк Жуков 9 23', 'Ян Титов 10 25', 'Илья Носов 12 20', 'Фёдор Блинов 14 28', 'Савва Гусев 16 26']}};
 }
@@ -1409,7 +1490,12 @@ function demoAct(act) {
   else if (act.a === 'help') r.help = {key: act.key, text: act.key === 'quick' ? '🚀 БЫСТРЫЙ СТАРТ — что сделать по порядку\n\n1. Клуб. Без клуба на «Главной» — «⚽ Создать клуб».\n2. Состав. Вкладка «Состав»: нажмите игрока — очки, место, капитан, талант.\n3. Лига. «Ещё» → «Лига друзей»: позовите друзей ссылкой.' :
     'Демо: в Telegram здесь полный текст раздела.'};
   else if (['lgrename', 'lgrenew', 'lgkick', 'lgreset'].includes(act.a)) r = {ok: false, note: 'Демо: это работает только в Telegram'};
-  else if (act.a === 'newsseen') r.note = '';
+  else if (act.a === 'newsseen' || act.a === 'hint' || act.a === 'pm') r.note = '';
+  else if (act.a === 'pview' || act.a === 'obhide') {     // демо: шаг отмечается на месте (в игре — ботом)
+    const o = S.hub.onboarding;
+    if (act.a === 'obhide') { S.hub.onboarding = null; r.note = 'Первые шаги скрыты'; }
+    else if (o) { o.steps.find(s => s.key === 'player').done = true; o.done = o.steps.filter(s => s.done).length; r.note = `+${o.reward} болельщиков за шаг`; }
+  }
   else if (act.a === 'trophies') r.trophies = demoTrophies();
   else if (act.a === 'top') r.top = demoTop();
   else if (act.a === 'nudges') r = {ok: true, nudges: act.on, note: act.on ? '🔔 Напоминания включены' : '🔕 Напоминания выключены (о матчах — по-прежнему приходят)'};
@@ -1471,7 +1557,9 @@ function demoAct(act) {
 if (ROOM) {
   connect();
   // бот не подключён к комнате (давно не открывали пульт, перезапуск) — страница сама его не разбудит
-  setTimeout(() => { if (!S && !ended) $('conn').textContent = 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова кнопкой «🎮 Игра».'; }, 8000);
+  const entry = ROOM.startsWith('entry-');
+  setTimeout(() => { if (!S && !ended) $('conn').textContent = entry ? 'Бот не отвечает. Подождите немного или закройте и откройте игру снова.'
+    : 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова кнопкой «🎮 Игра».'; }, entry ? 15000 : 8000);
 }
 else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); if (Q.get('demo') === 'new') demoNoClub(); render(); toast('Демо без бота: изменения не сохраняются'); }
 </script>
