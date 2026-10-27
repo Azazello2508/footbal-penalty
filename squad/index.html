@@ -692,6 +692,12 @@ function panelNewClub(m, P) {
     C.suggest.map((t, i) => `<div class="own"><input id="ncp${i}" value="${esc(t)}" maxlength="40" placeholder="Игрок ${i + 1}"></div>`).join('') +
     `<button type="button" class="go" data-ncown>✍️ Создать с этими игроками</button><div class="hint">Очки (по 100 на игрока) раздадите на вкладке «Состав».</div>`;
 }
+function askBlock(a) {          // «💬 Игрок просит» (дело между матчами, со сроком) или просьба после матча; правила — у бота
+  return `<div class="card ask"><div class="wtag">${a.deal ? '💬 Игрок просит' : '💬 Просьба игрока'}</div><h3>${esc(a.who)}<small>${esc(a.trait)}</small></h3>` +
+    `<div class="note">«${esc(a.title.slice(2).trim())}»${a.story ? `<br><span class="sub">Почему: ${esc(a.story)}</span>` : ''}</div>` +
+    a.answers.map(([k, t, d]) => `<button type="button" class="kind" data-ask="${k}" data-tok="${a.token || ''}">${esc(t)}<span>${esc(d)}</span></button>`).join('') +
+    `<div class="hint">${esc(a.until || 'Не ответите до следующего матча — он обидится.')}</div></div>`;
+}
 function dailyBlock(d) {        // «❓ Вопрос дня»: ответ один раз, проверяет и награждает бот; после ответа — верный вариант
   const opts = d.options.map((o, i) => {
     const cls = d.answered ? (i === d.right ? ' right' : i === d.choice ? ' wrong' : '') : '';
@@ -717,10 +723,7 @@ function renderHome() {
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
   if (hb.daily) x += dailyBlock(hb.daily);
-  if (h.ask) x += `<div class="card ask"><div class="wtag">💬 Просьба игрока</div><h3>${esc(h.ask.who)}<small>${esc(h.ask.trait)}</small></h3>` +
-    `<div class="note">«${esc(h.ask.title.slice(2).trim())}»</div>` + h.ask.answers.map(([k, t, d]) =>
-      `<button type="button" class="kind" data-ask="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') +
-    `<div class="hint">Не ответите до следующего матча — он обидится.</div></div>`;
+  if (h.ask) x += askBlock(h.ask);
   const wn = hb.whatsnew || [];      // «Что нового»: по одной карточке, пока менеджер не нажмёт «Понятно»
   if (wn.length) x += `<div class="card wnew"><div class="wtag">🆕 Новое в игре${wn.length > 1 ? ` · ещё ${wn.length - 1}` : ''}</div>` +
     `<h3>${esc(wn[0].title)}</h3><div class="note">${esc(wn[0].text)}</div><div class="mrow2">` +
@@ -938,7 +941,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (b.dataset.scout) { haptic(); const fx = +b.dataset.scout; if (MS) closeSheet(); openPanel('scout'); PANEL.fx = fx; send({a: 'scout', fx}); renderPanel(); return; }
-  if (b.dataset.ask) { haptic(); send({a: 'ask', key: b.dataset.ask}); return; }
+  if (b.dataset.ask) { haptic(); const tok = +b.dataset.tok; send(tok ? {a: 'ask', key: b.dataset.ask, token: tok} : {a: 'ask', key: b.dataset.ask}); return; }
   if (b.dataset.dq) { const d = H().daily; if (!d || d.answered || DAILY_WAIT) return; haptic(); DAILY_WAIT = true; renderHome();
     send({a: 'daily', day: d.day, qid: d.qid, choice: +b.dataset.dq}); return; }
   if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); renderHome(); return; }
@@ -1229,9 +1232,10 @@ function demoHub() {
     home: {club: 'Девятка', star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
-      ask: {slot: 8, kind: 'play', who: '№12 Илья Носов', trait: '🌟 Звезда', title: '🙋 Хочу больше играть',
-        answers: [['promise', '🤝 Обещаю место в основе', 'обещание на ближайший матч: сдержите — настрой вырастет, нет — упадёт'],
-          ['wait', '⏳ Жди своего шанса', 'звезда расстроится, боец примет спокойно'], ['refuse', '🚫 Нет', 'настрой упадёт']]},
+      ask: {slot: 8, kind: 'conflict', token: 4242, deal: true, who: '№12 Илья Носов', trait: '😰 Ранимый', title: '⚔️ Поссорился с партнёром',
+        story: 'повздорил с №7 Титов: сыгранность всего 42', until: 'Ответьте до 28.10 18:40 (UTC+4) — иначе он решит, что вам всё равно',
+        answers: [['both', '🤝 Помирить обоих', 'обоим +4 к настрою, сыгранность +2'], ['side', '👉 Встать на его сторону', 'ему +8, партнёру −10'],
+          ['ignore', '🙈 Разберутся сами', 'сыгранность −3; если один из них лидер — уладят сами: +1']]},
       problems: [], tired: 1, hurt: 1, growth: ['№9 Жуков'], can_train: true},
     table: {title: 'Лига «Лига друзей»', rows, note: null, rules: '📜 ПРАВИЛА ЛИГИ\n\n1. Формат. Каждый с каждым в два круга. На каждый тур — 2 дня.\n2. Очки. Победа — 3, ничья — 1, поражение — 0.\n3. Места при равенстве очков: разница мячей, забитые, личные встречи.\n(демо: в Telegram — полный текст)'}, matches,
     cup: {title: 'Кубок «Англия»', active: true, note: null, winner: null, rules: '📜 ПРАВИЛА КУБКА\n\n1. На вылет, один матч.\n2. Ничья — серия пенальти.\n(демо: в Telegram — полный текст)', past: [{when: '01.09.2026', name: 'Ливерпуль', mine: false}],
@@ -1419,7 +1423,9 @@ function demoAct(act) {
       r = {ok: true, note: (ok ? '✅ Верно! +10 болельщиков' : '❌ Неверно. Правильно: Италия') + ' · 🔥 серия 3 дня: +15 болельщиков', daily: d};
     }
   }
-  else if (act.a === 'ask') { delete S.hub.home.ask; r.note = 'Ответ принят — настрой игрока изменился'; }
+  else if (act.a === 'ask') { const a = S.hub.home.ask, ans = a && a.answers.find(x => x[0] === act.key);
+    if (!a || (act.token && act.token !== a.token)) r = {ok: false, note: 'Просьбы уже нет'};
+    else { delete S.hub.home.ask; r.note = `${a.who.split(' ')[0]} ${a.who.split(' ').pop()}: ${ans ? ans[2] : 'ответ принят'}`; } }
   else if (act.a === 'scout' || act.a === 'plan') {
     const tl = [['balance', '⚖️ Баланс', 'без плюсов и минусов'], ['press', '🔥 Прессинг', 'ломает Оборону, боится Контратаки'],
       ['counter', '⚡ Контратака', 'наказывает Прессинг, вязнет в Обороне'], ['park', '🛡 Оборона', 'гасит Контратаку, задыхается под Прессингом']];
