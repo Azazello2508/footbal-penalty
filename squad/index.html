@@ -142,6 +142,12 @@ tr[data-pedit]{cursor:pointer}
 .scoutb{border-color:var(--accent)!important}
 .ask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}.ask .wtag{color:#7dd3fc}
 .ask h3 small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.daily{border:1px solid #a78bfa;background:linear-gradient(135deg,rgba(167,139,250,.14),var(--card))}
+.daily .wtag{font-size:12px;color:#c4b5fd;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+.daily h3{margin:6px 0 2px;font-size:16px;line-height:1.3;text-transform:none;letter-spacing:0;font-family:inherit}.daily .dtheme{font-size:12px;color:var(--muted)}
+.daily .dopt{display:block;width:100%;text-align:left;background:var(--card2);padding:12px;border-radius:12px;margin-top:6px;font-size:15px;border:1px solid transparent;color:var(--text)}
+.daily .dopt:disabled{opacity:.6}.daily .dopt.right{border-color:#22c55e;background:rgba(34,197,94,.14)}.daily .dopt.wrong{border-color:#ef4444;background:rgba(239,68,68,.12)}
+.daily .dres{margin-top:8px;font-weight:700}.daily .dstreak{margin-top:8px;font-size:13px;color:var(--muted)}.daily .dstreak b{color:var(--text)}
 .ricon{font-size:11px}.ricon.off{opacity:.35;filter:grayscale(1)}
 .chem{display:block;width:100%;margin:6px 0;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:13px;text-align:left}
 .chem .cbar{display:block;height:6px;border-radius:3px;background:var(--card2);margin-top:6px;overflow:hidden}.chem .cbar i{display:block;height:100%;background:#22c55e}
@@ -651,6 +657,18 @@ function panelNewClub(m, P) {
     C.suggest.map((t, i) => `<div class="own"><input id="ncp${i}" value="${esc(t)}" maxlength="40" placeholder="Игрок ${i + 1}"></div>`).join('') +
     `<button type="button" class="go" data-ncown>✍️ Создать с этими игроками</button><div class="hint">Очки (по 100 на игрока) раздадите на вкладке «Состав».</div>`;
 }
+function dailyBlock(d) {        // «❓ Вопрос дня»: ответ один раз, проверяет и награждает бот; после ответа — верный вариант
+  const opts = d.options.map((o, i) => {
+    const cls = d.answered ? (i === d.right ? ' right' : i === d.choice ? ' wrong' : '') : '';
+    const mark = d.answered ? (i === d.right ? '✅ ' : i === d.choice ? '❌ ' : '') : '';
+    return `<button type="button" class="dopt${cls}" data-dq="${i}"${d.answered || DAILY_WAIT ? ' disabled' : ''}>${mark}${esc(o)}</button>`;
+  }).join('');
+  const res = d.answered ? `<div class="dres">${d.correct ? `Верно! +${d.fans} болельщиков` : 'В этот раз мимо'}${d.bonus ? ` · 🔥 бонус за серию +${d.bonus}` : ''}</div>` +
+    (d.note ? `<div class="note">${esc(d.note)}</div>` : '') + `<div class="sub">Новый вопрос — завтра с полуночи (UTC+4)</div>` : '';
+  return `<div class="card daily"><div class="wtag"><span>❓ Вопрос дня</span><span>${d.answered ? 'ответ принят' : '+' + d.reward + ' 👥'}</span></div>` +
+    `<h3>${esc(d.text)}</h3><div class="dtheme">${esc(d.theme)}</div>${opts}${res}` +
+    `<div class="dstreak"><b>${esc(d.streak_text)}</b>${d.next ? ' · ' + esc(d.next.text) : ''}</div></div>`;
+}
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -663,6 +681,7 @@ function renderHome() {
   }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  if (hb.daily) x += dailyBlock(hb.daily);
   if (h.ask) x += `<div class="card ask"><div class="wtag">💬 Просьба игрока</div><h3>${esc(h.ask.who)}<small>${esc(h.ask.trait)}</small></h3>` +
     `<div class="note">«${esc(h.ask.title.slice(2).trim())}»</div>` + h.ask.answers.map(([k, t, d]) =>
       `<button type="button" class="kind" data-ask="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') +
@@ -881,6 +900,8 @@ document.addEventListener('click', e => {
   }
   if (b.dataset.scout) { haptic(); const fx = +b.dataset.scout; if (MS) closeSheet(); openPanel('scout'); PANEL.fx = fx; send({a: 'scout', fx}); renderPanel(); return; }
   if (b.dataset.ask) { haptic(); send({a: 'ask', key: b.dataset.ask}); return; }
+  if (b.dataset.dq) { const d = H().daily; if (!d || d.answered || DAILY_WAIT) return; haptic(); DAILY_WAIT = true; renderHome();
+    send({a: 'daily', day: d.day, qid: d.qid, choice: +b.dataset.dq}); return; }
   if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); renderHome(); return; }
   if (b.dataset.wnhelp) { haptic(); const k = b.dataset.wnhelp; openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
@@ -1045,10 +1066,11 @@ $('veil').addEventListener('click', closeSheet);
 
 let actId = 0;
 const waiting = {};
+let DAILY_WAIT = false;       // ответ на вопрос дня отправлен — кнопки неактивны до ответа бота
 function send(act) {
   act.id = ++actId; waiting[act.id] = act;     // номер запроса для ответа бота (ack); номер матча — в поле fx
   if (!ROOM) { setTimeout(() => demoAct(act), 120); return; }
-  if (!ws || ws.readyState !== 1) { toast('Нет связи — подождите, переподключаемся', true); return; }
+  if (!ws || ws.readyState !== 1) { DAILY_WAIT = false; toast('Нет связи — подождите, переподключаемся', true); return; }
   ws.send(JSON.stringify({type: 'act', act}));
 }
 function onAck(m) {
@@ -1064,6 +1086,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
   if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
+  if (act && act.a === 'daily') { DAILY_WAIT = false; if (m.daily && S && S.hub) S.hub.daily = m.daily; renderHome(); }
   if (m.ok && m.scout) { SCOUTS[m.scout.fx] = m.scout; if (PANEL && PANEL.k === 'scout' && PANEL.fx === m.scout.fx) { PANEL.draft = null; renderPanel(); } }
   if (!m.ok && act && act.a === 'scout' && PANEL && PANEL.k === 'scout') closeSheet();
 }
@@ -1157,7 +1180,10 @@ function demoHub() {
       manager: 'Вика', opp_ready: false, deadline: '26.10 23:00', can_time: true, move: false, now: true, slots: [[5, '22.10 20:00'], [6, '22.10 21:00']], can_cancel: false, scout: true, plan: true},
     {id: 9, label: 'тур 4', opp: 'Дворовые Львы', home: false, status: 'played', when: '20.10 20:00', score: '4:1', res: 'В'},
     {id: 7, label: 'тур 3', opp: 'Торпедо Пресни', home: true, status: 'played', when: '18.10 19:00', score: '2:2', res: 'Н'}];
-  return {club: 'Девятка', unseen: 2,
+  const daily = {day: '2026-10-27', qid: 'demo', theme: 'Чемпионаты мира', text: 'Кто выиграл чемпионат мира 2006 года?',
+    options: ['Франция', 'Италия', 'Германия', 'Португалия'], streak: 2, streak_text: '🔥 Серия: 2 дня', reward: 10,
+    next: {in: 1, fans: 15, text: 'ещё 1 день подряд — +15 болельщиков'}, answered: false};
+  return {club: 'Девятка', unseen: 2, daily,
     home: {club: 'Девятка', star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
@@ -1319,6 +1345,16 @@ function demoAct(act) {
     'Демо: в Telegram здесь полный текст раздела.'};
   else if (['lgrename', 'lgrenew', 'lgkick', 'lgreset'].includes(act.a)) r = {ok: false, note: 'Демо: это работает только в Telegram'};
   else if (act.a === 'newsseen') r.note = '';
+  else if (act.a === 'daily') {
+    const d = S.hub.daily, ok = act.choice === 1;
+    if (d.answered) r = {ok: false, note: 'Сегодня вы уже ответили — новый вопрос завтра'};
+    else {
+      Object.assign(d, {answered: true, choice: act.choice, right: 1, correct: ok, fans: ok ? 10 : 0, bonus: 15, answer: d.options[1],
+        streak: 3, streak_text: '🔥 Серия: 3 дня', next: {in: 4, fans: 30, text: 'ещё 4 дня подряд — +30 болельщиков'}});
+      S.hub.home.fans += (ok ? 10 : 0) + 15;
+      r = {ok: true, note: (ok ? '✅ Верно! +10 болельщиков' : '❌ Неверно. Правильно: Италия') + ' · 🔥 серия 3 дня: +15 болельщиков', daily: d};
+    }
+  }
   else if (act.a === 'ask') { delete S.hub.home.ask; r.note = 'Ответ принят — настрой игрока изменился'; }
   else if (act.a === 'scout' || act.a === 'plan') {
     const tl = [['balance', '⚖️ Баланс', 'без плюсов и минусов'], ['press', '🔥 Прессинг', 'ломает Оборону, боится Контратаки'],
