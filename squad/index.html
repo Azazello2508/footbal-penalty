@@ -127,6 +127,11 @@ table.tb{width:100%;border-collapse:collapse;font-size:14px}
 .tb td.n{text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tb tr.me td{background:rgba(250,204,21,.1);font-weight:700}
 .tb td.pts{font-weight:800}
+/* полка трофеев и лучшие менеджеры */
+.tb.top td.n{max-width:none;white-space:normal}.tb.top td.n small{display:block;color:var(--muted);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46vw}
+.tb.top td,.tb.top th{padding-left:3px;padding-right:3px}
+.trophy{display:flex;gap:10px;align-items:center}.trophy .ic{font-size:26px;line-height:1}
+.recs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.recs .card{margin:0;min-width:0}.recs b{font-size:20px;display:block;overflow-wrap:anywhere}
 .note{font-size:13px;color:var(--muted);line-height:1.4}
 .item{padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.35}
 .item:first-of-type{border-top:0}
@@ -350,11 +355,13 @@ const M = () => H().manage || null;
 let PANEL = null;          // открытое окно раздела: {k, slot, step, focus, report, hist}; hist — куда вернуться «‹»
 const PANELS = [['club', '🏟 Клуб и игроки', 'название, имена и номера, замена игрока'], ['cards', '🃏 Карточки игроков', 'характеристики, роль, состояние'],
   ['kit', '👕 Форма клуба', 'домашняя и выездная: футболка и шорты'], ['training', '🏋️ Тренировка', 'одна в сутки на клуб'],
-  ['talk', '🗣 Разговор с игроками', 'с каждым — раз в сутки'], ['growth', '📈 Рост игроков', 'вложить очки роста']];
+  ['talk', '🗣 Разговор с игроками', 'с каждым — раз в сутки'], ['growth', '📈 Рост игроков', 'вложить очки роста'],
+  ['trophies', '🏆 Полка трофеев', 'трофеи, места по сезонам, рекорды клуба']];
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
   ['official', '⭐ Официальные лиги', 'клубы пяти топ-лиг: взять свободный, заявка на смену'],
   ['admin', '🛠 Администратор', 'сводка метрик, заявки на смену клуба, сезоны официальных лиг']];
-const NO_CLUB_PANELS = ['newclub', 'official', 'friends', 'help'];   // окна, которые открываются и без клуба
+const NO_CLUB_PANELS = ['newclub', 'official', 'friends', 'help', 'top'];   // окна, которые открываются и без клуба
+let TROPHIES = null, TOPM = null;   // полка трофеев и лучшие менеджеры (приходят по запросу trophies / top)
 const HELPS = {};          // разделы помощи: ключ → {title, text} (приходят по запросу help — вся справка в одно сообщение не влезет)
 const CARDS = {};          // состав клуба официальной лиги: ключ → {card, numbers} (приходит по запросу ofcard)
 const num = v => String(v).replace('.', ',');     // 20.3 → 20,3 — как в чате
@@ -370,7 +377,8 @@ function ask(text, yes) {     // подтверждение: окно Telegram, 
   if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) { TG.showConfirm(text, ok => { if (ok) yes(); }); return; }
   if (confirm(text)) yes();
 }
-function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel(); }
+function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel();
+  if (k === 'trophies' || k === 'top') { if (k === 'trophies') { TROPHIES = null; renderPanel(); } send({a: k}); } }
 // имена с приставкой panel: в Telegram на iPhone глобальное head занято (HTMLHeadElement) — «head is not a function»
 function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
 function panelBack() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
@@ -388,7 +396,7 @@ function renderPanel() {
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules}[P.k](m, P);
+    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
 }
@@ -406,7 +414,8 @@ function panelClub(m, P) {
       `<div class="own"><input id="rn" inputmode="numeric" maxlength="2" placeholder="Номер"><input id="ra" inputmode="numeric" maxlength="2" placeholder="Возраст 18–38"></div>` +
       `<button type="button" class="go danger" data-prepl>🗑 Удалить и вписать нового</button>`;
   }
-  let h = panelHead('🏟 Клуб и игроки') + `<div class="label">Название</div>`;
+  let h = panelHead('🏟 Клуб и игроки') + `<button type="button" class="go main" data-panel="trophies">🏆 Полка трофеев: трофеи, места, рекорды</button>` +
+    `<div class="label">Название</div>`;
   h += m.rename ? `<div class="banner">${esc(m.rename)}</div>` :
     `<div class="own"><input id="cn" value="${esc(m.name)}" maxlength="30"><button type="button" data-cname>OK</button></div>`;
   h += statsTable(m);
@@ -549,6 +558,32 @@ function panelScout(m, P) {
     `<div class="hint">Угадаете — команда выйдет воодушевлённой: +${s.bonus} к настрою.</div>` +
     `<button type="button" class="big" data-psave>💾 Сохранить план</button>`;
   return h;
+}
+function panelTrophies(m, P) {   // полка трофеев клуба — считает бот (app/trophies.py)
+  const d = TROPHIES;
+  if (!d) return panelHead('🏆 Полка трофеев') + `<div class="note">Загружаю…</div>`;
+  let h = panelHead('🏆 Полка трофеев', esc(d.club));
+  h += `<div class="label">Трофеи</div>` + (d.trophies.length ? d.trophies.map(t =>
+    `<div class="card trophy"><span class="ic">${t.icon}</span><div><b>${esc(t.title)}</b><div class="sub">${esc(t.when)}${t.as ? ` · как «${esc(t.as)}»` : ''}</div></div></div>`).join('') :
+    `<div class="card note">Трофеев пока нет: выиграйте сезон лиги или кубок страны — они встанут сюда.</div>`);
+  h += `<div class="label">Места по сезонам</div>` + (d.places.length ? `<div class="card" style="padding:4px 10px">` + d.places.map(p =>
+    `<div class="row" style="padding:6px 0"><div><b>${esc(p.title)}</b><div class="sub">${esc(p.when)} · ${p.pts} очк. · ${esc(p.wdl)} · мячи ${esc(p.goals)}</div></div><b style="white-space:nowrap">${p.place === 1 ? '🏆 ' : ''}${p.place}/${p.of}</b></div>`).join('') + `</div>` :
+    `<div class="card note">Завершённых сезонов пока нет.</div>`);
+  h += `<div class="label">Рекорды клуба</div><div class="recs">` + d.records.map(r =>
+    `<div class="card"><div class="sub">${r.icon} ${esc(r.title)}</div><b>${esc(r.value)}</b><div class="sub">${esc(r.sub)}</div></div>`).join('') + `</div>`;
+  return h + `<div class="hint">${esc(d.note)}</div>`;
+}
+function panelTop(m, P) {        // лучшие менеджеры всех лиг — считает бот, ваша строка подсвечена
+  const d = TOPM;
+  if (!d) return panelHead('🌍 Лучшие менеджеры') + `<div class="note">Загружаю…</div>`;
+  const row = r => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}<small>${esc(r.clubs || 'без клуба')}</small></td>` +
+    `<td>${r.trophies}</td><td>${r.games}</td><td>${r.pct == null ? '—' : r.pct + '%'}</td><td>${r.fans}</td></tr>`;
+  let h = panelHead('🌍 Лучшие менеджеры', 'Все лиги, только люди — клубы бота не считаются');
+  h += d.rows.length ? `<div class="card" style="padding:6px 8px"><table class="tb top"><tr><th>#</th><th style="text-align:left">Менеджер</th><th>🏆</th><th>И</th><th>%П</th><th>📣</th></tr>` +
+    d.rows.map(row).join('') + (d.me ? `<tr><td colspan="6" class="sub">…</td></tr>` + row(d.me) : '') + `</table></div>` :
+    `<div class="card note">Пока никого нет.</div>`;
+  h += d.my_place ? `<div class="banner">Ваше место: ${d.my_place} из ${d.total}</div>` : '';
+  return h + `<div class="hint">${esc(d.rule)} %П — процент побед, 📣 — болельщики.</div>`;
 }
 function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
   const r = P.which === 'cup' ? (H().cup || {}).rules : (H().table || {}).rules;
@@ -738,6 +773,7 @@ function renderLeague() {
       t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
       `</table></div>`;
     if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
+    x += `<button type="button" class="go" data-panel="top">🌍 Лучшие менеджеры всех лиг</button>`;
     if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-panel="friends">👥 Лига друзей: создать, вступить, позвать</button>`;
     else x += `<button type="button" class="go" data-panel="official">⭐ Официальные лиги</button>`;
   } else {
@@ -757,6 +793,8 @@ function renderMore() {
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
   if (hb.help && hb.help.length) x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button></div>`;
+  if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
+    x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button></div>`; }
   if (hb.sections && hb.sections.length) x += `<div class="label">В чате</div><div class="menu">` + hb.sections.map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
   const ns = hb.notices || [], shown = NOTICES_ALL ? ns : ns.slice(0, NOTICES_SHOWN);
   x += `<div class="label">🔔 Уведомления</div><div class="card">` + (ns.length ? shown.map(n => n.go ?
@@ -892,6 +930,7 @@ document.addEventListener('click', e => {
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
+  if (b.dataset.nudges) { haptic(); send({a: 'nudges', on: b.dataset.nudges === '1'}); return; }
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
   if (b.dataset.watch) {       // трансляция матча — та же страница и комната, что у кнопки в чате (пускает бот по подписи)
     const m = matchById(+b.dataset.watch); haptic();
@@ -1085,7 +1124,10 @@ function onAck(m) {
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
+  if (m.ok && act && act.a === 'nudges' && S && S.hub) { S.hub.nudges = m.nudges; renderMore(); }
   if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
+  if (m.ok && m.trophies) { TROPHIES = m.trophies; if (PANEL && PANEL.k === 'trophies') renderPanel(); }
+  if (m.ok && m.top) { TOPM = m.top; if (PANEL && PANEL.k === 'top') renderPanel(); }
   if (act && act.a === 'daily') { DAILY_WAIT = false; if (m.daily && S && S.hub) S.hub.daily = m.daily; renderHome(); }
   if (m.ok && m.scout) { SCOUTS[m.scout.fx] = m.scout; if (PANEL && PANEL.k === 'scout' && PANEL.fx === m.scout.fx) { PANEL.draft = null; renderPanel(); } }
   if (!m.ok && act && act.a === 'scout' && PANEL && PANEL.k === 'scout') closeSheet();
@@ -1336,6 +1378,25 @@ function demoRefresh() {     // линии и готовность — как с
   S.players.filter(p => p.injury && p.place !== 'bench').forEach(p => pr.push(`№${p.number} травмирован — отправьте его в запасные`));
   S.problems = pr;
 }
+function demoTrophies() {       // демо: полка трофеев — те же поля, что присылает бот (app/trophies.py shelf)
+  return {club: S.club, count: {league: 1, cup: 1}, note: 'Места и трофеи — с первого сохранённого сезона; сброшенные сезоны в историю не попадают. Рекорд болельщиков ведётся с 27.10.2026.',
+    trophies: [{icon: '🥇', title: 'Кубок «Лига друзей», розыгрыш 1', when: '14.10.2026', as: null},
+      {icon: '🏆', title: 'Чемпион лиги «Лига друзей», сезон 1', when: '01.09.2026', as: 'Старое Длинное Название Клуба'}],
+    places: [{title: 'Лига друзей · сезон 2', when: '05.10.2026', place: 3, of: 8, pts: 19, wdl: '6-1-7', goals: '24:21'},
+      {title: 'Лига друзей · сезон 1', when: '01.09.2026', place: 1, of: 4, pts: 15, wdl: '5-0-1', goals: '17:6'}],
+    records: [{icon: '📊', title: 'Все матчи', value: '31', sub: 'побед 15, ничьих 3, поражений 13'},
+      {icon: '🥇', title: 'Лучшее место в лиге', value: '1-е из 4', sub: 'Лига друзей · сезон 1'},
+      {icon: '💥', title: 'Самая крупная победа', value: '6:0', sub: 'против «Очень Длинное Название Соперника», 03.10.2026'},
+      {icon: '⚽', title: 'Лучший бомбардир', value: '14', sub: '№9 Константин Константинопольский, передач 5'},
+      {icon: '📣', title: 'Рекорд болельщиков', value: '1240', sub: 'сейчас 1180'}]};
+}
+function demoTop() {             // демо: лучшие менеджеры — поля как у бота (app/trophies.py top)
+  const names = ['Аня', 'Боря', 'Вика', 'Гена', 'Даша', 'Егор', 'Жанна', 'Зоя', 'Илья', 'Костя', 'Лена', 'Миша', 'Надя', 'Олег', 'Петя', 'Рита', 'Саша', 'Таня', 'Уля', 'Фёдор'];
+  const rows = names.map((n, i) => ({place: i + 1, name: n + (i === 3 ? ' Очень-Длинная-Фамилия-Менеджера' : ''), clubs: i % 3 ? 'Клуб ' + n : 'Ливерпуль · Клуб с очень длинным названием', trophies: Math.max(0, 3 - (i >> 2)),
+    games: 30 - i, wins: 20 - i, pct: i > 17 ? null : Math.round(100 * (20 - i) / (30 - i)), fans: 2000 - 60 * i, me: false}));
+  return {rows, me: {place: 27, name: 'Вы', clubs: S.club, trophies: 0, games: 3, wins: 1, pct: null, fans: 520, me: true}, my_place: 27, total: 41,
+    rule: 'Порядок: трофеи, затем % побед (от 5 матчей), затем болельщики. Матчи — лига, кубок и официальные товарищеские, которые менеджер провёл сам; победа — по счёту матча.', min: 5};
+}
 function demoAct(act) {
   const p = player(act.slot); let r = {ok: true, note: ''};
   const club = demoLeagueAct(act) || demoClubAct(act);
@@ -1345,6 +1406,9 @@ function demoAct(act) {
     'Демо: в Telegram здесь полный текст раздела.'};
   else if (['lgrename', 'lgrenew', 'lgkick', 'lgreset'].includes(act.a)) r = {ok: false, note: 'Демо: это работает только в Telegram'};
   else if (act.a === 'newsseen') r.note = '';
+  else if (act.a === 'trophies') r.trophies = demoTrophies();
+  else if (act.a === 'top') r.top = demoTop();
+  else if (act.a === 'nudges') r = {ok: true, nudges: act.on, note: act.on ? '🔔 Напоминания включены' : '🔕 Напоминания выключены (о матчах — по-прежнему приходят)'};
   else if (act.a === 'daily') {
     const d = S.hub.daily, ok = act.choice === 1;
     if (d.answered) r = {ok: false, note: 'Сегодня вы уже ответили — новый вопрос завтра'};
