@@ -80,14 +80,14 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .tal{display:block;width:100%;text-align:left;background:var(--card2);padding:10px 12px;border-radius:12px;margin-top:6px;font-size:14px}
 .tal span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .tal.on{outline:2px solid var(--accent)}
-#toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:20;max-width:90vw;
+#toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;max-width:90vw;
   background:#0f172a;border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:12px;font-size:14px;
   box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
 #toast.show{opacity:1}
 #toast.bad{border-color:#b91c1c;color:#fecaca}
 #conn{text-align:center;color:var(--muted);font-size:14px;margin:40px 0}
 /* вкладки игры */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(4,1fr);background:#0f172a;
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(5,1fr);background:#0f172a;
   border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
 #nav button{background:transparent;padding:4px 0;border-radius:10px;color:var(--muted);font-size:11px;position:relative}
 #nav button i{display:block;font-style:normal;font-size:21px;line-height:1.2}
@@ -224,6 +224,50 @@ tr[data-pedit]{cursor:pointer}
 .pcard .tags i{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(250,204,21,.15);color:#fde68a;text-transform:uppercase;letter-spacing:.04em}
 .pcard .body{padding:4px 12px 12px;background:var(--card)}
 .pcard .cond{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
+/* «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) */
+.tblk{position:fixed;z-index:30;background:rgba(2,6,23,.74);touch-action:none}
+#tring{position:fixed;z-index:31;border:3px solid var(--accent);border-radius:12px;pointer-events:none;box-shadow:0 0 0 4px rgba(250,204,21,.22),0 0 18px rgba(250,204,21,.35)}
+#tbub{position:fixed;z-index:32;left:12px;right:12px;max-width:496px;margin:0 auto;max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch;
+  background:#0f172a;border:1px solid var(--accent);border-radius:14px;padding:11px 12px 12px;box-shadow:0 10px 30px rgba(0,0,0,.65)}
+#tbub.center{max-height:84vh}
+#tbub.shake{animation:tshake .35s}
+@keyframes tshake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#tbub .tbh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--accent);font-weight:700}
+#tbub .tbh button{background:var(--card2);width:28px;height:28px;border-radius:50%;font-size:14px;flex:none}
+#tbub .tprog{height:5px;border-radius:3px;background:var(--card2);margin:6px 0 2px;overflow:hidden}#tbub .tprog i{display:block;height:100%;background:var(--accent)}
+#tbub h4{margin:6px 0 3px;font-size:16px;line-height:1.25}
+#tbub h4.hot{color:var(--accent);font-size:18px}
+#tbub .tx{font-size:14px;line-height:1.42}
+#tbub .ex{margin-top:7px;font-size:13px;line-height:1.4;background:var(--card2);border-radius:10px;padding:7px 10px}
+#tbub .ex b{color:var(--accent)}
+#tbub .warnx{margin-top:7px;font-size:13px;color:#fde68a}
+#tbub .tbtns{display:flex;gap:6px;margin-top:9px}
+#tbub .tbtns button{flex:1;padding:9px 6px;border-radius:11px;background:var(--card2);font-size:14px}
+#tbub .tbtns button.main{background:var(--accent);color:#111;font-weight:700}
+#tbub .tpath{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-top:8px;font-size:15px;position:relative}
+#tbub .tpath b{display:block;font-size:16px}
+#tbub .tpath span{display:block;color:var(--muted);font-size:13px;margin-top:3px;line-height:1.35}
+#tbub .tpath.rec{border-color:#22c55e;background:linear-gradient(135deg,rgba(34,197,94,.14),var(--card))}
+#tbub .tpath i{position:absolute;right:10px;top:10px;font-style:normal;font-size:11px;font-weight:700;background:#22c55e;color:#052e12;border-radius:999px;padding:2px 8px}
+#tbub .tpath:disabled{opacity:.45}
+#tbub .tdots{display:flex;justify-content:center;gap:6px;margin-top:8px}#tbub .tdots i{width:7px;height:7px;border-radius:50%;background:var(--card2)}#tbub .tdots i.on{background:var(--accent)}
+#tbub .big1{font-size:40px;text-align:center;line-height:1.1;margin-top:4px}
+.tcirc{display:block;margin:6px auto 0;max-width:260px}
+body.touring main{padding-bottom:42vh}
+body.touring #sheet .in{padding-bottom:42vh}
+body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся видимая область (не 100vh: на iPhone vh больше экрана) */
+.qbtn{flex:none;width:30px;height:30px;border-radius:50%;background:var(--card2);color:var(--accent);font-weight:800;font-size:15px;border:1px solid var(--line)}
+.lrow{display:flex;align-items:center;justify-content:space-between;gap:8px}.lrow .label{flex:1;min-width:0}
+.lrn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-top:7px}
+.lrn .ic{font-size:24px;flex:none;width:30px;text-align:center}
+.lrn .tt{flex:1;min-width:0}.lrn .tt b{display:block;font-size:15px}.lrn .tt span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
+.lrn .stt{flex:none;font-size:12px;font-weight:700;color:var(--accent);text-align:right}.lrn .stt.ok{color:#86efac}
+.lrn.main{border-color:var(--accent);background:linear-gradient(135deg,rgba(250,204,21,.12),var(--card))}
+.lrnre{display:block;margin:4px 0 0 auto;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
+.ferr{color:#fca5a5;font-size:12px;line-height:1.35;margin:-2px 2px 6px;white-space:pre-line}.ferr:empty{display:none}
+.own input.bad{border-color:#ef4444}
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 6px}.presets button{background:var(--card2);border-radius:9px;padding:6px 8px;font-size:12px}
+.place2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.place2 button{background:#14532d;color:#dcfce7;padding:11px 8px;border-radius:12px;font-size:14px;font-weight:700}
 </style>
 </head>
 <body>
@@ -232,9 +276,10 @@ tr[data-pedit]{cursor:pointer}
   <div id="app" class="hidden">
    <section id="t-home"></section>
    <section id="t-league" class="hidden"></section>
+   <section id="t-learn" class="hidden"></section>
    <section id="t-more" class="hidden"></section>
    <section id="t-squad" class="hidden">
-    <header><div id="club"></div><div id="status"></div></header>
+    <header><div id="club"></div><div id="status"></div><button type="button" class="qbtn" data-tourq="squad" aria-label="Подсказки по составу">?</button></header>
     <div id="sqtip"></div>
     <div id="problems" class="banner warn hidden"></div>
     <div id="promises" class="banner warn hidden"></div>
@@ -255,11 +300,15 @@ tr[data-pedit]{cursor:pointer}
   <button type="button" data-tab="home"><i>🏠</i>Главная</button>
   <button type="button" data-tab="squad"><i>📋</i>Состав</button>
   <button type="button" data-tab="league"><i>🏆</i>Лига</button>
+  <button type="button" data-tab="learn"><i>📖</i>Обучение</button>
   <button type="button" data-tab="more"><i>☰</i>Ещё<span id="unseen" class="dot hidden"></span></button>
 </nav>
 <div id="veil" class="hidden"></div>
 <div id="sheet" class="hidden"><div class="in" id="sheetin"></div></div>
 <div id="toast"></div>
+<div id="tb0" class="tblk hidden"></div><div id="tb1" class="tblk hidden"></div><div id="tb2" class="tblk hidden"></div><div id="tb3" class="tblk hidden"></div>
+<div id="tring" class="hidden"></div>
+<div id="tbub" class="hidden" role="dialog" aria-live="polite"></div>
 <script>
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 if (TG) { TG.ready(); TG.expand(); try { TG.setHeaderColor('#0b1220'); TG.setBackgroundColor('#0b1220'); } catch (e) { /* старый Telegram */ } }
@@ -304,7 +353,7 @@ function roleIcon(p) { const r = p.role && roleOf(p.role); return r ? r[2].split
 /* ---------------- вкладки игры: главная, лига, ещё ---------------- */
 let TAB = new URLSearchParams(location.search).get('tab') || 'home';
 let SEG = 'table';           // вкладка «Лига»: таблица или матчи
-const TABS = ['home', 'squad', 'league', 'more'];
+const TABS = ['home', 'squad', 'league', 'learn', 'more'];
 if (!TABS.includes(TAB)) TAB = 'home';
 const H = () => (S && S.hub) || {};   // до первого состояния от бота S ещё нет (секундомер поиска спрашивает каждую секунду)
 let SEEK_HB = null, SEEK_AT = 0;      // поиск соперника: с какого момента (по часам телефона) идёт — для секундомера
@@ -413,6 +462,7 @@ function renderPanel() {
     friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
+  formCheck(false);
 }
 function panelClub(m, P) {
   if (P.slot != null) {
@@ -653,8 +703,8 @@ function panelOfficial(m, P) {
       `<button type="button" class="go main" data-ofreq="${c.key}">📝 Подать заявку на этот клуб</button><div class="hint">Решает администратор — ответ придёт в чат.</div>`);
     return h + `<div class="label">🌱 Десятый игрок — ваш воспитанник</div>` +
       `<div class="own"><input id="ownf" maxlength="20" placeholder="Имя"><input id="ownl" maxlength="20" placeholder="Фамилия"></div>` +
-      `<div class="own"><input id="ownn" inputmode="numeric" maxlength="2" placeholder="Номер"><input id="owna" inputmode="numeric" maxlength="2" placeholder="Возраст 18–38"></div>` +
-      (card ? `<div class="hint">Занятые номера: ${card.numbers.join(', ')}. Молодые растут быстрее — воспитанник может со временем догнать звёзд.</div>` : '') +
+      `<div class="own"><input id="ownn" inputmode="numeric" maxlength="2" placeholder="Номер"><input id="owna" inputmode="numeric" maxlength="2" placeholder="Возраст 18–38"></div><div class="ferr" id="err-own"></div>` +
+      (card ? `<div class="hint">Заняты: ${card.numbers.join(', ')}. Свободны, например: ${freeList(card.numbers, 8).join(', ')}. Молодые растут быстрее — воспитанник может со временем догнать звёзд.</div>` : '') +
       `<button type="button" class="go main" data-oftake="${c.key}">✅ Беру этот клуб</button>`;
   }
   if (P.lg) {
@@ -696,14 +746,16 @@ function panelNewClub(m, P) {
   const C = H().create, O = H().official || {};
   if (!C) return panelHead('⚽ Новый клуб') + `<div class="card note">Свой клуб у вас уже есть.</div>`;
   const invite = C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '';
-  if (P.step !== 'own' && !O.mine) return panelHead('⚽ Новый клуб', 'Как создадим клуб?') + invite + `<div class="report">${esc(C.choice)}</div>` +
+  const guide = TOUR ? '' : `<button type="button" class="go" data-guide="club">🧭 Пройти с подсказками — что нажать и что ввести</button>`;
+  if (P.step !== 'own' && !O.mine) return panelHead('⚽ Новый клуб', 'Как создадим клуб?') + invite + guide + `<div class="report">${esc(C.choice)}</div>` +
     `<button type="button" class="go main" data-ncoff>⭐ Готовый клуб из топ-лиги</button><button type="button" class="go" data-ncstep>✍️ Свой клуб с нуля</button>`;
-  return panelHead('✍️ Свой клуб', 'Для лиг с друзьями: название и игроки — ваши') + invite +
-    `<div class="label">Название клуба</div><div class="own"><input id="ncname" maxlength="30" placeholder="Например: Дворовые Львы"></div>` +
+  return panelHead('✍️ Свой клуб', 'Для лиг с друзьями: название и игроки — ваши') + invite + guide +
+    `<div class="label">Название клуба</div><div class="own"><input id="ncname" maxlength="30" placeholder="Например: Дворовые Львы"></div><div class="ferr" id="err-ncname"></div>` +
     `<button type="button" class="go main" data-ncquick>⚡ Создать — состав, очки и форма сразу</button>` +
     `<div class="hint">Игроков, очки, роли и форму выдадим — клуб сразу готов к матчу. Имена, номера и очки можно поменять потом.</div>` +
     `<div class="label">Или свои ${C.size} игроков</div><div class="hint">Каждый — «Имя Фамилия номер возраст» (возраст ${C.ages[0]}–${C.ages[1]}): молодые растут быстрее, опытные реже получают карточки. Ниже — подсказка, меняйте как хотите.</div>` +
-    C.suggest.map((t, i) => `<div class="own"><input id="ncp${i}" value="${esc(t)}" maxlength="40" placeholder="Игрок ${i + 1}"></div>`).join('') +
+    `<div id="ncplist">` + C.suggest.map((t, i) => `<div class="own"><input id="ncp${i}" value="${esc(t)}" maxlength="40" placeholder="Игрок ${i + 1}: Имя Фамилия номер возраст"></div>` +
+      `<div class="ferr" id="err-ncp${i}"></div>`).join('') + `</div>` +
     `<button type="button" class="go" data-ncown>✍️ Создать с этими игроками</button><div class="hint">Очки (по 100 на игрока) раздадите на вкладке «Состав».</div>`;
 }
 function askBlock(a) {          // «💬 Игрок просит» (дело между матчами, со сроком) или просьба после матча; правила — у бота
@@ -718,7 +770,8 @@ function dailyBlock(d) {        // «❓ Вопрос дня»: ответ од�
     const mark = d.answered ? (i === d.right ? '✅ ' : i === d.choice ? '❌ ' : '') : '';
     return `<button type="button" class="dopt${cls}" data-dq="${i}"${d.answered || DAILY_WAIT ? ' disabled' : ''}>${mark}${esc(o)}</button>`;
   }).join('');
-  const res = d.answered ? `<div class="dres">${d.correct ? `Верно! +${d.fans} болельщиков` : 'В этот раз мимо'}${d.bonus ? ` · 🔥 бонус за серию +${d.bonus}` : ''}</div>` +
+  const res = d.answered ? `<div class="dres">${d.correct ? `✅ Верно! +${d.fans} 👥` : `❌ Мимо. Правильно: ${esc(d.answer || d.options[d.right])}`}` +
+    `${d.bonus ? ` · бонус +${d.bonus} 👥` : ''} · 🔥 серия ${daysWord(d.streak)}</div>` +
     (d.note ? `<div class="note">${esc(d.note)}</div>` : '') + `<div class="sub">Новый вопрос — завтра с полуночи (UTC+4)</div>` : '';
   return `<div class="card daily"><div class="wtag"><span>❓ Вопрос дня</span><span>${d.answered ? 'ответ принят' : '+' + d.reward + ' 👥'}</span></div>` +
     `<h3>${esc(d.text)}</h3><div class="dtheme">${esc(d.theme)}</div>${opts}${res}` +
@@ -767,7 +820,9 @@ function renderHome() {
     const C = hb.create || {};
     $('t-home').innerHTML = `<div class="card"><h3>⚽ У вас пока нет клуба</h3><div class="note">Создайте его — это минута, а дальше: свой состав 7×7, лига с друзьями и живые матчи.</div>` +
       (C.pending ? `<div class="banner warn">📨 Вас пригласили в лигу «${esc(C.pending)}» — со своим клубом вы сразу в ней окажетесь.</div>` : '') +
-      `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button>` +
+      `<button type="button" class="go main" data-guide="club">🧭 ${(((hb.learn || {}).guides || {}).club || {}).step > 0 ? 'Продолжить с подсказками' : 'Создать с подсказками'}</button>` +
+      `<div class="hint" style="margin-top:6px">Подскажем на каждом шаге, что нажать и что ввести.</div>` +
+      `<button type="button" class="go" data-panel="newclub">⚽ Создать клуб самому</button>` +
       (hb.community ? `<button type="button" class="go" data-community>💬 Сообщество игры</button>` : '') + `</div>` + writeBlock(hb.write);
     return;
   }
@@ -775,7 +830,8 @@ function renderHome() {
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
   x += writeBlock(hb.write);
   if (hb.onboarding) x += stepsBlock(hb.onboarding);
-  if (hb.daily) x += dailyBlock(hb.daily);
+  const dd = DAILY_SHOW && Date.now() < DAILY_SHOW.until ? DAILY_SHOW.d : hb.daily;
+  if (dd) x += dailyBlock(dd);
   if (h.ask) x += askBlock(h.ask);
   const wn = hb.whatsnew || [];      // «Что нового»: по одной карточке, пока менеджер не нажмёт «Понятно»
   if (wn.length) x += `<div class="card wnew"><div class="wtag">🆕 Новое в игре${wn.length > 1 ? ` · ещё ${wn.length - 1}` : ''}</div>` +
@@ -819,7 +875,7 @@ function renderLeague() {
   const hb = H(), t = hb.table;
   if (!t) { $('t-league').innerHTML = ''; return; }
   if (SEG === 'cup' && !hb.cup) SEG = 'table';
-  let x = tipBlock('league') + `<div class="label">${esc(t.title || 'Лига')}</div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
+  let x = tipBlock('league') + `<div class="lrow"><div class="label">${esc(t.title || 'Лига')}</div><button type="button" class="qbtn" data-tourq="league" aria-label="Подсказки по лиге">?</button></div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
     `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button>` +
     (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') + `</div>`;
   if (SEG === 'cup') x += cupBlock(hb.cup);
@@ -876,13 +932,14 @@ function renderNav() {
 function render() {
   if (!S) return;
   $('conn').classList.add('hidden'); $('app').classList.remove('hidden'); $('nav').classList.remove('hidden');
-  renderHome(); renderLeague(); renderMore(); renderNav();
+  renderHome(); renderLeague(); renderLearn(); renderMore(); renderNav();
   if (S.players && S.players.length) renderSquad();
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== TAB));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
   if (MS) renderMatchSheet();
   if (PANEL) renderPanel();
   if (OPEN_AFTER && matchById(OPEN_AFTER)) { const id = OPEN_AFTER; OPEN_AFTER = null; SEG = 'matches'; renderLeague(); showTab('league'); openMatchSheet({id}); }
+  if (TOUR) tourDraw();
 }
 
 let CHEM_OPEN = false;     // раскрыто правило сыгранности на вкладке «Состав»
@@ -911,7 +968,7 @@ function renderSquad() {
   }).join('') + `<div class="line"><span class="tag">Вратарь</span>${S.players.filter(p => p.place === 'gk').map(token).join('') ||
     '<div class="pl"><div class="shirt">?</div><div class="nm">нет вратаря</div></div>'}</div>`;
   $('bench').innerHTML = S.players.filter(p => p.place === 'bench').map(token).join('') ||
-    '<div class="nm" style="grid-column:1/-1;text-align:center;color:var(--muted)">Нет запасных</div>';
+    '<div class="nm" style="grid-column:1/-1;text-align:center;color:var(--muted)">Нет запасных — нажмите игрока → «🪑 На скамейку»</div>';
   $('app').classList.toggle('swapping', swapFrom !== null);
   $('swapbar').classList.toggle('hidden', swapFrom === null);
   if (swapFrom !== null) { const p = player(swapFrom); $('swaptext').textContent = p ? `С кем поменять №${p.number} ${shortName(p)}? Можно и с игроком на поле` : ''; }
@@ -953,6 +1010,7 @@ function renderSheet() {
       `<button type="button" data-st="${i}" data-d="1"${dis(1)}>+1</button><button type="button" data-st="${i}" data-d="5"${dis(5)}>+5</button></div>` +
       `<div class="barw"><div class="bar" style="width:${Math.round(100 * v[i] / L.max)}%"></div></div></div>`;
   }).join('');
+  if (!fixed && S.presets) h += `<div class="presets"><span class="sub" style="width:100%">Быстро — раскладка по позиции:</span>` + S.presets.map(([k, t]) => `<button type="button" data-preset="${k}">${esc(t)}</button>`).join('') + `</div>`;
   if (!fixed) h += `<div id="left" class="${left ? '' : 'ok'}">${left ? `Осталось раздать: ${left}` : changed ? '✅ Все 100 очков распределены' : '✅ Сохранено'}</div>`;
   if (!fixed) h += `<button type="button" class="big" data-save${left || !changed || S.locked ? ' disabled' : ''}>💾 Сохранить очки</button>`;
   if (S.field_roles && p.place === 'field') {      // роль на поле — из ролей линии, где игрок сейчас
@@ -964,6 +1022,10 @@ function renderSheet() {
   } else if (S.field_roles && p.place !== 'field') {
     h += `<div class="hint">Роль на поле есть у полевых игроков основы (защита, центр, атака).</div>`;
   }
+  const noGk = !S.players.some(x => x.place === 'gk'), benchN = S.players.filter(x => x.place === 'bench').length;
+  const placeBtns = (noGk && p.place !== 'gk' ? `<button type="button" data-place="gk">🧤 В ворота</button>` : '') +
+    (benchN < 3 && p.place === 'field' ? `<button type="button" data-place="bench">🪑 На скамейку</button>` : '');
+  if (placeBtns) h += `<div class="label">Место в составе${noGk ? ' · вратаря нет' : ''}${benchN < 3 ? ` · запасных ${benchN} из 3` : ''}</div><div class="place2">${placeBtns}</div>`;
   h += `<div class="acts">` +
     `<button type="button" data-swap>🔁 Поменять местами</button>` +
     `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}${p.lead ? `<small>лидерство ${esc(p.lead)}</small>` : ''}</button>` +
@@ -983,9 +1045,534 @@ function openSheet(slot) {
 }
 function closeSheet() { open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
+/* ---------------- «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) ----------------
+   Подсказка подсвечивает настоящую кнопку или поле (остальное затемнено) и пишет, что нажать и что ввести.
+   Следующий шаг открывается, только когда этот действительно сделан: смотрим на состояние от бота (клуб создан,
+   очки сохранены, вратарь выбран…), а для «откройте окно» — на открытое окно. Где остановился — хранит бот:
+   «Позже» продолжит с того же места и на другом телефоне. Имена — с приставкой tour (в Telegram на iPhone часть
+   глобальных имён занята). */
+const GUIDES = [['club', '🧭', 'Создание клуба и игроков', 'три пути: настоящий клуб, свой быстро или полностью сам'],
+  ['squad', '📋', 'Состав и очки', 'поле и скамейка, очки игрока, роль, капитан, талант, схема'],
+  ['tactics', '🧠', 'Тактика', 'кто кого бьёт и где её выбрать'],
+  ['match', '⚽', 'Матч', 'окна решений и перерыв; пенальти и штрафные бьёте вы сами'],
+  ['league', '👥', 'Лига с друзьями', 'создать лигу, позвать друга, сезон, таблица, кубок'],
+  ['minute', '⏱', 'Как играть за минуту', 'пять коротких экранов обо всём']];
+const TQ = sel => document.querySelector(sel);
+const TQA = sel => Array.from(document.querySelectorAll(sel));
+let TOUR = null;           // идущая подсказка: {g, path, i, steps, was, saved, scrolled, html}
+let TOUR_AUTO = false;     // «Создание клуба» уже открывалось само на этой странице
+const tourOwn = () => !!(S && S.hub) && !H().create;                 // свой клуб есть — создавать нечего
+const tourOff = () => !!(H().official || {}).mine;                   // официальный клуб есть
+const tourPl = () => open !== null ? player(open) : null;            // игрок в открытой карточке
+const tourBench = () => (S.players || []).filter(p => p.place === 'bench').length;
+const tourNoStats = () => (S.players || []).filter(p => !p.stats);
+const tourClean = t => String(t).replace(/\s*\(\/[a-z]+\)/g, '');    // «(/stats)» — команды чата здесь не нужны
+function tourGuide(g) { return GUIDES.find(x => x[0] === g) || [g, '📖', 'Обучение', '']; }
+function tourToSquad() { if (PANEL || MS) closeSheet(); if (TAB !== 'squad') showTab('squad'); }
+function tourHome() { if (PANEL || MS || open !== null) closeSheet(); if (TAB !== 'home') showTab('home'); }
+function tourNewOwn() { if (!(PANEL && PANEL.k === 'newclub' && PANEL.step === 'own')) { openPanel('newclub'); PANEL.step = 'own'; renderPanel(); } }
+function tourOfficial() { if (!(PANEL && PANEL.k === 'official')) openPanel('official'); }
+function tourSheet() {             // открыть карточку игрока на поле (если ещё не открыта)
+  if (open !== null) { if (talentList) { talentList = false; renderSheet(); } return; }   // из выбора таланта — к карточке
+  if (PANEL || MS) closeSheet();
+  if (TAB !== 'squad') showTab('squad');
+  const p = (S.players || []).find(x => x.place === 'field') || (S.players || [])[0];
+  if (p) openSheet(p.slot);
+}
+function tourLeagueTab(seg) { if (PANEL || MS || open !== null) closeSheet(); SEG = seg; renderLeague(); if (TAB !== 'league') showTab('league'); }
+
+/* ---- шаги: t — заголовок, x — что сделать (можно функцией), ex — пример, at — что подсветить (селектор или функция),
+   go — привести на нужный экран, ok — шаг сделан (по состоянию от бота), skip — шаг уже не нужен, auto: false —
+   не листать дальше самим (кнопка «Дальше»), soft — подсветка не обязательна, last — последний шаг */
+function tourChoice() {
+  const C = H().create, off = tourOff(), own = !C;
+  if (off && own) return `<div class="tx">У вас уже два клуба — официальный и свой. Переключаться — кнопкой «🔁 Перейти к …» на «Главной».</div>` +
+    `<div class="tbtns"><button type="button" class="main" data-tguide="squad">📋 Подсказки по составу</button></div>`;
+  return (C && C.pending ? `<div class="warnx">📨 Вас пригласили в лигу «${esc(C.pending)}» — для неё нужен свой клуб: ⚡ или ✍️.</div>` : '') +
+    `<button type="button" class="tpath" data-tpath="off"${off ? ' disabled' : ''}><b>🏆 Настоящий клуб из топ-лиги</b><span>${off ? 'У вас уже есть официальный клуб.' :
+      'Игроки готовы — вы создаёте одного, своего воспитанника. Играете в официальной лиге своей страны против других менеджеров.'}</span></button>` +
+    `<button type="button" class="tpath rec" data-tpath="quick"${own ? ' disabled' : ''}><i>Советуем новичкам</i><b>⚡ Свой клуб быстро</b><span>${own ? 'Свой клуб у вас уже есть.' :
+      'Только название. Игроков, очки и форму выдадим — через минуту клуб готов к матчу.'}</span></button>` +
+    `<button type="button" class="tpath" data-tpath="own"${own ? ' disabled' : ''}><b>✍️ Свой клуб полностью сам</b><span>${own ? 'Свой клуб у вас уже есть.' :
+      'Придумываете 10 игроков и раздаёте им очки. Дольше, зато всё по-вашему.'}</span></button>` +
+    `<div class="ex">Можно оба: у менеджера до двух клубов — настоящий и свой, переключение одной кнопкой. Своих игроков можно придумать самому (✍️) или получить готовых одной кнопкой (⚡).</div>`;
+}
+function tourEnd() {               // общий конец «Создания клуба»: готов ли к матчу, затем «Первые шаги»
+  return [{key: 'ready', t: 'Готов к матчу?', go: tourToSquad, at: () => [TQ('#status'), TQ('#problems:not(.hidden)')],
+    x: () => (S.problems || []).length ? `Пока клуб не готов. Что мешает: <b>${esc(S.problems.map(tourClean).join('; '))}</b>. Нажмите «Исправить» — покажу, где это сделать.` :
+      '✅ Клуб готов к матчу. Сверху вкладки «Состав» всегда видно, готов ли клуб, а если нет — что мешает.',
+    ok: () => !(S.problems || []).length, auto: false,
+    btn: () => (S.problems || []).length ? '<button type="button" class="main" data-tfix>Исправить</button>' : ''},
+  {t: '🚀 Готово!', go: tourHome, at: () => TQ('#t-home .obs'), soft: true, last: true,
+    x: 'Клуб создан. Дальше — «🚀 Первые шаги» на «Главной»: шесть шагов, за каждый — болельщики клубу. Все подсказки — во вкладке «📖 Обучение» внизу.'}];
+}
+function tourYouthAt() {
+  if (!(PANEL && PANEL.k === 'official' && PANEL.club)) return TQA(PANEL && PANEL.lg ? '#sheetin [data-ofc]' : '#sheetin [data-oflg]');
+  if ((ofClub(PANEL.club)[1] || {}).who) return TQ('#sheetin [data-pback]');
+  return [TQ('#ownf'), TQ('#owna'), TQ('#err-own'), TQ('#sheetin [data-oftake]')];
+}
+function tourYouthText() {
+  if (!(PANEL && PANEL.k === 'official' && PANEL.club)) return 'Сначала выберите клуб с 🤖.';
+  const c = ofClub(PANEL.club)[1] || {};
+  if (c.who) return `«${esc(c.name)}» уже ведёт другой менеджер. Нажмите ‹ и выберите клуб с 🤖.`;
+  return '🌱 Десятый игрок — ваш воспитанник, его вы создаёте сами. Впишите <b>имя, фамилию, номер и возраст</b> и нажмите <b>«✅ Беру этот клуб»</b>.';
+}
+function tourYouthEx() {
+  const card = PANEL && PANEL.club && CARDS[PANEL.club];
+  if (!card || (ofClub(PANEL.club)[1] || {}).who) return '';
+  return `Например: <b>Иван Петров</b>, номер <b>${freeList(card.numbers, 1)[0]}</b>, возраст <b>18</b>. Свободные номера: ${freeList(card.numbers, 8).join(', ')}… ` +
+    'Возраст 18–38: молодые растут быстрее — воспитанник может со временем догнать звёзд. Ошибку подпишем красным под полями.';
+}
+function tourStatsAt() {
+  const p = tourPl();
+  if (!p) { const n = tourNoStats()[0]; return n ? TQ(`.pl[data-slot="${n.slot}"]`) : null; }
+  if (talentList) return TQ('#sheetin [data-back]');
+  if (!p.stats) return [...TQA('#sheetin .st'), TQ('#sheetin .presets'), TQ('#sheetin #left'), TQ('#sheetin [data-save]')];
+  return TQ('#sheetin [data-close]');
+}
+function tourStatsText() {
+  const p = tourPl(), all = (S.players || []).length, cnt = `Готово <b>${all - tourNoStats().length} из ${all}</b>. `;
+  if (!p) return cnt + 'У каждого игрока — <b>100 очков</b> на 6 характеристик, каждая от 5 до 40. Нажмите на игрока с ⚠️.';
+  if (talentList) return 'Нажмите «Назад» — вернёмся к очкам.';
+  if (!p.stats) return cnt + (p.place === 'gk' ? 'Это вратарь — раскладка вратаря (🧤 40) уже стоит. ' : 'Раскладка уже стоит. ') + 'Нажмите <b>«💾 Сохранить очки»</b> или поменяйте: по позиции, −5…+5.';
+  return cnt + '✅ Сохранено. Закройте карточку ✕ и откройте следующего игрока с ⚠️.';
+}
+function tourStatsEx() {
+  const p = tourPl();
+  if (!p || p.stats || talentList) return '';
+  return p.place === 'gk' ? '' :
+    'Защитнику — 🛡 Защита, центру — 🔗 Пас, нападающему — 🚀 Удар, всем — 🫁 Выносливость. Полевому 🧤 Вратарство не нужно — 5.';
+}
+function tourTalentAt() { const p = tourPl(); if (!p) return TQ('#pitch'); return talentList ? TQA('#sheetin .tal') : TQ('#sheetin [data-tl]'); }
+function tourTalentText() {
+  if (!tourPl()) return 'Талант — один на всю команду, у одного игрока. Нажмите на игрока, которому его дадите: например, на лучшего нападающего (Бомбардир) или вратаря (Стена).';
+  return talentList ? 'Выберите талант — под каждым написано, что он даёт. Поменять можно в любой момент до матча.' : 'Нажмите <b>«⭐ Талант»</b>.';
+}
+function tourOwnSteps() {          // свой клуб полностью сам: вратарь, запасные, очки, талант, капитан, форма
+  return [
+    {key: 'gk', t: 'Вратарь', go: tourToSquad, skip: () => (S.players || []).some(p => p.place === 'gk'),
+      at: () => tourPl() ? TQ('#sheetin [data-place="gk"]') || TQ('#sheetin [data-close]') : TQ('#pitch'),
+      x: () => tourPl() ? 'Нажмите <b>«🧤 В ворота»</b> — этот игрок встанет вратарём.' : 'Сначала выберем вратаря: от этого зависит его раскладка очков. Пока все игроки на поле — нажмите на того, кто встанет <b>в ворота</b>.',
+      ok: () => (S.players || []).some(p => p.place === 'gk')},
+    {key: 'bench', t: 'Трое запасных', go: tourToSquad, skip: () => tourBench() >= 3,
+      at: () => { const p = tourPl(); return !p ? TQ('#pitch') : p.place === 'field' ? TQ('#sheetin [data-place="bench"]') : TQ('#sheetin [data-close]'); },
+      x: () => { const p = tourPl(); return `Выбрано <b>${tourBench()} из 3</b>. ` + (!p ? 'Нажмите на игрока, который начнёт в запасе.' :
+        p.place === 'field' ? 'Нажмите <b>«🪑 На скамейку»</b>.' : 'Этот игрок уже не на поле — закройте карточку ✕ и выберите другого.'); },
+      ex: 'Запасные выходят по замене в матче — замен сколько угодно. Позже поменять: игрок → «🔁 Поменять местами».', ok: () => tourBench() >= 3},
+    {key: 'stats', t: 'Очки игроков', go: tourToSquad, skip: () => !tourNoStats().length, at: tourStatsAt, x: tourStatsText, ex: tourStatsEx,
+      ok: () => !tourNoStats().length},
+    {key: 'talent', t: 'Талант команды', go: tourToSquad, skip: () => !!S.talent, at: tourTalentAt, x: tourTalentText, ok: () => !!S.talent},
+    {t: 'Капитан и пенальтист', go: tourToSquad, at: () => tourPl() ? TQ('#sheetin .acts') : TQ('#pitch'),
+      x: '<b>👑 Капитан</b> и <b>🎯 пенальтист</b> — по желанию, этот шаг можно пропустить. Капитан на поле усиливает речи и держит команду после пропущенного гола (лучше опытный, 28+). Пенальтиста нет — бьёт лучший по Удару. Назначить: игрок → «👑 Сделать капитаном» или «🎯 Бьёт пенальти».',
+      next: 'Пропустить / дальше ›'},
+    {key: 'kit', t: 'Форма клуба', skip: () => !!(M() && M().kit_ok),
+      go: () => { if (open !== null || MS) closeSheet(); if (!(PANEL && PANEL.k === 'kit')) openPanel('kit'); },
+      at: () => TQA('#sheetin .colors').flatMap(e => [e.previousElementSibling, e]), x: 'Выберите 4 цвета: футболка и шорты <b>дома</b> и <b>в гостях</b> — нажмите кружок нужного цвета в каждой строке. Без всех четырёх цветов сезон не начать.',
+      ok: () => !!(M() && M().kit_ok)}];
+}
+function tourClubSteps(path) {
+  const choose = {key: 'choose', choose: true, t: 'Как создадим клуб?', html: tourChoice};
+  if (path === 'off') return [choose,
+    {t: 'Страна', go: () => openPanel('official'), at: '#sheetin [data-oflg]',
+      x: 'Выберите страну — в её официальной лиге будет играть ваш клуб: против других менеджеров и клубов бота. Сезон начинает администратор.',
+      ok: () => tourOff() || !!(PANEL && PANEL.k === 'official' && (PANEL.lg || PANEL.club))},
+    {t: 'Клуб', go: tourOfficial,
+      at: () => !(PANEL && PANEL.k === 'official') ? null : PANEL.club ? TQ('#sheetin [data-pback]') : TQA(PANEL.lg ? '#sheetin [data-ofc]' : '#sheetin [data-oflg]'),
+      x: () => PANEL && PANEL.club ? `«${esc((ofClub(PANEL.club)[1] || {}).name || '')}» уже ведёт другой менеджер (👤). Нажмите <b>‹</b> и выберите клуб с 🤖.` :
+        !(PANEL && PANEL.lg) ? 'Сначала выберите страну.' :
+        '<b>🤖</b> — клуб свободен: пока им играет бот, его можно взять. <b>👤</b> — уже занят другим менеджером. Звёзды <b>★</b> — сила состава: больше звёзд — сильнее игроки.',
+      ex: 'Не знаете, что выбрать? Берите любимый клуб с 🤖 — игроки растут тренировками.',
+      ok: () => tourOff() || !!(PANEL && PANEL.club && !(ofClub(PANEL.club)[1] || {}).who)},
+    {t: 'Воспитанник', go: tourOfficial, at: tourYouthAt, x: tourYouthText, ex: tourYouthEx, ok: tourOff},
+    {t: 'Клуб ваш!', skip: () => !(PANEL && PANEL.report), at: () => [TQ('#sheetin .report'), TQ('#sheetin [data-pdone]')],
+      x: 'Прочитайте, что вы получили, и нажмите <b>«Понятно»</b>. Вратарь, запасные, капитан, пенальтист, талант и форма уже выбраны — ничего настраивать не нужно.',
+      ok: () => !(PANEL && PANEL.report)},
+    {t: 'Ваш состав', go: tourToSquad, at: '#pitch',
+      x: 'На поле — вратарь и 6 полевых. Очки 9 игроков заданы по их реальному уровню: перераспределить нельзя, расти они будут тренировками. Нажмите на игрока — его очки, роль, характер.'},
+    {t: '🌱 Воспитанник', go: tourToSquad, soft: true, at: () => { const y = (S.players || []).find(p => !p.preset); return y ? TQ(`.pl[data-slot="${y.slot}"]`) : null; },
+      x: 'Это ваш воспитанник: он начинает в запасе, стартовые 100 очков уже розданы — поменять их можно в его карточке (только у него). Молодые растут быстрее.'},
+    ...tourEnd()];
+  if (path === 'quick') return [choose,
+    {t: 'Название — и готово', go: tourNewOwn, skip: tourOwn, at: () => [TQ('#ncname'), TQ('#err-ncname'), TQ('#sheetin [data-ncquick]')],
+      x: 'Напишите название клуба и нажмите <b>«⚡ Создать»</b>. Игроков, очки, роли и форму выдадим — клуб сразу готов к матчу. Имена, номера и очки можно поменять потом.',
+      ex: 'Например: <b>Дворовые Львы</b> — от 2 до 30 символов, название не должно повторять чужое.', ok: tourOwn},
+    {t: 'Поле', go: tourToSquad, at: '#pitch',
+      x: 'Ваш состав: на поле 7 — вратарь и 6 полевых по схеме (защита — центр — атака). Нажмите на любого игрока — увидите его очки, роль на поле, характер.'},
+    {t: 'Скамейка', go: tourToSquad, at: '#bench',
+      x: 'Трое запасных. В матче они выходят по замене — кого убрать и кто выйдет, решаете вы. Поменять местами: игрок → «🔁 Поменять местами» → второй игрок.'},
+    {t: 'Значки', go: tourToSquad, soft: true, at: () => TQA('#pitch .bd, #bench .bd').map(e => e.closest('.pl')),
+      x: '<b>👑</b> капитан — держит команду и усиливает речи; <b>🎯</b> бьёт пенальти; <b>⭐</b> талант — один на всю команду. Поменять — в карточке игрока.'},
+    {t: 'Схема', go: tourToSquad, at: '#forms', x: 'Схема — кнопками сверху: 2-2-2, 3-2-1, 2-3-1 или 3-1-2 — сколько игроков в защите, центре и атаке.'},
+    ...tourEnd()];
+  if (path === 'own') return [choose,
+    {t: 'Название клуба', go: tourNewOwn, skip: tourOwn, at: () => [TQ('#ncname'), TQ('#err-ncname')],
+      x: 'Напишите название клуба и нажмите <b>«Дальше»</b>.', ex: 'Например: <b>Дворовые Львы</b> — от 2 до 30 символов.',
+      ok: () => tourOwn() || !nameErrOf(val('ncname')), auto: false},
+    {t: '10 игроков', go: tourNewOwn, skip: tourOwn, at: () => [TQ('#ncplist'), TQ('#sheetin [data-ncown]')],
+      x: 'Каждый игрок — одной строкой: <b>Имя Фамилия номер возраст</b>. Строки уже заполнены примером — меняйте как хотите. Номера разные (1–99), возраст 18–38: молодые растут быстрее, опытные реже получают карточки. Затем нажмите <b>«✍️ Создать с этими игроками»</b>.',
+      ex: 'Например: <b>Иван Петров 7 21</b>. Ошибку подпишем красным под строкой. Не хочется придумывать? «‹ Назад» до выбора пути → ⚡: игроков выдадим одной кнопкой.',
+      ok: tourOwn},
+    ...tourOwnSteps(), ...tourEnd()];
+  return [choose];
+}
+function tourSquadSteps() {
+  return [
+    {t: 'Готов ли клуб к матчу', go: tourToSquad, at: () => [TQ('#status'), TQ('#problems:not(.hidden)')],
+      x: 'Справа сверху — <b>✅ Готов к матчу</b> или <b>⚠️ Не готов</b>; ниже — что мешает. Неготовый к началу матча клуб получает техническое поражение.'},
+    {t: 'Схема', go: tourToSquad, at: '#forms',
+      x: 'Как стоят 6 полевых — защита, центр, атака: <b>2-2-2</b> — сбалансированно, <b>3-2-1</b> — оборона, <b>2-3-1</b> — контроль мяча, <b>3-1-2</b> — атака. Нажмите — схема сменится сразу.'},
+    {t: 'Игрок', go: tourToSquad, at: '#pitch', x: 'Нажмите на любого игрока — откроется его карточка.', ok: () => open !== null},
+    {t: 'Очки', go: tourSheet, at: () => { const p = tourPl(); if (!p) return null; return p.grown || p.preset ? TQ('#sheetin .banner') : [...TQA('#sheetin .st'), TQ('#sheetin .presets'), TQ('#sheetin #left')]; },
+      x: () => { const p = tourPl(); return p && (p.grown || p.preset) ? 'У этого игрока очки заново не раздать: сила задана по реальному уровню или игрок уже развивался. Растёт он тренировками и очками роста.' :
+        'У игрока <b>100 очков</b> на 6 характеристик, каждая от 5 до 40: ⚡ Скорость, 🚀 Удар, 🔗 Пас, 🛡 Защита, 🫁 Выносливость (как быстро устаёт), 🧤 Вратарство (только вратарю). −5 −1 +1 +5 или раскладка по позиции, затем «💾 Сохранить очки».'; }},
+    {t: 'Роль на поле', go: tourSheet, soft: true, at: () => TQA('#sheetin [data-frole]'),
+      x: () => tourPl() && tourPl().place === 'field' ? 'Роль — из ролей его линии (защита, центр, атака): у каждой плюс и цена, написано под кнопкой. «Без роли» — играет по своим очкам.' :
+        'Роль на поле есть у полевых игроков основы; у вратаря и запасных её нет.'},
+    {t: 'Место, капитан, пенальти, талант', go: tourSheet, at: () => [TQ('#sheetin .place2'), TQ('#sheetin .acts')],
+      x: '<b>🔁 Поменять местами</b> — затем нажмите второго игрока: так меняют вратаря, запасных и места на поле. <b>👑</b> капитан и <b>🎯</b> пенальтист — по желанию. <b>⭐ Талант</b> — один на всю команду.'},
+    {t: 'Скамейка', go: () => { if (open !== null) closeSheet(); tourToSquad(); }, at: '#bench', x: 'Трое запасных. В матче они выходят по замене; травмированный может быть только запасным.'},
+    {t: 'Сыгранность', go: tourToSquad, skip: () => S.chem == null, at: '#chem', x: 'Растёт, когда основа выходит тем же составом. Выше 50 — команда лучше борется за мяч. Нажмите на полосу — правило целиком.'},
+    {t: 'Готово', go: tourToSquad, at: '#status', last: true, x: 'Теперь вы знаете состав. Подсказки по составу — кнопка «?» сверху этой вкладки.'}];
+}
+const TOUR_SVG = `<svg class="tcirc" viewBox="0 0 260 176" role="img" aria-label="Тактический круг"><defs><marker id="tar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#facc15"/></marker></defs>` +
+  `<g stroke="#facc15" stroke-width="2.5" fill="none" marker-end="url(#tar)"><path d="M150 34 Q205 52 212 116"/><path d="M190 150 Q130 172 70 150"/><path d="M48 116 Q55 52 110 34"/></g>` +
+  `<g font-size="14" font-weight="700" fill="#e8eefc" text-anchor="middle" font-family="Trebuchet MS,sans-serif"><text x="130" y="28">🔥 Прессинг</text><text x="215" y="140">🛡 Оборона</text><text x="45" y="140">⚡ Контратака</text></g>` +
+  `<g font-size="11" fill="#93a3c3" text-anchor="middle"><text x="200" y="70">бьёт</text><text x="130" y="176">бьёт</text><text x="60" y="70">бьёт</text></g></svg>`;
+function tourTacticsSteps() {
+  return [
+    {t: 'Тактики бьют друг друга по кругу', html: () => TOUR_SVG, dots: true,
+      x: 'Как «камень, ножницы, бумага»: <b>🔥 Прессинг</b> бьёт <b>🛡 Оборону</b>, <b>⚡ Контратака</b> бьёт <b>🔥 Прессинг</b>, <b>🛡 Оборона</b> бьёт <b>⚡ Контратаку</b>. <b>⚖️ Баланс</b> никого не бьёт и никому не проигрывает.'},
+    {t: 'Что даёт преимущество', icon: '📈', dots: true,
+      x: 'Чья тактика бьёт тактику соперника — та команда чаще владеет мячом (+12% в борьбе за мяч) и чаще доводит атаку до удара (+8%). У каждой своя цена: Прессинг утомляет игроков на 15% быстрее, Оборона слабее в атаке.'},
+    {t: 'До матча: разведка и план', go: () => tourLeagueTab('matches'), soft: true, at: () => TQ('#t-league [data-scout]'),
+      x: 'У ближайшего матча — кнопка <b>«🔎 Разведка и план»</b>: как обычно играет соперник и ваша стартовая тактика — сработает со стартового свистка. Соперник ваш план не видит.'},
+    {t: 'В матче', icon: '⚙️', dots: true, last: true,
+      x: 'В окнах решений (перед стартом, на 10-й и 20-й минутах каждого тайма и в перерыве) — кнопка <b>«⚙️ Тактика»</b>. Тактику соперника там видно всегда. Менять — раз за окно; соперник видит вашу смену и может ответить. Ведёте в счёте — иногда выгоднее Баланс: его не переиграть.',
+      html: () => '<button type="button" class="lrnre" data-thelp="tactics">Подробно — в помощи ›</button>'}];
+}
+function tourMatchSteps() {
+  return [
+    {t: 'С кем и когда', icon: '🤝', dots: true,
+      x: 'Матч — против другого менеджера в <b>согласованное время</b>: «Лига» → «Матчи» → «🕐 Назначить время» или «⚡ Сыграть сейчас», соперник соглашается. Не хотите ждать — <b>«🔎 Найти соперника»</b> на «Главной»: за минуту найдём человека, иначе сыграет бот.'},
+    {t: 'Как идёт матч', icon: '⏱', dots: true,
+      x: '60 игровых минут — около 10 настоящих: два тайма по 30. Трансляция приходит в чат, а кнопка <b>«📺 Смотреть матч»</b> открывает стадион: поле, табло, лента и все решения.'},
+    {t: 'Окна решений', icon: '🧭', dots: true,
+      x: 'Перед стартом и на 10-й и 20-й минутах каждого тайма часы стоят, у вас 30 секунд: <b>🔁 замены</b> (сколько угодно), <b>⚙️ тактика</b>, <b>📐 схема</b>, <b>📣 речь</b> команде. После удаления или драки — срочное окно только вам. Не ответили — всё как было; два окна подряд без нажатий — решает автопилот.'},
+    {t: 'Перерыв', icon: '☕', dots: true, x: 'До 3 минут: замены, тактика, речь команде. Оба нажали «✅ Готово» — второй тайм начинается сразу.'},
+    {t: 'Пенальти и штрафные бьёте вы сами', icon: '🎯', dots: true, hot: true,
+      x: '<b>Каждый пенальти</b> в матче бьёте вы: картинка ворот, 15 секунд, выбор вслепую — бьющий выбирает угол, вратарь — сторону. <b>Опасный штрафной</b> у самой штрафной — тоже вы: удар через стенку или под неё; защита решает, прыгнет ли стенка и куда сместится вратарь.',
+      ex: 'Не успели за 15 секунд — сторона выбирается случайно. Таланты «Бомбардир», «Хладнокровный» и «Стена» помогают.'},
+    {t: 'Попробуйте без риска', icon: '🎓', dots: true, last: true,
+      x: () => H().home ? 'Учебный матч против бота — около 3 минут, ни на что не влияет: ни на таблицу, ни на болельщиков, ни на усталость. Кнопка придёт в чат с ботом.' :
+        'Учебный матч против бота появится, когда у вас будет клуб: «🧭 Создание клуба и игроков».',
+      html: () => H().home ? '<div class="tbtns"><button type="button" class="main" data-tutorial>▶️ Учебный матч против бота</button></div>' : ''}];
+}
+function tourLeagueSteps() {
+  const L = H().leagues || {}, st = [];
+  if (L.own) st.push(
+    {t: 'Лига друзей', go: () => { if (PANEL || MS || open !== null) closeSheet(); if (TAB !== 'more') showTab('more'); }, at: '#t-more [data-panel="friends"]',
+      x: 'Своя лига — ваша компания: свой сезон, таблица и матчи друг с другом. Нажмите <b>«👥 Лига друзей»</b>.', ok: () => !!(PANEL && PANEL.k === 'friends')},
+    {t: () => (L.league ? 'Позвать друга' : 'Создать лигу'), go: () => { if (!(PANEL && PANEL.k === 'friends')) openPanel('friends'); },
+      at: () => { const lg = (H().leagues || {}).league; return lg ? TQA('#sheetin .invite, #sheetin [data-lgshare], #sheetin [data-lgcopy]') : [TQ('#lgname'), TQ('#sheetin [data-lgnew]')]; },
+      x: () => { const lg = (H().leagues || {}).league; return lg ? `<b>«📤 Отправить»</b> — ссылка-приглашение в Telegram: по ней друг создаст клуб и сразу окажется в лиге. Или скажите ему код <b>${esc(lg.code)}</b>.` :
+        '<b>Создать лигу</b>: напишите название и нажмите OK — вы станете создателем: начинаете и сбрасываете сезоны. Потом позовёте друзей ссылкой.'; }},
+    {t: () => (L.league ? 'Сезон' : 'Вступить по коду'), go: () => { if (!(PANEL && PANEL.k === 'friends')) openPanel('friends'); },
+      at: () => { const lg = (H().leagues || {}).league; return lg ? TQ('#sheetin [data-lgseason]') || TQ('#sheetin .card') : [TQ('#lgcode'), TQ('#sheetin [data-lgcode]')]; },
+      x: () => (H().leagues || {}).league ? `В лиге до <b>${L.max || 8} клубов</b>. Сезон начинает создатель лиги — «🏁 Начать сезон», когда в лиге хотя бы 2 клуба и у всех выбрана форма: каждый с каждым, на тур — 2 дня, время матча договариваетесь сами.` :
+        '<b>Вступить по коду</b>: код из 6 букв и цифр даёт создатель лиги. А по ссылке-приглашению друг попадает в лигу сам.'});
+  else st.push({t: 'Лига друзей — для своего клуба', icon: '👥',
+    x: 'Официальный клуб играет только в своей официальной лиге. Чтобы играть с друзьями, нужен свой клуб — его можно завести вторым: «🧭 Создание клуба» → ⚡ или ✍️.',
+    html: () => !H().create ? '' : '<div class="tbtns"><button type="button" class="main" data-tguide="club">🧭 Создать свой клуб с подсказками</button></div>'});
+  st.push(
+    {t: 'Таблица, матчи, кубок', go: () => tourLeagueTab('table'), soft: true, at: () => TQ('#t-league .seg'),
+      x: 'Вкладка «Лига»: <b>📊 Таблица</b>, <b>📅 Матчи</b> и <b>🏆 Кубок</b>. Победа — 3 очка, ничья — 1. При равенстве очков — разница мячей, забитые, затем личные встречи. Внизу — «📜 Правила лиги».'},
+    {t: 'Официальные лиги и кубок', soft: true, last: true, at: () => TQ('#t-league [data-panel="official"]'),
+      x: '<b>⭐ Официальные лиги</b> — настоящие клубы пяти топ-лиг (Англия, Испания, Италия, Германия, Франция); сезон начинает администратор. <b>🏆 Кубок страны</b> — на вылет, один матч, ничья — серия пенальти, раунд раз в 4 дня.'});
+  return st;
+}
+function tourMinuteSteps() {        // «Как играть за минуту»: пять экранов, листаются пальцем
+  return [
+    {t: 'Клуб: два пути', icon: '🏟', dots: true,
+      x: '<b>🏆 Настоящий клуб</b> из топ-лиги — игроки готовы, вы создаёте воспитанника. Или <b>свой</b>: ⚡ быстро — игроков выдадим, ✍️ полностью сам. Можно оба — до двух клубов.'},
+    {t: 'Состав и очки', icon: '📋', dots: true,
+      x: 'На поле 7 — вратарь и 6 полевых, на скамейке 3. У игрока 100 очков на 6 характеристик. Капитан, пенальтист и один талант на команду.'},
+    {t: 'Тактика', icon: '🧠', dots: true, x: '🔥 Прессинг бьёт 🛡 Оборону, ⚡ Контратака — 🔥 Прессинг, 🛡 Оборона — ⚡ Контратаку. Угадали ответ — больше мяча и ударов.'},
+    {t: 'Матч', icon: '⚽', dots: true,
+      x: 'С другим менеджером в согласованное время, около 10 минут. Окна решений: замены, тактика, речь; перерыв до 3 минут. <b>🎯 Пенальти и опасный штрафной бьёте вы сами!</b>'},
+    {t: 'Лига', icon: '🏆', dots: true, last: true,
+      x: 'Лига друзей по ссылке — до 8 клубов, свой сезон и таблица; официальные лиги и кубок страны. Каждый день — ❓ вопрос дня, а «🚀 Первые шаги» приносят болельщиков.'}];
+}
+function minuteShow() { tourStart('minute', true); }
+function tourBuild(g, path) {
+  return {club: () => tourClubSteps(path), squad: tourSquadSteps, tactics: tourTacticsSteps, match: tourMatchSteps,
+    league: tourLeagueSteps, minute: tourMinuteSteps}[g]();
+}
+
+/* ---- движок ---- */
+function tourStart(g, fresh) {
+  if (!S || !S.hub) return;
+  if (g === 'squad' && !H().home) { toast('Сначала создайте клуб — начнём с него'); g = 'club'; fresh = false; }
+  const sv = ((H().learn || {}).guides || {})[g];
+  const resume = !fresh && sv && !sv.done && sv.step > 0;
+  tourStop();
+  TOUR = {g, path: resume ? sv.path || '' : '', i: 0, saved: '', html: ''};
+  TOUR.steps = tourBuild(g, TOUR.path);
+  document.body.classList.add('touring');
+  let i = 0;
+  if (resume) {                      // с того же места, но только через шаги, которые действительно сделаны
+    const to = Math.min(sv.step, TOUR.steps.length - 1);
+    while (i < to && tourPassable(TOUR.steps[i])) i++;
+  }
+  tourGo(i, 1);
+}
+function tourPassable(s) { return s.choose ? !!TOUR.path : !s.ok || s.ok() || !!(s.skip && s.skip()); }
+function tourGo(i, dir) {
+  if (!TOUR) return;
+  const st = TOUR.steps;
+  if (dir >= 0) while (i < st.length && st[i].skip && st[i].skip()) i++;
+  else while (i > 0 && st[i].skip && st[i].skip()) i--;
+  if (i >= st.length) { tourFinish(); return; }
+  TOUR.i = Math.max(0, i); TOUR.scrolled = false; TOUR.fitted = false; TOUR.html = '';
+  const s = st[TOUR.i];
+  if (s.go) { try { s.go(); } catch (e) { /* экран не открылся — в подсказке будет «Вернуть меня» */ } }
+  TOUR.was = !!(s.ok && s.ok());
+  tourSave(false);
+  tourDraw();
+}
+function tourSave(done) {          // где остановился — боту (повтор того же шага не шлём)
+  if (!TOUR) return;
+  const key = [TOUR.g, TOUR.path, TOUR.i, done].join('|');
+  if (key === TOUR.saved) return;
+  TOUR.saved = key;
+  const L = S.hub.learn || (S.hub.learn = {auto: null, guides: {}}), old = L.guides[TOUR.g] || {};
+  L.guides[TOUR.g] = {path: TOUR.path, step: TOUR.i, done: !!(old.done || done)}; L.auto = null;
+  if (!ROOM || (ws && ws.readyState === 1)) send({a: 'tour', g: TOUR.g, path: TOUR.path, step: TOUR.i, done: !!done});
+}
+function tourStop() {
+  TOUR = null; document.body.classList.remove('touring');
+  ['tb0', 'tb1', 'tb2', 'tb3', 'tring', 'tbub'].forEach(id => $(id).classList.add('hidden'));
+}
+function tourLater() { tourStop(); toast('Продолжите во вкладке «📖 Обучение» — с того же места'); renderLearn(); }
+function tourFinish() { tourSave(true); tourStop(); haptic('ok'); toast('✓ Руководство пройдено'); renderLearn(); }
+function tourBack() {
+  const st = TOUR.steps; let i = TOUR.i - 1;
+  while (i > 0 && st[i].skip && st[i].skip()) i--;
+  if (i <= 0 && TOUR.g === 'club') { TOUR.path = ''; TOUR.steps = tourBuild('club', ''); i = 0; }     // к выбору пути
+  tourGo(Math.max(0, i), -1);
+}
+function tourFix() {               // «Исправить»: шаг, который убирает первую причину «не готов»
+  // первая причина; травма — раньше «запасн»: в её тексте «отправьте его в запасные», а скамейка может быть полной
+  const pr = (S.problems || [])[0] || '';
+  const key = /травм/.test(pr) ? null : /очки/.test(pr) ? 'stats' : /вратар/.test(pr) ? 'gk' : /запасн/.test(pr) ? 'bench' : /талант/.test(pr) ? 'talent' : null;
+  let i = key ? TOUR.steps.findIndex(s => s.key === key) : -1;
+  if (i < 0) {                       // в этом пути такого шага нет — вставляем его перед «Готов к матчу?»
+    const extra = key ? tourOwnSteps().find(s => s.key === key) : {t: 'Травма', go: tourToSquad,
+      at: () => { const p = (S.players || []).find(x => x.injury && x.place !== 'bench'); return p ? TQ(`.pl[data-slot="${p.slot}"]`) : null; },
+      x: 'Травмированный может быть только запасным. Нажмите на него → «🔁 Поменять местами» → здоровый игрок со скамейки.',
+      ok: () => !(S.problems || []).some(x => /травм/.test(x))};
+    TOUR.steps.splice(TOUR.i, 0, extra); i = TOUR.i;
+  }
+  tourGo(i, 1);
+}
+function tourTick() {
+  if (!TOUR || !S) return;
+  const s = TOUR.steps[TOUR.i], done = !!(s.ok && s.ok());
+  if (done && !TOUR.was && s.auto !== false) { haptic('ok'); tourGo(TOUR.i + 1, 1); return; }
+  if (!done) TOUR.was = false;
+  tourDraw();
+}
+setInterval(tourTick, 250);
+function tourVal(v) { return typeof v === 'function' ? v() : v; }
+function tourDraw() {
+  if (!TOUR) return;
+  const s = TOUR.steps[TOUR.i], n = TOUR.steps.length, [, ic, title] = tourGuide(TOUR.g);
+  let els = s.at ? (typeof s.at === 'string' ? TQA(s.at) : s.at()) : [];
+  els = (Array.isArray(els) ? els : [els]).filter(e => e && e.getClientRects().length);
+  const lost = !!s.at && !els.length && !s.soft;
+  const done = !!(s.ok && s.ok()), last = s.last || TOUR.i === n - 1;
+  const next = s.choose ? '' : !s.ok || done ? `<button type="button" class="main" data-tnext>${last ? 'Готово ✓' : s.next || 'Дальше ›'}</button>` : '';
+  const counter = s.choose && !TOUR.path ? 'шаг 1' : `шаг ${TOUR.i + 1} из ${n}`;
+  const x = tourVal(s.x), ex = tourVal(s.ex);
+  const html = `<div class="tbh"><span>${ic} ${esc(title)} · ${counter}</span><button type="button" data-tlater aria-label="Закрыть">✕</button></div>` +
+    `<div class="tprog"><i style="width:${Math.round(100 * (TOUR.i + 1) / n)}%"></i></div>` + (s.icon ? `<div class="big1">${s.icon}</div>` : '') +
+    `<h4${s.hot ? ' class="hot"' : ''}>${tourVal(s.t)}</h4>` + (x ? `<div class="tx">${x}</div>` : '') + (s.html ? s.html() : '') + (ex ? `<div class="ex">${ex}</div>` : '') +
+    (lost ? '<div class="warnx">Нужный экран закрыт — нажмите «Вернуть меня».</div>' : '') +
+    `<div class="tbtns">${TOUR.i > 0 ? '<button type="button" data-tback>‹ Назад</button>' : ''}<button type="button" data-tlater>Позже</button>` +
+    // нужный экран не вернуть (окно таланта вместо очков и т. п.) — шаг без условия всё равно можно пролистать
+    (lost ? '<button type="button" class="main" data-treturn>Вернуть меня</button>' + next.replace(' class="main"', '') : (s.btn ? s.btn() : '') + next) + `</div>` +
+    (s.dots ? `<div class="tdots">${TOUR.steps.map((_, k) => `<i class="${k === TOUR.i ? 'on' : ''}"></i>`).join('')}</div>` : '');
+  const bub = $('tbub');
+  if (html !== TOUR.html) { TOUR.html = html; bub.innerHTML = html; }
+  bub.classList.remove('hidden');
+  tourPlace(lost ? [] : els);
+}
+function tourRect(els, o) {          // o — сдвиг видимой области (visualViewport.offsetTop)
+  let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
+  els.forEach(e => { const q = e.getBoundingClientRect(); l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); });
+  return {left: l, top: t - (o || 0), right: r, bottom: b - (o || 0), height: b - t};
+}
+function tourPlace(els) {          // подсветка и пузырь: пузырь — над или под подсвеченным, никогда поверх
+  const bub = $('tbub'), ring = $('tring'), B = ['tb0', 'tb1', 'tb2', 'tb3'].map($);
+  const W = document.documentElement.clientWidth, vv = window.visualViewport, Hh = Math.round(vv ? vv.height : innerHeight);
+  // на iPhone с клавиатурой видимая область сдвинута вниз (offsetTop): считаем в её координатах, ставим — в экранных
+  const V0 = vv ? Math.max(0, Math.round(vv.offsetTop)) : 0;
+  const box = (e, l, t, w, h) => { e.classList.remove('hidden'); e.style.left = l + 'px'; e.style.top = (t + V0) + 'px'; e.style.width = Math.max(0, w) + 'px'; e.style.height = Math.max(0, h) + 'px'; };
+  bub.style.maxHeight = Math.round(Hh * (els.length ? .46 : .84)) + 'px';     // от видимой области, не от vh
+  if (!els.length) {               // подсвечивать нечего — пузырь посередине, всё остальное затемнено
+    bub.classList.add('center'); bub.style.visibility = '';
+    box(B[0], 0, -V0, W, V0 + Hh + 300); B.slice(1).forEach(e => e.classList.add('hidden')); ring.classList.add('hidden');
+    bub.style.top = (V0 + Math.max(12, Math.round((Hh - bub.offsetHeight) / 2))) + 'px';
+    return;
+  }
+  bub.classList.remove('center');
+  const sig = [els[0], els[els.length - 1]].map(e => e.tagName + '#' + e.id + '.' + e.className + JSON.stringify(e.dataset)).join('|') + els.length;
+  if (sig !== TOUR.sig) { TOUR.sig = sig; TOUR.scrolled = TOUR.fitted = false; }   // подсвечено другое — заново к нему
+  let r = tourRect(els, V0);
+  if (!TOUR.scrolled || r.bottom < 8 || r.top > Hh - 8) {      // на шаге — один раз; ушло за край — вернуть
+    TOUR.scrolled = true;
+    if (r.height <= Hh * 0.5) els[0].scrollIntoView({block: 'center'});
+    else if (els[0].closest('#sheet')) els[els.length - 1].scrollIntoView({block: 'end'});   // высокое в окне снизу — к его низу
+    else els[0].scrollIntoView({block: 'start'});
+    r = tourRect(els, V0);
+  }
+  const ae = document.activeElement;
+  const typing = !!ae && ae.tagName === 'INPUT' && els.some(e => e.contains(ae));   // пишут в поле: нет места — пузырь прячется
+  const pad = 6, bh = bub.offsetHeight;
+  if (!typing && !TOUR.fitted && Hh - r.bottom - pad - 10 < bh && r.top - pad - 10 < bh) {
+    // ни сверху, ни снизу пузырь не встаёт — один раз подвинем экран, чтобы подсвеченное было видно целиком
+    TOUR.fitted = true;
+    const box2 = els[0].closest('#sheet') || document.scrollingElement;
+    const upA = r.bottom - (Hh - bh - 18), roomA = r.top - 8;      // пузырь снизу: поднять подсвеченное на upA
+    const downB = bh + 18 - r.top, roomB = Hh - 8 - r.bottom;       // пузырь сверху: опустить на downB
+    if (upA <= roomA && (downB > roomB || upA <= downB)) box2.scrollTop += upA;
+    else if (downB <= roomB) box2.scrollTop -= downB;
+    r = tourRect(els, V0);
+  }
+  let t = r.top - pad, b = r.bottom + pad, top, hide = false;
+  if (Hh - b - 10 >= bh) top = b + 10;
+  else if (t - 10 >= bh) top = t - bh - 10;
+  else if (typing) { hide = true; top = -2000; }                              // клавиатура заняла место — пузырь вернётся
+  else if (Hh - b >= t) { top = Hh - bh - 8; b = Math.min(b, top - 8); }      // высокое — подсвечена видимая часть
+  else { top = 8; t = Math.max(t, top + bh + 8); }
+  bub.style.visibility = hide ? 'hidden' : '';
+  t = Math.max(0, t); b = Math.max(t, Math.min(Hh, b));
+  const l = Math.max(0, r.left - pad), rr = Math.min(W, r.right + pad);
+  box(B[0], 0, -V0, W, t + V0); box(B[1], 0, b, W, Hh + 300 - b); box(B[2], 0, t, l, b - t); box(B[3], rr, t, W - rr, b - t);
+  ring.classList.remove('hidden');
+  ring.style.left = l + 'px'; ring.style.top = (t + V0) + 'px'; ring.style.width = (rr - l) + 'px'; ring.style.height = (b - t) + 'px';
+  bub.style.top = Math.round(top + V0) + 'px';
+}
+function tourNudge(e) {            // нажали мимо подсветки — пузырь качнётся, клавиатура закроется
+  e.preventDefault();
+  const ae = document.activeElement; if (ae && ae.blur && ae.tagName === 'INPUT') ae.blur();
+  const b = $('tbub'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+}
+['tb0', 'tb1', 'tb2', 'tb3'].forEach(id => $(id).addEventListener('click', tourNudge));
+addEventListener('scroll', () => { if (TOUR) requestAnimationFrame(tourDraw); }, true);
+addEventListener('resize', () => { if (TOUR) requestAnimationFrame(tourDraw); });
+if (window.visualViewport) ['resize', 'scroll'].forEach(ev => visualViewport.addEventListener(ev, () => { if (TOUR) requestAnimationFrame(tourDraw); }));
+document.addEventListener('focusout', () => { if (TOUR) setTimeout(tourDraw, 50); });
+(function () {                     // экраны-карточки («Тактика», «Матч», «За минуту») листаются пальцем
+  let x0 = null, y0 = 0;
+  $('tbub').addEventListener('touchstart', e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, {passive: true});
+  $('tbub').addEventListener('touchend', e => {
+    if (x0 === null || !TOUR) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    const s = TOUR.steps[TOUR.i];
+    if (!s.dots || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) { if (s.last || TOUR.i === TOUR.steps.length - 1) tourFinish(); else tourGo(TOUR.i + 1, 1); }
+    else if (TOUR.i > 0) tourBack();
+  }, {passive: true});
+})();
+function tourClick(b) {
+  const d = b.dataset; haptic();
+  if (b.hasAttribute('data-tlater')) { tourLater(); return; }
+  if (b.hasAttribute('data-tback')) { tourBack(); return; }
+  if (b.hasAttribute('data-tnext')) { const s = TOUR.steps[TOUR.i]; if (s.last || TOUR.i === TOUR.steps.length - 1) tourFinish(); else tourGo(TOUR.i + 1, 1); return; }
+  if (b.hasAttribute('data-treturn')) { const s = TOUR.steps[TOUR.i]; TOUR.scrolled = false; if (s.go) s.go(); tourDraw(); return; }
+  if (d.tpath) { TOUR.path = d.tpath; TOUR.steps = tourBuild(TOUR.g, TOUR.path); tourGo(1, 1); return; }
+  if (d.tguide) { tourStart(d.tguide, true); return; }
+  if (b.hasAttribute('data-tfix')) { tourFix(); return; }
+  if (b.hasAttribute('data-tutorial')) { tourFinish(); send({a: 'tutorial'}); return; }
+  if (d.thelp) { const k = d.thelp; tourFinish(); openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); }
+}
+
+/* ---- вкладка «📖 Обучение» ---- */
+function renderLearn() {
+  if (!S || !S.hub) return;
+  const G = (H().learn || {}).guides || {};
+  let x = `<div class="label">📖 Обучение</div><div class="note">Подсказки прямо на экранах игры: подсвечено, что нажать и что ввести, с примером. Следующий шаг открывается, когда этот сделан. «Позже» — продолжите с того же места.</div>`;
+  x += GUIDES.map(([k, ic, t, d]) => {
+    const g = G[k] || {}, mid = !g.done && g.step > 0;
+    const stt = g.done ? '<span class="stt ok">✓ пройдено</span>' : mid ? `<span class="stt">продолжить ›<br><small>шаг ${g.step + 1}</small></span>` : '<span class="stt">начать ›</span>';
+    return `<button type="button" class="lrn${!H().home && k === 'club' ? ' main' : ''}" data-guide="${k}"><span class="ic">${ic}</span><span class="tt"><b>${esc(t)}</b><span>${esc(d)}</span></span>${stt}</button>` +
+      (mid ? `<button type="button" class="lrnre" data-gfresh="${k}">↺ начать сначала</button>` : '');
+  }).join('');
+  x += `<button type="button" class="lrn" data-panel="help"><span class="ic">📚</span><span class="tt"><b>Вся помощь</b><span>правила игры по разделам и частые вопросы</span></span><span class="stt">›</span></button>`;
+  if (H().home) x += `<div class="label">Попробовать</div><button type="button" class="lrn" data-tutorial><span class="ic">🎓</span><span class="tt"><b>Учебный матч против бота</b>` +
+    `<span>около 3 минут, ни на что не влияет — кнопка придёт в чат с ботом</span></span><span class="stt">›</span></button>`;
+  $('t-learn').innerHTML = x;
+}
+
+/* ---- ошибки ввода — прямо под полем (бот всё равно проверит сам) ---- */
+let LETTERS;
+try { LETTERS = new RegExp('^\\p{L}+$', 'u'); } catch (e) { LETTERS = /^[A-Za-zÀ-ÿА-Яа-яЁёІіЇїЄєҐґ]+$/; }
+function freeList(taken, n) { const out = []; for (let i = 1; i <= 99 && out.length < n; i++) if (!taken.includes(i)) out.push(i); return out; }
+function nameErrOf(v) { v = String(v || '').trim().replace(/\s+/g, ' '); return v.length < 2 || v.length > 30 ? 'Название клуба — от 2 до 30 символов' : ''; }
+function wordErr(w, what) {
+  if (!w) return what + ': не заполнено';
+  if (w.length > 20) return what + ': не длиннее 20 букв';
+  return LETTERS.test(w.replace(/[-']/g, '')) ? '' : what + ': только буквы (можно дефис), например «Иван»';
+}
+function numErr(v, taken, busy) {   // taken — с кем совпадать нельзя; busy — какие номера не советовать
+  if (!/^\d{1,2}$/.test(v) || +v < 1) return 'Номер — число от 1 до 99';
+  return taken.includes(+v) ? `Номер ${+v} уже занят. Свободные: ${freeList(busy || taken, 8).join(', ')}…` : '';
+}
+function ageErr(v) { const A = (H().create || {}).ages || [18, 38]; return /^\d{1,2}$/.test(v) && +v >= A[0] && +v <= A[1] ? '' : `Возраст — число от ${A[0]} до ${A[1]}`; }
+function lineErr(text, taken, busy) {
+  const w = String(text || '').trim().split(/\s+/);
+  if (w.length !== 4) return 'нужно 4 части через пробел: Имя Фамилия номер возраст — например «Иван Петров 7 21»';
+  return wordErr(w[0], 'Имя') || wordErr(w[1], 'Фамилия') || numErr(w[2], taken, busy) || ageErr(w[3]);
+}
+function ferr(id, msg, inputs) {
+  const e = $('err-' + id); if (e) e.textContent = msg;
+  (inputs || [id]).forEach(i => { const el = $(i); if (el) el.classList.toggle('bad', !!msg); });
+}
+function formCheck(all) {          // all — показать все ошибки (нажали «Создать»); иначе — только в заполненных полях
+  let ok = true;
+  if ($('ncname')) { const v = val('ncname'), e = nameErrOf(v); ferr('ncname', all || v ? e : ''); ok = ok && !e; }
+  if ($('ncp0')) {
+    const taken = [], nums = [];
+    for (let i = 0; $('ncp' + i); i++) nums.push(+(val('ncp' + i).split(/\s+/)[2]) || 0);
+    for (let i = 0; $('ncp' + i); i++) {
+      const v = val('ncp' + i), e = lineErr(v, taken, nums.filter((_, j) => j !== i));
+      ferr('ncp' + i, e ? `Игрок ${i + 1}: ${e}` : '');
+      if (!e) taken.push(+v.split(/\s+/)[2]);
+      ok = ok && !e;
+    }
+  }
+  if ($('ownf') && PANEL && PANEL.club) {
+    const taken = (CARDS[PANEL.club] || {numbers: []}).numbers, ids = ['ownf', 'ownl', 'ownn', 'owna'], vs = ids.map(val);
+    const es = [wordErr(vs[0], 'Имя'), wordErr(vs[1], 'Фамилия'), numErr(vs[2], taken), ageErr(vs[3])];
+    const shown = es.map((e, i) => all || vs[i] ? e : '');
+    const box = $('err-own'); if (box) box.textContent = shown.filter(Boolean).join('\n');
+    ids.forEach((id, i) => { const el = $(id); if (el) el.classList.toggle('bad', !!shown[i]); });
+    ok = ok && !es.some(Boolean);
+  }
+  return ok;
+}
+document.addEventListener('input', e => { if (e.target && e.target.closest && e.target.closest('#sheetin')) formCheck(false); });
+function daysWord(n) { const d = n % 10, h = n % 100; return n + (d === 1 && h !== 11 ? ' день' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' дня' : ' дней'); }
+let DAILY_SHOW = null;        // ответ на вопрос дня: итог виден ~3 секунды, потом блок исчезает до завтра
+
 /* ---------------- нажатия ---------------- */
 document.addEventListener('click', e => {
   const b = e.target.closest('button, tr[data-pedit]'); if (!b || !S) return;     // строка таблицы статистики — тоже
+  if (b.closest('#tbub')) { tourClick(b); return; }                                  // кнопки подсказки
+  if (b.dataset.guide) { haptic(); tourStart(b.dataset.guide); return; }
+  if (b.dataset.gfresh) { haptic(); tourStart(b.dataset.gfresh, true); return; }
+  if (b.dataset.tourq) { haptic(); tourStart(b.dataset.tourq); return; }
+  if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
@@ -1025,6 +1612,8 @@ document.addEventListener('click', e => {
   if (b.dataset.own) { const v = ($('owntime') || {}).value || ''; if (v.trim()) send({a: 'propose', fx: +b.dataset.own, text: v.trim()}); else toast('Напишите время: 20:30 или 24.10 20:30', true); return; }
   if (b.hasAttribute('data-switch')) { send({a: 'switch'}); return; }
   if (b.dataset.f) { if (b.dataset.f !== S.formation) send({a: 'formation', f: b.dataset.f}); haptic(); return; }
+  if (b.dataset.place && open !== null) { haptic(); send({a: 'place', slot: open, where: b.dataset.place}); return; }
+  if (b.dataset.preset && open !== null) { const pr = (S.presets || []).find(x => x[0] === b.dataset.preset); if (pr) { draft = pr[2].slice(); haptic(); renderSheet(); } return; }
   if (b.dataset.slot) {
     const slot = +b.dataset.slot;
     if (swapFrom !== null) {
@@ -1091,7 +1680,8 @@ function leagueClick(b) {     // нажатия в окнах лиг, админ
   if (b.hasAttribute('data-ncoff')) { haptic(); panelSub({k: 'official'}); return true; }
   if (b.hasAttribute('data-ncstep')) { haptic(); panelSub({k: 'newclub', step: 'own'}); return true; }
   if (b.hasAttribute('data-ncquick') || b.hasAttribute('data-ncown')) {
-    if (!val('ncname')) { toast('Напишите название клуба', true); return true; }
+    if (nameErrOf(val('ncname'))) { formCheck(true); toast('Напишите название клуба: от 2 до 30 символов', true); return true; }
+    if (b.hasAttribute('data-ncown') && !formCheck(true)) { toast('Поправьте строки, подписанные красным', true); return true; }
     const players = b.hasAttribute('data-ncown') ? H().create.suggest.map((_, i) => val('ncp' + i)) : null;
     send({a: 'newclub', name: val('ncname'), players});
     return true;
@@ -1126,7 +1716,7 @@ function leagueClick(b) {     // нажатия в окнах лиг, админ
   if (d.ofc) { haptic(); if (!CARDS[d.ofc]) send({a: 'ofcard', key: d.ofc}); panelSub({club: d.ofc}); return true; }
   if (d.ofreq) { const [, c] = ofClub(d.ofreq); ask(`Подать заявку на переход в «${c.name}»? Решает администратор.`, () => send({a: 'ofreq', key: d.ofreq})); return true; }
   if (d.oftake) {
-    if (!val('ownf') || !val('ownl') || !val('ownn') || !val('owna')) { toast('Заполните имя, фамилию, номер и возраст воспитанника', true); return true; }
+    if (!formCheck(true)) { toast('Поправьте поля воспитанника — ошибки подписаны красным', true); return true; }
     const [, c] = ofClub(d.oftake);
     ask(`Взять «${c.name}»? Сменить официальный клуб потом можно только по заявке администратору.`,
       () => send({a: 'oftake', key: d.oftake, text: [val('ownf'), val('ownl'), val('ownn'), val('owna')].join(' ')}));
@@ -1177,7 +1767,8 @@ function send(act) {
 }
 function onAck(m) {
   const act = waiting[m.id]; delete waiting[m.id];
-  if (m.note) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
+  if (m.note && !(m.ok && act && act.a === 'daily')) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
+  if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
   if (m.ok && act && act.a === 'propose' && MS) closeSheet();
@@ -1191,7 +1782,15 @@ function onAck(m) {
   if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
   if (m.ok && m.trophies) { TROPHIES = m.trophies; if (PANEL && PANEL.k === 'trophies') renderPanel(); }
   if (m.ok && m.top) { TOPM = m.top; if (PANEL && PANEL.k === 'top') renderPanel(); }
-  if (act && act.a === 'daily') { DAILY_WAIT = false; if (m.daily && S && S.hub) S.hub.daily = m.daily; renderHome(); }
+  if (act && act.a === 'daily') {
+    DAILY_WAIT = false;
+    if (m.daily && m.daily.answered) {           // итог виден ~3 секунды, потом блок исчезает (бот его больше не пришлёт)
+      if (m.ok) haptic(m.daily.correct ? 'ok' : 'bad');
+      DAILY_SHOW = {d: m.daily, until: Date.now() + 3200};
+      setTimeout(() => { DAILY_SHOW = null; if (S && S.hub && S.hub.daily && S.hub.daily.answered) S.hub.daily = null; renderHome(); }, 3300);
+    } else if (m.daily && S && S.hub) S.hub.daily = m.daily;
+    renderHome();
+  }
   if (m.ok && m.scout) { SCOUTS[m.scout.fx] = m.scout; if (PANEL && PANEL.k === 'scout' && PANEL.fx === m.scout.fx) { PANEL.draft = null; renderPanel(); } }
   if (!m.ok && act && act.a === 'scout' && PANEL && PANEL.k === 'scout') closeSheet();
 }
@@ -1200,6 +1799,8 @@ function onState(m) {
   if (open !== null && !player(open)) closeSheet();
   render();
   if (PANEL_AFTER && S.hub && S.hub.manage) { const k = PANEL_AFTER; PANEL_AFTER = null; openPanel(k); }
+  const ln = S.hub && S.hub.learn;   // новый менеджер без клуба: «Создание клуба» открывается само, один раз
+  if (ln && ln.auto && !TOUR && !TOUR_AUTO) { TOUR_AUTO = true; tourStart(ln.auto); }
 }
 
 /* ---------------- подключение к комнате ---------------- */
@@ -1215,7 +1816,7 @@ let ROOM = Q.get('room') || (INIT ? 'entry-' + Array.from(crypto.getRandomValues
 let PANEL_AFTER = null;        // открыть окно, когда придёт первое состояние (приглашение в лигу по ссылке)
 let ws = null, retry = 0, ended = false;
 const AGAIN = 'Экран закрыт. Откройте игру снова: кнопка «🎮 Игра» в чате.';
-function stop(text) { ended = true; $('app').classList.add('hidden'); $('nav').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
+function stop(text) { ended = true; tourStop(); $('app').classList.add('hidden'); $('nav').classList.add('hidden'); closeSheet(); $('conn').classList.remove('hidden'); $('conn').textContent = text; }
 // бота в комнате нет (перезапустился, комната истекла) — Worker будит его по нашему hello; не ответил за WAIT_MS —
 // входим заново (новый hello снова будит бота)
 const WAIT_MS = 10000;
@@ -1281,6 +1882,8 @@ function demoState() {
     line_titles: {def: 'защита', mid: 'центр', att: 'атака'},
     chem: 58, chem_label: 'сыграна', chem_rule: 'Сыгранность растёт, когда основа (вратарь и 6 полевых) выходит тем же составом: вся основа та же — +10,5 за матч, одна перестановка — +6,5, три и больше — падает. Выше 50 — команда лучше борется за мяч и чаще доводит атаку до удара, ниже 50 — хуже.',
     limits: {total: 100, min: 5, max: 40}, templates: {field: [20, 18, 20, 19, 18, 5], gk: [10, 5, 10, 15, 20, 40]}, problems: [],
+    presets: [['gk', '🧤 Вратарь', [10, 5, 10, 15, 20, 40]], ['def', '🛡 Защитник', [15, 5, 15, 35, 25, 5]], ['mid', '🔗 Центр', [20, 10, 30, 15, 20, 5]],
+      ['att', '🚀 Нападающий', [25, 35, 15, 5, 15, 5]], ['field', '⚖️ Универсал', [20, 18, 20, 19, 18, 5]]],
     hub: demoHub()};
 }
 function demoHub() {
@@ -1342,7 +1945,7 @@ function demoHub() {
         {t: '🔁 Вернулись через 30 дней', v: '—', i: 'заходили спустя 30 дней после прихода или позже · учёт заходов — с 25.10.2026'},
         {t: '🚫 Неявки', v: '2', i: 'тех. поражения за 7 дней: одной команде — 2, обеим — 0'},
         {t: '🚀 Воронка новичков за 7 дней', v: '11 → 9 → 9 → 7 → 5 → 3 → 6 → 2', i: 'пришли → открыли игру 82% → создали клуб 82% → открыли игрока 64% → сыграли матч 45% → открыли стадион 27% → вопрос дня 55% → лига или друг 18%'}]},
-    community: 'https://t.me/+demo', sections: [],
+    community: 'https://t.me/+demo', sections: [], learn: {auto: null, guides: {}},
     // первые шаги (app/onboarding.py): в демо ставятся на месте; в игре — только ботом по событиям
     onboarding: {done: 2, total: 6, reward: 10, bonus: 50, steps: [
       {key: 'app', title: '🎮 Открыть игру в приложении', how: 'Готово — вы уже здесь', go: null, done: true},
@@ -1364,14 +1967,54 @@ function demoNoClub() {        // демо без клуба (?demo=new): экр
   S.club = null; S.players = [];
   S.hub = {club: null, official: Object.assign({}, hb.official, {mine: null, text: 'Свободными клубами играет бот — возьмите любой: место в таблице и сыгранные матчи остаются, а десятым игроком станет ваш воспитанник.'}),
     leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community, write: hb.write,
+    learn: {auto: 'club', guides: {}},
     create: {choice: 'У менеджера может быть два клуба: ⭐ официальный — один из 96 реальных клубов пяти топ-лиг, и ✍️ свой — для лиг с друзьями.', size: 10, ages: [18, 38], pending: 'Лига Бори',
       suggest: ['Иван Петров 1 24', 'Олег Сидоров 4 22', 'Пётр Иванов 5 27', 'Глеб Котов 8 21', 'Лев Рябов 6 29', 'Марк Жуков 9 23', 'Ян Титов 10 25', 'Илья Носов 12 20', 'Фёдор Блинов 14 28', 'Савва Гусев 16 26']}};
 }
 function demoLeagueAct(act) {   // демо: лига меняется только на этой странице, остальное — только в Telegram
   if (act.a === 'newclub') {
-    if (!act.name || act.name.length < 2) return {ok: false, note: 'Название клуба: от 2 до 30 символов.'};
-    S = demoState(); S.club = S.hub.club = S.hub.home.club = act.name; S.hub.manage = demoManage(); demoRefresh();
-    return {ok: true, note: `Клуб «${act.name}» создан! ✅`};
+    if (nameErrOf(act.name)) return {ok: false, note: 'Название клуба: от 2 до 30 символов.'};
+    let entries = null;
+    if (act.players) {               // свои 10 игроков — те же правила, что у бота (club_ops.check_squad)
+      entries = [];
+      for (const [i, t] of act.players.entries()) {
+        const e = lineErr(t, entries.map(x => x[2]));
+        if (e) return {ok: false, note: `Игрок ${i + 1}: ${e}`};
+        const w = t.trim().split(/\s+/); entries.push([w[0], w[1], +w[2], +w[3]]);
+      }
+    }
+    const keep = {learn: S.hub.learn, official: S.hub.official, create: null};
+    S = demoState(); S.club = S.hub.club = S.hub.home.club = act.name;
+    if (entries) {                   // как у бота: игроки есть, а очков, вратаря, запасных, таланта и формы — нет
+      S.players = entries.map(([f, l, n, a], i) => ({slot: i + 1, number: n, name: f + ' ' + l, age: a, grown: 0, stats: null, place: 'field', pos: '', fresh: 100, mood: 'спокойный', injury: 0}));
+      S.captain = S.penalty = S.talent = S.talent_slot = null; S.chem = 50; S.order = null;
+    } else S.players.forEach(p => { if (!p.stats) p.stats = Object.fromEntries(S.statdefs.map(([k], i) => [k, S.templates.field[i]])); });   // как у бота: очки всем
+    Object.assign(S.hub, keep); S.hub.learn.auto = null; S.hub.home.other = null;
+    S.hub.manage = demoManage(!entries); demoRefresh();
+    return {ok: true, note: entries ? `Клуб «${act.name}» создан! ✅ Теперь раздайте игрокам очки (вкладка «Состав») и выберите форму.` :
+      `Клуб «${act.name}» создан! ✅ Состав, очки, роли и форма уже выданы — клуб готов к матчу.`};
+  }
+  if (act.a === 'oftake') {          // готовый клуб: 9 игроков с силой по реальному уровню + воспитанник
+    const [l, c] = ofClub(act.key), card = CARDS[act.key] || {numbers: []};
+    if (!c) return {ok: false, note: 'Такого клуба нет. Выберите клуб из списка.'};
+    if (c.who) return {ok: false, note: `Этот клуб уже ведёт менеджер ${c.who}. Выберите свободный.`};
+    const w = String(act.text || '').trim().split(/\s+/);
+    const e = w.length !== 4 ? 'Напишите имя, фамилию, номер и возраст' : wordErr(w[0], 'Имя') || wordErr(w[1], 'Фамилия') || numErr(w[2], card.numbers) || ageErr(w[3]);
+    if (e) return {ok: false, note: e};
+    const keep = {learn: S.hub.learn, create: S.hub.create, leagues: S.hub.leagues};
+    S = demoState(); S.club = S.hub.club = c.name;
+    S.players.forEach(p => { p.preset = p.slot <= 9; });
+    Object.assign(S.players[9], {name: w[0] + ' ' + w[1], number: +w[2], age: +w[3], place: 'bench', preset: false, injury: 0,
+      stats: Object.fromEntries(S.statdefs.map(([k], i) => [k, S.templates.field[i]]))});
+    Object.assign(S.hub, keep); S.hub.learn.auto = null;
+    Object.assign(S.hub.home, {club: c.name, star: true, league: l.title.replace(/^\S+\s/, ''), official: true, owner: false, other: null});
+    S.hub.official.mine = {name: c.name, key: c.key, league: l.title, active: true};
+    const nc = ofClub(c.key)[1]; if (nc) nc.who = 'Вы';
+    S.hub.manage = demoManage(true); demoRefresh();
+    return {ok: true, note: '✅ Клуб ваш!', report: `🎉 «${c.name}» — ваш клуб!\n\nДемо: в Telegram здесь — лига и место в таблице.\n` +
+      `У 9 игроков очки заданы по их реальному уровню — перераспределить их нельзя, расти они будут тренировками.\n` +
+      `🌱 Воспитаннику №${w[2]} ${w[1]} выдана стартовая раскладка на 100 очков — поменять её можно на экране состава. Он начинает в запасе.\n` +
+      'Вратарь, запасные, капитан, пенальтист, талант и форма уже выбраны — клуб готов к матчу.'};
   }
   const L = S.hub.leagues;
   if (act.a === 'lgleave') { const n = L.league.name; L.league = null; S.hub.home.league = null; return {ok: true, note: `Вы вышли из лиги «${n}».`}; }
@@ -1384,19 +2027,20 @@ function demoLeagueAct(act) {   // демо: лига меняется толь�
     return {ok: true, note: `🎉 Лига «${act.text}» создана! Вы её создатель.`};
   }
   if (act.a === 'ofcard') return {ok: true, note: '', key: act.key, card: 'Демо: в Telegram здесь состав клуба — 9 игроков с позициями и силой.', numbers: [1, 2, 4, 5, 7, 8, 9, 10, 11]};
-  if (['lgjoin', 'lgseason', 'oftake', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
+  if (['lgjoin', 'lgseason', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
   return null;
 }
-function demoManage() {      // раздел «Клуб» из демо-состава — те же поля, что присылает бот (hub.club_state)
+function demoManage(kitAll) {   // раздел «Клуб» из демо-состава — те же поля, что присылает бот (hub.club_state)
   const colors = [['red', 'Красный', '🔴', '#dc2626'], ['blue', 'Синий', '🔵', '#2563eb'], ['white', 'Белый', '⚪', '#f8fafc'], ['black', 'Чёрный', '⚫', '#111827'],
     ['yellow', 'Жёлтый', '🟡', '#facc15'], ['green', 'Зелёный', '🟢', '#16a34a'], ['orange', 'Оранжевый', '🟠', '#f97316'], ['purple', 'Фиолетовый', '🟣', '#9333ea'], ['brown', 'Коричневый', '🟤', '#92400e']];
   return {name: S.club, official: false, rename: null, delete: null,
-    kit: {home_shirt: 'red', home_shorts: 'white', away_shirt: 'white', away_shorts: null},
+    kit: kitAll === false ? {home_shirt: null, home_shorts: null, away_shirt: null, away_shorts: null} :
+      {home_shirt: 'red', home_shorts: 'white', away_shirt: 'white', away_shorts: kitAll ? 'black' : null},
     kit_fields: [['home_shirt', '🏠 Домашняя: футболка'], ['home_shorts', '🏠 Домашняя: шорты'], ['away_shirt', '✈️ Выездная: футболка'], ['away_shorts', '✈️ Выездная: шорты']],
-    kit_ok: false, home_kit: ['#dc2626', '#f8fafc'], away: ['#f8fafc', '#111827'], colors,
+    kit_ok: !!kitAll, home_kit: ['#dc2626', '#f8fafc'], away: ['#f8fafc', '#111827'], colors,
     players: S.players.map(p => ({slot: p.slot, first: p.name.split(' ')[0], last: p.name.split(' ')[1], number: p.number, age: p.age,
       stats: p.stats && Object.assign({}, p.stats), cond: p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `🔋 свежесть ${p.fresh}% · 🙂 настрой: ${p.mood}`,
-      badges: [S.captain === p.slot && 'капитан', S.penalty === p.slot && 'пенальтист', S.talent_slot === p.slot && 'талант «Бомбардир»', p.place === 'bench' && 'запасной', p.injury && 'травма'].filter(Boolean),
+      badges: [S.captain === p.slot && 'капитан', S.penalty === p.slot && 'пенальтист', S.talent && S.talent_slot === p.slot && 'талант', p.place === 'bench' && 'запасной', p.injury && 'травма'].filter(Boolean),
       label: `№${p.number} ${p.name}`, growth: p.slot === 6 ? 1.25 : 0, grown: 0, step: p.age < 22 ? 0.3 : p.age < 29 ? 0.2 : 0.1,
       next: p.stats ? Object.fromEntries(Object.entries(p.stats).filter(([, v]) => v < 40).map(([k, v]) => [k, `${v} → ${num(Math.round((v + 0.2) * 10) / 10)}`])) : {},
       trait: ['🙂 Спокойный', '💪 Боец', '😰 Ранимый', '🦁 Лидер', '🙂 Спокойный', '🌟 Звезда', '😴 Ленивый', '🌟 Звезда', '💪 Боец', '🙂 Спокойный'][p.slot - 1],
@@ -1459,9 +2103,15 @@ function demoRefresh() {     // линии и готовность — как с
   S.players.forEach(p => { const r = p.role && roleOf(p.role); p.role_off = !!r && (p.place !== 'field' || r[1] !== p.line); });
   S.players.forEach(p => { p.pos = p.place === 'gk' ? 'Вратарь' : p.stats ? (p.stats.shot >= p.stats.defense ? 'Нападающий' : 'Защитник') : ''; });
   const pr = [], none = S.players.filter(p => !p.stats).length;
-  if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
+  if (S.players.length) {           // как lineup_problems у бота
+    if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
+    if (!S.talent) pr.push('не выбран талант (/talent)');
+    if (!S.players.some(p => p.place === 'gk')) pr.push('не выбран вратарь (/lineup)');
+    if (S.players.filter(p => p.place === 'bench').length < 3) pr.push('не выбраны все 3 запасных (/lineup)');
+  }
   S.players.filter(p => p.injury && p.place !== 'bench').forEach(p => pr.push(`№${p.number} травмирован — отправьте его в запасные`));
   S.problems = pr;
+  if (S.hub && S.hub.home) S.hub.home.problems = pr;
 }
 function demoTrophies() {       // демо: полка трофеев — те же поля, что присылает бот (app/trophies.py shelf)
   return {club: S.club, count: {league: 1, cup: 1}, note: 'Места и трофеи — с первого сохранённого сезона; сброшенные сезоны в историю не попадают. Рекорд болельщиков ведётся с 27.10.2026.',
@@ -1491,6 +2141,19 @@ function demoAct(act) {
     'Демо: в Telegram здесь полный текст раздела.'};
   else if (['lgrename', 'lgrenew', 'lgkick', 'lgreset'].includes(act.a)) r = {ok: false, note: 'Демо: это работает только в Telegram'};
   else if (act.a === 'newsseen' || act.a === 'hint' || act.a === 'pm') r.note = '';
+  else if (act.a === 'tour') {     // демо: где остановился — только на этой странице (в игре — у бота)
+    const L = S.hub.learn || (S.hub.learn = {auto: null, guides: {}}), g = L.guides[act.g] || {};
+    L.guides[act.g] = {path: act.path || '', step: act.step, done: !!(g.done || act.done)}; L.auto = null;
+    r = {ok: true, note: '', learn: L};
+  }
+  else if (act.a === 'tutorial') r = {ok: false, note: 'Демо: в Telegram бот пришлёт в чат кнопку «▶️ Учебный матч»'};
+  else if (act.a === 'place') {    // вратарь или запасной, когда места ещё нет — как у бота
+    const n = S.players.filter(x => x.place === 'bench').length;
+    if (act.where === 'gk') { S.players.forEach(x => { if (x.place === 'gk') x.place = 'field'; }); p.place = 'gk'; S.order = null; r.note = `🧤 №${p.number} — вратарь`; }
+    else if (p.place === 'bench') r.note = `№${p.number} уже в запасе`;
+    else if (n >= 3) r = {ok: false, note: 'На скамейке уже трое — поменяйте игрока местами с запасным'};
+    else { p.place = 'bench'; S.order = null; r.note = `🪑 №${p.number} — в запасе` + (n + 1 < 3 ? ` · осталось выбрать: ${3 - n - 1}` : ' · все трое выбраны'); }
+  }
   else if (act.a === 'pview' || act.a === 'obhide') {     // демо: шаг отмечается на месте (в игре — ботом)
     const o = S.hub.onboarding;
     if (act.a === 'obhide') { S.hub.onboarding = null; r.note = 'Первые шаги скрыты'; }
@@ -1561,7 +2224,7 @@ if (ROOM) {
   setTimeout(() => { if (!S && !ended) $('conn').textContent = entry ? 'Бот не отвечает. Подождите немного или закройте и откройте игру снова.'
     : 'Бот не отвечает. В чате нажмите «🏠 Главная» и откройте игру снова кнопкой «🎮 Игра».'; }, entry ? 15000 : 8000);
 }
-else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); if (Q.get('demo') === 'new') demoNoClub(); render(); toast('Демо без бота: изменения не сохраняются'); }
+else { S = demoState(); S.hub.manage = demoManage(); demoRefresh(); if (Q.get('demo') === 'new') demoNoClub(); onState(S); toast('Демо без бота: изменения не сохраняются'); }
 </script>
 </body>
 </html>
