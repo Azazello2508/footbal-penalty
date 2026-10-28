@@ -178,7 +178,7 @@ const P = {
   kicker: {num: 9, name: 'Нападающий', stat: 'Удар 30', shirt: '#dc2626', shorts: '#f5f5f5'},
   keeper: {num: 1, name: 'Вратарь', stat: 'Вратарство 30', shirt: '#2563eb'},
 };
-const FK_INFO = {wall: [4, 5, 6, 3], shorts: '#f5f5f5', spot: 0, lie: 2};      // lie — номер того, кто ложится за стоящую стенку
+const FK_INFO = {wall: [4, 5, 6, 3], shorts: '#f5f5f5', spot: 0, lie: 2, wallB: [], lieB: null};      // lie — номер того, кто ложится за стоящую стенку; wallB/lieB — телосложения (от бота)
 const HAIRS = ['#2b1d16', '#6b4423', '#0f0f10', '#b7791f'];
 const SKINS = ['#e3b08c', '#9a6544', '#f2c9a8', '#c48a62'];
 let MODE = new URLSearchParams(location.search).get('fk') === '1' ? 'fk' : 'pen';
@@ -196,6 +196,8 @@ const msgEl = document.getElementById('msg'), btnEl = document.getElementById('b
 function fkSetup(info) {
   if (info) {
     if (Array.isArray(info.wall) && info.wall.length) FK_INFO.wall = info.wall.slice(0, 4);
+    FK_INFO.wallB = Array.isArray(info.wall_b) ? info.wall_b.slice(0, 4) : [];
+    FK_INFO.lieB = info.lie_b && typeof info.lie_b === 'object' ? info.lie_b : null;
     if (typeof info.shorts2 === 'string') FK_INFO.shorts = info.shorts2;
     if (typeof info.spot === 'number') FK_INFO.spot = clamp(info.spot, -1, 1);
     if (typeof info.lie === 'number') FK_INFO.lie = info.lie;
@@ -987,10 +989,12 @@ async function loadHumans() {
   const restQ = {}; for (const j of new Set(Object.values(BONE_MAP))) restQ[j] = rig[j].getWorldQuaternion(new THREE.Quaternion());
   const hi = skinned.skeleton.bones.indexOf(skinned.skeleton.getBoneByName('Head'));
   const headInv = skinned.skeleton.boneInverses[hi].clone().multiply(skinned.bindMatrix);
-  const pelvisPar = parent.pelvis;
+  const pelvisPar = parent.pelvis, sk = skinned.skeleton, PB = {};
+  sk.bones.forEach((b, i) => { PB[b.name] = V(0, 0, 0).setFromMatrixPosition(sk.boneInverses[i].clone().invert()); });   // кости в пространстве привязки кожи — для телосложения
   HUMAN = {SU, root, order, parent, refQ, refLocal, restQ, bindQ, bindPos, bindLocal, headInv, light: skinned.material.map, dark,
            lumLight: skinLum(skinned.material.map), lumDark: skinLum(dark),
            headFwd: V(0, 0, 1).applyQuaternion(bindQ.Head.clone().invert()),          // «вперёд» в осях кости головы (модель смотрит в +z)
+           PB, legLen: bindPos.thigh_l.y - bindPos.foot_l.y, height: 1.81,          // ноги от бедра до лодыжки; рост модели (как в kitMaterial)
            pelvisRoot: bones.pelvis.getWorldPosition(V(0, 0, 0)), parRoot: pelvisPar ? bones[pelvisPar].getWorldPosition(V(0, 0, 0)) : V(0, 0, 0),
            hair: {buzz: meshOf(buzz), part: meshOf(partH), beard: meshOf(beard), brows: meshOf(brows)}};
 }
@@ -1107,9 +1111,12 @@ function retarget(m) {                                        // кости мо
     if (_D[n] && BONE_MAP[n]) { q.copy(_D[n]).multiply(H.refQ[n]); b.quaternion.copy(pq ? _qb.copy(pq).invert().multiply(q) : q); }
     else { b.quaternion.copy(H.refLocal[n]); if (pq) q.copy(pq).multiply(H.refLocal[n]); else q.copy(H.refLocal[n]); }
   }
-  const P = H.pelvisRoot.clone(); P.y += m.body.position.y - .97;      // таз: высота как у каркаса (присел, прыгнул, упал)
+  const P = H.pelvisRoot.clone(), dy = m.body.position.y - .97;      // таз: высота как у каркаса (присел, прыгнул, упал)
+  if (h.pel) P.y = lerp(P.y + dy, h.pel.y + dy * h.legK, m.grounded ?? 1);   // свои ноги длиннее/короче: стоя — таз выше/ниже, лёжа — как у каркаса
+  else P.y += dy;
   const par = H.parent.pelvis;
   h.bones.pelvis.position.copy(par ? P.sub(H.parRoot).applyQuaternion(_qb.copy(h.rq[par]).invert()) : P);
+  handsPose(m);
 }
 /* ---------------- записанные движения живых людей (Mixamo, models/moves.json) ----------------
    Для каждой кости по кадрам — её поворот от стойки «буквой Т» (в пространстве персонажа) и путь таза. На нашу модель
@@ -1147,11 +1154,13 @@ function moveHips(c, t, out) {                                 // таз зап�
   return out.set(lerp(c.h[f0 * 3], c.h[f1 * 3], u), lerp(c.h[f0 * 3 + 1], c.h[f1 * 3 + 1], u), lerp(c.h[f0 * 3 + 2], c.h[f1 * 3 + 2], u));
 }
 // mv: {name, t, w, mirror, off: V — сдвиг таза (м), kx/kz — во сколько раз растянуть путь таза вбок/вперёд, rootY — высота фигуры}
+const FINGER = /^(index|middle|ring|pinky|thumb)_/;
 function applyMove(m, mv) {
   const H = HUMAN, h = m.human, c = MOVES && mv && MOVES.clips[mv.name];
   if (!c || !h || !(mv.w > 0)) return;
   const w = Math.min(1, mv.w);
   for (const n of H.order) {
+    if (FINGER.test(n)) continue;                            // пальцы записи нет — остаются как согнуты в retarget
     const p = H.parent[n], pw = p ? _mw[p] : null, i = MOVES.idx[n], b = h.bones[n];
     const wq = _mw[n] || (_mw[n] = new THREE.Quaternion());
     if (i !== undefined) {
@@ -1161,9 +1170,9 @@ function applyMove(m, mv) {
     } else { _ml.copy(H.bindLocal[n]); if (pw) wq.copy(pw).multiply(_ml); else wq.copy(_ml); }
     if (w >= 1) b.quaternion.copy(_ml); else b.quaternion.slerp(_ml, w);
   }
-  const k = H.pelvisRoot.y / c.hipsY, h0 = moveHips(c, 0, V(0, 0, 0)), P = moveHips(c, mv.t, _mp);
+  const pr = h.pel || H.pelvisRoot, k = pr.y / c.hipsY, h0 = moveHips(c, 0, V(0, 0, 0)), P = moveHips(c, mv.t, _mp);   // pr — таз этой фигуры (длина ног)
   P.set((P.x - h0.x) * (mv.mirror ? -1 : 1) * k * (mv.kx ?? 1), P.y * k, (P.z - h0.z) * k * (mv.kz ?? 1));
-  P.add(V(H.pelvisRoot.x, 0, H.pelvisRoot.z)); if (mv.off) P.add(mv.off);
+  P.add(V(pr.x, 0, pr.z)); if (mv.off) P.addScaledVector(mv.off, 1 / m.root.scale.x);   // сдвиг задан в метрах сцены, фигура — в своём росте
   const par = H.parent.pelvis, pos = par ? P.sub(H.parRoot).applyQuaternion(_mg.copy(_mw[par]).invert()) : P;
   if (w >= 1) h.bones.pelvis.position.copy(pos); else h.bones.pelvis.position.lerp(pos, w);
   m.root.position.y = lerp(m.root.position.y, mv.rootY || 0, w);
@@ -1293,7 +1302,7 @@ function applyPose(m, p, noSkin) {
     const low = Math.min(m.bootL.getWorldPosition(tmpV).y, m.bootR.getWorldPosition(tmpV2).y);
     m.root.position.y = -(low - .045) * p.ground;
   }
-  m.root.position.y += p.jy;
+  m.root.position.y += p.jy; m.grounded = p.ground; m.armsW = p.arms || 0;
   if (m.human && !noSkin) retarget(m);
 }
 function handsAt(m, out) {
@@ -1308,6 +1317,159 @@ function placeHands(m, p, G, limitY) {                        // сдвигае�
   return q;
 }
 
+/* ---------------- телосложение: у каждого своё (от бота — app/body.py по характеристикам и возрасту; в демо — по номеру) ----------------
+   b = {h: рост, см; w: плечи и грудь, мощь рук; q: бёдра и икры; g: корпус в глубину и живот; l: длина ног; a: длина рук}.
+   Модель одна, поэтому тело меняют кости: длина ключиц, рук и ног — сдвигом суставов (записанные движения — это повороты, им всё равно),
+   толщина — масштабом кожи вокруг своей кости (в пространстве привязки, детям не передаётся: кисти, стопы и голова прежние).
+   Рост целиком — масштабом фигуры. Считается один раз при сборке фигуры — в кадре ничего не стоит. */
+const BUILD_LIM = {h: [165, 200], w: [.85, 1.2], q: [.85, 1.22], g: [.85, 1.22], l: [.93, 1.08], a: [.93, 1.09]};
+const DEMO_BUILDS = [{h: 179, w: .93, q: .92, g: .9, l: 1.045, a: 1}, {h: 191, w: 1.14, q: 1.12, g: 1.1, l: .985, a: 1},
+                     {h: 182, w: 1.02, q: 1.13, g: 1.07, l: 1, a: .99}, {h: 178, w: .95, q: .93, g: .91, l: 1, a: 1.01},
+                     {h: 185, w: 1.07, q: 1.06, g: 1.15, l: .98, a: .99}, {h: 174, w: .97, q: 1.02, g: .97, l: 1.02, a: .98}];
+function buildOf(b, num, gk) {
+  if (b && typeof b === 'object' && Object.keys(BUILD_LIM).every(k => Number.isFinite(b[k]))) {
+    const o = {}; for (const k in BUILD_LIM) o[k] = clamp(b[k], ...BUILD_LIM[k]); return o;
+  }
+  const n = Math.abs(Math.round(+num || 0)), r = rng(1 + (n * 7919 + (gk ? 101 : 0)) % 2147483000), o = Object.assign({}, DEMO_BUILDS[(n * 5 + 1) % DEMO_BUILDS.length]);
+  if (gk) Object.assign(o, {h: 189, a: 1.04, w: 1.03, q: .98, g: 1.02, l: 1});    // вратарь — высокий, длинные руки
+  o.h += (r() - .5) * 6; for (const k of ['w', 'q', 'g']) o[k] += (r() - .5) * .05; o.l += (r() - .5) * .02;
+  for (const k in BUILD_LIM) o[k] = clamp(o[k], ...BUILD_LIM[k]);
+  return o;
+}
+function shapeMats(b) {                                       // масштаб кожи каждой кости (пространство привязки, вокруг её сустава)
+  const PB = HUMAN.PB, up = PB.Head.clone().sub(PB.pelvis).normalize(), lat0 = PB.upperarm_l.clone().sub(PB.upperarm_r).normalize(), out = {};
+  const toe = PB.ball_l.clone().sub(PB.foot_l);                // куда смотрит модель (носок впереди лодыжки)
+  const ar = Math.max(1.12, 1.2 + (b.w - 1) * .9);             // руки футболиста: плечо и бицепс крепкие даже у «сухого» (кисть не трогаем)
+  const one = (n, d, kd, kl, kf, back = 0) => {               // d — ось длины (множитель kd), поперёк: вбок kl, вперёд kf; back — опора на столько сзади кости (живот растёт вперёд, спина на месте)
+    if (!PB[n]) return;
+    const r0 = Math.abs(d.dot(lat0)) > .7 ? up : lat0, lat = r0.clone().addScaledVector(d, -r0.dot(d)).normalize(), fw = V(0, 0, 0).crossVectors(d, lat);
+    if (fw.dot(toe) < 0) fw.negate();
+    const e = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (const [u, k] of [[d, kd], [lat, kl], [fw, kf]]) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) e[i * 3 + j] += k * u.getComponent(i) * u.getComponent(j);
+    const p = PB[n].clone().addScaledVector(fw, -back), M = new THREE.Matrix4().set(e[0], e[1], e[2], 0, e[3], e[4], e[5], 0, e[6], e[7], e[8], 0, 0, 0, 0, 1);
+    out[n] = new THREE.Matrix4().makeTranslation(p.x, p.y, p.z).multiply(M).multiply(new THREE.Matrix4().makeTranslation(-p.x, -p.y, -p.z));
+  };
+  const dir = (a, c) => PB[c].clone().sub(PB[a]).normalize();
+  one('pelvis', up, 1, 1 + (b.q - 1) * .5 + (b.g - 1) * .2, 1 + (b.g - 1) * .4 + (b.q - 1) * .1, .07);
+  one('spine_01', up, 1, 1 + (b.g - 1) * .55 + (b.w - 1) * .2, 1 + (b.g - 1) * 1.2, .1);
+  one('spine_02', up, 1, 1 + (b.w - 1) * .6 + (b.g - 1) * .3, 1 + (b.g - 1) * .6 + (b.w - 1) * .3, .08);
+  one('spine_03', up, 1, b.w, 1 + (b.w - 1) * .5 + (b.g - 1) * .25);
+  one('neck_01', up, 1, 1 + (b.w - 1) * .7, 1 + (b.w - 1) * .5);
+  for (const s of ['l', 'r']) {
+    const t = (n, kd, k) => one(n + s, dir(n + s, MOVE_NEXT[n + s]), kd, k, k);
+    t('clavicle_', 1 + (b.w - 1) * 1.6, 1 + (b.w - 1) * .7);
+    t('upperarm_', b.a, ar); t('lowerarm_', b.a, 1 + (ar - 1) * .75);
+    t('thigh_', b.l, b.q); t('calf_', b.l, 1 + (b.q - 1) * .75);
+  }
+  return out;
+}
+function applyBuild(m, b) {                                   // b — уже buildOf; один раз на собранную фигуру
+  m.build = b;
+  let k = b.h / 181;
+  const h = m.human, H = HUMAN;
+  if (h && H && H.PB && !h.pel) {
+    const bn = h.bones, C = 1 + (b.w - 1) * 1.6;
+    for (const s of ['l', 'r']) {                             // суставы: плечо дальше от шеи, локоть/кисть и колено/лодыжка — по длине
+      bn['upperarm_' + s].position.multiplyScalar(C); bn['lowerarm_' + s].position.multiplyScalar(b.a); bn['hand_' + s].position.multiplyScalar(b.a);
+      bn['calf_' + s].position.multiplyScalar(b.l); bn['foot_' + s].position.multiplyScalar(b.l);
+    }
+    h.legK = b.l; h.pel = H.pelvisRoot.clone(); h.pel.y += (b.l - 1) * H.legLen;   // стоя таз выше на удлинение ног
+    const S = shapeMats(b);
+    h.sc.traverse(o => { if (!o.isSkinnedMesh) return;      // обратные матрицы привязки у клонов общие — каждой фигуре свои копии
+      const sk = o.skeleton; sk.boneInverses = sk.boneInverses.map((M, i) => S[sk.bones[i].name] ? M.clone().multiply(S[sk.bones[i].name]) : M); });
+  }
+  if (h && h.pel) k = b.h / 100 / (H.height + (h.legK - 1) * H.legLen);   // повторный вызов: тело уже собрано — рост тот же, масштаб не копится
+  m.root.scale.setScalar(k);
+  if (h) h.tracks = null;                                     // записанные движения на этой фигуре — заново, уже с её телом
+  return m;
+}
+/* ---------------- кисти и пальцы. У модели пальцы — отдельные кости, а в покое («буквой Т») ладонь плоская и раскрытая.
+   Пальцы сгибаются к ладони (0 — раскрыта, 1 — кулак): у всех полевых — чуть согнуты, у вратаря почти раскрыты.
+   Стенка ставит руки по-настоящему (armIK): кисти сложены перед пахом, за спиной или одна у лица. Запястье прямое — кисть
+   продолжает предплечье, разворот ладони делят предплечье и кисть пополам (как у живой руки). */
+function handRig() {                                          // оси кистей и пальцев по позе привязки — один раз на модель
+  const H = HUMAN; if (H.hr) return H.hr;
+  const B = H.bindPos, inv = n => H.bindQ[n].clone().invert(), hr = {fingers: {l: [], r: []}, side: {}};
+  const frame = n => new THREE.Matrix4().compose(B[n], H.bindQ[n], V(1, 1, 1)).invert();
+  hr.inv = {pelvis: frame('pelvis'), spine_03: frame('spine_03')};
+  for (const s of ['l', 'r']) {
+    const fd = B['middle_01_' + s].clone().sub(B['hand_' + s]).normalize(), lat = B['index_01_' + s].clone().sub(B['pinky_01_' + s]).normalize();
+    const palm = V(0, 0, 0).crossVectors(fd, lat).normalize();
+    if (palm.dot(B['thumb_02_' + s].clone().sub(B['hand_' + s])) < 0) palm.negate();      // ладонь — с той стороны, куда смотрит большой палец
+    for (const f of ['index', 'middle', 'ring', 'pinky', 'thumb']) {
+      let d = null;
+      for (let k = 1; k <= 3; k++) {
+        const n = `${f}_0${k}_${s}`, nx = k < 3 ? `${f}_0${k + 1}_${s}` : `${f}_04_leaf_${s}`;
+        if (!B[n]) continue;
+        if (B[nx]) d = B[nx].clone().sub(B[n]).normalize();
+        if (!d) continue;
+        const to = f === 'thumb' ? palm.clone().multiplyScalar(.8).addScaledVector(lat, -.6) : palm;
+        hr.fingers[s].push({n, ax: V(0, 0, 0).crossVectors(d, to).normalize().applyQuaternion(inv(n)),
+                            a: (f === 'thumb' ? [.3, .5, .45] : [1.2, 1.45, 1.0])[k - 1] * (f === 'index' ? .85 : f === 'pinky' ? 1.08 : 1)});
+      }
+    }
+    const ua = B['lowerarm_' + s].clone().sub(B['upperarm_' + s]).normalize(), fa = B['hand_' + s].clone().sub(B['lowerarm_' + s]).normalize();
+    hr.side[s] = {ua, fa, palm, hinge: V(0, 0, 0).crossVectors(ua, V(0, 0, 1)).normalize()};   // локоть сгибается вперёд (модель смотрит в +z)
+  }
+  return (H.hr = hr);
+}
+const _fq = new THREE.Quaternion();
+function curlFingers(m, cl, cr) {
+  const hr = handRig(), bn = m.human.bones;
+  for (const [s, k] of [['l', cl], ['r', cr]]) if (k > 0) for (const f of hr.fingers[s]) bn[f.n].quaternion.multiply(_fq.setFromAxisAngle(f.ax, f.a * k));
+}
+function frameQ(a0, b0, a1, b1, out) {                        // поворот, переводящий пару осей (a0, b0) в (a1, b1); a0, a1 — единичные
+  const c0 = V(0, 0, 0).crossVectors(a0, b0).normalize(), c1 = V(0, 0, 0).crossVectors(a1, b1).normalize();
+  const M0 = new THREE.Matrix4().makeBasis(a0, V(0, 0, 0).crossVectors(c0, a0), c0), M1 = new THREE.Matrix4().makeBasis(a1, V(0, 0, 0).crossVectors(c1, a1), c1);
+  return out.setFromRotationMatrix(M1.multiply(M0.transpose()));
+}
+function armIK(m, s, T, pole, N, w) {                         // запястье — в точку T (мир), локоть — в сторону pole, ладонь смотрит по N; w — доля позы
+  const H = HUMAN, h = m.human, bn = h.bones, sd = handRig().side[s], Q = () => new THREE.Quaternion();
+  const ub = bn['upperarm_' + s], lb = bn['lowerarm_' + s], hb = bn['hand_' + s];
+  const S = ub.getWorldPosition(V(0, 0, 0)), E0 = lb.getWorldPosition(V(0, 0, 0)), W0 = hb.getWorldPosition(V(0, 0, 0));
+  const a = S.distanceTo(E0), b = E0.distanceTo(W0), D = T.clone().sub(S);
+  const dist = clamp(D.length(), Math.abs(a - b) + 1e-3, (a + b) * .999); D.normalize();
+  const x = (a * a - b * b + dist * dist) / (2 * dist), y = Math.sqrt(Math.max(0, a * a - x * x));
+  const pp = pole.clone().sub(S); pp.addScaledVector(D, -pp.dot(D)).normalize();
+  const E = S.clone().addScaledVector(D, x).addScaledVector(pp, y), d1 = E.clone().sub(S).normalize();
+  const f1 = S.clone().addScaledVector(D, dist).sub(E).normalize(), h1 = V(0, 0, 0).crossVectors(d1, f1);
+  if (h1.lengthSq() < 1e-8) h1.crossVectors(d1, pp); h1.normalize();
+  const sq = h.sc.getWorldQuaternion(Q()), wv = v => v.clone().applyQuaternion(sq), hg = wv(sd.hinge);
+  const Qu = frameQ(wv(sd.ua), hg, d1, h1, Q()).multiply(sq).multiply(H.bindQ['upperarm_' + s]);
+  const Rf = frameQ(wv(sd.fa), hg, f1, h1, Q());
+  const pf = wv(sd.palm).applyQuaternion(Rf), Np = N.clone().addScaledVector(f1, -N.dot(f1));
+  pf.addScaledVector(f1, -pf.dot(f1));
+  const tw = Math.atan2(V(0, 0, 0).crossVectors(pf, Np).dot(f1), pf.dot(Np));            // разворот ладони вокруг предплечья
+  const Qf = Q().setFromAxisAngle(f1, tw * .5).multiply(Rf).multiply(sq).multiply(H.bindQ['lowerarm_' + s]);
+  const Qh = Q().setFromAxisAngle(f1, tw).multiply(Rf).multiply(sq).multiply(H.bindQ['hand_' + s]);
+  const pw = ub.parent.getWorldQuaternion(Q());
+  ub.quaternion.slerp(pw.clone().invert().multiply(Qu), w); pw.multiply(ub.quaternion);
+  lb.quaternion.slerp(pw.clone().invert().multiply(Qf), w); pw.multiply(lb.quaternion);
+  hb.quaternion.slerp(pw.clone().invert().multiply(Qh), w);
+}
+/* руки в стенке (оси модели: x — влево, y — вверх, z — вперёд, метры; от таза или груди в позе привязки): запястье, куда локоть,
+   куда смотрит ладонь, насколько сжаты пальцы. Перед пахом ладони к телу, одна кисть накрывает другую; за спиной — тыльной стороной к телу */
+const WALL_ARMS = [
+  {l: {at: [.05, .99, .2], pole: [.5, -.2, -.1], N: [0, .3, -1], c: .75}, r: {at: [-.04, 1.0, .24], pole: [-.5, -.2, -.1], N: [0, .2, -1], c: .55}},
+  {l: {at: [.04, 1.0, .24], pole: [.5, -.25, -.05], N: [0, .2, -1], c: .9}, r: {at: [-.05, .99, .2], pole: [-.5, -.25, -.05], N: [0, .3, -1], c: .9}},
+  {l: {at: [.05, 1.08, -.17], pole: [.6, .05, -.12], N: [0, 0, -1], c: .8}, r: {at: [-.05, 1.06, -.2], pole: [-.6, .05, -.12], N: [0, 0, -1], c: .6}},
+  {l: {at: [.01, .99, .21], pole: [.5, -.2, -.1], N: [0, .3, -1], c: .75},
+   r: {at: [-.03, 1.47, .2], pole: [-.25, -.6, .05], N: [0, 0, -1], c: .35, rel: 'spine_03'}}];
+function wallArms(m, set, w) {
+  const h = m.human, H = HUMAN, hr = handRig(), g = ((m.build || {}).g || 1) - 1;
+  h.sc.updateMatrixWorld(true);
+  const M = {}, Mof = rel => M[rel] || (M[rel] = h.bones[rel].matrixWorld.clone().multiply(hr.inv[rel]));
+  for (const s of ['l', 'r']) {
+    const a = set[s], Mr = Mof(a.rel || 'pelvis'), front = a.at[2] > 0 && !a.rel ? g * .15 : 0;
+    const T = V(a.at[0], a.at[1], a.at[2] + front).applyMatrix4(Mr), P = V(...a.pole).add(V(a.at[0], a.at[1], a.at[2])).applyMatrix4(Mr);
+    armIK(m, s, T, P, V(...a.N).normalize().transformDirection(Mr), w);
+  }
+}
+function handsPose(m) {                                       // в конце retarget: руки стенки и пальцы
+  const relax = m.curl ?? .4, set = m.armSet !== undefined ? WALL_ARMS[m.armSet] : null, w = set ? clamp(m.armsW || 0, 0, 1) : 0;
+  if (w > 0) wallArms(m, set, w);
+  curlFingers(m, lerp(relax, set ? set.l.c : relax, w), lerp(relax, set ? set.r.c : relax, w));
+}
 let kicker = null, keeper = null, wall = [], castSig = '', ref = null, lier = null;      // ref — судья, lier — лежащий за стенкой (штрафной)
 /* стенка — четыре разных человека: кожа, причёска и борода, рост, как держат руки, как переминаются, когда и как высоко прыгают,
    как радуются и расстраиваются. Всё задаётся номерами игроков стенки — у одной и той же стенки вид не меняется от кадра к кадру */
@@ -1330,7 +1492,7 @@ function wallVariety() {
   const shuffle = a => { for (let k = a.length - 1; k > 0; k--) { const j = r() * (k + 1) | 0; [a[k], a[j]] = [a[j], a[k]]; } return a; };
   const looks = shuffle([0, 1, 2, 3, 4, 5]), hands = shuffle([0, 1, 2, 3]), cheers = shuffle([0, 1, 2, 3]), sads = shuffle([0, 1, 2, 3]);
   WV = nums.map((n, i) => ({look: looks[i % 6], hands: hands[i % 4], cheer: cheers[i % 4], sad: sads[i % 4],
-    h: .95 + r() * .1, lean: (r() - .5) * .08, ph: r() * 6.3, per: 2.6 + r() * 2.2, look0: (r() - .5) * .3,
+    lean: (r() - .5) * .08, ph: r() * 6.3, per: 2.6 + r() * 2.2, look0: (r() - .5) * .3,
     adj: 5.5 + r() * 5, adjPh: r() * 9, adjKind: r() < .5 ? 0 : 1,
     dl: (r() - .35) * .14, dur: .6 + r() * .14, amp: .44 + r() * .18, tuck: .85 + r() * .45,
     flinch: .4 + r() * .6, fside: r() < .5 ? -1 : 1, cd: .35 + r() * .45}));
@@ -1339,31 +1501,35 @@ function keeperKit() { const sh = isFk() ? gkShirt(P.keeper.shirt) : P.keeper.sh
   return {shirt: sh, shorts: '#161922', sock: shade(sh, -.3), skin: SKINS[(P.keeper.num + 1) % 4], hair: HAIRS[(P.keeper.num + 2) % 4],
           style: (P.keeper.num + 1) % 4, glove: '#d9f99d', num: P.keeper.num}; }
 function dropMan(m) {                                         // прежний состав (серия: каждый удар — новый бьющий) — память видеокарты освобождаем
-  if (m.human) { m.human.mat.dispose(); m.human.hairMat.dispose(); return; }   // сетки модели общие — не трогаем
+  if (m.human) { m.human.mat.dispose(); m.human.hairMat.dispose();                // сетки модели общие — не трогаем
+    m.human.sc.traverse(o => { if (o.isSkinnedMesh) o.skeleton.dispose(); }); return; }   // а текстура костей у каждой фигуры своя
   m.root.traverse(o => { if (o.isMesh && o.geometry !== GEO.num) o.geometry.dispose(); });
 }
 function buildCast() {
-  const sig = JSON.stringify([MODE, P.kicker.shirt, P.kicker.shorts, P.kicker.num, P.keeper.shirt, P.keeper.num, FK_INFO.wall, FK_INFO.shorts, FK_INFO.lie]);
+  const sig = JSON.stringify([MODE, P.kicker.shirt, P.kicker.shorts, P.kicker.num, P.keeper.shirt, P.keeper.num, FK_INFO.wall, FK_INFO.shorts, FK_INFO.lie,
+                             P.kicker.build, P.keeper.build, FK_INFO.wallB, FK_INFO.lieB]);
   if (sig === castSig) return; castSig = sig;
   for (const m of [kicker, keeper, ...wall, ref, lier]) if (m) { scene.remove(m.root); dropMan(m); }
   const ks = P.kicker.shirt || '#dc2626';
   kicker = makeMan({shirt: ks, shorts: P.kicker.shorts || '#f5f5f5', sock: shade(ks, -.3), skin: SKINS[P.kicker.num % 4], hair: HAIRS[P.kicker.num % 4],
                     style: P.kicker.num % 4, num: P.kicker.num});
-  keeper = makeMan(keeperKit());
+  keeper = makeMan(keeperKit()); keeper.curl = .15;
+  applyBuild(kicker, buildOf(P.kicker.build, P.kicker.num)); applyBuild(keeper, buildOf(P.keeper.build, P.keeper.num, true));
   wallVariety();
   wall = isFk() ? FK_INFO.wall.map((num, i) => { const v = WV[i], lk = WALL_LOOKS[v.look];
     const m = makeMan({shirt: P.keeper.shirt, shorts: FK_INFO.shorts, sock: shade(P.keeper.shirt, -.3), skin: SKINS[lk.skin], dark: lk.dark, tint: lk.tint,
                        hair: lk.hair, hairSet: lk.set, style: lk.style, num});
-    m.root.scale.setScalar(v.h); return m; }) : [];
+    m.armSet = v.hands; m.curl = .5; return applyBuild(m, buildOf(FK_INFO.wallB[i], num)); }) : [];
   ref = lier = null;
   if (isFk()) {                                               // судья — в форме, не похожей ни на одну из команд
     const used = [P.kicker.shirt, P.keeper.shirt, gkShirt(P.keeper.shirt)].map(hexRgb);
     const rs = ['#111827', '#facc15', '#ec4899'].find(c => used.every(u => hexRgb(c).reduce((s, v, i) => s + (v - u[i]) ** 2, 0) > 9000)) || '#111827';
-    ref = makeMan({shirt: rs, shorts: '#111111', sock: '#111111', skin: SKINS[2], hair: HAIRS[2], style: 0, num: ''});
+    ref = applyBuild(makeMan({shirt: rs, shorts: '#111111', sock: '#111111', skin: SKINS[2], hair: HAIRS[2], style: 0, num: ''}),
+                     {h: 178, w: .97, q: .97, g: 1.03, l: 1, a: 1});
     const lk = WALL_LOOKS[(FK_INFO.lie || 0) % WALL_LOOKS.length];
     lier = makeMan({shirt: P.keeper.shirt, shorts: FK_INFO.shorts, sock: shade(P.keeper.shirt, -.3), skin: SKINS[lk.skin], dark: lk.dark, tint: lk.tint,
                     hair: lk.hair, hairSet: lk.set, style: lk.style, num: FK_INFO.lie || 2});
-    lier.root.visible = false;
+    applyBuild(lier, buildOf(FK_INFO.lieB, FK_INFO.lie || 2)); lier.root.visible = false;
   }
   for (const m of [kicker, keeper, ...wall, ref, lier]) if (m) scene.add(m.root);
   drawFanArt(); if (!MAPPED || HUMAN) buildFanAtlas();          // фан-сектор — в цвета команды бьющего
@@ -1853,7 +2019,7 @@ function wallJump(at, a) {
   if (a) { if (!a.fkWall) return 0; const q = (at - a.plan.cross + .33) / .66; return q > 0 && q < 1 ? Math.sin(Math.PI * q) : 0; }
   return phase === 'choose' && role === 'keep' && fkWall ? Math.max(0, Math.sin(performance.now() / 170)) * .3 : 0;
 }
-const WV0 = {hands: 0, cheer: 0, sad: 0, h: 1, lean: 0, ph: 0, per: 3, look0: 0, adj: 8, adjPh: 0, adjKind: 0, dl: 0, dur: .66, amp: .55, tuck: 1, flinch: .6, fside: 1, cd: .45};
+const WV0 = {hands: 0, cheer: 0, sad: 0, lean: 0, ph: 0, per: 3, look0: 0, adj: 8, adjPh: 0, adjKind: 0, dl: 0, dur: .66, amp: .55, tuck: 1, flinch: .6, fside: 1, cd: .45};
 function wallPose(i, at, a, t) {
   const v = WV[i] || WV0, pl = a && a.plan, pp = L.perp;
   const ia = introAge(), back = 1 - smooth(ia, 2.5, 3.5), jost = Math.sin(ia * 8 + v.ph) * smooth(ia, 2.3, 2.7) * (1 - smooth(ia, 3.6, 4.4));
@@ -1871,11 +2037,13 @@ function wallPose(i, at, a, t) {
   if (stepK) { p.hLx += .3 * stepK; p.hRx -= .3 * stepK; p.kL += .25 * Math.max(0, stepK); p.kR += .25 * Math.max(0, -stepK); }
   if (!a || at < pl.K - .7) {                                   // поправляет причёску или подтягивает гетру — изредка, не все сразу
     const u = ((t + v.adjPh) % v.adj) / v.adj, g = u < .16 ? Math.sin(Math.PI * u / .16) : 0;
+    p.arms = 1 - g;
     if (g > 0) {
       if (v.adjKind) { p.sRx = lerp(p.sRx, -2.5, g); p.eR = lerp(p.eR, -2.2, g); p.sRz = lerp(p.sRz, -.3, g); p.nod -= .15 * g; }
       else { p.lean = lerp(p.lean, .55, g); p.sLx = lerp(p.sLx, -.75, g); p.eL = lerp(p.eL, -.15, g); p.nod += .3 * g; p.hLx -= .1 * g; }
     }
   }
+  if (p.arms === undefined) p.arms = 1;
   if (pl && !a.fkWall && at > pl.cross - .25 && at < pl.cross + .5) {   // стенка стоит — в момент удара втягивают головы и отворачиваются, кто сильнее, кто слабее
     const f = v.flinch * Math.sin(Math.PI * clamp((at - pl.cross + .25) / .75, 0, 1));
     p.yaw += v.fside * .55 * f; p.lean += .22 * f; p.nod += .35 * f; p.kL += .25 * f; p.kR += .25 * f;
@@ -1890,7 +2058,7 @@ function wallPose(i, at, a, t) {
       {sLx: -.75, sRx: -.75, sLz: -.25 + .5 * b, sRz: .25 - .5 * b, eL: -1.0, eR: -1.0, nod: -.1},       // хлопает в ладоши
       {sLx: -1.5, sLz: .2, eL: -.25, sRx: -2.7, sRz: -.4, eR: -.35, look: -.3}][v.cheer]));               // показывает на попавшего, кричит
     const d = hit ? v.cd + .9 : v.cd;
-    return mixPose(p, cheer, smooth(q, d, d + .4));
+    const o = mixPose(p, cheer, smooth(q, d, d + .4)); o.arms = (p.arms ?? 1) * (1 - smooth(q, d, d + .4)); return o;
   }
   if (pl && a.outcome === 'goal' && at > pl.R + .25) {          // гол: оборачиваются к воротам — кто за голову, кто руки в боки, кто присел
     const d = pl.R + .25 + v.cd * .7, turn = L.wallYaw + Math.PI * (.75 + .25 * (v.sad % 2)) * v.fside;
@@ -1899,13 +2067,13 @@ function wallPose(i, at, a, t) {
       {sLx: .25, sLz: .6, eL: -1.75, sRx: .25, sRz: -.6, eR: -1.75, nod: .45, lean: .1},
       {lean: .7, nod: .2, hLx: -.6, kL: 1.0, hRx: -.6, kR: 1.0, sLx: -.9, sRx: -.9, sLz: .1, sRz: -.1, eL: -.2, eR: -.2},
       {sLx: -2.6, sLz: .45, eL: -2.2, sRx: -2.6, sRz: -.45, eR: -2.2, lean: .35, nod: .5, hLx: -.3, kL: .5, hRx: -.3, kR: .5}][v.sad]));
-    return mixPose(p, sad, smooth(at, d, d + .55));
+    const o = mixPose(p, sad, smooth(at, d, d + .55)); o.arms = (p.arms ?? 1) * (1 - smooth(at, d, d + .55)); return o;
   }
   if (pl && a.outcome !== 'goal' && pl.kind !== 'wall' && at > pl.R + .2) {   // мимо или сейв: смотрят за мячом, потом выдыхают и хлопают
     const d = pl.R + .2 + v.cd * .6, q = at - d, cl = .5 + .5 * Math.sin(q * 10 + v.ph);
     const ok = pose({x: c.x, z: c.z, yaw: L.wallYaw + Math.PI * .8 * v.fside, nod: -.1, lean: .02,
                      sLx: -.7, sRx: -.7, sLz: v.cheer % 2 ? -.2 + .45 * cl : .3, sRz: v.cheer % 2 ? .2 - .45 * cl : -.3, eL: -1.0, eR: -1.0});
-    return mixPose(p, ok, smooth(at, d, d + .5));
+    const o = mixPose(p, ok, smooth(at, d, d + .5)); o.arms = (p.arms ?? 1) * (1 - smooth(at, d, d + .5)); return o;
   }
   return p;
 }
@@ -1937,7 +2105,7 @@ function sprayLine() {                                         // черта п�
 function liePose(at, a) {
   const pl = a.plan, o = L.lie, y = L.wallYaw;
   const stand = pose({x: o.x, z: o.z, yaw: y, lean: .15, hLx: -.4, kL: .7, hRx: -.4, kR: .7});
-  const down = pose({x: o.x, z: o.z, yaw: y, ground: 0, y: .17, roll: Math.PI / 2 - .1, lean: .05, nod: -.3,
+  const down = pose({x: o.x, z: o.z, yaw: y, ground: 0, y: .17 + ((lier.build || {}).w - 1 || 0) * .33, roll: Math.PI / 2 - .1, lean: .05, nod: -.3,   // лежит на боку: шире плечи — чуть выше
                      sLx: -.15, sLz: 2.7, eL: -1.7, sRx: -.4, sRz: -.25, eR: -.3, hLx: -.1, kL: .3, hRx: -.3, kR: .6});
   let p = mixPose(stand, down, smooth(at, pl.K - .7, pl.K - .25));
   if (pl.lieHit && at > pl.R) {
@@ -2675,7 +2843,7 @@ function onLive(m) {
   else if (m.type === 'bot_left' && phase !== 'play' && phase !== 'done') setUi('Матч прервал связь — выберите кнопкой в чате.', closeBtn());
 }
 function applyState(m, at0) {
-  Object.assign(P.kicker, m.kicker || {}); Object.assign(P.keeper, m.keeper || {});
+  Object.assign(P.kicker, {build: null}, m.kicker || {}); Object.assign(P.keeper, {build: null}, m.keeper || {});   // телосложение — только этого удара (нет — по номеру)
   MODE = m.kind === 'fk' ? 'fk' : 'pen'; fkSetup(isFk() ? m : null); layout();
   if (m.weather !== undefined) setWeather(m.weather);
   MINUTE = typeof m.minute === 'number' ? m.minute : null;
@@ -2730,7 +2898,7 @@ function play(result) {
   setUi('');
 }
 let dbgReal = null, dbgCam = null, dbgMove = null, dbgRp = null;                                          // для проверки: остановить сцену на нужной секунде (?3d — скриншоты)
-window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, camAt: c => { dbgCam = c; }, move: o => { dbgMove = o; }, get moves() { return MOVES; }, track: (who, n, mir) => moveTrack(who === 'kicker' ? kicker : keeper, n, mir), get kicker() { return kicker; }, setKicker: o => { Object.assign(P.kicker, o); castSig = ''; layout(); }, get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, selfTest: () => selfTest(), get weather() { return WX; }, get bloom() { return bloomOn; }, get cam() { return [camera.position, ball.position, kicker.root.position]; }, replay: s => { dbgRp = s; }, startReplay: () => startReplay(), endReplay: () => endReplay(), setSo: v => { SO = v; }, setMinute: v => { MINUTE = v; }, get ref() { return ref; }, get lier() { return lier; }, intro: s => { dbgIntro = s; }, mark5: () => mk.length > 4 ? mk[4].s.position : null, headPos: who => headPos(who === 'kicker' ? kicker : keeper), project: p => screenOf(V(...p))};
+window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, camAt: c => { dbgCam = c; }, move: o => { dbgMove = o; }, get moves() { return MOVES; }, track: (who, n, mir) => moveTrack(who === 'kicker' ? kicker : keeper, n, mir), get kicker() { return kicker; }, setKicker: o => { Object.assign(P.kicker, o); castSig = ''; layout(); }, setKeeper: o => { Object.assign(P.keeper, o); castSig = ''; layout(); }, setFk: o => { fkSetup(o); }, get wall() { return wall; }, buildOf: (b, n, g) => buildOf(b, n, g), get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, selfTest: () => selfTest(), get weather() { return WX; }, get bloom() { return bloomOn; }, get cam() { return [camera.position, ball.position, kicker.root.position]; }, replay: s => { dbgRp = s; }, startReplay: () => startReplay(), endReplay: () => endReplay(), setSo: v => { SO = v; }, setMinute: v => { MINUTE = v; }, get ref() { return ref; }, get lier() { return lier; }, intro: s => { dbgIntro = s; }, mark5: () => mk.length > 4 ? mk[4].s.position : null, headPos: who => headPos(who === 'kicker' ? kicker : keeper), project: p => screenOf(V(...p))};
 /* ---------------- самопроверка (?selftest=1): касание по каждой цели → тот ли выбор → туда ли летит мяч и прыгает вратарь на экране ----------------
    Касания идут через тот же обработчик, что у пальца; сторона проверяется по картинке (проекция на экран), а не по числам выбора. */
 let selfTesting = false;
