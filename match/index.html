@@ -3321,7 +3321,7 @@ function penState() {                         // всё, что нужно сц�
   toFrame({type: 'mute', on: muted});
   toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked,
            kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot, weather: pen.weather,
-           lie: pen.lie, minute: pen.minute, so: pen.so});   // штрафной: стенка, место мяча; погода — дождь/снег в 3D; минута и табло серии — для карточки итога
+           lie: pen.lie, wall_b: pen.wall_b, lie_b: pen.lie_b, minute: pen.minute, so: pen.so});   // штрафной: стенка, место мяча; погода — дождь/снег в 3D; минута и табло серии — для карточки итога; wall_b/lie_b — телосложения
   penSent = pen.wid;
 }
 let penUntil = 0;
