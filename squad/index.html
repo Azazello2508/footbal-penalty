@@ -191,6 +191,19 @@ tr[data-pedit]{cursor:pointer}
 .wask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}
 .tip{background:rgba(250,204,21,.1);border:1px solid #a16207;border-radius:12px;padding:9px 12px;margin:8px 0;font-size:13px;line-height:1.4;display:flex;gap:8px;align-items:flex-start}
 .tip span{flex:1}.tip button{flex:0 0 auto;padding:5px 10px;border-radius:9px;background:var(--accent);color:#111;font-weight:700;font-size:12px}
+/* «Сообщество игры» на «Главной»: свой зелёный фон и белый текст — не зависит от темы Telegram */
+.comm{display:grid;grid-template-columns:42px minmax(0,1fr) auto;column-gap:10px;row-gap:3px;align-items:center;width:100%;text-align:left;
+  margin:8px 0;padding:12px;border-radius:14px;color:#fff;background:linear-gradient(135deg,#15803d 0%,#16a34a 55%,#22c55e 100%);
+  border:1px solid #4ade80;box-shadow:0 4px 14px rgba(22,163,74,.35)}
+.comm .ci{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:22px}
+.comm .cb{min-width:0;display:flex;flex-direction:column}
+.comm .cb b{font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.comm .cb small{font-size:12px;color:#dcfce7}
+.comm .cnews,.comm .cs{grid-column:1/-1;font-size:12px;line-height:1.3}
+.comm .cnews{margin-top:5px;color:#f0fdf4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.comm .cs{color:#dcfce7}
+.comm .cgo{padding:8px 12px;border-radius:10px;background:#fff;color:#15803d;font-weight:700;font-size:13px;white-space:nowrap}
+.comm.thin{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:14px;box-shadow:none}
+.comm.thin .ct{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.comm.thin .ct span{color:#dcfce7}
+.comm.thin .ca{font-size:20px;line-height:1;font-weight:700}
 .wnew h3{margin:4px 0 6px}.wnew .wtag{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .item .kick{display:block;margin-top:6px;background:none;border:1px solid var(--line);color:#fca5a5;border-radius:10px;padding:5px 10px;font:inherit;font-size:13px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
@@ -834,6 +847,22 @@ function askWrite() {
   else toast('Обновите Telegram — в этой версии разрешение не запросить', true);
 }
 let PVIEW_SENT = false;        // карточка игрока открыта — сообщаем боту один раз (шаг «Посмотреть состав»)
+function peopleWord(n) {
+  const a = n % 10, b = n % 100;
+  return a === 1 && b !== 11 ? 'участник' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'участника' : 'участников';
+}
+// «Сообщество игры» (app/community.py card): зелёная карточка; уже участник — тонкая строка. Нет группы — ничего
+function communityCard(hb) {
+  const c = hb.community_card;
+  if (!hb.community && !(c && c.link)) return '';
+  const n = c && c.count ? `${c.count} ${peopleWord(c.count)}` : '';
+  if (c && c.member) return `<button type="button" class="comm thin" data-community><span class="ct"><b>💬 Сообщество</b> · вы участник` +
+    `${n ? `<span> · ${n}</span>` : ''}</span><span class="ca">›</span></button>`;
+  return `<button type="button" class="comm" data-community><span class="ci">💬</span><span class="cb"><b>Сообщество игры</b>` +
+    (n ? `<small>${n}</small>` : '') + `</span><span class="cgo">Вступить →</span>` +
+    (c && c.news ? `<span class="cnews">📰 ${esc(c.news)}</span>` : '') +
+    `<span class="cs">Общение, соперники на товарищеский, новости лиг, вопросы админу</span></button>`;
+}
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -843,7 +872,7 @@ function renderHome() {
       `<button type="button" class="go main" data-guide="club">🧭 ${(((hb.learn || {}).guides || {}).club || {}).step > 0 ? 'Продолжить с подсказками' : 'Создать с подсказками'}</button>` +
       `<div class="hint" style="margin-top:6px">Подскажем на каждом шаге, что нажать и что ввести.</div>` +
       `<button type="button" class="go" data-panel="newclub">⚽ Создать клуб самому</button>` +
-      (hb.community ? `<button type="button" class="go" data-community>💬 Сообщество игры</button>` : '') + `</div>` + writeBlock(hb.write);
+      `</div>` + communityCard(hb) + writeBlock(hb.write);
     return;
   }
   let x = `<div class="crest"><div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>` +
@@ -867,6 +896,7 @@ function renderHome() {
   if (h.need && (!h.next || h.need.id !== h.next.id)) x += matchCard(h.need, 'Нужен ответ');
   x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч') + (h.next.status === 'live' ? '' : seekBlock())
     : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — найдите соперника или позовите друга из лиги.</div>${seekBlock()}<button type="button" class="go" data-fr>🤝 Товарищеский с другом</button></div>`;
+  x += communityCard(hb);
   if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
     `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div></div>`;
   const ready = !h.problems.length;
@@ -1628,7 +1658,7 @@ document.addEventListener('click', e => {
   if (b.dataset.wnhelp) { haptic(); const k = b.dataset.wnhelp; openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); return; }
   if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
-  if (b.hasAttribute('data-community')) { haptic(); const u = H().community; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
+  if (b.hasAttribute('data-community')) { haptic(); const u = H().community || (H().community_card || {}).link; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
   if (b.hasAttribute('data-seek')) { haptic(); send({a: 'seek'}); return; }
   if (b.hasAttribute('data-unseek')) { haptic(); send({a: 'unseek'}); return; }
   if (b.hasAttribute('data-fr')) { haptic(); openMatchSheet({fr: true, kind: null}); return; }
@@ -1980,7 +2010,10 @@ function demoHub() {
         {t: '🔁 Вернулись через 30 дней', v: '—', i: 'заходили спустя 30 дней после прихода или позже · учёт заходов — с 25.10.2026'},
         {t: '🚫 Неявки', v: '2', i: 'тех. поражения за 7 дней: одной команде — 2, обеим — 0'},
         {t: '🚀 Воронка новичков за 7 дней', v: '11 → 9 → 9 → 7 → 5 → 3 → 6 → 2', i: 'пришли → открыли игру 82% → создали клуб 82% → открыли игрока 64% → сыграли матч 45% → открыли стадион 27% → вопрос дня 55% → лига или друг 18%'}]},
-    community: 'https://t.me/+demo', sections: [], learn: {auto: null, guides: {}},
+    community: 'https://t.me/+demo', sections: [],
+    // карточка «Сообщество игры» (app/community.py card); ?member=1 — демо «вы уже участник»
+    community_card: {link: 'https://t.me/+demo', count: 128, member: Q.get('member') === '1',
+      news: '⚽ «Лига друзей», тур 3. «Девятка» дожимает «Северный Ветер» 3:1.'}, learn: {auto: null, guides: {}},
     // первые шаги (app/onboarding.py): в демо ставятся на месте; в игре — только ботом по событиям
     onboarding: {done: 2, total: 6, reward: 10, bonus: 50, steps: [
       {key: 'app', title: '🎮 Открыть игру в приложении', how: 'Готово — вы уже здесь', go: null, done: true},
@@ -2001,7 +2034,7 @@ function demoNoClub() {        // демо без клуба (?demo=new): экр
   const hb = demoHub();
   S.club = null; S.players = [];
   S.hub = {club: null, official: Object.assign({}, hb.official, {mine: null, text: 'Свободными клубами играет бот — возьмите любой: место в таблице и сыгранные матчи остаются, а десятым игроком станет ваш воспитанник.'}),
-    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community, write: hb.write,
+    leagues: {own: false, max: 8, pending: {id: 5, name: 'Лига Бори'}, league: null}, help: hb.help, community: hb.community, community_card: hb.community_card, write: hb.write,
     learn: {auto: 'club', guides: {}},
     create: {choice: 'У менеджера может быть два клуба: ⭐ официальный — один из 96 реальных клубов пяти топ-лиг, и ✍️ свой — для лиг с друзьями.', size: 10, ages: [18, 38], pending: 'Лига Бори',
       suggest: ['Иван Петров 1 24', 'Олег Сидоров 4 22', 'Пётр Иванов 5 27', 'Глеб Котов 8 21', 'Лев Рябов 6 29', 'Марк Жуков 9 23', 'Ян Титов 10 25', 'Илья Носов 12 20', 'Фёдор Блинов 14 28', 'Савва Гусев 16 26']}};
