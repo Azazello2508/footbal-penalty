@@ -35,14 +35,27 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 #pitch:after{content:"";position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border:2px solid rgba(255,255,255,.4);border-radius:50%}
 .line{position:relative;z-index:1;display:flex;justify-content:space-evenly;gap:4px;min-height:74px}
 .line .tag{position:absolute;left:6px;top:-2px;font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.05em}
-.pl{display:flex;flex-direction:column;align-items:center;width:76px;padding:2px;border-radius:12px;background:transparent}
+.pl{display:flex;flex-direction:column;align-items:center;width:84px;padding:2px;border-radius:12px;background:transparent}
 .pl .shirt{position:relative;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;
   background:#f8fafc;color:#0f172a;box-shadow:0 3px 8px rgba(0,0,0,.4);border:3px solid #fff}
 .pl.gk .shirt{background:#fb923c;border-color:#fed7aa}
-.pl .nm{margin-top:4px;font-size:12px;line-height:1.15;text-align:center;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.pl .nm{margin-top:5px;font-size:12px;line-height:1.15;max-width:84px;display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap;
   text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.pl .nm .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pl .rtl{margin-top:2px;line-height:0}
 .pl .bd{position:absolute;right:-8px;top:-8px;font-size:13px;line-height:1}
 .pl .warn{position:absolute;left:-8px;top:-8px;font-size:13px}
+/* сила на позиции (1–99, сервер: player_stats.position_power) — плашка у кружка; оценка за последние матчи
+   (сервер: player_stats.recent_ratings) — мелко рядом с именем, цветом по уровню */
+.pw{position:absolute;right:-15px;bottom:-6px;min-width:24px;padding:1px 4px;border-radius:7px;font-size:12px;font-weight:800;line-height:15px;
+  text-align:center;font-family:system-ui,"Segoe UI",sans-serif;background:#0f172a;color:#f8fafc;border:1.5px solid #f8fafc;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.rt{display:inline-block;flex:none;min-width:22px;padding:0 3px;border-radius:5px;font-size:10px;font-weight:700;line-height:13px;text-align:center;
+  font-family:system-ui,"Segoe UI",sans-serif;background:#475569;color:#e2e8f0;text-shadow:none}
+.rt.r1{background:#dc2626;color:#fff}.rt.r2{background:#f59e0b;color:#1c1300}.rt.r3{background:#22c55e;color:#052e16}.rt.r4{background:#2563eb;color:#fff}
+.sh-top .rt,.sh-top .pwl{font-size:13px;line-height:17px;padding:1px 6px;vertical-align:1px;border-radius:6px}
+.sh-top .pwl{display:inline-block;font-weight:800;background:#0f172a;color:#f8fafc;border:1px solid var(--line)}
+.big.swapbtn{background:var(--ok);color:#052e16;margin:10px 0 2px}
+.big.swapbtn:disabled{opacity:.45;cursor:default}
 .pl.sel .shirt{outline:3px solid var(--accent);outline-offset:2px}
 .swapping .pl .shirt{animation:pulse 1.1s infinite}
 @keyframes pulse{50%{transform:scale(1.07)}}
@@ -341,11 +354,18 @@ function shortName(p) { const parts = p.name.split(' '); return parts[parts.leng
 function badges(p) {
   return (S.captain === p.slot ? '👑' : '') + (S.penalty === p.slot ? '🎯' : '') + (S.talent_slot === p.slot && S.talent ? '⭐' : '');
 }
+function rtClass(r) { return r == null ? '' : r < 6 ? ' r1' : r < 7 ? ' r2' : r < 8 ? ' r3' : ' r4'; }
+function powerTag(p) { return p.power == null ? '' : `<span class="pw" title="сила на позиции">${p.power}</span>`; }   // считает бот
+function ratingTag(p) {      // оценку считает бот; «—» — ещё не играл ни одного матча с оценкой
+  const r = p.rating;
+  return `<span class="rt${rtClass(r)}" title="${r == null ? 'ещё не играл' : 'рейтинг за последние матчи'}">${r == null ? '—' : Number(r).toFixed(1)}</span>`;
+}
 function token(p) {
   const warn = p.injury ? '🚑' : !p.stats ? '⚠️' : '';
   return `<button type="button" class="pl${p.place === 'gk' ? ' gk' : ''}${swapFrom === p.slot ? ' sel' : ''}" data-slot="${p.slot}">` +
-    `<div class="shirt">${p.number}${badges(p) ? `<span class="bd">${badges(p)}</span>` : ''}${warn ? `<span class="warn">${warn}</span>` : ''}</div>` +
-    `<div class="nm">${esc(shortName(p))}${roleIcon(p) ? ` <span class="ricon${p.role_off ? ' off' : ''}">${roleIcon(p)}</span>` : ''}</div></button>`;
+    `<div class="shirt">${p.number}${badges(p) ? `<span class="bd">${badges(p)}</span>` : ''}${warn ? `<span class="warn">${warn}</span>` : ''}${powerTag(p)}</div>` +
+    `<div class="nm"><span class="n">${esc(shortName(p))}</span>${roleIcon(p) ? `<span class="ricon${p.role_off ? ' off' : ''}">${roleIcon(p)}</span>` : ''}</div>` +
+    `<div class="rtl">${ratingTag(p)}</div></button>`;
 }
 function roleOf(k) { return (S.field_roles || []).find(r => r[0] === k); }     // [ключ, линия, название, описание]
 function roleIcon(p) { const r = p.role && roleOf(p.role); return r ? r[2].split(' ')[0] : ''; }
@@ -991,7 +1011,7 @@ function renderSheet() {
   const where = p.place === 'gk' ? 'вратарь' : p.place === 'bench' ? 'запасной' : 'на поле';
   const cond = (p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `свежесть ${p.fresh}% · настрой: ${esc(p.mood)}`) +
     (p.trait ? ` · ${esc(p.trait)}` : '') + (p.promise ? ` · 🤝 ${p.promise === 2 ? 'обещан отдых' : 'обещана основа'}` : '');
-  let h = `<div class="sh-top"><h2>№${p.number} ${esc(p.name)}<small>${esc(p.pos || 'очки не распределены')} · ${where} · ${years(p.age)}<br>${cond}</small></h2>` +
+  let h = `<div class="sh-top"><h2>№${p.number} ${esc(p.name)}<small>${esc(p.pos || 'очки не распределены')} · ${where} · ${years(p.age)}<br>${cond}<br>${rateLine(p)}</small></h2>` +
     `<button type="button" class="x" data-close>✕</button></div>`;
   if (talentList) {
     h += `<div class="label">Талант команды — один, у одного игрока</div>` + S.talents.map(([k, t, d]) =>
@@ -999,6 +1019,8 @@ function renderSheet() {
       `<button type="button" class="big" data-back style="background:var(--card2);color:var(--text)">Назад</button>`;
     $('sheetin').innerHTML = h; return;
   }
+  h += `<button type="button" class="big swapbtn" data-swap${S.locked ? ' disabled' : ''}>🔁 Поменять местами</button>` +
+    (S.locked ? `<div class="hint" style="margin-top:4px">Сейчас нельзя: ${esc(S.locked)}</div>` : '');
   h += `<div class="label">Очки характеристик</div>`;
   const fixed = p.grown || p.preset;
   if (p.preset) h += `<div class="banner">Сила задана по реальному уровню (${v.reduce((a, b) => a + b, 0)} очков) — перераспределить нельзя. Расти игрок будет тренировками.</div>`;
@@ -1027,13 +1049,19 @@ function renderSheet() {
     (benchN < 3 && p.place === 'field' ? `<button type="button" data-place="bench">🪑 На скамейку</button>` : '');
   if (placeBtns) h += `<div class="label">Место в составе${noGk ? ' · вратаря нет' : ''}${benchN < 3 ? ` · запасных ${benchN} из 3` : ''}</div><div class="place2">${placeBtns}</div>`;
   h += `<div class="acts">` +
-    `<button type="button" data-swap>🔁 Поменять местами</button>` +
     `<button type="button" data-role="captain" class="${S.captain === p.slot ? 'on' : ''}">👑 ${S.captain === p.slot ? 'Капитан' : 'Сделать капитаном'}${p.lead ? `<small>лидерство ${esc(p.lead)}</small>` : ''}</button>` +
     `<button type="button" data-role="penalty" class="${S.penalty === p.slot ? 'on' : ''}">🎯 ${S.penalty === p.slot ? 'Пенальтист' : 'Бьёт пенальти'}</button>` +
     `<button type="button" data-tl class="${S.talent_slot === p.slot && S.talent ? 'on' : ''}">⭐ Талант</button></div>`;
   $('sheetin').innerHTML = h;
 }
 
+function rateLine(p) {
+  const pw = p.power == null ? 'Сила на позиции — после раскладки очков' :
+    `Сила на позиции <span class="pwl">${p.power}</span>${p.power_at ? ` · ${p.place === 'bench' ? 'лучше всего — ' : ''}${esc(p.power_at)}` : ''}`;
+  const rt = p.rating == null ? `Оценка ${ratingTag(p)} — ещё не играл` :
+    `Оценка ${ratingTag(p)} · ${p.rated} ${p.rated === 1 ? 'матч' : p.rated < 5 ? 'матча' : 'матчей'}`;
+  return pw + '<br>' + rt;
+}
 function openSheet(slot) {
   const p = player(slot);
   open = slot; talentList = false; MS = null; PANEL = null;
@@ -1068,11 +1096,13 @@ const tourBench = () => (S.players || []).filter(p => p.place === 'bench').lengt
 const tourNoStats = () => (S.players || []).filter(p => !p.stats);
 const tourClean = t => String(t).replace(/\s*\(\/[a-z]+\)/g, '');    // «(/stats)» — команды чата здесь не нужны
 function tourGuide(g) { return GUIDES.find(x => x[0] === g) || [g, '📖', 'Обучение', '']; }
-function tourToSquad() { if (PANEL || MS) closeSheet(); if (TAB !== 'squad') showTab('squad'); }
+function tourToSquad() { tourNoSwap(); if (PANEL || MS) closeSheet(); if (TAB !== 'squad') showTab('squad'); }
+function tourNoSwap() { if (swapFrom !== null) { swapFrom = null; render(); } }   // шаги обучения не должны закончить начатый обмен
 function tourHome() { if (PANEL || MS || open !== null) closeSheet(); if (TAB !== 'home') showTab('home'); }
 function tourNewOwn() { if (!(PANEL && PANEL.k === 'newclub' && PANEL.step === 'own')) { openPanel('newclub'); PANEL.step = 'own'; renderPanel(); } }
 function tourOfficial() { if (!(PANEL && PANEL.k === 'official')) openPanel('official'); }
 function tourSheet() {             // открыть карточку игрока на поле (если ещё не открыта)
+  tourNoSwap();
   if (open !== null) { if (talentList) { talentList = false; renderSheet(); } return; }   // из выбора таланта — к карточке
   if (PANEL || MS) closeSheet();
   if (TAB !== 'squad') showTab('squad');
@@ -1221,7 +1251,9 @@ function tourSquadSteps() {
       x: 'Справа сверху — <b>✅ Готов к матчу</b> или <b>⚠️ Не готов</b>; ниже — что мешает. Неготовый к началу матча клуб получает техническое поражение.'},
     {t: 'Схема', go: tourToSquad, at: '#forms',
       x: 'Как стоят 6 полевых — защита, центр, атака: <b>2-2-2</b> — сбалансированно, <b>3-2-1</b> — оборона, <b>2-3-1</b> — контроль мяча, <b>3-1-2</b> — атака. Нажмите — схема сменится сразу.'},
-    {t: 'Игрок', go: tourToSquad, at: '#pitch', x: 'Нажмите на любого игрока — откроется его карточка.', ok: () => open !== null},
+    {t: 'Игрок', go: tourToSquad, at: '#pitch', x: () => `Нажмите на любого игрока — откроется его карточка. Число у кружка — <b>сила на позиции</b> (1–99: характеристики с весами линии, где он стоит). Цветная цифра под именем — <b>оценка</b>: средняя за последние ${S.form_games || 5} матчей (зелёная — хорошо, красная — плохо, «—» — ещё не играл).`, ok: () => open !== null},
+    {t: 'Поменять местами', go: tourSheet, at: '#sheetin [data-swap]',
+      x: '<b>🔁 Поменять местами</b> — первая кнопка карточки. Нажав её, а потом второго игрока, вы поменяете их местами: так меняют вратаря, запасных и места на поле. Сейчас нажимать не нужно.'},
     {t: 'Очки', go: tourSheet, at: () => { const p = tourPl(); if (!p) return null; return p.grown || p.preset ? TQ('#sheetin .banner') : [...TQA('#sheetin .st'), TQ('#sheetin .presets'), TQ('#sheetin #left')]; },
       x: () => { const p = tourPl(); return p && (p.grown || p.preset) ? 'У этого игрока очки заново не раздать: сила задана по реальному уровню или игрок уже развивался. Растёт он тренировками и очками роста.' :
         'У игрока <b>100 очков</b> на 6 характеристик, каждая от 5 до 40: ⚡ Скорость, 🚀 Удар, 🔗 Пас, 🛡 Защита, 🫁 Выносливость (как быстро устаёт), 🧤 Вратарство (только вратарю). −5 −1 +1 +5 или раскладка по позиции, затем «💾 Сохранить очки».'; }},
@@ -1229,7 +1261,7 @@ function tourSquadSteps() {
       x: () => tourPl() && tourPl().place === 'field' ? 'Роль — из ролей его линии (защита, центр, атака): у каждой плюс и цена, написано под кнопкой. «Без роли» — играет по своим очкам.' :
         'Роль на поле есть у полевых игроков основы; у вратаря и запасных её нет.'},
     {t: 'Место, капитан, пенальти, талант', go: tourSheet, at: () => [TQ('#sheetin .place2'), TQ('#sheetin .acts')],
-      x: '<b>🔁 Поменять местами</b> — затем нажмите второго игрока: так меняют вратаря, запасных и места на поле. <b>👑</b> капитан и <b>🎯</b> пенальтист — по желанию. <b>⭐ Талант</b> — один на всю команду.'},
+      x: 'Место в составе (в ворота, на скамейку) — если не хватает вратаря или запасных. <b>👑</b> капитан и <b>🎯</b> пенальтист — по желанию. <b>⭐ Талант</b> — один на всю команду. Поменять игроков местами — зелёная кнопка сверху карточки.'},
     {t: 'Скамейка', go: () => { if (open !== null) closeSheet(); tourToSquad(); }, at: '#bench', x: 'Трое запасных. В матче они выходят по замене; травмированный может быть только запасным.'},
     {t: 'Сыгранность', go: tourToSquad, skip: () => S.chem == null, at: '#chem', x: 'Растёт, когда основа выходит тем же составом. Выше 50 — команда лучше борется за мяч. Нажмите на полосу — правило целиком.'},
     {t: 'Готово', go: tourToSquad, at: '#status', last: true, x: 'Теперь вы знаете состав. Подсказки по составу — кнопка «?» сверху этой вкладки.'}];
@@ -1869,8 +1901,9 @@ function demoState() {
     formations: [['2-2-2', 'сбалансированно'], ['3-2-1', 'оборона: трое сзади, один впереди'], ['2-3-1', 'контроль: трое в центре поля — больше мяча'], ['3-1-2', 'атака: двое впереди, но центр поля пустее']],
     players: names.map((n, i) => ({slot: i + 1, number: [1, 4, 5, 8, 6, 9, 10, 12, 14, 16][i], name: n, age: 20 + i, grown: 0,
       stats: st[i] && Object.fromEntries(keys.map((k, j) => [k, st[i][j]])), place: i === 0 ? 'gk' : i >= 7 ? 'bench' : 'field',
-      pos: '', fresh: 100 - i * 3, mood: 'спокойный', injury: i === 8 ? 2 : 0})),
-    captain: 4, penalty: 6, talent: 'striker', talent_slot: 6,
+      pos: '', fresh: 100 - i * 3, mood: 'спокойный', injury: i === 8 ? 2 : 0,
+      rating: [6.8, 7.1, 5.6, 7.4, 6.2, 8.3, 7.0, 6.5, null, null][i], rated: [5, 5, 4, 5, 5, 5, 3, 2, 0, 0][i]})),
+    captain: 4, penalty: 6, talent: 'striker', talent_slot: 6, form_games: 5,
     talents: [['striker', 'Бомбардир', 'удары этого игрока на 15% точнее'], ['wall', 'Стена', 'в воротах: +15% к сейвам, +25% на пенальти'],
       ['maestro', 'Дирижёр', 'атаки с его участием на 10% чаще доходят до удара'], ['engine', 'Мотор', 'устаёт вдвое медленнее'],
       ['cool', 'Хладнокровный', 'вдвое реже получает карточки, не поддаётся на провокации']],
@@ -2096,6 +2129,15 @@ function demoField() {       // полевые сзади вперёд: ручн
   if (S.order && S.order.length === f.length && f.every(p => S.order.includes(p.slot))) return S.order.map(player);
   return f.sort((a, b) => ((b.stats || {}).defense || 0) - ((b.stats || {}).shot || 0) - (((a.stats || {}).defense || 0) - ((a.stats || {}).shot || 0)));
 }
+const DEMO_PW = {gk: {keeping: .75, speed: .1, defense: .1, pass: .05}, def: {defense: .5, stamina: .2, speed: .15, pass: .15},
+  mid: {pass: .4, speed: .25, defense: .15, stamina: .15, shot: .05}, att: {shot: .45, speed: .35, pass: .1, stamina: .1}};
+function demoPower(st, line) {   // демо: та же формула, что у бота (player_stats.position_power)
+  if (!st) return null;
+  const w = DEMO_PW[line], ws = Object.values(w).concat(Array(6 - Object.keys(w).length).fill(0)).sort((a, b) => b - a);
+  let rest = 70, ceil = 0; ws.forEach(x => { const add = Math.min(35, rest); rest -= add; ceil += x * (5 + add); });
+  const v = Object.entries(w).reduce((a, [k, x]) => a + x * (st[k] || 0), 0);
+  return Math.max(1, Math.min(99, Math.round(99 * 0.9 * Math.pow(v / ceil, 0.8))));
+}
 function demoRefresh() {     // линии и готовность — как считает бот
   const f = demoField();
   const [d, , a] = S.formation.split('-').map(Number);
@@ -2104,6 +2146,10 @@ function demoRefresh() {     // линии и готовность — как с
   S.promise_warn = S.players.filter(p => p.promise === 1 && p.place === 'bench').map(p => `Обещали место в основе №${p.number} ${p.name} — он в запасе`);
   S.players.forEach(p => { const r = p.role && roleOf(p.role); p.role_off = !!r && (p.place !== 'field' || r[1] !== p.line); });
   S.players.forEach(p => { p.pos = p.place === 'gk' ? 'Вратарь' : p.stats ? (p.stats.shot >= p.stats.defense ? 'Нападающий' : 'Защитник') : ''; });
+  S.players.forEach(p => {          // сила на позиции — как player_stats.position_power у бота
+    const line = p.place === 'gk' ? 'gk' : p.place === 'field' ? p.line : ['gk', 'def', 'mid', 'att'].reduce((b, l) => demoPower(p.stats, l) > demoPower(p.stats, b) ? l : b, 'def');
+    p.power = demoPower(p.stats, line); p.power_at = {gk: 'вратарь', def: 'защита', mid: 'центр', att: 'атака'}[line];
+  });
   const pr = [], none = S.players.filter(p => !p.stats).length;
   if (S.players.length) {           // как lineup_problems у бота
     if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
