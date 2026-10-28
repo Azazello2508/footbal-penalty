@@ -3320,7 +3320,8 @@ function penState() {                         // всё, что нужно сц�
   const left = Math.max(1, Math.round((penUntil - performance.now()) / 1000));
   toFrame({type: 'mute', on: muted});
   toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked,
-           kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot, weather: pen.weather});   // штрафной: стенка, место мяча; погода — дождь/снег в 3D
+           kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot, weather: pen.weather,
+           lie: pen.lie, minute: pen.minute, so: pen.so});   // штрафной: стенка, место мяча; погода — дождь/снег в 3D; минута и табло серии — для карточки итога
   penSent = pen.wid;
 }
 let penUntil = 0;
@@ -3329,7 +3330,7 @@ function onPen(m) {
   if (m.result && !m.open) {
     if (m.late || !penFrame) return;          // старый исход (сцену открыли позже) — не показываем
     pen = m; toFrame({type: 'result', ...m.result});
-    penClose = setTimeout(penHide, 11000);    // страница пенальти сама скажет «готово» (штрафной — до ~8,1 с); это — на всякий случай, с запасом на медленный телефон
+    penClose = setTimeout(penHide, 16000);    // страница пенальти сама скажет «готово» (с повтором — до ~12 с); это — на всякий случай, с запасом на медленный телефон
     return;
   }
   pen = m;
@@ -3752,7 +3753,7 @@ function demoPen(t, fk) {                       // fk — штрафной у с
   onPen({type: 'pen', open: true, wid: ++demoWid, kind: fk ? 'fk' : 'penalty', role: t === 0 ? 'kick' : 'keep', left: 15, picked: null,
          kicker: {num: kp.n, name: kp.nm, stat: 'Удар 30', shirt: tm.shirt, shorts: tm.shorts},
          keeper: {num: o.gk.n, name: o.gk.nm, stat: 'Вратарство 28', shirt: fk ? o.shirt : gkColor(1 - t)},
-         wall: [...o.def, ...(o.mid || [])].slice(0, 4).map(p => p.n), shorts2: o.shorts, spot: Math.round((Math.random() * 1.2 - .6) * 100) / 100});
+         wall: [...o.def, ...(o.mid || [])].slice(0, 4).map(p => p.n), shorts2: o.shorts, spot: Math.round((Math.random() * 1.2 - .6) * 100) / 100, minute: S.minute});
   demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 15000);
 }
 function demoAct(a) {
