@@ -1263,7 +1263,7 @@ function tourMatchSteps() {
       x: '<b>Каждый пенальти</b> в матче бьёте вы: картинка ворот, 15 секунд, выбор вслепую — бьющий выбирает угол, вратарь — сторону. <b>Опасный штрафной</b> у самой штрафной — тоже вы: удар через стенку или под неё; защита решает, прыгнет ли стенка и куда сместится вратарь.',
       ex: 'Не успели за 15 секунд — сторона выбирается случайно. Таланты «Бомбардир», «Хладнокровный» и «Стена» помогают.'},
     {t: 'Попробуйте без риска', icon: '🎓', dots: true, last: true,
-      x: () => H().home ? 'Учебный матч против бота — около 3 минут, ни на что не влияет: ни на таблицу, ни на болельщиков, ни на усталость. Кнопка придёт в чат с ботом.' :
+      x: () => H().home ? 'Учебный матч против бота — около 4 минут, прямо на экране матча, с пояснениями. Ни на что не влияет: ни на таблицу, ни на болельщиков, ни на усталость.' :
         'Учебный матч против бота появится, когда у вас будет клуб: «🧭 Создание клуба и игроков».',
       html: () => H().home ? '<div class="tbtns"><button type="button" class="main" data-tutorial>▶️ Учебный матч против бота</button></div>' : ''}];
 }
@@ -1509,8 +1509,9 @@ function renderLearn() {
       (mid ? `<button type="button" class="lrnre" data-gfresh="${k}">↺ начать сначала</button>` : '');
   }).join('');
   x += `<button type="button" class="lrn" data-panel="help"><span class="ic">📚</span><span class="tt"><b>Вся помощь</b><span>правила игры по разделам и частые вопросы</span></span><span class="stt">›</span></button>`;
-  if (H().home) x += `<div class="label">Попробовать</div><button type="button" class="lrn" data-tutorial><span class="ic">🎓</span><span class="tt"><b>Учебный матч против бота</b>` +
-    `<span>около 3 минут, ни на что не влияет — кнопка придёт в чат с ботом</span></span><span class="stt">›</span></button>`;
+  const live = (H().learn || {}).live;      // учебный матч уже идёт — кнопка ведёт в него (бот отдаст ту же ссылку)
+  if (H().home) x += `<div class="label">Попробовать</div><button type="button" class="lrn${live ? ' main' : ''}" data-tutorial><span class="ic">${live ? '📺' : '🎓'}</span><span class="tt"><b>${live ? 'Вернуться в учебный матч' : 'Учебный матч против бота'}</b>` +
+    `<span>${live ? 'матч идёт — откроется экран матча' : 'около 4 минут на экране матча, ни на что не влияет; с пояснениями'}</span></span><span class="stt">›</span></button>`;
   $('t-learn').innerHTML = x;
 }
 
@@ -1769,6 +1770,7 @@ function onAck(m) {
   const act = waiting[m.id]; delete waiting[m.id];
   if (m.note && !(m.ok && act && act.a === 'daily')) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
+  if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
   if (m.ok && act && act.a === 'propose' && MS) closeSheet();
@@ -2146,7 +2148,7 @@ function demoAct(act) {
     L.guides[act.g] = {path: act.path || '', step: act.step, done: !!(g.done || act.done)}; L.auto = null;
     r = {ok: true, note: '', learn: L};
   }
-  else if (act.a === 'tutorial') r = {ok: false, note: 'Демо: в Telegram бот пришлёт в чат кнопку «▶️ Учебный матч»'};
+  else if (act.a === 'tutorial') r = {ok: true, note: 'Демо: учебный матч — демо экрана матча с пояснениями', watch: '../match/?learn=1'};
   else if (act.a === 'place') {    // вратарь или запасной, когда места ещё нет — как у бота
     const n = S.players.filter(x => x.place === 'bench').length;
     if (act.where === 'gk') { S.players.forEach(x => { if (x.place === 'gk') x.place = 'field'; }); p.place = 'gk'; S.order = null; r.note = `🧤 №${p.number} — вратарь`; }
