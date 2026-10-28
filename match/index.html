@@ -326,8 +326,10 @@ function renderBoard() {
   S.teams.forEach((tm, t) => { $('n' + t).textContent = tm.name; $('k' + t).style.background = tm.shirt; });
   $('score').textContent = sh.teams[0].score + ':' + sh.teams[1].score;
   const mnt = sh.minute !== undefined ? sh.minute : S.minute, half = S.half;   // минута того, что сейчас на поле
-  $('clock').textContent = S.phase === 'final' ? 'Финал' : (S.phase === 'pre' || mnt === 0) ? "0'" : mnt + "'";
-  $('period').textContent = S.phase === 'final' ? '🏁 матч окончен' : S.phase === 'pre' ? 'до стартового свистка'
+  const so = S.so, pens = so ? ` (${so.g[0]}:${so.g[1]} пен.)` : '';     // кубок: серия пенальти после ничьей
+  $('clock').textContent = S.phase === 'final' ? 'Финал' : so && !so.done ? 'Пен.' : (S.phase === 'pre' || mnt === 0) ? "0'" : mnt + "'";
+  $('period').textContent = S.phase === 'final' ? '🏁 матч окончен' + pens : so && !so.done ? '🥅 серия пенальти' + pens
+    : S.phase === 'pre' ? 'до стартового свистка'
     : S.phase === 'half' ? '☕ перерыв' : mnt <= half ? '1-й тайм' : '2-й тайм';
   $('fill').style.width = (100 * Math.min(mnt, S.full) / S.full) + '%';
   const a = sh.teams[0], b = sh.teams[1];
@@ -346,6 +348,8 @@ function renderStatus() {
   else if (S.phase === 'pre') txt = '🧭 Менеджеры дают установку' + sec;
   else if (S.phase === 'window') txt = (S.who && S.who.length === 1 ? `⏸ Решает менеджер ${names[S.who[0]]}` : '⏸ Окно решений — часы стоят') + sec;
   else if (S.phase === 'half') txt = '☕ Перерыв: замены и тактика' + sec;
+  else if (S.phase === 'pen' && S.so) txt = `🥅 Серия пенальти ${S.so.g[0]}:${S.so.g[1]} · бьёт ${names[S.pen || 0]}` + sec;
+  else if (S.phase === 'so') txt = S.so ? `🥅 Серия пенальти ${S.so.g[0]}:${S.so.g[1]}` : '🥅 Серия пенальти';
   else if (S.phase === 'pen') txt = (S.fk ? `🎯 Штрафной у ворот ${names[1 - (S.pen || 0)]}` : `🥅 Пенальти в ворота ${names[1 - (S.pen || 0)]}`) + sec;
   else if (S.phase === 'final') txt = '🏁 Финальный свисток';
   else {
@@ -1492,6 +1496,7 @@ function target0(p, now) {
     if (crowd.kind === 'mass' || crowd.kind === 'ring') return {...near2(crowd.to, p, crowd.kind === 'mass' ? 28 : 44), sp: 'run'};
   }
   if (S && S.phase === 'half') return {x: TUNNEL.x, y: TUNNEL.y + (p.t ? 6 : -6), sp: 'jog'};   // перерыв — в подтрибунное
+  if (S && S.so && !S.so.done && (S.phase === 'so' || S.phase === 'pen')) return soSpot(p);    // серия пенальти
   const b = p.b || {depth: .3, xf: .5};
   const playing = S && S.phase === 'play' && !stopped;
   const jit = (a, s) => Math.sin(now / s + p.s * 1.7 + p.t * 3) * a;
@@ -1565,6 +1570,13 @@ function target0(p, now) {
   if (S.teams[p.t].rush) depth += .06;
   const pt = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94));
   return {x: pt.x + jit(2, 2600), y: pt.y + jit(2, 2300), sp: attacking ? 'run' : 'jog'};
+}
+function soSpot(p) {               // серия пенальти: все бьют в верхние ворота; бьющий у точки, вратарь соперника на линии, остальные — в центральном круге
+  const so = S.so, top = goalOf(0);
+  if (so.kt !== undefined && p.t === so.kt && p.s === so.ks) return {x: top.x, y: top.y + .11 * (H - 2 * M), sp: 'walk'};
+  if (so.kt !== undefined && p.gk && p.t === 1 - so.kt) return {x: top.x, y: top.y + 5, sp: 'jog'};
+  const c = near2(CENTER, p, 30 + (p.s % 3) * 12);
+  return {x: c.x + (p.t ? 14 : -14), y: c.y, sp: 'walk'};
 }
 function kickoffSpot(p) { const b = p.b || {depth: .3, xf: .5}; return at(p.t, Math.min(b.depth, .45), b.xf); }
 function cornerSpot(p) {                   // угловой: каждому своё место. Атака — ближняя штанга, точка, дальняя штанга,
