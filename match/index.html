@@ -3320,7 +3320,7 @@ function penState() {                         // всё, что нужно сц�
   const left = Math.max(1, Math.round((penUntil - performance.now()) / 1000));
   toFrame({type: 'mute', on: muted});
   toFrame({type: 'state', role: pen.role, kicker: pen.kicker, keeper: pen.keeper, left, picked: pen.picked,
-           kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot});      // штрафной: стенка, место мяча
+           kind: pen.kind, wall: pen.wall, shorts2: pen.shorts2, spot: pen.spot, weather: pen.weather});   // штрафной: стенка, место мяча; погода — дождь/снег в 3D
   penSent = pen.wid;
 }
 let penUntil = 0;
@@ -3329,7 +3329,7 @@ function onPen(m) {
   if (m.result && !m.open) {
     if (m.late || !penFrame) return;          // старый исход (сцену открыли позже) — не показываем
     pen = m; toFrame({type: 'result', ...m.result});
-    penClose = setTimeout(penHide, 9000);     // страница пенальти сама скажет «готово»; это — на всякий случай
+    penClose = setTimeout(penHide, 11000);    // страница пенальти сама скажет «готово» (штрафной — до ~8,1 с); это — на всякий случай, с запасом на медленный телефон
     return;
   }
   pen = m;
