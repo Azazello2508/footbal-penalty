@@ -200,7 +200,7 @@ function fkSetup(info) {
     FK_INFO.lieB = info.lie_b && typeof info.lie_b === 'object' ? info.lie_b : null;
     if (typeof info.shorts2 === 'string') FK_INFO.shorts = info.shorts2;
     if (typeof info.spot === 'number') FK_INFO.spot = clamp(info.spot, -1, 1);
-    if (typeof info.lie === 'number') FK_INFO.lie = info.lie;
+    FK_INFO.lie = typeof info.lie === 'number' ? info.lie : 0;   // 0 — у защиты не больше четырёх полевых: за стенкой никто не ложится
   }
   if (scene) layout();
 }
@@ -1465,9 +1465,29 @@ function wallArms(m, set, w) {
     armIK(m, s, T, P, V(...a.N).normalize().transformDirection(Mr), w);
   }
 }
-function handsPose(m) {                                       // в конце retarget: руки стенки и пальцы
-  const relax = m.curl ?? .4, set = m.armSet !== undefined ? WALL_ARMS[m.armSet] : null, w = set ? clamp(m.armsW || 0, 0, 1) : 0;
-  if (w > 0) wallArms(m, set, w);
+/* руки лежащего за стенкой (лёг на правый бок, левый — сверху): правая подложена под голову — плечо вдоль газона за головой,
+   кисть перед лбом ладонью в траву; левая лежит на бедре или закрывает голову сбоку. Точки — в осях модели от своего плеча
+   (плечо шире — точка дальше, рука длиннее — дальше по руке); запястье не ниже газона, локоть уводится вверх */
+const LIE_ARMS = [
+  {l: {at: [-.01, -.52, .14], pole: [.25, .2, -.3], N: [-1, .2, 0], c: .45},
+   r: {at: [.05, .37, .21], pole: [-.12, .3, -.25], N: [-1, -.1, -.2], c: .4}},
+  {l: {at: [-.11, .19, .2], pole: [.2, -.3, .35], N: [-1, 0, -.4], c: .3},
+   r: {at: [.05, .37, .21], pole: [-.12, .3, -.25], N: [-1, -.1, -.2], c: .4}}];
+function lieArms(m, set, w) {
+  const h = m.human, hr = handRig(), B = HUMAN.bindPos, b = m.build || {w: 1, a: 1}, C = 1 + (b.w - 1) * 1.6;
+  h.sc.updateMatrixWorld(true);
+  const Mr = h.bones.spine_03.matrixWorld.clone().multiply(hr.inv.spine_03), lo = .07;
+  for (const s of ['l', 'r']) {
+    const a = set[s], S = B['upperarm_' + s].clone(); S.x *= C;
+    const tb = S.clone().addScaledVector(V(...a.at), b.a || 1), T = tb.clone().applyMatrix4(Mr), P = tb.clone().add(V(...a.pole)).applyMatrix4(Mr);
+    T.y = Math.max(T.y, lo); P.y = Math.max(P.y, lo + .1);
+    armIK(m, s, T, P, V(...a.N).normalize().transformDirection(Mr), w);
+  }
+}
+function handsPose(m) {                                       // в конце retarget: руки стенки (лежащего) и пальцы
+  const relax = m.curl ?? .4, lie = m.lieSet !== undefined, set = m.armSet !== undefined ? WALL_ARMS[m.armSet] : lie ? LIE_ARMS[m.lieSet] : null;
+  const w = set ? clamp(m.armsW || 0, 0, 1) : 0;
+  if (w > 0) (lie ? lieArms : wallArms)(m, set, w);
   curlFingers(m, lerp(relax, set ? set.l.c : relax, w), lerp(relax, set ? set.r.c : relax, w));
 }
 let kicker = null, keeper = null, wall = [], castSig = '', ref = null, lier = null;      // ref — судья, lier — лежащий за стенкой (штрафной)
@@ -1526,10 +1546,11 @@ function buildCast() {
     const rs = ['#111827', '#facc15', '#ec4899'].find(c => used.every(u => hexRgb(c).reduce((s, v, i) => s + (v - u[i]) ** 2, 0) > 9000)) || '#111827';
     ref = applyBuild(makeMan({shirt: rs, shorts: '#111111', sock: '#111111', skin: SKINS[2], hair: HAIRS[2], style: 0, num: ''}),
                      {h: 178, w: .97, q: .97, g: 1.03, l: 1, a: 1});
-    const lk = WALL_LOOKS[(FK_INFO.lie || 0) % WALL_LOOKS.length];
-    lier = makeMan({shirt: P.keeper.shirt, shorts: FK_INFO.shorts, sock: shade(P.keeper.shirt, -.3), skin: SKINS[lk.skin], dark: lk.dark, tint: lk.tint,
+    const lk = WALL_LOOKS[FK_INFO.lie % WALL_LOOKS.length];
+    if (FK_INFO.lie) { lier = makeMan({shirt: P.keeper.shirt, shorts: FK_INFO.shorts, sock: shade(P.keeper.shirt, -.3), skin: SKINS[lk.skin], dark: lk.dark, tint: lk.tint,
                     hair: lk.hair, hairSet: lk.set, style: lk.style, num: FK_INFO.lie || 2});
-    applyBuild(lier, buildOf(FK_INFO.lieB, FK_INFO.lie || 2)); lier.root.visible = false;
+    applyBuild(lier, buildOf(FK_INFO.lieB, FK_INFO.lie || 2)); lier.root.visible = false; lier.lieSet = (FK_INFO.lie || 2) % LIE_ARMS.length;
+    lieLift(lier); }
   }
   for (const m of [kicker, keeper, ...wall, ref, lier]) if (m) scene.add(m.root);
   drawFanArt(); if (!MAPPED || HUMAN) buildFanAtlas();          // фан-сектор — в цвета команды бьющего
@@ -1763,7 +1784,7 @@ function makeFkPlan(a) {
     const W = man.clone().lerp(cross.setY(0), .4).addScaledVector(L.toG, -.18);
     W.y = over ? 1.72 + jump * .55 : .28;
     let ew = path.ew;
-    if (!over && !jump) {                                     // стенка стоит, удар низом: мяч проскакивает между ног и попадает в лежащего за стенкой
+    if (!over && !jump && lier) {                             // стенка стоит, удар низом: мяч проскакивает между ног и попадает в лежащего за стенкой
       const u = clamp(cross.clone().sub(L.lie).dot(L.perp), -.7, .7);
       W.copy(L.lie).addScaledVector(L.perp, u).addScaledVector(L.toG, -.15); W.y = .2; pl.lieHit = true;
       ew = clamp(ew * (WALL_D + .7) / WALL_D, .2, .9);
@@ -2102,18 +2123,69 @@ function sprayLine() {                                         // черта п�
   u.line.visible = k > .01; u.line.scale.x = Math.max(.01, k); u.line.position.copy(st).addScaledVector(L.perp, 1.6 * L.refSide * k);
 }
 /* за стоящей стенкой ложится защитник (против удара низом): появляется перед ударом, когда защита уже выбрана; попал мяч — привстаёт и радуется */
-function liePose(at, a) {
-  const pl = a.plan, o = L.lie, y = L.wallYaw;
-  const stand = pose({x: o.x, z: o.z, yaw: y, lean: .15, hLx: -.4, kL: .7, hRx: -.4, kR: .7});
-  const down = pose({x: o.x, z: o.z, yaw: y, ground: 0, y: .17 + ((lier.build || {}).w - 1 || 0) * .33, roll: Math.PI / 2 - .1, lean: .05, nod: -.3,   // лежит на боку: шире плечи — чуть выше
-                     sLx: -.15, sLz: 2.7, eL: -1.7, sRx: -.4, sRz: -.25, eR: -.3, hLx: -.1, kL: .3, hRx: -.3, kR: .6});
-  let p = mixPose(stand, down, smooth(at, pl.K - .7, pl.K - .25));
-  if (pl.lieHit && at > pl.R) {
-    const q = at - pl.R, b = Math.abs(Math.sin(q * 6));
-    const up = pose({x: o.x, z: o.z, yaw: y + .3, ground: 0, y: .55, lean: .15, nod: -.2, hLx: -.15, kL: 1.65, hRx: -1.45, kR: 1.5,
-                     sRx: -2.6 - .25 * b, sRz: -.3, eR: -.4 - .8 * b, sLx: -.3, sLz: .4, eL: -.8});
-    p = mixPose(p, up, smooth(q, .55, 1.05));
+function lieDown(m, o, yaw) {                                 // лежит на правом боку; верхняя нога согнута и выдвинута вперёд, нижняя почти прямая
+  const cover = m.lieSet === 1;
+  return pose({x: o.x, z: o.z, yaw, ground: 0, y: .17 + (m.lieLift || 0), roll: Math.PI / 2 - .06, sb: m.lieSb || 0, lean: .12, nod: .12, arms: 1,
+               sLx: cover ? -1.6 : -.1, sLz: cover ? .9 : .15, eL: cover ? -2.1 : -.4, sRx: -.3, sRz: -2.7, eR: -1.6,
+               hLx: -.55, hLz: -.12, kL: .85, hRx: -.15, hRz: .1, kR: .35});
+}
+/* один раз на фигуру (при сборке): как лечь именно этому телу. Плечо и бок таза должны лежать на газоне: широкие плечи
+   приподнимают грудь — корпус чуть изгибается в талии (sb), пока и плечо, и таз касаются травы; потом всё тело — на газон, ничто не ниже него */
+function lieLowest(m) {                                       // [ниже всего у плеч, рук и головы; у таза и ног] — по вершинам кожи
+  applyPose(m, lieDown(m, V(0, 0, 0), 0));
+  m.root.updateMatrixWorld(true);
+  const lo = [9, 9], v = V(0, 0, 0);
+  m.human.sc.traverse(o => { if (!o.isSkinnedMesh) return; o.skeleton.update();
+    const si = o.geometry.attributes.skinIndex, legs = o.skeleton.bones.map(b => /pelvis|thigh|calf|foot|ball|spine_01/.test(b.name));
+    for (let i = 0, n = o.geometry.attributes.position.count; i < n; i++) {
+      o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld);
+      const k = legs[si.getX(i)] ? 1 : 0; if (v.y < lo[k]) lo[k] = v.y;
+    } });
+  return lo;
+}
+function lieLift(m) {
+  if (!m.human) return;
+  m.lieLift = 0; m.lieSb = 0;
+  const f0 = (([u, l]) => u - l)(lieLowest(m)); m.lieSb = .1;
+  const f1 = (([u, l]) => u - l)(lieLowest(m));
+  m.lieSb = Math.abs(f1 - f0) > 1e-4 ? clamp(-f0 * .1 / (f1 - f0), -.35, .35) : 0;
+  for (let i = 0; i < 2; i++) m.lieLift += .015 - Math.min(...lieLowest(m));
+}
+const _lgV = V(0, 0, 0);
+function lieGuard(m) {                                        // ложится и встаёт: ни ступня, ни колено, ни кисть не уходят под газон (лёжа хватает lieLift)
+  if (!m.human || m.lieRest) return;
+  if (!m.lieG) {                                              // вершины для проверки — один раз: у ступней, голеней, кистей и головы гуще
+    m.lieG = [];
+    m.human.sc.traverse(o => { if (!o.isSkinnedMesh) return;
+      const si = o.geometry.attributes.skinIndex, idx = [];
+      for (let i = 0, n = o.geometry.attributes.position.count; i < n; i++)
+        if (i % (/foot|ball|calf|hand|arm|clavicle|Head|_0[1-4]_/.test(o.skeleton.bones[si.getX(i)].name) ? 3 : 12) === 0) idx.push(i);
+      m.lieG.push([o, idx]); });
   }
+  m.root.updateMatrixWorld(true);
+  let lo = 9; const st = tier === 2 ? 1 : 2;                 // ~2500 точек (≈0,5 мс на ПК); слабый телефон — каждая вторая
+  for (const [o, idx] of m.lieG) { o.skeleton.update(); for (let j = 0; j < idx.length; j += st) { o.getVertexPosition(idx[j], _lgV); _lgV.applyMatrix4(o.matrixWorld); if (_lgV.y < lo) lo = _lgV.y; } }
+  if (lo < .01) m.root.position.y += .01 - lo;
+}
+function liePose(at, a) {                                    // как в жизни: на боку вдоль стенки, спиной к ней (к мячу), лицом к своим воротам
+  const pl = a.plan, o = L.lie, y = L.wallYaw + Math.PI, P = q => pose(Object.assign({x: o.x, z: o.z}, q));
+  if (lier.lieLift === undefined) lieLift(lier);
+  const stand = P({yaw: y - .6, lean: .3, nod: .1, hLx: -.6, kL: 1.0, hRx: -.4, kR: .8, sLx: -.4, sRx: -.4, sLz: .4, sRz: -.4});
+  const kneel = P({yaw: y - .2, lean: .3, nod: .15, roll: .3, hRx: -.15, kR: 1.6, hLx: -1.3, kL: 1.4,   // опустился на правое колено, правой рукой тянется к газону
+                   sLx: -.5, sLz: .3, eL: -.7, sRx: -.2, sRz: -.7, eR: -.15});
+  const down = lieDown(lier, o, y), tuck = Object.assign({}, down, {lean: .35, hLx: -1.3, kL: 1.9, hRx: -1.1, kR: 1.9});   // на боку, колени подобраны
+  let p = keyPose([[pl.K - .75, stand], [pl.K - .58, kneel], [pl.K - .42, tuck], [pl.K - .25, down]], at), arms = smooth(at, pl.K - .5, pl.K - .25);
+  lier.lieRest = at >= pl.K - .25;
+  if (pl.lieHit && at > pl.R + .35) {                        // попал мяч: подбирает колени, встаёт на колено и радуется; руки отпускают голову
+    const q = at - pl.R, b = Math.abs(Math.sin(q * 6));
+    const sit = P({yaw: y - .8, y: .2, ground: 0, roll: .4, lean: .45, nod: .1, hLx: -1.9, kL: 1.3, hRx: -1.7, kR: 1.4,   // сел, опираясь на правую руку
+                   sRx: .4, sRz: -.5, eR: -.1, sLx: -.6, sLz: .3, eL: -.8});
+    const up = P({yaw: y - 1.2, lean: .15, nod: -.2, hLx: -.15, kL: 1.65, hRx: -1.45, kR: 1.5,
+                  sRx: -2.6 - .25 * b, sRz: -.3, eR: -.4 - .8 * b, sLx: -.3, sLz: .4, eL: -.8});
+    p = keyPose([[pl.R + .35, down], [pl.R + .55, tuck], [pl.R + .78, sit], [pl.R + 1.08, up]], at);
+    arms = 1 - smooth(q, .35, .75); lier.lieRest = false;
+  }
+  p.arms = arms;
   return p;
 }
 function ballAt(at, a) {                                     // {p, fly, deep} — где мяч, в полёте ли
@@ -2623,7 +2695,7 @@ function frame(now) {
   if (dbgMove) applyMove(dbgMove.actor === 'kicker' ? kicker : keeper, dbgMove);
   wall.forEach((m, i) => applyPose(m, wallPose(i, at, a, t)));
   if (ref) { ref.root.visible = tier === 2; if (tier === 2) applyPose(ref, refPose(t)); sprayLine(); }   // слабый телефон — без судьи
-  if (lier) { const on = !!(a && !a.fkWall && at > pl.K - .75); lier.root.visible = on; if (on) applyPose(lier, liePose(at, a)); }
+  if (lier) { const on = !!(a && !a.fkWall && at > pl.K - .75); lier.root.visible = on; if (on) { applyPose(lier, liePose(at, a)); lieGuard(lier); } }
   // мяч и сетка
   const b = ballAt(at, a);
   let nb = netBulge(at, a);
@@ -2649,7 +2721,7 @@ function frame(now) {
   gaze(kicker, pre ? headPos(keeper) : bp, !a ? .5 : .6 * (1 - smooth(at, pl.R + .3, pl.R + .8)));
   wall.forEach(m => gaze(m, bp, !a || at < pl.K - .15 ? .45 : at > pl.R + .25 ? .45 * (1 - smooth(at, pl.R + .6, pl.R + 1.1)) : 0, .8));
   if (ref && ref.root.visible) gaze(ref, bp, introAge() > 5 ? .7 : 0);
-  if (lier && lier.root.visible) gaze(lier, bp, .5);
+  if (lier && lier.root.visible) gaze(lier, bp, .5 * (1 - (lier.armsW || 0)));   // лёжа голову прячет, а не следит за мячом
   [kicker, keeper, ...wall, ref, lier].forEach((m, i) => blink(m, t, i));
   // каркас дрожит после удара в штангу (сильнее — и вся рама)
   for (const k in posts) posts[k].position.x = posts[k].userData.x0 ?? (posts[k].userData.x0 = posts[k].position.x);
