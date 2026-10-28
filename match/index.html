@@ -3437,6 +3437,7 @@ function connect() {
     else if (m.type === 'tick') { onTick(m); note(''); }
     else if (m.type === 'bot_left') note('Бот переподключается — матч продолжится, подождите…');
     else if (m.type === 'hint') showTip(m.text);
+    else if (m.type === 'learn') onLearn(m);
   };
   ws.onclose = e => {
     if (e.code === 4003) { ended = true; note('Этот матч смотрят только его менеджеры.'); return; }
@@ -3589,13 +3590,25 @@ if (TG) { try { TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableV
   try { if (TG.BackButton && history.length > 1 && /\/squad\//.test(document.referrer)) {
     TG.BackButton.show(); TG.BackButton.onClick(() => history.back()); } } catch (e) {} }
 requestAnimationFrame(frame);
-function showTip(text) { if (typeof text !== 'string' || !text) return; $('tiptx').textContent = '💡 ' + text; $('tip').classList.add('on'); }
+let tipKey = null;            // пояснение учебного матча на экране (ключ — бот покажет следующее после «Понятно»)
+function showTip(text, key) { if (typeof text !== 'string' || !text) return; tipKey = key || null;
+  $('tiptx').textContent = (key ? '🎓 ' : '💡 ') + text; $('tip').classList.add('on'); }
+// учебный матч: пояснения «что это на экране» присылает бот по одному; пустое — убрать
+function onLearn(m) { if (m.key && m.text) showTip(m.text, m.key); else if (tipKey) { tipKey = null; $('tip').classList.remove('on'); } }
 $('tipok').addEventListener('click', () => {     // «Понятно» — бот запомнит, на другом устройстве подсказка не всплывёт
   $('tip').classList.remove('on');
-  if (ROOM && ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'act', act: {a: 'hint'}}));
+  const key = tipKey; tipKey = null;
+  if (!ROOM) { if (key) demoLearn(); return; }
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({type: 'act', act: key ? {a: 'learn', key} : {a: 'hint'}}));
 });
+// демо пояснений учебного матча (?learn=1): тексты — как присылает бот (app/tutorial_app.py)
+const DEMO_LEARN = ['Это учебный матч против бота — он ни на что не влияет. Сверху табло: счёт, минута и тайм.',
+  'Под полем — лента событий: удары, угловые, фолы, карточки и реплики комментатора 🎙.',
+  'Свежесть: 🟢 — свеж, 🟡 — устал, 🔴 — выдохся. Уставший играет хуже — попробуйте «🔄 Замена».'];
+function demoLearn() { const i = (demoLearn.i = (demoLearn.i || 0) + 1); if (i < DEMO_LEARN.length) setTimeout(() => showTip(DEMO_LEARN[i], 'demo' + i), 400); }
 if (ROOM) connect(); else { demo(); if (Q.get('mg')) setTimeout(() => demoMg(Q.get('mg')), 800);
-  if (Q.get('tip')) showTip('Это стадион: матч идёт вживую. Внизу — решения (тактика, замены, речь) и чат с соперником. Решить можно и кнопками в чате.'); }
+  if (Q.get('learn')) showTip(DEMO_LEARN[0], 'demo0');
+  else if (Q.get('tip')) showTip('Это стадион: матч идёт вживую. Внизу — решения (тактика, замены, речь) и чат с соперником. Решить можно и кнопками в чате.'); }
 </script>
 </body>
 </html>
