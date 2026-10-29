@@ -2581,7 +2581,7 @@ function drawDivots(now) {                      // следы подката: т
    пенальти — из-за спины бьющего, фол и карточка — крупно, «волна» и трибуны. Поле можно поворачивать (r — угол),
    надписи и номера остаются ровными. Только картинка: на матч не влияет.
    🎥 — режим: «Режиссёр» → «Всё поле» → «За мячом». Пока открыта панель решений — всё поле. */
-let cam = {x: W / 2, y: H / 2, z: 1, r: 0, vx: 0, vy: 0, vz: 0, vr: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
+let cam = {x: W / 2, y: H / 2, z: 1, r: 0, vx: 0, vy: 0, vz: 0, vr: 0, tl: 0, vtl: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
 try { const v = localStorage.getItem('fm_cam2'); camMode = ['auto', 'wide', 'follow'].includes(v) ? v : 'auto'; } catch (e) {}   // по умолчанию — «Режиссёр»
 let camOn = camMode === 'auto';
 const CAM_MODES = {auto: '🎥 Режиссёр: планы и ракурсы', wide: '🎥 Всё поле', follow: '🎥 За мячом'};
@@ -2621,6 +2621,8 @@ function camAim(now) {
     const r = baseRot(), c = lerpPt({x: replay.cur.bx, y: replay.cur.by}, goalOf(replay.t), .3);
     return {x: c.x, y: c.y, z: Math.max(1.85, zMin(r)), r};
   }
+  const dr = droneAim(now);                          // перерыв — дрон (и при открытой панели решений: в перерыве она открыта всё время)
+  if (dr) return dr;
   if (camMode === 'wide' || !S || document.body.classList.contains('deciding') || speed() > 1) { shotCam = null; return full; }
   if (S.phase === 'final') return {x: W / 2, y: H / 2, z: 1 + .1 * Math.max(0, Math.sin(now / 5000)), r: Math.sin(now / 8000) * .1};
   if (S.phase !== 'play' && S.phase !== 'pen') return full;           // до матча, перерыв, окна решений — всё поле
@@ -2653,10 +2655,12 @@ function camUpdate(now, dt) {
   const t = camAim(now);
   let dr = t.r - cam.r; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
   [cam.r, cam.vr] = spring(cam.r, cam.vr, cam.r + dr, 1.15, dt);            // поворот — медленнее всего
-  [cam.z, cam.vz] = spring(cam.z, cam.vz, Math.max(t.z, zMin(cam.r)), 1.5, dt);
+  [cam.z, cam.vz] = spring(cam.z, cam.vz, t.drone ? t.z : Math.max(t.z, zMin(cam.r)), 1.5, dt);
   [cam.x, cam.vx] = spring(cam.x, cam.vx, t.x, 2.1, dt);
   [cam.y, cam.vy] = spring(cam.y, cam.vy, t.y, 2.1, dt);
-  cam.z = Math.max(cam.z, 1);
+  cam.z = Math.max(cam.z, t.drone || cam.z < .999 ? DRONE_Z * .9 : 1);    // ниже 1 — только дрон (и пока он спускается обратно)
+  [cam.tl, cam.vtl] = spring(cam.tl, cam.vtl, t.tilt || 0, 1.3, dt);     // наклон дрона: 0 — сверху, 1 — сбоку
+  if (cam.tl < .002 && !t.tilt) cam.tl = cam.vtl = 0;
   const co = Math.cos(cam.r), si = Math.sin(cam.r);
   if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: камера мягко подтягивается
     const mx = TW / 2 / cam.z * .8, my = TH / 2 / cam.z * .8, by = ball.y - ball.h;
@@ -2670,10 +2674,16 @@ function camUpdate(now, dt) {
   }
   const ex = (Math.abs(co) * TW + Math.abs(si) * TH) / 2 / cam.z, ey = (Math.abs(si) * TW + Math.abs(co) * TH) / 2 / cam.z;
   const lx = -ST + ex - 30, hx = W + ST - ex + 30, ly = -ST + ey - 30, hy = H + ST - ey + 30;   // за крышу — не дальше 30
-  if (lx > hx) cam.x = W / 2; else if (cam.x < lx || cam.x > hx) { cam.x = clamp(cam.x, lx, hx); cam.vx = 0; }
-  if (ly > hy) cam.y = H / 2; else if (cam.y < ly || cam.y > hy) { cam.y = clamp(cam.y, ly, hy); cam.vy = 0; }
+  if (t.drone) cam.post = true;                                           // после дрона центр возвращается плавно, а не рывком
+  const back = v => !cam.post || Math.abs(v) < 2 ? 0 : v * Math.exp(-dt * 5);
+  if (cam.z >= 1) {                                                       // дрон выше — кадр шире стадиона, рамки нет
+    if (lx > hx) cam.x = W / 2 + back(cam.x - W / 2); else if (cam.x < lx || cam.x > hx) { cam.x = clamp(cam.x, lx, hx); cam.vx = 0; }
+    if (ly > hy) cam.y = H / 2 + back(cam.y - H / 2); else if (cam.y < ly || cam.y > hy) { cam.y = clamp(cam.y, ly, hy); cam.vy = 0; }
+    if (!t.drone && cam.tl === 0) cam.post = false;
+  }
   const k = cv.width / TW * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
-  g.setTransform(a, b, c, d, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y));
+  const sq = 1 - TILT_SQ * cam.tl;                                       // наклон: вид сбоку — кадр сжат по вертикали
+  g.setTransform(a, b * sq, c, d * sq, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y) * sq);
 }
 function upright(x, y, fn) {                        // надпись в точке (x, y) ровно на экране, как бы ни была повёрнута камера
   if (!cam.r) { fn(); return; }
@@ -2686,6 +2696,341 @@ function camIdle(now) {                              // в спокойной и
   nextPan = now + rnd(25000, 45000);
   const c = secCenter(Math.floor(Math.random() * SECTORS));
   if (c) camTo(1.55, 3800, {x: lerp(c.x, W / 2, .3), y: lerp(c.y, H / 2, .3)}, undefined, true, nearRot(aimUp({x: W / 2, y: H / 2}, c)));   // трибуна вверху кадра
+}
+
+/* ---------------- дрон в перерыве: камера поднимается, пока не виден весь стадион снаружи, облетает его и к концу перерыва
+   возвращается к полю. Снаружи — крыша-кольцо (поле видно сквозь проём), стены со входами, прожекторы, площадь, дороги,
+   парковки с машинками, деревья и болельщики у входов. Расписание — от конца перерыва (S.left); оба нажали «Готово» —
+   перерыв кончился, и камера сразу идёт обратно. prefers-reduced-motion — только подъём и спуск, без облёта.
+   Только картинка: на матч не влияет. 🎥 «Всё поле» — без дрона. */
+const DRONE_Z = .34;                               // приближение на высоте: при нём в кадре стадион целиком и округа
+const TILT_SQ = .42, ROOF_H = 165, MAST_H = 280;    // наклон «сбоку»: сжатие кадра, высота крыши и мачт прожекторов
+let drone = null;                                  // {t0, a — угол облёта, last, aB — угол, с которого пошли обратно}
+const calm = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+function droneAim(now) {
+  if (!S || S.phase !== 'half' || camMode === 'wide') { drone = null; return null; }
+  if (!drone) { drone = {t0: now, a: 0, last: now, aB: null}; setTimeout(() => { if (!outside) outside = buildOutside(); if (!outside.img) outside.img = outsideImg(outside); }, 50); }   // округу — заранее, пока камера стоит
+  const dt = Math.min(now - drone.last, 100); drone.last = now;
+  drone.ft = drone.ft ? drone.ft * .96 + dt * .04 : 16;                 // телефон не успевает (кадр дольше 30 мс) — деталей меньше
+  if (now - drone.t0 > 6000 && drone.ft > 30) drone.slow = true;
+  const end = S.left !== undefined ? statusUntil : drone.t0 + 180000, D = Math.max(15000, end - drone.t0), t = now - drone.t0;
+  const RISE = clamp(D * .18, 5000, 12000), BACK = clamp(D * .12, 4000, 9000);
+  const back = ease(1 - (end - now) / BACK), hold = ease((t - 1800) / RISE) * (1 - back);   // 1800 — команды уходят с поля
+  const z = Math.exp(Math.log(DRONE_Z) * hold);    // подъём по «высоте», а не по масштабу: плавно на всём пути
+  if (calm()) return {x: W / 2, y: H / 2, z, r: 0, drone: true};
+  if (back <= 0) drone.a += 2 * Math.PI / 75000 * dt * hold;      // круг за 75 сек; разгон и торможение — вместе с высотой
+  else if (drone.aB === null) drone.aB = drone.a;
+  const r = drone.aB === null ? drone.a : lerp(drone.aB, Math.ceil(drone.aB / (2 * Math.PI) - .05) * 2 * Math.PI, back);   // к полю — ровно, без лишнего круга
+  const off = 120 * hold;                          // дрон летит по кругу, а не крутится над центром
+  const tilt = ease((t - 1800 - RISE * 1.2) / 9000) * (1 - ease(1 - (end - now) / (BACK * 1.8)));   // посреди облёта — сбоку, к концу снова сверху
+  const lift = ROOF_H * .7 * tilt;                 // сбоку стадион «встаёт» — кадр чуть выше, чтобы крыша не уходила за край
+  return {x: W / 2 + off * Math.sin(r) - lift * Math.sin(r), y: H / 2 - off * Math.cos(r) - lift * Math.cos(r), z: z * (1 + .05 * hold * Math.sin(t / 9000)) * (1 + .5 * tilt), r, tilt, drone: true};
+}
+let outside = null;                                // округа стадиона: готовые контуры (строятся один раз), каждый кадр — только заливка
+const OUT = {x0: -2000, y0: -1880, x1: 2600, y1: 2720};
+const CARS = ['#e2e8f0', '#94a3b8', '#1f2937', '#b91c1c', '#1d4ed8', '#a16207', '#0f766e'];
+function glowSprite(col, r) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), gl = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gl.addColorStop(0, col.replace('A', '.9')); gl.addColorStop(.3, col.replace('A', '.3')); gl.addColorStop(1, col.replace('A', '0'));
+  x.fillStyle = gl; x.fillRect(0, 0, 64, 64); c.r = r; return c;
+}
+function buildOutside() {
+  const rn = seeded(2026), o = {grass: new Path2D(), plaza: new Path2D(), tiles: new Path2D(), road: new Path2D(), lot: new Path2D(),
+    stalls: new Path2D(), dash: new Path2D(), carList: [], islands: [], poles: [], trees: [],
+    edges: new Path2D(), wall: new Path2D(), ribs: new Path2D(), roofIn: new Path2D(), roofOut: new Path2D(),
+    truss: new Path2D(), lamps: [], gates: [], fans: [], lamp: glowSprite('rgba(255,214,150,A)', 46), flood: glowSprite('rgba(255,252,235,A)', 170)};
+  const rr = (p, d) => p.roundRect(-d, -d, W + 2 * d, H + 2 * d, R0 + d);
+  o.grass.rect(OUT.x0, OUT.y0, OUT.x1 - OUT.x0, OUT.y1 - OUT.y0);
+  rr(o.plaza, 262);
+  for (let x = -260; x <= W + 260; x += 34) { o.tiles.moveTo(x, -262); o.tiles.lineTo(x, H + 262); }
+  for (let y = -260; y <= H + 260; y += 34) { o.tiles.moveTo(-262, y); o.tiles.lineTo(W + 262, y); }
+  rr(o.road, 330); o.road.roundRect(-290, -290, W + 580, H + 580, R0 + 290);                  // кольцевая дорога (заливка evenodd)
+  const avenues = [[W / 2 - 24, OUT.y0, 48, -290 - OUT.y0], [W / 2 - 24, H + 290, 48, OUT.y1 - H - 290],
+                   [OUT.x0, H / 2 - 24, -290 - OUT.x0, 48], [W + 290, H / 2 - 24, OUT.x1 - W - 290, 48]];
+  for (const [x, y, w, h] of avenues) o.road.rect(x, y, w, h);
+  o.dash.roundRect(-310, -310, W + 620, H + 620, R0 + 310);
+  o.edges.roundRect(-294, -294, W + 588, H + 588, R0 + 294); o.edges.roundRect(-326, -326, W + 652, H + 652, R0 + 326);
+  const trim = ([x, y, w, h], i) => [i === 3 ? x + 40 : x, i === 1 ? y + 40 : y, w > h ? w - 40 : w, w > h ? h : h - 40];   // проспект — без куска под кольцевой
+  for (const [x, y, w, h] of avenues.map(trim)) { if (w > h) { o.edges.moveTo(x, y + 4); o.edges.lineTo(x + w, y + 4); o.edges.moveTo(x, y + h - 4); o.edges.lineTo(x + w, y + h - 4); }
+                                        else { o.edges.moveTo(x + 4, y); o.edges.lineTo(x + 4, y + h); o.edges.moveTo(x + w - 4, y); o.edges.lineTo(x + w - 4, y + h); } }
+  o.dash.moveTo(W / 2, OUT.y0); o.dash.lineTo(W / 2, -330); o.dash.moveTo(W / 2, H + 330); o.dash.lineTo(W / 2, OUT.y1);
+  o.dash.moveTo(OUT.x0, H / 2); o.dash.lineTo(-330, H / 2); o.dash.moveTo(W + 330, H / 2); o.dash.lineTo(OUT.x1, H / 2);
+  const lots = [[-1060, -330, 640, 300], [-1060, H / 2 + 60, 640, 300], [W + 420, -330, 640, 300], [W + 420, H / 2 + 60, 640, 300],
+                [W / 2 + 90, -1020, 520, 560], [-610, H + 460, 520, 560]];
+  const busy = [];                                  // где деревья не растут: дороги, парковки, площадь
+  o.lotBox = lots;
+  for (const [x, y, w, h] of lots) {
+    o.lot.rect(x, y, w, h); busy.push([x - 30, y - 30, w + 60, h + 60]);
+    if (x + w < -330) o.lot.rect(x + w, y + h / 2 - 14, -328 - x - w, 28);              // въезд — к кольцевой дороге
+    else if (x > W + 330) o.lot.rect(W + 328, y + h / 2 - 14, x - W - 328, 28);
+    else if (y + h < -330) o.lot.rect(x + w / 2 - 14, y + h, 28, -328 - y - h);
+    else o.lot.rect(x + w / 2 - 14, H + 328, 28, y - H - 328);
+    for (let ry = y + 14; ry + 46 <= y + h - 10; ry += 72) for (const row of [0, 1]) {
+      const yy = ry + row * 24;
+      for (let sx = x + 14; sx + 14 <= x + w - 14; sx += 14) {
+        o.stalls.moveTo(sx, yy); o.stalls.lineTo(sx, yy + 22);
+        if (rn() < .72) o.carList.push({x: sx + 2.5, y: yy + 2 + rn() * 2, c: CARS[Math.floor(rn() * CARS.length)], row});
+      }
+    }
+    for (let ry = y + 14 + 59; ry < y + h - 20; ry += 72) o.islands.push([x + 14, ry, w - 28, 4]);   // газон с деревцами между рядами
+    for (let lx = x + 40; lx < x + w; lx += 150) for (let ly = y + 40; ly < y + h; ly += 144) o.poles.push({x: lx, y: ly});
+  }
+  busy.push([-340, -340, W + 680, H + 680]);
+  for (const [x, y, w, h] of avenues) busy.push([x - 26, y - 26, w + 52, h + 52]);
+  for (let i = 0, n = 0; i < 1600 && n < 600; i++) {                                    // деревья — в парке вокруг, не на асфальте
+    const x = lerp(OUT.x0, OUT.x1, rn()), y = lerp(OUT.y0, OUT.y1, rn()), r = 11 + rn() * 9;
+    if (busy.some(([bx, by, bw, bh]) => x > bx - r && x < bx + bw + r && y > by - r && y < by + bh + r)) continue;
+    n++; o.trees.push({x, y, r, h: rn()});
+    if (rn() < .45) for (let m = 0; m < 3; m++) o.trees.push({x: x + (rn() - .5) * 70, y: y + (rn() - .5) * 70, r: r * (.6 + rn() * .4), h: rn()});   // рощицы
+  }
+  for (const [x, y, w, h] of avenues.map(trim)) for (const side of [-1, 1]) {             // аллеи вдоль проспектов
+    const hor = w > h;
+    for (let u = 20; u < (hor ? w : h) - 20; u += 58) o.trees.push(hor ? {x: x + u, y: y + h / 2 + side * 52, r: 13, h: .5} : {x: x + w / 2 + side * 52, y: y + u, r: 13, h: .5});
+  }
+  for (let s = 0, P = ringLen(372); s < P; s += 64) { const q = ring(372, s); if (!busy.slice(0, lots.length).some(([bx, by, bw, bh]) => q.x > bx && q.x < bx + bw && q.y > by && q.y < by + bh) && Math.abs(q.x - W / 2) > 60 && Math.abs(q.y - H / 2) > 60) o.trees.push({x: q.x, y: q.y, r: 14, h: .3}); }   // и вдоль кольцевой
+  for (let s = 0, P = ringLen(205); s < P; s += 150) o.lamps.push(ring(205, s));        // фонари на площади и вдоль дорог
+  for (let d = 380; d < 1700; d += 160) o.lamps.push({x: W / 2 - 34, y: -d}, {x: W / 2 + 34, y: H + d}, {x: -d, y: H / 2 + 34}, {x: W + d, y: H / 2 - 34});
+  rr(o.wall, ST + 14); rr(o.wall, ST - 1);                                                // внешняя стена (evenodd)
+  for (let s = 0, P = ringLen(ST + 14); s < P; s += 16) { const a = ring(ST, s * ringLen(ST) / P), b = ring(ST + 14, s); o.ribs.moveTo(a.x, a.y); o.ribs.lineTo(b.x, b.y); }
+  rr(o.roofIn, 44); rr(o.roofIn, 30);              // крыша: у проёма — прозрачная, дальше — сплошная
+  rr(o.roofOut, ST + 22); rr(o.roofOut, 44);                                              // козырёк крыши выступает над фасадом
+  for (let s = 0, P = ringLen(30); s < P; s += 22) { const a = ring(30, s), b = ring(ST + 22, s * ringLen(ST + 22) / P); o.truss.moveTo(a.x, a.y); o.truss.lineTo(b.x, b.y); }
+  for (const f of [0, .125, .25, .375, .5, .625, .75, .875]) o.gates.push(ring(ST + 14, f * ringLen(ST + 14)));   // входы: посередине сторон и в углах
+  o.beds = []; o.tents = [];                         // клумбы на площади между входами, шатры фан-зоны у главных входов
+  for (const f of [.0625, .1875, .3125, .4375, .5625, .6875, .8125, .9375]) { const p = ring(232, f * ringLen(232)); o.beds.push({x: p.x, y: p.y, a: Math.atan2(p.nx, -p.ny)}); }
+  for (let i = 0; i < 6; i++) for (const y of [-190, H + 190]) o.tents.push({x: W / 2 - 150 + i * 60, y, c: S ? S.teams[Math.floor(rn() * 2)].shirt : '#dc2626'});
+  o.traffic = Array.from({length: 16}, (_, i) => ({s: i / 16 + rn() * .03, lane: i % 2, v: .0000045 + rn() * .000002, c: CARS[i % CARS.length]}));   // машины едут по кольцу
+  for (const [gi, gp] of o.gates.entries()) for (let i = 0; i < 26; i++) {               // болельщики: толпа у входа и ручеёк с площади
+    const lane = i < 12, u = rn(), w = (rn() - .5) * (lane ? 14 : 70), dd = lane ? 30 + u * 170 : 8 + rn() * 34;
+    o.fans.push({x: gp.x + gp.nx * dd - gp.ny * w, y: gp.y + gp.ny * dd + gp.nx * w, nx: gp.nx, ny: gp.ny, lane, ph: rn() * 6.3, c: Math.floor(rn() * 3), g: gi});
+  }
+  return o;
+}
+function outsideImg(o) {                           // неподвижная округа — одной картинкой (рисуется раз за перерыв, потом только переносится)
+  const sc = perf.lite ? .28 : .4, w = OUT.x1 - OUT.x0, h = OUT.y1 - OUT.y0, rn = seeded(7);
+  const c = document.createElement('canvas'); c.width = Math.ceil(w * sc); c.height = Math.ceil(h * sc);
+  const x = c.getContext('2d'); x.setTransform(sc, 0, 0, sc, -OUT.x0 * sc, -OUT.y0 * sc);
+  x.fillStyle = '#0e2617'; x.fill(o.grass);
+  for (let i = 0; i < 260; i++) {                  // газон неровный: пятна светлее и темнее
+    x.fillStyle = rn() < .5 ? 'rgba(34,80,44,.35)' : 'rgba(4,14,8,.35)';
+    x.beginPath(); x.ellipse(lerp(OUT.x0, OUT.x1, rn()), lerp(OUT.y0, OUT.y1, rn()), 60 + rn() * 160, 40 + rn() * 110, rn() * 3, 0, 7); x.fill();
+  }
+  x.strokeStyle = '#5b6577'; x.lineWidth = 62; x.stroke(o.dash);                       // тротуары вдоль дорог
+  for (const [lx, ly, lw, lh] of o.lotBox) {      // парковка: живая изгородь, бордюр
+    x.fillStyle = '#16422a'; x.beginPath(); x.roundRect(lx - 20, ly - 20, lw + 40, lh + 40, 10); x.fill();
+    x.fillStyle = 'rgba(120,180,110,.25)'; for (let i = 0; i < (lw + lh) * 2 / 12; i++) { const u = i * 12, px = u < lw ? lx + u : u < lw + lh ? lx + lw + 14 : u < 2 * lw + lh ? lx + 2 * lw + lh - u : lx - 14, py = u < lw ? ly - 14 : u < lw + lh ? ly + u - lw : u < 2 * lw + lh ? ly + lh + 14 : ly + 2 * (lw + lh) - u; x.beginPath(); x.arc(px, py, 5, 0, 7); x.fill(); }
+    x.fillStyle = '#5b6577'; x.fillRect(lx - 7, ly - 7, lw + 14, lh + 14);
+  }
+  x.fillStyle = '#2a303b'; x.fill(o.road, 'evenodd'); x.fill(o.lot);
+  x.strokeStyle = 'rgba(250,250,240,.55)'; x.lineWidth = 2.4; x.setLineDash([16, 16]); x.stroke(o.dash); x.setLineDash([]);
+  x.strokeStyle = 'rgba(250,250,240,.5)'; x.lineWidth = 1.6; x.stroke(o.edges);                           // сплошные линии по краям дорог
+  x.strokeStyle = 'rgba(203,213,225,.35)'; x.lineWidth = 2; for (const d of [258, 362]) { ringPath(x, d); x.stroke(); }   // бордюры
+  x.fillStyle = 'rgba(241,245,249,.7)';                                                // «зебры» у перекрёстков с проспектами
+  for (const [zx, zy, hor] of [[W / 2, -350, 1], [W / 2, H + 350, 1], [-350, H / 2, 0], [W + 350, H / 2, 0]])
+    for (let i = -20; i <= 20; i += 8) { if (hor) x.fillRect(zx + i - 2, zy - 9, 4, 18); else x.fillRect(zx - 9, zy + i - 2, 18, 4); }
+  x.strokeStyle = 'rgba(226,232,240,.4)'; x.lineWidth = 1.2; x.stroke(o.stalls);
+  for (const [ix, iy, iw, ih] of o.islands) {                                           // островки газона с деревцами
+    x.fillStyle = '#5b6577'; x.fillRect(ix - 1, iy - 3, iw + 2, ih + 6); x.fillStyle = '#1f4d2c'; x.fillRect(ix, iy - 2, iw, ih + 4);
+    for (let tx = ix + 20; tx < ix + iw - 10; tx += 46) {
+      x.fillStyle = '#2f6b3d'; x.beginPath(); x.arc(tx, iy + 2, 7, 0, 7); x.fill();
+      x.fillStyle = 'rgba(140,200,120,.45)'; x.beginPath(); x.arc(tx - 2, iy, 3.5, 0, 7); x.fill();
+    }
+  }
+  for (const {x: cx, y: cy, c: col, row} of o.carList) {   // машинки: тень, кузов, крыша светлее, лобовое и заднее стекло
+    x.fillStyle = 'rgba(0,0,0,.4)'; x.beginPath(); x.roundRect(cx + 1.4, cy + 1.4, 9, 18, 2.6); x.fill();
+    x.fillStyle = col; x.beginPath(); x.roundRect(cx, cy, 9, 18, 2.6); x.fill();
+    x.fillStyle = mix(col, .25); x.fillRect(cx + 1.6, cy + 6, 5.8, 6.5);
+    x.fillStyle = 'rgba(15,23,42,.8)'; x.fillRect(cx + 1.4, row ? cy + 3 : cy + 12.6, 6.2, 3); x.fillRect(cx + 1.8, row ? cy + 12.8 : cy + 3.2, 5.4, 1.8);
+  }
+  x.fillStyle = '#3b4050'; x.fill(o.plaza);
+  x.save(); x.clip(o.plaza);                       // площадь: плитка и кольца мощения
+  x.strokeStyle = 'rgba(15,23,42,.25)'; x.lineWidth = 1.2; x.stroke(o.tiles);
+  for (const d of [150, 200, 240]) { ringPath(x, d); x.lineWidth = 8; x.strokeStyle = 'rgba(148,163,184,.22)'; x.stroke(); }
+  x.restore();
+  for (const p of o.beds) {                        // клумбы с цветами
+    x.fillStyle = '#5b6577'; x.beginPath(); x.ellipse(p.x, p.y, 30, 15, p.a, 0, 7); x.fill();
+    x.fillStyle = '#1f5130'; x.beginPath(); x.ellipse(p.x, p.y, 26, 11.5, p.a, 0, 7); x.fill();
+    for (let i = 0; i < 14; i++) {
+      const u = (rn() - .5) * 40, v = (rn() - .5) * 14;
+      x.fillStyle = ['#f472b6', '#facc15', '#f8fafc', '#fb923c'][i % 4]; x.fillRect(p.x + u * Math.cos(p.a) - v * Math.sin(p.a), p.y + u * Math.sin(p.a) + v * Math.cos(p.a), 2.4, 2.4);
+    }
+  }
+  for (const t of o.tents) {                       // шатры фан-зоны: полосатые крыши в цвет клубов
+    x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(t.x - 14, t.y - 10, 32, 28);
+    x.fillStyle = t.c; x.fillRect(t.x - 16, t.y - 14, 32, 28);
+    x.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 4; i++) x.fillRect(t.x - 16 + i * 8, t.y - 14, 4, 28);
+    x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(t.x - 1, t.y - 14, 2, 28);
+  }
+  for (const t of o.trees) { x.fillStyle = 'rgba(0,0,0,.4)'; x.beginPath(); x.ellipse(t.x + t.r * .5, t.y + t.r * .55, t.r * 1.05, t.r * .9, .6, 0, 7); x.fill(); }   // тени деревьев
+  for (const t of o.trees) {                       // крона: тёмная основа, средний слой, блики — оттенки чуть разные
+    const gg = Math.round(70 + t.h * 40), rr2 = Math.round(20 + t.h * 30);
+    x.fillStyle = `rgb(${rr2 - 6},${gg - 22},${30})`; x.beginPath(); x.arc(t.x, t.y, t.r, 0, 7); x.fill();
+    x.fillStyle = `rgb(${rr2 + 6},${gg},${44})`;
+    for (const [ax, ay, ar] of [[-.3, -.25, .62], [.28, -.1, .55], [-.05, .25, .5]]) { x.beginPath(); x.arc(t.x + ax * t.r, t.y + ay * t.r, ar * t.r, 0, 7); x.fill(); }
+    x.fillStyle = 'rgba(170,220,140,.45)'; x.beginPath(); x.arc(t.x - t.r * .38, t.y - t.r * .38, t.r * .3, 0, 7); x.fill();
+  }
+  x.globalCompositeOperation = 'lighter';
+  for (const p of o.lamps) x.drawImage(o.lamp, p.x - o.lamp.r, p.y - o.lamp.r, o.lamp.r * 2, o.lamp.r * 2);
+  for (const p of o.poles) x.drawImage(o.lamp, p.x - 40, p.y - 40, 80, 80);
+  for (const p of o.gates) x.drawImage(o.lamp, p.x + p.nx * 26 - 60, p.y + p.ny * 26 - 60, 120, 120);
+  return c;
+}
+function drawOutside(now) {                         // всё, что снаружи стадиона: под ним
+  if (!outside) outside = buildOutside();
+  const o = outside;
+  if (!o.img) o.img = outsideImg(o);
+  g.drawImage(o.img, OUT.x0, OUT.y0, OUT.x1 - OUT.x0, OUT.y1 - OUT.y0);
+  for (const t of o.traffic) {                     // машины едут по кольцевой: фары впереди, стоп-сигналы сзади
+    const d = t.lane ? 300 : 320, P = ringLen(d), q = ring(d, (t.s + now * t.v * (t.lane ? 1 : -1)) % 1 * P), dir = t.lane ? 1 : -1;
+    const fx = -q.ny * dir, fy = q.nx * dir;           // направление движения — по касательной
+    g.save(); g.translate(q.x, q.y); g.rotate(Math.atan2(fy, fx) + Math.PI / 2);
+    g.fillStyle = t.c; g.fillRect(-4.5, -9, 9, 18); g.fillStyle = 'rgba(15,23,42,.8)'; g.fillRect(-3.2, -6, 6.4, 3);
+    g.fillStyle = '#fef9c3'; g.fillRect(-4, -10, 2.4, 1.6); g.fillRect(1.6, -10, 2.4, 1.6);
+    g.fillStyle = 'rgba(254,249,195,.18)'; g.beginPath(); g.moveTo(-4, -10); g.lineTo(-9, -34); g.lineTo(9, -34); g.lineTo(4, -10); g.fill();
+    g.fillStyle = '#ef4444'; g.fillRect(-4, 8.6, 2.4, 1.4); g.fillRect(1.6, 8.6, 2.4, 1.4);
+    g.restore();
+  }
+  const cols = S ? [S.teams[0].shirt, S.teams[1].shirt, '#e2e8f0'] : ['#ef4444', '#3b82f6', '#e2e8f0'];
+  for (let c = 0; c < 3; c++) {                    // болельщики-точки: у входов переминаются, по площади идут к воротам
+    g.fillStyle = cols[c]; g.beginPath();
+    for (const f of o.fans) {
+      if (f.c !== c) continue;
+      const k = f.lane ? ((now / 26000 + f.ph / 6.3) % 1) * 150 : Math.sin(now / 900 + f.ph) * 1.5;
+      g.rect(f.x - f.nx * k - 3.2, f.y - f.ny * k - 3.2, 6.4, 6.4);
+    }
+    g.fill();
+  }
+  if (cam.tl > .01) {                               // сбоку вдали — ночная дымка до горизонта
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    const ch = cv.height, hz = g.createLinearGradient(0, 0, 0, ch * .55);
+    hz.addColorStop(0, `rgba(12,20,40,${(.96 * cam.tl).toFixed(3)})`); hz.addColorStop(.35, `rgba(12,20,40,${(.8 * cam.tl).toFixed(3)})`); hz.addColorStop(1, 'rgba(12,20,40,0)');
+    g.fillStyle = hz; g.fillRect(0, 0, cv.width, ch * .55);
+    g.restore();
+  }
+}
+let posters = null;                                // огромная реклама на фасаде: готовые картинки (клубы хозяев и гостей, лига)
+function posterImgs() {
+  const key = S ? S.teams.map(t => t.name + t.shirt).join('|') : '';
+  if (posters && posters.key === key) return posters;
+  const tm = S ? S.teams : [{name: 'Хозяева', shirt: '#dc2626'}, {name: 'Гости', shirt: '#2563eb'}];
+  const list = [[tm[0].shirt, '«' + tm[0].name + '»', 'ДОМА МЫ СИЛЬНЕЕ', 0], ['#1d4ed8', 'ЛИГА ДРУЗЕЙ', 'СЕЗОН · КАЖДЫЙ МАТЧ ВЖИВУЮ'],
+    ['#047857', 'ФАН-ЗОНА', 'ВХОД С ПЛОЩАДИ · ОТКРЫТО'], [tm[1].shirt, '«' + tm[1].name + '»', 'ДОБРО ПОЖАЛОВАТЬ, ГОСТИ', 1],
+    ['#b91c1c', 'ФУТБОЛ 7×7', 'ТАКТИКА · ЗАМЕНЫ · ХАРАКТЕР'], ['#7c3aed', 'ТАКТИКА РЕШАЕТ', 'ВЫБИРАЙ СХЕМУ В ПЕРЕРЫВЕ']];
+  posters = list.map(([col, big, small, team]) => {
+    const c = document.createElement('canvas'); c.width = 480; c.height = 270; const x = c.getContext('2d');
+    const gr = x.createLinearGradient(0, 0, 480, 270); gr.addColorStop(0, mix(col, .3)); gr.addColorStop(1, mix(col, -.25));
+    x.fillStyle = gr; x.fillRect(0, 0, 480, 270);
+    x.fillStyle = 'rgba(255,255,255,.08)'; for (let i = -270; i < 480; i += 46) { x.beginPath(); x.moveTo(i, 270); x.lineTo(i + 270, 0); x.lineTo(i + 292, 0); x.lineTo(i + 22, 270); x.fill(); }
+    let tx = 240;
+    if (team !== undefined && S) { x.drawImage(crestImg(S.teams[team]), 14, 50, 170, 170); tx = 330; }
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 6;
+    let fs = 84; x.font = `900 ${fs}px "Trebuchet MS",sans-serif`;
+    while (x.measureText(big).width > (team !== undefined ? 280 : 450) && fs > 24) { fs -= 4; x.font = `900 ${fs}px "Trebuchet MS",sans-serif`; }
+    x.fillText(big, tx, 118);
+    x.font = `bold ${team !== undefined ? 18 : 24}px "Trebuchet MS",sans-serif`; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillText(small, tx, 205);
+    x.shadowBlur = 0; x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 8; x.strokeRect(4, 4, 472, 262);
+    return c;
+  });
+  posters.key = key; return posters;
+}
+let crowdPat = null;
+function crowdPattern(cols) {                       // толпа: отдельные разноцветные точки на тёмных креслах (один раз, потом — заливка)
+  const key = cols.join();
+  if (crowdPat && crowdPat.key === key) return crowdPat.p;
+  const c = document.createElement('canvas'); c.width = c.height = 90; const x = c.getContext('2d'), rn = seeded(31);
+  x.fillStyle = '#2a3242'; x.fillRect(0, 0, 90, 90);   // кресла; люди — крупными пятнами, без мелкой ряби (при движении не мерцает)
+  for (let yy = 1; yy < 90; yy += 9) for (let xx = 1; xx < 90; xx += 9) {
+    if (rn() < .1) continue;                       // свободное кресло
+    x.globalAlpha = .8; x.fillStyle = cols[Math.floor(rn() * cols.length)]; x.beginPath(); x.roundRect(xx + rn() * 1.5, yy + 2.5 + rn(), 7, 6, 2.5); x.fill();
+    x.globalAlpha = 1; x.fillStyle = rn() < .5 ? '#e8bf9c' : '#b07c58'; x.beginPath(); x.arc(xx + 4.2, yy + 2.2, 2.2, 0, 7); x.fill();   // голова
+  }
+  crowdPat = {key, p: g.createPattern(c, 'repeat')}; return crowdPat.p;
+}
+function drawPosters(up, k) {                       // на прямых сторонах фасада, которые смотрят на дрон; надпись — всегда слева направо
+  const P = posterImgs(), d = ST + 13, co = Math.cos(cam.r), si = Math.sin(cam.r), h0 = ROOF_H * .2 * k, h1 = ROOF_H * .9 * k;
+  const SH = [[34, 278], [322, 566]], LG = [[34, 262], [306, 534], [578, 806]];   // большие постеры по отдельности на всех прямых сторонах
+  const sides = [[0, -1, SH, [0, 1]], [0, 1, SH, [3, 2]], [-1, 0, LG, [4, 0, 5]], [1, 0, LG, [1, 3, 4]]];
+  for (const [nx, ny, spans, ids] of sides) {
+    if (nx * si + ny * co < .08) continue;         // сторона отвёрнута — её не видно
+    spans.forEach(([s0, s1], i) => {
+      let p1 = nx ? {x: nx < 0 ? -d : W + d, y: s0} : {x: s0, y: ny < 0 ? -d : H + d}, p2 = nx ? {x: p1.x, y: s1} : {x: s1, y: p1.y};
+      if ((p2.x - p1.x) * co - (p2.y - p1.y) * si < 0) [p1, p2] = [p2, p1];
+      const img = P[ids[i]], ex = {x: (p2.x - p1.x) / img.width, y: (p2.y - p1.y) / img.width}, ey = {x: -up.x * (h1 - h0) / img.height, y: -up.y * (h1 - h0) / img.height};
+      g.save(); g.transform(ex.x, ex.y, ey.x, ey.y, p1.x + up.x * h1, p1.y + up.y * h1);
+      g.fillStyle = '#0b1120'; g.fillRect(-14, -14, img.width + 28, img.height + 28);                 // рама лайтбокса
+      g.drawImage(img, 0, 0);
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,255,240,.10)'; g.fillRect(0, 0, img.width, img.height * .35); g.globalCompositeOperation = 'source-over';   // подсветка сверху
+      g.restore();
+    });
+  }
+}
+function drawRoof(a) {                              // поверх трибун: стена со входами, крыша-кольцо, прожекторы на мачтах
+  const o = outside, sq = 1 - TILT_SQ * cam.tl, k = Math.sqrt(1 - sq * sq) / sq, up = upVec();
+  const lift = (h, fn) => { if (!k) { fn(); return; } g.save(); g.translate(up.x * h * k, up.y * h * k); fn(); g.restore(); };   // высота: сбоку — выше на экране
+  g.globalAlpha = a;
+  ringPath(g, ST + 20); g.lineWidth = 14; g.strokeStyle = 'rgba(0,0,0,.4)'; g.stroke();                 // тень стадиона на площадь
+  g.fillStyle = S ? mix(S.teams[0].shirt, -.45) : '#323c50'; g.fill(o.wall, 'evenodd');
+  g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1.4; g.stroke(o.ribs);
+  for (const p of o.gates) {                        // вход: тёмный проём с козырьком
+    g.save(); g.translate(p.x, p.y); g.rotate(Math.atan2(p.ny, p.nx));
+    g.fillStyle = '#020617'; g.fillRect(-15, -16, 16, 32); g.fillStyle = 'rgba(253,230,138,.85)'; g.fillRect(-2, -18, 4, 36);
+    g.restore();
+  }
+  if (cam.tl > .03) {                               // сбоку: стена фасада и чаша трибун — объёмом, слоями снизу вверх
+    const home = S ? S.teams[0].shirt : '#dc2626', lite = perf.lite || (drone && drone.slow), hh = ROOF_H * k, st = hh / (lite ? 9 : 15);   // слоёв немного — объём без лишней работы на слабом телефоне
+    const facade = () => {
+      for (let e = 0; e <= hh + .1; e += st) {
+        g.save(); g.translate(up.x * e, up.y * e); ringPath(g, ST + 12); g.lineWidth = st + 2;
+        const f = Math.round(e / hh * 20) / 20, win = f > .08 && f < .17, led = f > .965;   // пояс окон внизу, выше — огромные постеры, по верху — светящаяся полоса
+        g.strokeStyle = led ? '#fef3c7' : win ? '#4a4026' : mix(home, -.5 + .45 * f); g.stroke();   // фасад — в цвет хозяев, к крыше светлее
+        if (win) { g.setLineDash([6, 6]); g.lineWidth = 3; g.strokeStyle = 'rgba(253,224,140,.85)'; g.stroke(); g.setLineDash([]); }
+        else if (!led) { g.setLineDash([26, 26]); g.lineDashOffset = e * 1.3; g.strokeStyle = mix(home, -.2 + .45 * f); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0; }   // панели — диагональной мозаикой
+        g.restore();
+      }
+      g.beginPath();
+      for (let s = 0, P = ringLen(ST + 13); s < P; s += 44) { const q = ring(ST + 13, s); g.moveTo(q.x, q.y); g.lineTo(q.x + up.x * hh, q.y + up.y * hh); }
+      g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.35)'; g.stroke();
+    };
+    const fans = [S ? S.teams[0].shirt : '#dc2626', S ? S.teams[0].shirt : '#dc2626', S ? S.teams[0].shirt : '#dc2626', S ? S.teams[1].shirt : '#2563eb', S ? S.teams[1].shirt : '#2563eb', '#f1f5f9', '#facc15', '#64748b', '#0f172a'];   // зрители: больше в цвет хозяев, меньше — гостей, кто-то в своём
+    const ds = lite ? 8 : 4, rise = ROOF_H * .92 * k / 40, crowd = crowdPattern(fans), ba = smooth(cam.tl / .35);   // ярус выше соседнего на ds·rise
+    const bowl = () => {                            // чаша трибун: ярусы поднимаются от газона к крыше, на них — болельщики
+      g.globalAlpha = a * ba;
+      for (let d = 10; d <= 50; d += ds) {
+        const e = (d - 10) * rise, hs = ds * rise;
+        g.save(); g.translate(up.x * e, up.y * e); ringPath(g, d);
+        g.lineWidth = Math.max(6, hs * 1.15); g.strokeStyle = crowd; g.stroke();          // ярус, полный зрителей
+        g.translate(-up.x * hs * .5, -up.y * hs * .5); ringPath(g, d); g.lineWidth = 1.6; g.strokeStyle = 'rgba(0,0,0,.65)'; g.stroke();   // край ступени
+        g.restore();
+      }
+      g.globalAlpha = a;
+    };
+    bowl();                                         // как в жизни: трибуны целиком, а ближняя половина стены — перед ними (закрывает их спинки);
+    const px = -up.y * 4000, py = up.x * 4000, cx = W / 2 + up.x * hh, cy = H / 2 + up.y * hh;   // дальняя стена смотрит от дрона — её не видно, не рисуем;
+    g.save(); g.beginPath(); g.moveTo(cx + px, cy + py); g.lineTo(cx - px, cy - py);              // граница — на высоте верха стены, иначе срезались бы дальние углы
+    g.lineTo(cx - px - up.x * 4000, cy - py - up.y * 4000); g.lineTo(cx + px - up.x * 4000, cy + py - up.y * 4000); g.clip(); facade(); g.restore();
+    drawPosters(up, k);
+  }
+  lift(ROOF_H, () => {
+    g.fillStyle = `rgba(203,213,225,${(.5 + .4 * cam.tl).toFixed(3)})`; g.fill(o.roofIn, 'evenodd');   // сбоку край крыши плотный — сквозь крышу ничего не видно
+    g.fillStyle = '#dbe3ec'; g.fill(o.roofOut, 'evenodd');                                         // крыша — белая мембрана
+    g.strokeStyle = 'rgba(100,116,139,.55)'; g.lineWidth = 2; g.stroke(o.truss);
+    ringPath(g, ST + 22); g.lineWidth = 3; g.strokeStyle = '#1e293b'; g.stroke();                       // край козырька
+    ringPath(g, ST + 18); g.lineWidth = 6; g.strokeStyle = S ? S.teams[0].shirt : '#dc2626'; g.stroke();   // кромка крыши светится в цвет хозяев
+    ringPath(g, ST + 12); g.lineWidth = 2.5; g.strokeStyle = S ? S.teams[1].shirt : '#2563eb'; g.stroke();   // и тонкая — в цвет гостей
+    ringPath(g, 30); g.lineWidth = 2.4; g.strokeStyle = 'rgba(255,251,235,.75)'; g.stroke();           // светильники по кромке проёма
+  });
+  for (const [cx, cy] of [[-ST + 9, -ST + 9], [W + ST - 9, -ST + 9], [W + ST - 9, H + ST - 9], [-ST + 9, H + ST - 9]]) {
+    if (k) { g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + up.x * MAST_H * k, cy + up.y * MAST_H * k); g.lineWidth = 3.5; g.strokeStyle = '#94a3b8'; g.stroke(); }   // мачта
+    lift(MAST_H, () => {
+      g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx - 9, cy - 5, 26, 14);
+      g.fillStyle = '#e2e8f0'; g.fillRect(cx - 12, cy - 8, 24, 14); g.fillStyle = '#fefce8';
+      for (let i = 0; i < 4; i++) { g.fillRect(cx - 10 + i * 5.2, cy - 6, 4, 4); g.fillRect(cx - 10 + i * 5.2, cy - 1, 4, 4); }
+      g.globalCompositeOperation = 'lighter'; const f = o.flood; g.drawImage(f, cx - f.r, cy - f.r, f.r * 2, f.r * 2); g.globalCompositeOperation = 'source-over';
+    });
+  }
+  g.globalAlpha = 1;
+
 }
 
 /* ---------------- файеры болельщиков: после гола, на стартовом свистке, при «пиротехнике» ----------------
@@ -3028,8 +3373,9 @@ function frame(now) {
   if (R) { ball.x = R.bx; ball.y = R.by; ball.h = R.bh; ref.x = R.rx; ref.y = R.ry; }   // повтор: рисуем записанное, игра идёт своим чередом
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#060b16'; g.fillRect(0, 0, cv.width, cv.height);
   camUpdate(now, clamp((now - (camUpdate.last || now)) / 1000, 0, .05)); camUpdate.last = now;
-  g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4);
-  g.drawImage(pitchImg, -ST, -ST, TW, TH);
+  const out = cam.z < .995 || cam.tl > .02;   // дрон поднялся (или ещё наклонён): виден стадион снаружи
+  if (out) { drawOutside(now); g.save(); ringPath(g, ST); g.clip(); g.drawImage(pitchImg, -ST, -ST, TW, TH); g.restore(); }
+  else { g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4); g.drawImage(pitchImg, -ST, -ST, TW, TH); }
   if (S) {
     if (buildStands()) { pitchImg = drawPitch(HQW(), HQH()); }       // цвета команд пришли — кресла и скамейки в их цвет
     drawStands(now);
@@ -3080,6 +3426,8 @@ function frame(now) {
       smoke(x, y, f.r * (1 + k * (f.k === 'smoke' ? 2 : 1.2)), col, (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .5 : .55)); }
   }
   if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
+  if (out) drawRoof(Math.max(smooth((1 - cam.z) / .45), cam.tl));   // крыша проявляется по мере подъёма
+  else if (outside && outside.img && (!S || S.phase !== 'half')) { outside.img.width = outside.img.height = 0; outside.img = null; }   // перерыв кончился — картинку округи из памяти
   drawWeather(now);
   if (live) { ball.x = live.bx; ball.y = live.by; ball.h = live.bh; ref.x = live.rx; ref.y = live.ry; }
   if (S && S.left !== undefined && now % 1000 < 20) renderStatus();
@@ -3636,13 +3984,15 @@ function demo() {
             def: f.slice(0, d).map(p), mid: f.slice(d, d + mm).map(p), att: f.slice(d + mm, d + mm + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
   };
   const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
-  let seq = 0;
+  let seq = 0, halfEnd = 0;
+  const HALF = Q.get('half') !== null ? Number(Q.get('half')) || 0 : 45;   // в демо перерыв короче настоящего (3 мин) — дрон тот же
   onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
   const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'fkduel', 'stop'];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const field = tm => [...tm.def, ...(tm.mid || []), ...tm.att];
   setInterval(() => {
     if (st.minute >= 60) return;
+    if (st.phase === 'half') { if (performance.now() < halfEnd) return; st.phase = 'play'; delete st.left; }   // перерыв (?half=сек, 0 — без него)
     // пока идут запланированные моменты (гол с повтором, штрафной, замена, удаление) — ждём, пока сцена доиграет минуту:
     // демо-минута короче настоящей, и иначе сцена отставала бы и повтор пропускался
     if (st.minute >= 2 && st.minute < 19 && Q.get('script') !== '0' && queue.some(x => x.tick)) return;
@@ -3676,7 +4026,7 @@ function demo() {
       else if (k === 'stop') { acts.push({a: 'stop', what: pick(['fan', 'pyro'])}, {a: 'resume'}); feed.push({m: st.minute, t: `${st.minute}' 🚨 Матч остановлен`}); }
       if (Math.random() < .5) feed.push({m: st.minute, c: pick(['Красиво, но бесполезно — как зонтик в метро.', 'Тренер на бровке жуёт жвачку с яростью философа.', 'Мяч круглый, а вот идеи у команды — квадратные.'])});
     }
-    if (st.minute === 30) { acts.push({a: 'whistle', w: 'half'}); }
+    if (st.minute === 30) { acts.push({a: 'whistle', w: 'half'}); if (HALF) { st.phase = 'half'; st.left = HALF; halfEnd = performance.now() + HALF * 1000; } }
     if (st.minute === 60) { acts.push({a: 'whistle', w: 'end'}); st.phase = 'final'; }
     const tot = st.teams[0].shots + st.teams[1].shots || 1;
     st.teams[0].poss = Math.round(100 * (st.teams[0].shots + 1) / (tot + 2)); st.teams[1].poss = 100 - st.teams[0].poss;
