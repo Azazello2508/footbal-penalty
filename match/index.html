@@ -249,10 +249,12 @@ function gkAuto(t, used) {
   // второму авто-вратарю — цвет, заметно отличный и от первого (а не соседний оттенок палитры)
   return ok.find(c => c !== first && dist(c, first) >= 120) || best(pal.filter(c => c !== first), [first, ...used]);
 }
-/* ---------------- форма клуба: tm.kit = {p: узор, c2: второй цвет, so: гетры, co: воротник и манжеты, gk: [футболка, шорты]} ----------------
+/* ---------------- форма клуба: tm.kit = {p: узор, c2: второй цвет, so: гетры, co: воротник и манжеты, gk: [футболка, шорты], gl: 1} ----------------
    Узоры: plain, stripes (вертикальные полосы), hoops (горизонтальные), halves (половинки), quarters (четвертинки),
-   sash (диагональная лента), sleeves (рукава вторым цветом), chevron (галочка на груди). Нет kit — обычная форма, как раньше. */
-const KIT_P = ['plain', 'stripes', 'hoops', 'halves', 'quarters', 'sash', 'sleeves', 'chevron'];
+   sash (диагональная лента), sleeves (рукава вторым цветом), chevron (галочка на груди), fade (переход цвета сверху вниз),
+   camo (камуфляж). gl — вечерний матч, форма уровня «Живая» (app/kits.py): светится окантовка и номер.
+   Нет kit — обычная форма, как раньше. */
+const KIT_P = ['plain', 'stripes', 'hoops', 'halves', 'quarters', 'sash', 'sleeves', 'chevron', 'fade', 'camo'];
 const isHex = c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
 const KITS = new Map();
 // основные цвета формы команды (проверенные #rrggbb): узор, футболка, второй цвет, шорты, форма вратаря клуба
@@ -283,7 +285,7 @@ function kitOf(t) {
   const mine = t === 0 ? a0 : a1, other = t === 0 ? a1 : a0;
   const gc = mine || gkAuto(t, other ? [...fc, other] : fc), g0 = B[t].gk;
   const gsh = isHex(g0[1]) && gc === g0[0] ? g0[1] : hexMix(gc, -.55);
-  k = {p, c1, c2, sh, so, co, num, numEdge, plain: !tm.kit,
+  k = {p, c1, c2, sh, so, co, num, numEdge, plain: !tm.kit, gl: !!kit.gl,
        gk: {p: 'plain', c1: gc, c2: hexMix(gc, -.35), sh: gsh, so: gc, co: hexMix(gc, -.45), num: ink(gc), numEdge: lum(gc) > 150 ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.75)'}};
   if (KITS.size > 50) KITS.clear();
   KITS.set(id + t, k);
@@ -319,6 +321,26 @@ function kitPaint(k, w, h, view, face) {
     const a = h * .18, m = h * .5, t = 3;
     g.beginPath(); g.moveTo(-w / 2 - 1, a); g.lineTo(0, m); g.lineTo(w / 2 + 1, a); g.lineTo(w / 2 + 1, a + t); g.lineTo(0, m + t); g.lineTo(-w / 2 - 1, a + t); g.closePath(); g.fill();
   }
+  else if (p === 'fade') {                                  // переход: сверху — основной цвет, к поясу — второй
+    const id = k.c2 + '|' + Math.round(h);
+    let gr = KIT_FADE.get(id);
+    if (!gr) { gr = g.createLinearGradient(0, h * .15, 0, h); gr.addColorStop(0, hexA(k.c2, 0)); gr.addColorStop(1, k.c2); if (KIT_FADE.size > 40) KIT_FADE.clear(); KIT_FADE.set(id, gr); }
+    g.fillStyle = gr; g.fillRect(-w / 2 - 1, 0, w + 2, h + 1);
+  }
+  else if (p === 'camo') {                                  // камуфляж: пятна второго цвета и тёмного оттенка основного
+    const s = view === 'side' ? face : mir, dark = k.camo || (k.camo = hexMix(k.c1, -.35));
+    for (const [x, y, rx, ry, c] of KIT_CAMO) { g.fillStyle = c ? k.c2 : dark; g.beginPath(); g.ellipse(s * x * w / 2, y * h, rx * w, ry * h, s * .5, 0, 7); g.fill(); }
+  }
+}
+const KIT_FADE = new Map();
+// пятна камуфляжа: x — доля полуширины, y — доля высоты, радиусы — доли ширины и высоты, 1 — второй цвет, 0 — тёмный
+const KIT_CAMO = [[-.6, .12, .26, .13, 1], [.45, .22, .3, .12, 0], [-.1, .42, .28, .14, 1], [.7, .55, .22, .13, 1], [-.65, .66, .24, .12, 0], [.15, .8, .3, .12, 0], [-.35, .95, .2, .1, 1]];
+function hexA(h, a) { return `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`; }
+// свечение формы вечером (gl): окантовка корпуса и номер в режиме сложения — без размытия, кадр не тяжелеет
+function kitGlow(k, x, y, w, h) {
+  g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = hexA(k.co, .7); g.lineWidth = 1.4;
+  g.beginPath(); g.roundRect(x - .6, y - .6, w + 1.2, h + 1.2, [4.5, 4.5, 2.5, 2.5]); g.stroke();
+  g.strokeStyle = hexA(k.co, .22); g.lineWidth = 3.2; g.stroke(); g.restore();
 }
 // объём футболки поверх узора: светлая середина, тёмные края (градиенты в своих координатах — общие для всех фигурок)
 const TORSO_SH = {};
@@ -2350,6 +2372,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     g.fillStyle = torsoShade(tw); g.fillRect(-tw / 2, 0, tw, th);
     g.fillStyle = kit.co; g.fillRect(-tw / 2, th - 1.1, tw, 1.1);       // кромка низа
     g.restore();
+    if (kit.gl) kitGlow(kit, -tw / 2, shoulder, tw, th);
   } else {
     g.fillStyle = torsoShade(tw); g.fill();
   }
@@ -2363,6 +2386,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     g.font = 'bold 7.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (kit) { g.strokeStyle = kit.numEdge; g.lineWidth = 1.5; g.strokeText(p.n, 0, shoulder + 7); }
     g.fillStyle = kit ? kit.num : ink(shirt); g.fillText(p.n, 0, shoulder + 7);
+    if (kit && kit.gl) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = hexA(kit.co, .45); g.fillText(p.n, 0, shoulder + 7); g.restore(); }
   } else if (!side) {                                                   // спереди — воротник
     if (kit) { g.strokeStyle = kit.co; g.lineWidth = 1.3; g.beginPath(); g.moveTo(-2.8, shoulder + .3); g.lineTo(0, shoulder + 3); g.lineTo(2.8, shoulder + .3); g.stroke(); }
     else { g.fillStyle = mix(shirt, -.4); g.beginPath(); g.moveTo(-2.2, shoulder); g.lineTo(0, shoulder + 2.6); g.lineTo(2.2, shoulder); g.fill(); }
@@ -4109,11 +4133,11 @@ function demo() {
             def: f.slice(0, d).map(p), mid: f.slice(d, d + mm).map(p), att: f.slice(d + mm, d + mm + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
   };
   const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
-  // форма в демо: ?kit=stripes.ffffff,hoops.facc15 — узор[.второй цвет[.гетры[.окантовка]]] по командам через запятую;
+  // форма в демо: ?kit=stripes.ffffff,hoops.facc15 — узор[.второй цвет[.гетры[.окантовка[.1 — свечение]]]] по командам через запятую;
   // ?shirts=dc2626.f5f5f5,2563eb.202024 — футболка.шорты; ?gk=22c55e.14532d,… — форма вратаря
   const hx = v => v && /^[0-9a-f]{6}$/i.test(v) ? '#' + v : undefined;
   (Q.get('shirts') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].shirt = hx(a); if (st.teams[t] && hx(b)) st.teams[t].shorts = hx(b); });
-  (Q.get('kit') || '').split(',').forEach((v, t) => { const [p, c2, so, co] = v.split('.'); if (st.teams[t] && p) st.teams[t].kit = {p, c2: hx(c2), so: hx(so), co: hx(co)}; });
+  (Q.get('kit') || '').split(',').forEach((v, t) => { const [p, c2, so, co, gl] = v.split('.'); if (st.teams[t] && p) st.teams[t].kit = {p, c2: hx(c2), so: hx(so), co: hx(co), gl: gl === '1' ? 1 : undefined}; });
   (Q.get('gk') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].kit = {...(st.teams[t].kit || {}), gk: [hx(a), hx(b)]}; });
   let seq = 0, halfEnd = 0;
   const HALF = Q.get('half') !== null ? Number(Q.get('half')) || 0 : 45;   // в демо перерыв короче настоящего (3 мин) — дрон тот же
