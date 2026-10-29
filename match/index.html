@@ -237,11 +237,113 @@ let downed = null, stopped = false, fan = null, pyro = null;
 let lastSeq = -1;
 
 function key(t, s) { return t + ':' + s; }
-function gkColor(t) {
-  const pal = ['#f97316', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#e11d48'];
-  const used = S ? S.teams.map(x => x.shirt) : [];
+function gkColor(t) {                   // форма вратаря: своя у клуба (kit.gk) или яркая, не похожая на обе команды и судью
+  return kitOf(t).gk.c1;
+}
+function gkAuto(t, used) {
+  const pal = ['#f97316', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#e11d48', '#facc15', '#14b8a6'];
   const ok = pal.filter(c => !used.some(u => dist(c, u) < 120));
-  return (ok[t] || ok[0] || pal[t]);
+  const best = (cs, us) => cs.reduce((a, c) => { const m = c => Math.min(...us.map(u => dist(c, u))); return m(c) > m(a) ? c : a; });
+  const first = ok[0] || best(pal, used);                 // всё занято — самый непохожий цвет палитры
+  if (t === 0) return first;
+  // второму авто-вратарю — цвет, заметно отличный и от первого (а не соседний оттенок палитры)
+  return ok.find(c => c !== first && dist(c, first) >= 120) || best(pal.filter(c => c !== first), [first, ...used]);
+}
+/* ---------------- форма клуба: tm.kit = {p: узор, c2: второй цвет, so: гетры, co: воротник и манжеты, gk: [футболка, шорты]} ----------------
+   Узоры: plain, stripes (вертикальные полосы), hoops (горизонтальные), halves (половинки), quarters (четвертинки),
+   sash (диагональная лента), sleeves (рукава вторым цветом), chevron (галочка на груди). Нет kit — обычная форма, как раньше. */
+const KIT_P = ['plain', 'stripes', 'hoops', 'halves', 'quarters', 'sash', 'sleeves', 'chevron'];
+const isHex = c => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+const KITS = new Map();
+// основные цвета формы команды (проверенные #rrggbb): узор, футболка, второй цвет, шорты, форма вратаря клуба
+function kitBase(tm) {
+  const kit = tm.kit && typeof tm.kit === 'object' ? tm.kit : {};
+  const c1 = isHex(tm.shirt) ? tm.shirt : '#dc2626', sh = isHex(tm.shorts) ? tm.shorts : '#f5f5f5';
+  const p = KIT_P.includes(kit.p) ? kit.p : 'plain';
+  // второй цвет: заданный, иначе цвет шорт (если заметно отличается), иначе светлее/темнее футболки
+  let c2 = isHex(kit.c2) ? kit.c2 : dist(c1, sh) > 90 ? sh : lum(c1) > 140 ? '#111827' : '#f5f5f5';
+  if (dist(c1, c2) < 40) c2 = lum(c1) > 140 ? '#111827' : '#f5f5f5';
+  return {kit, p, c1, c2, sh, gk: Array.isArray(kit.gk) ? kit.gk : []};
+}
+function kitOf(t) {
+  const tm = S.teams[t], o = S.teams[1 - t] || tm;
+  const id = JSON.stringify([tm.kit, tm.shirt, tm.shorts, o.kit, o.shirt, o.shorts]);
+  let k = KITS.get(id + t);
+  if (k) return k;
+  const B = [0, 1].map(i => kitBase(S.teams[i] || tm)), {kit, p, c1, c2, sh} = B[t];
+  const so = isHex(kit.so) ? kit.so : hexMix(sh, -.12), co = isHex(kit.co) ? kit.co : p === 'plain' ? hexMix(c1, -.4) : c2;
+  // номер на спине: цвет, контрастный к обоим цветам узора, и обводка противоположная
+  const lm = p === 'plain' ? lum(c1) : (lum(c1) + lum(c2)) / 2;
+  const num = lm > 150 ? '#111' : '#fff', numEdge = lm > 150 ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.75)';
+  // вратари: свой цвет клуба, если не сливается с полевыми обеих команд, судьёй и другим вратарём; иначе — авто.
+  // Список «занятых» цветов одинаков для обеих команд — тогда авто-вратари берут разные цвета (ok[0] и ok[1]).
+  const fc = B.flatMap(b => b.p === 'plain' ? [b.c1] : [b.c1, b.c2]).concat('#111827');
+  const own = b => isHex(b.gk[0]) && !fc.some(u => dist(b.gk[0], u) < 90) ? b.gk[0] : null;
+  const a0 = own(B[0]), a1 = own(B[1]) && !(a0 && dist(B[1].gk[0], a0) < 90) ? B[1].gk[0] : null;
+  const mine = t === 0 ? a0 : a1, other = t === 0 ? a1 : a0;
+  const gc = mine || gkAuto(t, other ? [...fc, other] : fc), g0 = B[t].gk;
+  const gsh = isHex(g0[1]) && gc === g0[0] ? g0[1] : hexMix(gc, -.55);
+  k = {p, c1, c2, sh, so, co, num, numEdge, plain: !tm.kit,
+       gk: {p: 'plain', c1: gc, c2: hexMix(gc, -.35), sh: gsh, so: gc, co: hexMix(gc, -.45), num: ink(gc), numEdge: lum(gc) > 150 ? 'rgba(255,255,255,.85)' : 'rgba(0,0,0,.75)'}};
+  if (KITS.size > 50) KITS.clear();
+  KITS.set(id + t, k);
+  return k;
+}
+function hexMix(h, k) {                // как mix, но в виде #rrggbb — чтобы цвет формы можно было снова осветлять/затемнять
+  return '#' + mix0(h, k).match(/\d+/g).map(v => (+v).toString(16).padStart(2, '0')).join('');
+}
+function lum(hex) { const [r, gg, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return (r * 299 + gg * 587 + b * 114) / 1000; }
+// узор на корпусе: x поперёк груди (-w/2…w/2), y от плеч (0) до пояса (h). view: 'front' | 'back' | 'side', face — куда смотрит в профиль.
+// Рисуется поверх залитой основным цветом футболки, под clip по её контуру.
+function kitPaint(k, w, h, view, face) {
+  const p = k.p; if (p === 'plain' || p === 'sleeves') {
+    if (p === 'sleeves' && view !== 'side') { g.fillStyle = k.c2; g.fillRect(-w / 2, 0, 2.4, 4.2); g.fillRect(w / 2 - 2.4, 0, 2.4, 4.2); }   // реглан: плечи вторым цветом
+    return;
+  }
+  const mir = view === 'back' ? -1 : 1;                   // со спины левое и правое меняются местами
+  g.fillStyle = k.c2;
+  if (p === 'stripes') { for (const i of [-3, -1, 1, 3]) g.fillRect(i * 2.6 - 1.3, 0, 2.6, h); }
+  else if (p === 'hoops') { for (let y = 2.6; y < h; y += 5.2) g.fillRect(-w / 2, y, w, 2.6); }
+  else if (p === 'halves' || p === 'quarters') {
+    if (view === 'side') {                                  // в профиль видна одна половина — та, что к нам
+      if (p === 'halves') { if (face < 0) g.fillRect(-w / 2, 0, w, h); }
+      else g.fillRect(-w / 2, face < 0 ? 0 : h / 2, w, h / 2);
+    }
+    else { g.fillRect(mir > 0 ? 0 : -w / 2, 0, w / 2, p === 'quarters' ? h / 2 : h); if (p === 'quarters') g.fillRect(mir > 0 ? -w / 2 : 0, h / 2, w / 2, h / 2); }
+  }
+  else if (p === 'sash') {
+    const s = view === 'side' ? face : mir, b = 2.4;         // лента от плеча к противоположному боку
+    g.beginPath(); g.moveTo(-s * (w / 2 + b), -1); g.lineTo(-s * (w / 2 - b), -1); g.lineTo(s * (w / 2 + b), h + 1); g.lineTo(s * (w / 2 - b), h + 1); g.closePath(); g.fill();
+  }
+  else if (p === 'chevron') {
+    const a = h * .18, m = h * .5, t = 3;
+    g.beginPath(); g.moveTo(-w / 2 - 1, a); g.lineTo(0, m); g.lineTo(w / 2 + 1, a); g.lineTo(w / 2 + 1, a + t); g.lineTo(0, m + t); g.lineTo(-w / 2 - 1, a + t); g.closePath(); g.fill();
+  }
+}
+// объём футболки поверх узора: светлая середина, тёмные края (градиенты в своих координатах — общие для всех фигурок)
+const TORSO_SH = {};
+function torsoShade(w) {
+  let gr = TORSO_SH[w];
+  if (!gr) {
+    gr = g.createLinearGradient(-w / 2, 0, w / 2, 0);
+    gr.addColorStop(0, 'rgba(0,0,0,.3)'); gr.addColorStop(.35, 'rgba(255,255,255,.12)'); gr.addColorStop(.7, 'rgba(0,0,0,.02)'); gr.addColorStop(1, 'rgba(0,0,0,.36)');
+    TORSO_SH[w] = gr;
+  }
+  return gr;
+}
+// футболка лёжа / в полёте: овал основного цвета с узором вдоль тела. (cx, cy) — центр, rx — полдлины тела, ry — полширины,
+// dir: +1 — голова справа (x растёт к голове), -1 — слева
+function kitLying(k, cx, cy, rx, ry, dir) {
+  shaded(cx, cy, rx, ry, k.c1);
+  if (k.p === 'plain') return;
+  g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 7); g.clip();
+  g.translate(cx + dir * rx, cy); g.rotate(dir * Math.PI / 2);   // ось y узора — от плеч к поясу вдоль тела
+  if (k.p === 'sleeves') { g.fillStyle = k.c2; g.fillRect(-ry, 0, ry * 2, 3.2); }
+  else kitPaint(k, ry * 2, rx * 2, 'back', 1);
+  g.restore();
+  g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 7); g.clip();
+  blob(cx, cy + ry * .75, rx * 1.1, ry * .55, 'rgba(0,0,0,.22)'); blob(cx - rx * .3, cy - ry * .45, rx * .5, ry * .25, 'rgba(255,255,255,.18)');
+  g.restore();
 }
 function dist(a, b) {
   const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -2116,7 +2218,7 @@ function shaded(x, y, rx, ry, col) {            // овал с объёмом: �
 function drawPlayer(p, now) {
   // фигурка сверху: четыре тени от прожекторов, ноги в беге, шорты, руки, футболка с объёмом, голова с причёской
   const tm = S.teams[p.t];
-  const shirt = p.gk ? gkColor(p.t) : tm.shirt;
+  const K = kitOf(p.t), kit = p.gk ? K.gk : K, shirt = kit.c1;
   const down = downed && downed.k === key(p.t, p.s) && now < downed.until;
   const active = !!focus[key(p.t, p.s)];
   const v = Math.hypot(p.vx || 0, p.vy || 0);
@@ -2140,9 +2242,9 @@ function drawPlayer(p, now) {
     g.strokeStyle = 'rgba(250,204,21,.35)'; g.lineWidth = 5; g.stroke();
   }
   g.restore();
-  upright(p.x, p.y, () => figure(p, now, tm, shirt, L, v, pz, down));      // сама фигура — стоя, ровно на экране
+  upright(p.x, p.y, () => figure(p, now, tm, shirt, L, v, pz, down, {kit}));      // сама фигура — стоя, ровно на экране
   // номер — на плашке цвета команды под фигуркой; на экране не крутим, чтобы читался
-  upright(p.x, p.y, () => plate(p, now, shirt, active, down));
+  upright(p.x, p.y, () => plate(p, now, shirt, active, down, kit));
 }
 /* ---------------- футболист стоя: ноги с коленями, бутсы, шорты, футболка с номером на спине, руки, голова с лицом ----------------
    Рисуется ровно на экране (камера может повернуть поле), ноги — в точке игрока. Куда он смотрит на экране — так и стоит:
@@ -2151,9 +2253,10 @@ function drawPlayer(p, now) {
    вратаря, удар головой в прыжке, празднование, вбрасывание. */
 function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   opt = opt || {};
+  const kit = opt.kit || null;                                          // форма клуба (узор, гетры, окантовка) — только у игроков
   const d = p.ang + cam.r, sx = Math.cos(d), sy = Math.sin(d);          // направление взгляда на экране
   const side = Math.abs(sx) > .62, back = !side && sy < 0, face = sx >= 0 ? 1 : -1;
-  const shorts = p.gk ? '#1f2937' : tm.shorts, sock = p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : mix(tm.shorts, -.12), boot = '#0b0f19';
+  const shorts = kit ? kit.sh : p.gk ? '#1f2937' : tm.shorts, sock = kit ? kit.so : p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : mix(tm.shorts, -.12), boot = '#0b0f19';
   const pw = clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1), run = v > .12;
   const amp = run ? Math.min(1, v / 2.6) * (.7 + .3 * pw) : 0, ph = p.stride, sw = Math.sin(ph) * amp;
   const hop = run ? Math.abs(Math.cos(ph)) * 1.4 * amp : 0;              // тело чуть подпрыгивает на шаге
@@ -2164,7 +2267,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-2, -3); g.lineTo(13, -2); g.moveTo(-2, -5); g.lineTo(12, pz === 'slide' ? -8 : -5); g.stroke();
     blob(14, -2, 3, 2.2, boot); blob(13, pz === 'slide' ? -8 : -5, 3, 2.2, boot);
     shaded(-3, -4, 5, 4, shorts);
-    shaded(-11, -5, 8.5, 5.2, shirt);
+    if (kit) kitLying(kit, -11, -5, 8.5, 5.2, -1); else shaded(-11, -5, 8.5, 5.2, shirt);
     shaded(-21, -6, 4.6, 4.6, L.skin); if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(-22, -7.2, 4.4, Math.PI * .9, Math.PI * 1.9); g.fill(); }
     g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(-12, -9); g.lineTo(-17, pz === 'slide' ? -14 : -11); g.stroke();
     g.restore(); return;
@@ -2174,9 +2277,9 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     g.scale(dir, 1); g.translate(0, -lift); g.rotate(-.25);
     g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-6, 0); g.lineTo(-18, 3); g.moveTo(-6, -3); g.lineTo(-17, -5); g.stroke();
     blob(-19, 3, 3, 2, boot); blob(-18, -5, 3, 2, boot);
-    shaded(-4, -2, 5, 4.2, shorts); shaded(5, -4, 9, 5.5, shirt);
+    shaded(-4, -2, 5, 4.2, shorts); if (kit) kitLying(kit, 5, -4, 9, 5.5, 1); else shaded(5, -4, 9, 5.5, shirt);
     shaded(15, -6, 4.4, 4.4, L.skin);
-    g.strokeStyle = shirt; g.lineWidth = 3.4; g.beginPath(); g.moveTo(9, -7); g.lineTo(22, -12); g.moveTo(9, -3); g.lineTo(22, -4); g.stroke();
+    g.strokeStyle = kit && kit.p === 'sleeves' ? kit.c2 : shirt; g.lineWidth = 3.4; g.beginPath(); g.moveTo(9, -7); g.lineTo(22, -12); g.moveTo(9, -3); g.lineTo(22, -4); g.stroke();
     shaded(23, -12, 2.8, 2.6, '#e5e7eb'); shaded(23, -4, 2.8, 2.6, '#e5e7eb');
     g.restore(); return;
   }
@@ -2219,7 +2322,12 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (pz === 'punch') { if (i === 1) { hx = side ? sh.x + face * 13 : sh.x + 1; hy = side ? shoulder + 1 : shoulder - (back ? 6 : -6); } else { hx = sh.x + (side ? face * 3 : i * 2); hy = shoulder - 1; } }   // удар и защита
     if (pz === 'argue') { const w = Math.sin(now / 110 + (p.s || 0)); if (i === 1) { hx = sh.x + 3 + w * 3; hy = shoulder - 8 - w * 2; } else { hx = sh.x + i * 8; hy = shoulder + 2 + w; } }   // кричит, машет руками
     const ex = (sh.x + hx) / 2 + i * 1.2, ey = (sh.y + hy) / 2;
-    g.strokeStyle = behind ? mix(shirt, -.3) : shirt; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
+    const sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
+    g.strokeStyle = behind ? mix(sl, -.3) : sl; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
+    if (kit) {                                                          // манжета рукава — цветом окантовки
+      const cx = sh.x + (ex - sh.x) * .78, cy = sh.y + (ey - sh.y) * .78;
+      g.strokeStyle = behind ? mix(kit.co, -.3) : kit.co; g.lineWidth = 3.7; g.lineCap = 'butt'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke(); g.lineCap = 'round';
+    }
     g.strokeStyle = behind ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(ex, ey); g.lineTo(hx, hy); g.stroke();
     if (gloves) blob(hx, hy, 2.2, 2.2, '#e5e7eb');
     if (i === 1 && !behind && opt.ref && pz === 'card') { g.fillStyle = p.card === 'red' ? '#dc2626' : '#facc15'; g.fillRect(hx - 2.2, hy - 7, 4.4, 6); }
@@ -2232,21 +2340,33 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   };
   if (side) arm(-face, true);
   // корпус: футболка с объёмом и полосами клуба
-  const tw = side ? 9 : 13;
-  const tg = g.createLinearGradient(-tw / 2, 0, tw / 2, 0);
-  tg.addColorStop(0, mix(shirt, -.28)); tg.addColorStop(.35, mix(shirt, .12)); tg.addColorStop(1, mix(shirt, -.35));
-  g.fillStyle = tg; g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.fill();
-  if (!p.gk && !opt.ref && !opt.flag) { g.save(); g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.clip();
+  const tw = side ? 9 : 13, th = hip - shoulder + 1.5;
+  g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, th, [4, 4, 2, 2]);
+  g.fillStyle = shirt; g.fill();
+  if (kit) {                                                            // узор клуба по контуру корпуса, сверху — общий объём
+    g.save(); g.clip(); g.translate(0, shoulder);
+    kitPaint(kit, tw, th, side ? 'side' : back ? 'back' : 'front', face);
+    if (kit.plain && !p.gk) { g.fillStyle = mix(kit.sh, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 2, 0, 1.6, 15); g.fillRect(tw / 2 - 3.6, 0, 1.6, 15); g.globalAlpha = 1; }
+    g.fillStyle = torsoShade(tw); g.fillRect(-tw / 2, 0, tw, th);
+    g.fillStyle = kit.co; g.fillRect(-tw / 2, th - 1.1, tw, 1.1);       // кромка низа
+    g.restore();
+  } else {
+    g.fillStyle = torsoShade(tw); g.fill();
+  }
+  if (!kit && !p.gk && !opt.ref && !opt.flag) { g.save(); g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.clip();
     g.fillStyle = mix(tm.shorts, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 2, shoulder, 1.6, 15); g.fillRect(tw / 2 - 3.6, shoulder, 1.6, 15); g.restore(); g.globalAlpha = 1; }
   if (opt.vest) {                                                        // жилет: светоотражающие полосы
     g.fillStyle = 'rgba(226,232,240,.95)'; g.fillRect(-tw / 2, shoulder + 5, tw, 1.3); g.fillRect(-tw / 2, shoulder + 8.5, tw, 1.3);
     if (back) { g.font = 'bold 3.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#111827'; g.fillText('STEWARD', 0, shoulder + 3.2); }
-  } else if (back && p.n !== undefined) {                               // номер на спине
-    g.font = 'bold 7px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = ink(shirt); g.fillText(p.n, 0, shoulder + 6.5);
+  } else if (back && p.n !== undefined) {                               // номер на спине: крупный, с обводкой — читается на любом узоре
+    if (kit) { g.fillStyle = kit.co; g.fillRect(-2.6, shoulder, 5.2, 1.2); }   // воротник сзади
+    g.font = 'bold 7.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (kit) { g.strokeStyle = kit.numEdge; g.lineWidth = 1.5; g.strokeText(p.n, 0, shoulder + 7); }
+    g.fillStyle = kit ? kit.num : ink(shirt); g.fillText(p.n, 0, shoulder + 7);
   } else if (!side) {                                                   // спереди — воротник
-    g.fillStyle = mix(shirt, -.4); g.beginPath(); g.moveTo(-2.2, shoulder); g.lineTo(0, shoulder + 2.6); g.lineTo(2.2, shoulder); g.fill();
-  }
+    if (kit) { g.strokeStyle = kit.co; g.lineWidth = 1.3; g.beginPath(); g.moveTo(-2.8, shoulder + .3); g.lineTo(0, shoulder + 3); g.lineTo(2.8, shoulder + .3); g.stroke(); }
+    else { g.fillStyle = mix(shirt, -.4); g.beginPath(); g.moveTo(-2.2, shoulder); g.lineTo(0, shoulder + 2.6); g.lineTo(2.2, shoulder); g.fill(); }
+  } else if (kit) { g.fillStyle = kit.co; g.fillRect(-1.6, shoulder, 3.2, 1.2); }
   arm(side ? face : -1, false); if (!side) arm(1, false);
   // шея и голова: лицо — по направлению взгляда
   g.fillStyle = mix(L.skin, -.12); g.fillRect(-1.4, neck - 1, 2.8, 2.6);
@@ -2266,12 +2386,15 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   }
   g.restore();
 }
-function plate(p, now, shirt, active, down) {
+function plate(p, now, shirt, active, down, kit) {
   const ny = p.y + 9 * PS;
   g.font = 'bold 10px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   const nw = Math.max(15, g.measureText(p.n).width + 7);
   g.fillStyle = 'rgba(5,10,24,.55)'; g.beginPath(); g.roundRect(p.x - nw / 2, ny - 6.5, nw, 13, 6); g.fill();
   g.strokeStyle = shirt; g.lineWidth = 1.6; g.stroke();
+  if (kit && kit.p !== 'plain') {                                       // узорная форма — второй цвет тонкой линией внутри
+    g.strokeStyle = kit.c2; g.lineWidth = .9; g.beginPath(); g.roundRect(p.x - nw / 2 + 1.4, ny - 5.1, nw - 2.8, 10.2, 4.8); g.stroke();
+  }
   g.fillStyle = '#fff'; g.fillText(p.n, p.x, ny + .5);
   if (p.y_ > 0) { g.fillStyle = '#facc15'; g.fillRect(p.x + nw / 2 + 1, ny - 6, 4.5, 6.5); }
   const pw = p.pw === undefined ? 100 : p.pw;
@@ -3986,6 +4109,12 @@ function demo() {
             def: f.slice(0, d).map(p), mid: f.slice(d, d + mm).map(p), att: f.slice(d + mm, d + mm + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
   };
   const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
+  // форма в демо: ?kit=stripes.ffffff,hoops.facc15 — узор[.второй цвет[.гетры[.окантовка]]] по командам через запятую;
+  // ?shirts=dc2626.f5f5f5,2563eb.202024 — футболка.шорты; ?gk=22c55e.14532d,… — форма вратаря
+  const hx = v => v && /^[0-9a-f]{6}$/i.test(v) ? '#' + v : undefined;
+  (Q.get('shirts') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].shirt = hx(a); if (st.teams[t] && hx(b)) st.teams[t].shorts = hx(b); });
+  (Q.get('kit') || '').split(',').forEach((v, t) => { const [p, c2, so, co] = v.split('.'); if (st.teams[t] && p) st.teams[t].kit = {p, c2: hx(c2), so: hx(so), co: hx(co)}; });
+  (Q.get('gk') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].kit = {...(st.teams[t].kit || {}), gk: [hx(a), hx(b)]}; });
   let seq = 0, halfEnd = 0;
   const HALF = Q.get('half') !== null ? Number(Q.get('half')) || 0 : 45;   // в демо перерыв короче настоящего (3 мин) — дрон тот же
   onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
