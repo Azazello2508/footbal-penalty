@@ -133,6 +133,9 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .crt.lock,.go.lock{position:relative}.crt.lock>svg,.crt.lock>b,.color.lock,.crgrid.mot .crt.lock span{opacity:.4}.crt.lock::after,.color.lock::after{content:'🔒';position:absolute;top:2px;right:3px;font-size:10px;line-height:1}
 .crt .lk{display:block;font-size:10px;font-style:normal;color:var(--muted);font-weight:600}.color.lock{position:relative}.color.lock::after{top:50%;left:50%;right:auto;transform:translate(-50%,-50%)}
 .crlv{background:var(--card2);border-radius:12px;padding:10px 12px;margin:8px 0}.crlv b{font-size:16px}.crlv .sub{margin-top:3px;font-size:13px;color:var(--muted)}.crlv .go{margin-top:8px}
+.crhead{border-radius:12px;padding:9px 12px;margin:6px 0;font-size:14px;font-weight:700;background:var(--card2);border:1px solid var(--line)}
+.crhead.off{background:linear-gradient(135deg,#3b2a05,#6b4e0a);border-color:#e8b923;color:#fde68a}
+.crbase{display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--muted)}.crbase svg{width:44px;height:53px;flex:none}.crbase b{color:var(--text)}
 .crlad{display:flex;gap:4px;margin:8px 0 2px}.crlad i{flex:1;font-style:normal;text-align:center;font-size:11px;padding:4px 0;border-radius:8px;background:var(--card);color:var(--muted)}.crlad i.on{background:var(--accent);color:#fff;font-weight:700}
 .stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .stats3 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
@@ -1185,6 +1188,10 @@ const CREST_LV_TEXT = ['', 'форма, классические фоны и с�
   'рамки, украшение сверху, золотая и серебряная кайма, год основания, блеск и объём',
   'голограмма, неоновое свечение, киберформы, фон «граффити», пастельные цвета и готовые темы',
   'анимация: символ колышется, неон мерцает, вокруг искры'];
+// что даёт уровень отделки официальной эмблемы (основа не меняется) — те же ключи и уровни, что выше
+const CREST_OFF_TEXT = ['', 'эмблема клуба как есть, без отделки', 'лента с названием клуба и девиз',
+  'венок, крылья, звёзды или двойная рамка, корона, мяч или звезда сверху, золотая или серебряная кайма, год основания, объём',
+  'голографическая кайма и неоновое свечение', 'анимация и блик на большом экране'];
 function crestNeed(x) {      // какой уровень нужен для эмблемы — как app/crests.py level_of
   const L = CREST_EDITOR.levels, g = (o, k) => (k !== undefined && o[k]) || 1;
   let n = Math.max(1, g(L.shapes, x.s), g(L.divs, x.d), g(L.symbols, x.m), ...[...(x.c || []), x.p].filter(Boolean).map(c => g(L.colors, c)));
@@ -1243,7 +1250,28 @@ function crestReady(spec, E) {      // готовая эмблема в цвет
   if (x.p === x.c[3]) x.c[3] = crestDark(x.p) ? W : K;
   return x;
 }
-function crestDraft() { const E = H().crest_edit; if (!CREST_DRAFT) CREST_DRAFT = JSON.parse(JSON.stringify(E.custom || E.auto)); delete CREST_DRAFT.t; delete CREST_DRAFT.nm; return CREST_DRAFT; }
+let CREST_DRAFT_OF = '';      // чей черновик (клуб и вид): перешли к другому клубу — черновик заново
+function crestDraft() { const E = H().crest_edit, key = (E.official ? 'o:' : 'c:') + ((H().home || {}).club || '');
+  if (CREST_DRAFT_OF !== key) { CREST_DRAFT = null; CREST_DRAFT_OF = key; }
+  if (!CREST_DRAFT) CREST_DRAFT = JSON.parse(JSON.stringify(E.official ? {...E.base, ...(E.deco || {})} : (E.custom || E.auto)));
+  delete CREST_DRAFT.t; delete CREST_DRAFT.nm; return CREST_DRAFT; }
+// отделка официальной эмблемы — только эти ключи (app/crests.py DECO_KEYS); основу сервер берёт из своего списка
+const CREST_DECO = ['f', 'k', 'e', 'n', 'o', 'y', 'g', 'w', 'a'];
+const crestDecoOf = x => Object.fromEntries(CREST_DECO.filter(k => x[k] !== undefined).map(k => [k, x[k]]));
+let CREST_HINT = null;      // подсказка «у каждого клуба свои уровни» — один раз (запоминаем в браузере)
+function crestHint() {
+  if (CREST_HINT === null) { let seen = false; try { seen = localStorage.getItem('crest_two_hint') === '1'; localStorage.setItem('crest_two_hint', '1'); } catch (e) { /* без хранилища — покажем */ } CREST_HINT = !seen; }
+  return CREST_HINT;
+}
+function crestHead(E, m) {      // чья эмблема: официальный клуб (золотая плашка) или свой; два клуба — кнопка перехода
+  const hm = H().home || {}, off = !!(E && E.official);
+  let h = `<div class="crhead${off ? ' off' : ''}">${off ? `🏆 Официальный клуб${E.country ? ' · ' + esc(E.country) : ''} — ${esc(m.name)}` : `⚽ Свой клуб — ${esc(m.name)}`}</div>`;
+  if (hm.other) {
+    h += `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(hm.other)}»${hm.other_star ? ' ⭐' : ''}</button>`;
+    if (crestHint()) h += `<div class="banner">💡 У каждого клуба свои уровни эмблемы. Сейчас вы улучшаете ${off ? 'официальный' : 'свой'} клуб.</div>`;
+  }
+  return h;
+}
 function crestErr(x) {
   const pal = CREST_EDITOR.palette;
   if (!x.c.every(c => pal.includes(c)) || (x.p && !pal.includes(x.p))) return 'Выберите цвета из палитры';
@@ -1275,16 +1303,18 @@ function crestColors(cur, attr) {
   const L = CREST_EDITOR.levels.colors;
   return `<div class="colors">` + CREST_EDITOR.palette.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}${crestLock(L[c] || 1)}" style="background:${c}" aria-label="${c}" ${attr}="${c}"></button>`).join('') + `</div>`;
 }
-function crestLevelCard(E) {      // «Уровень N — название», лесенка уровней, кнопки «Улучшить» и набор «Все уровни сразу»
-  const lv = E.level || 1, N = CREST_EDITOR.level_names, P = E.prices;
-  let h = `<div class="crlv"><b>🎨 Уровень ${lv} — «${N[lv]}»</b>` +
+function crestLevelCard(E, name) {      // «Уровни эмблемы «клуб»: N из 5», лесенка, кнопки «Улучшить» и набор «Все уровни сразу»
+  const lv = E.level || 1, N = CREST_EDITOR.level_names, P = E.prices, cl = esc(name || '');
+  let h = `<div class="crlv"><b>🎨 Уровни эмблемы «${cl}»: ${lv} из 5</b><div class="sub">Сейчас — «${N[lv]}»</div>` +
     `<div class="crlad">${N.slice(1).map((t, i) => `<i class="${i + 1 <= lv ? 'on' : ''}">${i + 1 <= lv ? '✅' : '🔒'} ${i + 1}</i>`).join('')}</div>`;
   if (!P) h += `<div class="sub">У администратора открыты все уровни — бесплатно.</div>`;
   else if (!Object.keys(P).length) h += `<div class="sub">Продажа уровней сейчас закрыта — меняйте эмблему в пределах купленного уровня бесплатно.</div>`;
   else if (lv >= 5) h += `<div class="sub">Открыты все уровни. Меняйте эмблему сколько угодно — бесплатно.</div>`;
   else {
-    h += `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_LV_TEXT[lv + 1]}. Менять эмблему в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда.</div>` +
-      `<button type="button" class="go main" data-crbuy="next">⬆️ Улучшить до уровня ${lv + 1} за ${P[lv + 1]} ⭐</button>`;
+    h += (E.official ? `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_OFF_TEXT[lv + 1]}. Основа эмблемы не меняется, менять отделку в пределах уровня — бесплатно.</div>` +
+        `<div class="banner warn">⚠️ Уровень остаётся у вас. При смене официального клуба он снизится на один.</div>` :
+        `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_LV_TEXT[lv + 1]}. Менять эмблему в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда.</div>`) +
+      `<button type="button" class="go main" data-crbuy="next">⬆️ Улучшить эмблему «${cl}» до уровня ${lv + 1} — ${P[lv + 1]} ⭐</button>`;
     if (lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
       h += `<button type="button" class="go" data-crbuy="all">🎁 Все уровни сразу — ${P.all} ⭐${gain > 0 ? ` (выгода ${gain} ⭐)` : ''}</button>`; }
   }
@@ -1292,14 +1322,15 @@ function crestLevelCard(E) {      // «Уровень N — название», 
 }
 function panelCrest(m) {
   const E = H().crest_edit, hc = H().home && H().home.crest;
-  if (!E || E.why) return panelHead('🎨 Эмблема клуба') + `<div class="card note">🔒 ${esc(E ? E.why : 'Сначала создайте клуб')}</div>` +
-    (hc ? `<div class="crestprev">${crestSvg(hc, 'crbig')}</div>` : '');
+  if (!E || E.why) return panelHead('🎨 Эмблема клуба') + (E ? crestHead({official: (H().home || {}).star, country: ''}, m) : '') +
+    `<div class="card note">🔒 ${esc(E ? E.why : 'Сначала создайте клуб')}</div>` + (hc ? `<div class="crestprev">${crestSvg(hc, 'crbig')}</div>` : '');
+  if (E.official) return panelCrestOfficial(m, E);
   const lv = crestLv(), L = CREST_EDITOR.levels;
   const x = crestDraft(), err = crestErr(x), need = crestNeed(x), named = v => ({...v, nm: m.name}), alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
   const plain = ch => { const v = {...x, ...ch}; ['f', 'k', 'n', 'o', 'y', 'g', 'w', 'a'].forEach(k => delete v[k]); return crestSvg(named(v), 'crmini'); };   // форма и фон — без украшений, крупнее
-  let h = panelHead('🎨 Эмблема клуба', E.custom ? 'Своя эмблема клуба' : 'Сейчас — автоэмблема: по названию и цветам формы') + lockBanner();
+  let h = panelHead('🎨 Эмблема клуба', E.custom ? 'Своя эмблема клуба' : 'Сейчас — автоэмблема: по названию и цветам формы') + lockBanner() + crestHead(E, m);
   if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите конструктор как администратор (все уровни, бесплатно).</div>`;
-  h += crestLevelCard(E);
+  h += crestLevelCard(E, m.name);
   h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(named(x))}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
   const grid = (list, attr) => list.map(([t, v], i) => { const r = crestReady(v, E), n = crestNeed(r);
     return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${crestSvg(named(r), 'crmini')}<span>${t}</span>${crestLk(n)}</button>`; }).join('');
@@ -1316,9 +1347,35 @@ function panelCrest(m) {
     CREST_EDITOR.symbols.map(k => `<button type="button" class="crt${x.m === k ? ' on' : ''}${crestLock(L.symbols[k] || 1)}" data-crm="${k}"><svg viewBox="0 0 100 100" aria-hidden="true">${crestIcon(k, 50, 50, 96, '#e5e7eb')}</svg></button>`).join('') + `</div>`;
   if (x.m || x.l) h += `<button type="button" class="go" data-crp>${x.p ? '⭕ Убрать подложку под символом' : '⭕ Подложка под символом — если фон пёстрый'}</button>` +
     (x.p ? `<div class="label">Цвет подложки</div>` + crestColors(x.p, 'data-crpc') : '');
+  h += `<div class="label">✨ Украшения</div>` + crestDecoHtml(x, alt);
+  if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
+  else if (need > lv) h += `<div class="banner warn">🔒 В эмблеме есть то, что открывается с уровня ${need} — «${CREST_EDITOR.level_names[need]}». Улучшите эмблему или уберите отмеченное замком.</div>`;
+  h += `<div class="mrow2"><button type="button" class="go" data-crrand>🎲 Случайная</button><button type="button" class="go" data-crundo>↩️ Как было</button></div>` +
+    `<button type="button" class="go main" data-crsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить эмблему — бесплатно'}</button>` +
+    (E.custom ? `<button type="button" class="go" data-crreset>🔄 Вернуть автоэмблему</button>` : '');
+  return h;
+}
+function panelCrestOfficial(m, E) {      // официальный клуб: основа своя (с замком), менеджер меняет только отделку
+  const lv = crestLv(), x = crestDraft(), deco = crestDecoOf(x), need = crestNeed(deco), named = v => ({...v, nm: m.name}),
+    alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
+  let h = panelHead('🎨 Эмблема клуба', 'Основа — у клуба, отделка — ваша') + lockBanner() + crestHead(E, m);
+  if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите отделку как администратор (все уровни, бесплатно).</div>`;
+  h += crestLevelCard(E, m.name);
+  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(named(x))}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+  h += `<div class="crbase">${crestSvg(E.base, 'crmini')}<div><b>🔒 Основа официального клуба — не меняется</b><div>форма, фон, цвета и символ — как у «${esc(m.name)}»</div></div></div>`;
+  h += `<div class="label">✨ Отделка</div>` + crestDecoHtml(x, alt);
+  if (need > lv) h += `<div class="banner warn">🔒 В отделке есть то, что открывается с уровня ${need} — «${CREST_EDITOR.level_names[need]}». Улучшите эмблему или уберите отмеченное замком.</div>`;
+  h += `<button type="button" class="go" data-crundo>↩️ Как было</button>` +
+    `<button type="button" class="go main" data-crdeco>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить отделку — бесплатно'}</button>` +
+    (Object.keys(E.deco || {}).length ? `<button type="button" class="go" data-crreset>🔄 Снять отделку</button>` : '');
+  return h;
+}
+function crestDecoHtml(x, alt) {      // рамка, верх, кайма, ленты, блеск, свечение, анимация, девиз, год — с замками по уровню
+  const lv = crestLv(), L = CREST_EDITOR.levels;
+  let h = '';
   const C = CREST_EDITOR, opt = (lab, k, cur, attr, prev, n) => `<button type="button" class="crt${cur === k ? ' on' : ''}${crestLock(n || 1)}" ${attr}="${k}">${prev ? alt(prev) : ''}<span>${lab}</span>${crestLk(n || 1)}</button>`;
   const tog = (on, attr, yes, no, n) => `<button type="button" class="go${on ? '' : crestLock(n)}" ${attr}>${on ? yes : no}${!on && n > lv ? ` 🔒 ур. ${n}` : ''}</button>`;      // убрать — можно всегда
-  h += `<div class="label">✨ Украшения</div><div class="label">Рамка</div><div class="crgrid">` + opt('нет', '', x.f || '', 'data-crf', {f: undefined}) +
+  h += `<div class="label">Рамка</div><div class="crgrid">` + opt('нет', '', x.f || '', 'data-crf', {f: undefined}) +
     C.frames.map(k => opt(CREST_NAMES[k] || k, k, x.f, 'data-crf', {f: k}, L.keys.f)).join('') + `</div>`;
   h += `<div class="label">Сверху</div><div class="crgrid">` + opt('нет', '', x.k || '', 'data-crk', {k: undefined}) +
     C.tops.map(k => opt(CREST_NAMES[k] || k, k, x.k, 'data-crk', {k}, L.keys.k)).join('') + `</div>`;
@@ -1332,11 +1389,6 @@ function panelCrest(m) {
     `<button type="button" class="crt${String(x.o ?? '') === k ? ' on' : ''}${k ? crestLock(L.keys.o) : ''}" data-cro="${k}"><span>${esc(t)}</span></button>`).join('') + `</div>`;
   h += `<div class="label">Год основания (${C.years[0]}–${C.years[1]})${L.keys.y > lv ? ` · 🔒 ур. ${L.keys.y}` : ''}</div><div class="own"><input id="cryear" inputmode="numeric" maxlength="4" value="${x.y || ''}" placeholder="например, 1921">` +
     `<button type="button" class="${crestLock(L.keys.y).replace(/^ /, '')}" data-cry>OK</button>${x.y ? '<button type="button" data-cryx>✕</button>' : ''}</div>`;
-  if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
-  else if (need > lv) h += `<div class="banner warn">🔒 В эмблеме есть то, что открывается с уровня ${need} — «${C.level_names[need]}». Улучшите эмблему или уберите отмеченное замком.</div>`;
-  h += `<div class="mrow2"><button type="button" class="go" data-crrand>🎲 Случайная</button><button type="button" class="go" data-crundo>↩️ Как было</button></div>` +
-    `<button type="button" class="go main" data-crsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить эмблему — бесплатно'}</button>` +
-    (E.custom ? `<button type="button" class="go" data-crreset>🔄 Вернуть автоэмблему</button>` : '');
   return h;
 }
 function crestPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
@@ -1381,6 +1433,9 @@ function crestClick(b) {      // нажатия в конструкторе эм
   else if (b.hasAttribute('data-crundo')) CREST_DRAFT = null;
   else if (b.hasAttribute('data-crsave')) { const e = crestErr(x), n = crestNeed(x);
     if (e) toast(e, true); else if (n > crestLv()) toast(need(n), true); else send({a: 'crest', spec: x}); return true; }
+  else if (b.hasAttribute('data-crdeco')) { const v = crestDecoOf(x), n = crestNeed(v);
+    if (n > crestLv()) toast(need(n), true); else send({a: 'crest', deco: v}); return true; }
+  else if (b.hasAttribute('data-crreset') && E.official) { ask('Снять отделку? Останется базовая эмблема клуба; добавить отделку снова в пределах вашего уровня можно бесплатно.', () => send({a: 'crest', reset: true})); return true; }
   else if (b.hasAttribute('data-crreset')) { ask('Вернуть автоэмблему? Своя эмблема удалится; собрать новую в пределах вашего уровня можно бесплатно.', () => send({a: 'crest', reset: true})); return true; }
   else return false;
   haptic(); renderPanel(); return true;
@@ -1392,6 +1447,7 @@ function panelOfficial(m, P) {
     let h = panelHead(`${esc(c.name)}`, `${esc(c.stars)} · ${esc(l.title)}`) + (CREST_OFFICIAL[c.key] ? `<div class="ofcrest">${crestSvg(CREST_OFFICIAL[c.key], 'crbig')}</div>` : '') + (card ? `<div class="report">${esc(card.card)}</div>` : `<div class="note">Загружаю состав…</div>`);
     if (c.who) return h + `<div class="banner warn">Этот клуб уже ведёт менеджер ${esc(c.who)}. Выберите свободный (🤖).</div>`;
     if (mine) return h + (O.request ? `<div class="banner warn">📝 Заявка на «${esc(O.request.name)}» уже ждёт решения администратора. Новую можно подать после ответа.</div>` :
+      ((mine.crest_level || 1) > 1 ? `<div class="banner warn">⚠️ Ваш уровень эмблемы снизится с ${mine.crest_level} до ${mine.crest_level - 1}: уровень остаётся у вас, но при смене клуба теряет одну ступень.</div>` : '') +
       `<button type="button" class="go main" data-ofreq="${c.key}">📝 Подать заявку на этот клуб</button><div class="hint">Решает администратор — ответ придёт в чат.</div>`);
     return h + `<div class="label">🌱 Десятый игрок — ваш воспитанник</div>` +
       `<div class="own"><input id="ownf" maxlength="20" placeholder="Имя"><input id="ownl" maxlength="20" placeholder="Фамилия"></div>` +
@@ -2482,7 +2538,8 @@ function leagueClick(b) {     // нажатия в окнах лиг, админ
   }
   if (d.oflg) { haptic(); panelSub({lg: d.oflg}); return true; }
   if (d.ofc) { haptic(); if (!CARDS[d.ofc]) send({a: 'ofcard', key: d.ofc}); panelSub({club: d.ofc}); return true; }
-  if (d.ofreq) { const [, c] = ofClub(d.ofreq); ask(`Подать заявку на переход в «${c.name}»? Решает администратор.`, () => send({a: 'ofreq', key: d.ofreq})); return true; }
+  if (d.ofreq) { const [, c] = ofClub(d.ofreq), cl = ((H().official || {}).mine || {}).crest_level || 1;
+    ask(`Подать заявку на переход в «${c.name}»? Решает администратор.` + (cl > 1 ? ` Ваш уровень эмблемы снизится с ${cl} до ${cl - 1}.` : ''), () => send({a: 'ofreq', key: d.ofreq})); return true; }
   if (d.oftake) {
     if (!formCheck(true)) { toast('Поправьте поля воспитанника — ошибки подписаны красным', true); return true; }
     const [, c] = ofClub(d.oftake);
@@ -2789,7 +2846,10 @@ function demoLeagueAct(act) {   // демо: лига меняется толь�
       stats: Object.fromEntries(S.statdefs.map(([k], i) => [k, S.templates.field[i]]))});
     Object.assign(S.hub, keep); S.hub.learn.auto = null;
     Object.assign(S.hub.home, {club: c.name, star: true, league: l.title.replace(/^\S+\s/, ''), official: true, owner: false, other: null});
-    S.hub.official.mine = {name: c.name, key: c.key, league: l.title, active: true};
+    S.hub.official.mine = {name: c.name, key: c.key, league: l.title, active: true, crest_level: 1};
+    S.hub.crest_edit = {official: true, base: CREST_OFFICIAL[c.key], deco: {}, country: l.title, everyone: true, level: 1,
+      prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}};      // демо: отделка официальной эмблемы, уровни «покупаются» без оплаты
+    if (CREST_OFFICIAL[c.key]) S.hub.home.crest = CREST_OFFICIAL[c.key];
     const nc = ofClub(c.key)[1]; if (nc) nc.who = 'Вы';
     S.hub.manage = demoManage(true); demoRefresh();
     return {ok: true, note: '✅ Клуб ваш!', report: `🎉 «${c.name}» — ваш клуб!\n\nДемо: в Telegram здесь — лига и место в таблице.\n` +
@@ -2846,6 +2906,12 @@ function demoClubAct(act) {   // демо: раздел «Клуб» меняе�
   if (act.a === 'crest') {          // демо: своя эмблема — только на этой странице
     const E = S.hub.crest_edit;
     if (act.buy) { E.level = act.buy === 'all' ? 5 : Math.min(5, E.level + 1); CREST_READY_HTML = null; return {ok: true, note: `Демо: открыт уровень ${E.level} (в игре — за звёзды Telegram)`}; }
+    if (E.official) {
+      if (act.deco && crestNeed(act.deco) > E.level) return {ok: false, note: `Нужен уровень эмблемы ${crestNeed(act.deco)}`};
+      E.deco = act.reset ? {} : crestDecoOf(act.deco || {}); S.hub.home.crest = {...E.base, ...E.deco};
+      S.hub.table.rows.forEach(r => { if (r.mine) r.crest = S.hub.home.crest; });
+      return {ok: true, note: act.reset ? '↩️ Отделка снята — базовая эмблема клуба' : '🎨 Отделка эмблемы сохранена'};
+    }
     if (act.spec && crestNeed(act.spec) > E.level) return {ok: false, note: `Нужен уровень эмблемы ${crestNeed(act.spec)}`};
     E.custom = act.reset ? null : act.spec; S.hub.home.crest = E.custom || E.auto;
     S.hub.table.rows.forEach(r => { if (r.mine) r.crest = S.hub.home.crest; });
