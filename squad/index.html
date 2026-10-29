@@ -120,10 +120,16 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
   font-weight:800;font-size:20px;border:3px solid rgba(255,255,255,.85);box-shadow:0 4px 12px rgba(0,0,0,.45);text-shadow:0 1px 2px rgba(0,0,0,.6);color:#fff}
 .crest h1{margin:0;font-size:21px;line-height:1.15}
 .crest small{display:block;color:var(--muted);font-size:13px;margin-top:3px;font-weight:400}
-.crest svg.crbig{flex:none;width:58px;height:70px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+.crest svg.crbig{flex:none;width:74px;height:84px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
 .ofcrest{text-align:center;margin:2px 0 8px}.ofcrest svg.crbig{width:80px;height:96px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
 svg.cr{flex:none;width:18px;height:22px;vertical-align:-5px;margin-right:6px}
 svg.crl{width:26px;height:31px;vertical-align:-9px}
+.menu button.off{opacity:.55}
+.crestprev{display:flex;align-items:center;justify-content:center;gap:18px;margin:8px 0 4px}.crestprev svg.crbig{width:150px;height:150px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+.crrow{background:var(--card2);padding:8px 10px;border-radius:10px;font-size:14px}.crrow .sub{margin-top:2px}
+.crgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.crgrid.mot{grid-template-columns:repeat(2,1fr)}.crgrid.mot .crt{font-size:12px;font-weight:700;color:var(--text);min-height:34px}.crgrid.ready .crt svg{width:96px;height:100px}.crgrid.ready .crt span{font-size:12px;font-weight:700;color:var(--text)}.crgrid.ready{grid-template-columns:repeat(3,1fr)}.crgrid.sym{grid-template-columns:repeat(6,1fr)}
+.crt{background:var(--card2);border-radius:10px;padding:6px 2px;font-size:11px;color:var(--muted);text-align:center;min-height:40px}.crt.on{outline:2px solid var(--accent)}
+.crt svg{display:block;margin:0 auto 2px;width:36px;height:43px}.crgrid.sym .crt svg{width:30px;height:30px;margin:0 auto}
 .stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .stats3 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
 .stats3 b{display:block;font-size:19px}
@@ -412,9 +418,13 @@ const CREST_SHAPES = {
   oval: 'M10 60A40 52 0 1 0 90 60A40 52 0 1 0 10 60Z',
   arch: 'M10 34Q10 6 50 6Q90 6 90 34V66C90 94 70 106 50 114C30 106 10 94 10 66Z',
   french: 'M10 8H90V82C90 98 76 104 62 106C55 107 52 110 50 114C48 110 45 107 38 106C24 104 10 98 10 82Z',
-  diamond: 'M50 4L96 60L50 116L4 60Z'};
-const CREST_MID = {shield: 56, french: 56, round: 60, oval: 60, arch: 58, diamond: 60};
-let CREST_N = 0;           // у каждой эмблемы на странице свой clipPath
+  diamond: 'M50 4L96 60L50 116L4 60Z',
+  spanish: 'M10 8H90V70A40 44 0 0 1 10 70Z',
+  badge: 'M10 8H90V78L50 114L10 78Z'};
+const CREST_MID = {shield: 56, french: 56, round: 60, oval: 60, arch: 58, diamond: 60, spanish: 58, badge: 56};
+const CREST_METAL = {gold: ['#fff3b0', '#e8b923', '#8a5d06'], silver: ['#ffffff', '#c3c9d2', '#5b6472']};
+let CREST_N = 0;           // у каждой эмблемы на странице свои clipPath и градиенты
+function crestDark(h) { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 150; }
 function crestDiv(d, a, b) {     // деление фона: a — основной цвет, b — второй
   const r = (x, y, w, h, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
   let s = r(0, 0, 100, 120, a);
@@ -429,6 +439,12 @@ function crestDiv(d, a, b) {     // деление фона: a — основн�
   else if (d === 'quarters') s += r(50, 0, 50, 60, b) + r(0, 60, 50, 60, b);
   else if (d === 'band') s += r(0, 44, 100, 30, b);
   else if (d === 'pstripe') s += r(28, 0, 44, 120, '#fff') + r(32, 0, 36, 120, b);
+  else if (d === 'chevron') s += `<path d="M0 62L50 30L100 62V84L50 52L0 84Z" fill="${b}"/>`;
+  else if (d === 'checks') { for (let y = 0; y < 6; y++) for (let x = 0; x < 5; x++) if ((x + y) % 2) s += r(x * 20, y * 20, 20, 20, b); }
+  else if (d === 'waves') s += [30, 60, 90].map(y => `<path d="M-5 ${y}Q12 ${y - 9} 25 ${y}T55 ${y}T85 ${y}T115 ${y}V${y + 12}Q98 ${y + 3} 85 ${y + 12}T55 ${y + 12}T25 ${y + 12}T-5 ${y + 12}Z" fill="${b}"/>`).join('');
+  else if (d === 'rays') { for (let i = 0; i < 16; i += 2) { const t1 = i * Math.PI / 8, t2 = (i + 1) * Math.PI / 8;
+    s += `<path d="M50 60L${(50 + 120 * Math.cos(t1)).toFixed(1)} ${(60 + 120 * Math.sin(t1)).toFixed(1)}L${(50 + 120 * Math.cos(t2)).toFixed(1)} ${(60 + 120 * Math.sin(t2)).toFixed(1)}Z" fill="${b}"/>`; } }
+  else if (d === 'bends') { for (let i = -6; i < 6; i += 2) s += `<path d="M${i * 14} 0h14l100 120h-14z" fill="${b}"/>`; }
   else if (d === 'catalan') {      // сверху — полосы региона, снизу — полосы клуба
     s += r(0, 0, 100, 42, '#fcd116');
     for (let i = 0; i < 4; i++) s += r(16 + i * 20, 0, 9, 42, '#da121a');
@@ -438,33 +454,77 @@ function crestDiv(d, a, b) {     // деление фона: a — основн�
     s += `<path d="M${x} ${y}l10 10-10 10-10-10z" fill="${b}"/>`;
   return s;
 }
-function crestIcon(m, cx, cy, size, col) {
-  const p = CREST_ICONS[m];
+function crestIcon(m, cx, cy, size, col, lib) {
+  const p = (lib || CREST_ICONS)[m];
   if (!p) return '';
   if (p[0] === '~') return `<path transform="translate(${cx - size / 2} ${cy - size / 2}) scale(${size / 100})" d="${p.slice(1)}" fill="${col}"/>`;
   const k = size / 512, t = `translate(${cx - size / 2} ${cy - size / 2}) scale(${k})`;
   if (p[0] === '@') return `<path transform="${t}" d="${p.slice(1)}" fill="${col}"/><path transform="${t} translate(512 0) scale(-1 1)" d="${p.slice(1)}" fill="${col}"/>`;
   return `<path transform="${t}" d="${p}" fill="${col}"/>`;
 }
+function crestText(x, y, text, size, col, max) {      // текст ленты: уже экранирован; длинный — ужимается в ширину
+  const w = Math.min(max, text.length * size * 0.62);
+  return `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" fill="${col}" text-anchor="middle" font-family="system-ui,sans-serif" textLength="${w.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${text}</text>`;
+}
+// украшения конструктора (game-icons.net, CC BY 3.0): лавровый венок и крыло (второе — зеркально)
+const CREST_ORN = {"laurel": "M234.7 18.1c-21 .2-38.8 2.5-62 10.2c-4.1 2-8.2 4.1-12.2 6.2c.8 5.3 3.2 10.8 5.5 14.7c-4.9 4.2-9.6 8.4-14.1 12.8c-3.7-5.5-6.6-11.4-8.3-17.4c-14.2 9.2-27.7 19.6-40.1 31.4c1.9 9.5 9.2 18.2 15.2 24.1c-3.7 5.2-7.2 10.4-10.5 15.7c-8.2-7.2-15.1-15.5-19.3-24.6C75.0 108.1 61.9 126 53.1 142.3c5.3 13 19.0 22.7 29.8 28.4c-2 6.1-3.7 12.2-5.1 18.4c-13.5-6.4-26.3-15.7-34.5-26.6c-8.7 20.1-14.7 40.7-18.2 61.4c9.6 15.5 30.6 22.9 46 25.9q.1 9.6.9 19.2c-17.8-2.7-37.3-9.6-49.9-20.4c-1.6 22.3-.5 44.5 3.4 66.2c15.2 13.7 41.1 15.3 58.6 13.7c2 6.1 4.1 12.2 6.5 18.1c-18.6 4.5-43.3 1.1-59.3-6.2c6.6 23.7 16.4 46.4 29.2 67.4c19.3 8.6 44.5 3.6 61.7-2.5c3.7 5.3 7.6 10.5 11.6 15.5c-17.8 9.5-39.9 11.5-57.5 10.1c12.3 16.3 26.6 31.2 42.7 44.4c4.9 1.1 10.5 1.1 16.7.3c11.7-1.7 25.2-7 37.9-14.7c16.7 13.5 34.9 24.7 54.1 33.1l7.5-17.2c-16-6.9-31.3-16.2-45.6-27.3c13.3-10.9 24.3-24 30.2-36.5c4.7-9.7 6.3-18.4 4.5-26.3c-10.7-5.7-20.6-12.5-29.5-20.3c-7.8 20.8-26.4 36.1-43.5 46c-4-4.9-7.9-9.9-11.6-15c16.8-9.8 39.9-27.5 39.1-47.1c-8.9-10.3-16.6-21.8-22.9-34.1c-12 14-30.7 22.5-46.5 26.7c-2.4-5.8-4.6-11.6-6.6-17.6c16.8-5.2 37.9-13 44.1-29.7c-4.3-11.5-7.5-23.6-9.7-36c-13.8 8.4-32 11.1-46.3 10.9c-.6-6.2-1-12.4-1.2-18.7c15.5-.6 33.9-2.5 44.9-14.3c-.8-12.6-.5-25.5.9-38.5c-13.4 2.8-29 .3-40.4-3.2c1.3-6 2.9-12.1 4.8-18.1c12.8 3.2 27.1 6.7 38.8.8c2.7-13.6 6.7-27.3 12-40.8c-9.9-1.8-20.2-6.3-27.7-10.7c3.3-5.3 6.8-10.5 10.5-15.7c8.1 4.2 16.3 8.8 25.2 8.4c5.7-11.6 12.3-22.6 19.5-32.8c-5.1-2.7-10-6.4-14.4-10.6c4.4-4.3 9.1-8.5 13.9-12.7c3.8 3.5 8 6.2 12.3 8.2c15.9-18.6 35.9-36.2 49-53.8zm38.4 0c15.4 20.8 33.8 35.6 48.9 53.7c4.6-1.8 9.1-5.2 12.3-8.1c4.9 4.2 9.5 8.4 13.9 12.7c-4.4 4.2-9.2 7.9-14.4 10.6c7.3 10.1 13.9 21.1 19.6 32.6c9-.1 18.4-4.4 25.2-8.4c3.7 5.2 7.2 10.4 10.4 15.7c-8.8 5.9-18.2 9.6-27.6 10.7c5.3 13.5 9.3 27.2 12 40.8c12.3 5.4 27.3 2.7 38.7-.8c1.9 6 3.5 12.1 4.9 18.1c-14.2 3.4-27.3 6.2-40.4 3.3c1.4 12.9 1.6 25.8.8 38.5c11.4 12.3 30.2 14.4 44.9 14.2c-.2 6.3-.5 12.5-1.2 18.7c-17.1-.5-32.8-2.5-46.3-10.9c-2.1 12.4-5.3 24.5-9.6 36.1c8.2 17.4 27.8 25.3 44.1 29.6c-2 6-4.2 11.8-6.6 17.6c-18.5-5.6-34.9-13-46.6-26.7c-6.3 12.4-13.9 23.8-22.9 34.1c1.5 22.4 22.4 37.8 39.2 47.1c-3.7 5.1-7.6 10.1-11.6 15c-19-11.8-36.6-25.8-43.5-46c-9 7.8-18.8 14.6-29.6 20.3c-1.8 7.9-.1 16.6 4.5 26.3c6 12.5 17 25.6 30.3 36.5c-14.3 11.1-29.6 20.4-45.6 27.3l7.4 17.2c19.3-8.4 37.4-19.6 54.1-33.2c12.7 7.8 26.2 13.1 38 14.8c6.2.8 11.8.8 16.7-.3c16.1-13.2 30.4-28.1 42.7-44.4c-18 1.7-37.9-2.3-56.5-9.7c-.3-.1-.7-.3-1.1-.4c4.1-5 7.9-10.2 11.7-15.5c18.2 7.8 43.7 11.7 61.6 2.5c12.8-21 22.6-43.7 29.2-67.4c-.4.2-.8.4-1.2.5c-20.5 6.4-40.1 7.6-58.1 5.7c2.4-5.9 4.5-12 6.5-18c19.1 1.7 45.2.1 58.6-13.8c3.9-21.7 5.1-43.9 3.4-66.2c-14.4 10.7-34.9 17.9-49.9 20.4c.5-6.4.9-12.8 1-19.2c16.8-4.8 37.9-10 45.9-25.9c-3.5-20.7-9.5-41.3-18.2-61.4c-9.4 11.6-23.1 21-34.4 26.5c-1.5-6.1-3.2-12.2-5.2-18.3c12-7.4 25.1-15.3 29.9-28.4c-10.1-18.7-22.2-35.8-35.9-51.0c-4.2 9.1-11.1 17.4-19.2 24.6c-3.3-5.3-6.8-10.5-10.6-15.7c6.2-7.2 14.2-14.7 15.2-24.1c-12.4-11.8-25.8-22.2-40-31.4c-1.8 6-4.7 11.9-8.3 17.4c-4.5-4.4-9.2-8.6-14.1-12.8c2.7-4.8 4.7-9.6 5.4-14.7c-4-2.1-8.1-4.2-12.2-6.2c-24.7-8.2-43.3-10.3-66.2-10.2", "wing": "M22.5 28.8c107.6 68.1 207.0 121.5 322.0 133.7c40.7 4.3 47.8 34.9 31.7 70.1c-26.5 57.8 16.4 143.5 112.3 195.5c-6.0 28.0-46.3 51.5-71.2 43.3c-20.7-43.2-52.9-88.7-87.8-76.4c-71.4 25.3-144.9 30.7-194.8 3.4c66.2-9.0 129.3-26.6 184.8-54.3C219.2 359.0 100.4 359.4 55.4 309.0c91.1 3.6 164.9-5.6 247.3-26.2C192.9 272.7 72.2 252.6 38.3 185.3c81.0 25.2 189.6 34.6 263.0 35.2C186.9 191.7 32.9 112.7 22.5 28.8z"};
 // эмблемы готовых клубов топ-лиг — не меняются, поэтому здесь, а не в состоянии (оно ограничено по размеру);
 // должны совпадать с app/crests.py OFFICIAL — следит tools/sim/crests_check.py
 const CREST_OFFICIAL = {"eng1":{"s":"shield","d":"plain","c":["#d4001a","#d4001a","#e8b923","#ffffff"],"m":"cannon"},"eng2":{"s":"round","d":"plain","c":["#6cabdd","#6cabdd","#0b2a5b","#0b2a5b"],"m":"ship"},"eng3":{"s":"shield","d":"plain","c":["#c8102e","#d4001a","#e8b923","#ffffff"],"m":"heron"},"eng4":{"s":"arch","d":"plain","c":["#034694","#034694","#ffffff","#e8b923"],"m":"lion"},"eng5":{"s":"shield","d":"plain","c":["#da291c","#d4001a","#111111","#fcd116"],"m":"trident"},"eng6":{"s":"oval","d":"plain","c":["#ffffff","#ffffff","#0b2a5b","#0b2a5b"],"m":"rooster"},"eng7":{"s":"shield","d":"stripes","c":["#ffffff","#111111","#111111","#ffffff"],"m":"castle","p":"#41b6e6"},"eng8":{"s":"shield","d":"chief","c":["#7a263a","#6cabdd","#6cabdd","#e8b923"],"m":"lion"},"eng9":{"s":"shield","d":"halves","c":["#1b458f","#c4122e","#0b2a5b","#ffffff"],"m":"eaglehead","p":"#0b2a5b"},"eng10":{"s":"round","d":"plain","c":["#dd0000","#d4001a","#ffffff","#ffffff"],"m":"oak"},"eng11":{"s":"round","d":"plain","c":["#0057b8","#1d4ed8","#ffffff","#ffffff"],"m":"gull"},"eng12":{"s":"shield","d":"plain","c":["#ffffff","#ffffff","#111111","#111111"],"m":"house"},"eng13":{"s":"shield","d":"stripes","c":["#da291c","#111111","#111111","#da291c"],"m":"cherry","p":"#ffffff"},"eng14":{"s":"round","d":"stripes","c":["#ffffff","#e30613","#e30613","#111111"],"m":"bee","p":"#ffffff"},"eng15":{"s":"french","d":"plain","c":["#003399","#1d4ed8","#ffffff","#ffffff"],"m":"turret"},"eng16":{"s":"shield","d":"plain","c":["#7a263a","#7a263a","#1bb1e7","#e8b923"],"m":"hammers"},"eng17":{"s":"round","d":"plain","c":["#fdb913","#f7a823","#111111","#111111"],"m":"wolf"},"eng18":{"s":"round","d":"plain","c":["#1d428a","#1d4ed8","#fcd116","#ffffff"],"m":"rose"},"eng19":{"s":"round","d":"halves","c":["#7a263a","#6cabdd","#7a263a","#7a263a"],"m":"keep","p":"#ffffff"},"eng20":{"s":"shield","d":"stripes","c":["#ffffff","#eb172b","#111111","#111111"],"m":"cat","p":"#e8b923"},"esp1":{"s":"round","d":"sash","c":["#ffffff","#3d2c8d","#e8b923","#e8b923"],"m":"crown","p":"#3d2c8d"},"esp2":{"s":"shield","d":"catalan","c":["#a50044","#004d98","#fcd116","#111111"],"m":"ball","p":"#ffffff"},"esp3":{"s":"shield","d":"stripes","c":["#ffffff","#cb3524","#272e61","#ffffff"],"m":"bear","p":"#272e61"},"esp4":{"s":"oval","d":"plain","c":["#ffe667","#fcd116","#005187","#005187"],"m":"submarine"},"esp5":{"s":"shield","d":"stripes","c":["#ffffff","#ee2523","#111111","#0a7a3b"],"m":"oak","p":"#ffffff"},"esp6":{"s":"round","d":"stripes","c":["#ffffff","#0bb363","#e8b923","#e8b923"],"m":"crown","p":"#0bb363"},"esp7":{"s":"round","d":"plain","c":["#0067b1","#1d4ed8","#e8b923","#ffffff"],"m":"ball"},"esp8":{"s":"shield","d":"quarters","c":["#ffffff","#d71920","#111111","#d71920"],"m":"castle","p":"#e8b923"},"esp9":{"s":"shield","d":"plain","c":["#ffffff","#ffffff","#ee3524","#111111"],"m":"bat"},"esp10":{"s":"shield","d":"plain","c":["#d91a21","#d4001a","#0a346f","#e8b923"],"m":"chains"},"esp11":{"s":"round","d":"plain","c":["#ffffff","#ffffff","#e53027","#e53027"],"m":"bolt"},"esp12":{"s":"french","d":"halves","c":["#cd2534","#ffffff","#111111","#111111"],"m":"star","p":"#ffffff"},"esp13":{"s":"oval","d":"stripes","c":["#ffffff","#007fc8","#007fc8","#ffffff"],"m":"parrot","p":"#007fc8"},"esp14":{"s":"diamond","d":"plain","c":["#005999","#1d4ed8","#ffffff","#ffffff"],"m":"ball"},"esp15":{"s":"shield","d":"halves","c":["#e20613","#111111","#111111","#e20613"],"m":"castle","p":"#e8b923"},"esp16":{"s":"round","d":"stripes","c":["#ffffff","#0761af","#0761af","#0761af"],"m":"turret","p":"#ffffff"},"esp17":{"s":"shield","d":"plain","c":["#8ac3ee","#6cabdd","#ffffff","#e30613"],"m":"sword"},"esp18":{"s":"shield","d":"stripes","c":["#b4053f","#004d98","#111111","#0b2a5b"],"m":"anchor","p":"#ffffff"},"esp19":{"s":"round","d":"plain","c":["#ffffff","#ffffff","#05642c","#05642c"],"m":"palm"},"esp20":{"s":"arch","d":"plain","c":["#0050a5","#1d4ed8","#e8b923","#e8b923"],"m":"cross"},"ita1":{"s":"round","d":"stripes","c":["#111111","#0068a8","#e8b923","#111111"],"m":"snake","p":"#e8b923"},"ita2":{"s":"round","d":"plain","c":["#12a0d7","#6cabdd","#ffffff","#ffffff"],"m":"horse"},"ita3":{"s":"shield","d":"stripes","c":["#111111","#fb090b","#111111","#ffffff"],"h":"#ffffff","x":"#fb090b"},"ita4":{"s":"shield","d":"stripes","c":["#ffffff","#111111","#111111","#e8b923"],"m":"crown","p":"#111111"},"ita5":{"s":"round","d":"plain","c":["#8e1f2f","#7b1c26","#f0bc42","#f0bc42"],"m":"wolf"},"ita6":{"s":"shield","d":"stripes","c":["#111111","#1e71b8","#111111","#111111"],"m":"star","p":"#ffffff"},"ita7":{"s":"round","d":"plain","c":["#87d8f7","#6cabdd","#ffffff","#16365f"],"m":"eagle"},"ita8":{"s":"arch","d":"stripes","c":["#1a2f48","#a21c26","#1a2f48","#ffffff"],"h":"#ffffff","x":"#a21c26"},"ita9":{"s":"round","d":"plain","c":["#1d3b78","#0b2a5b","#ffffff","#ffffff"],"m":"ship"},"ita10":{"s":"shield","d":"plain","c":["#5b2a86","#5b2a86","#ffffff","#d4001a"],"m":"lily","p":"#ffffff"},"ita11":{"s":"oval","d":"plain","c":["#7b1c26","#7b1c26","#e8b923","#ffffff"],"m":"bull"},"ita12":{"s":"shield","d":"stripes","c":["#ffffff","#111111","#111111","#111111"],"m":"horse","p":"#ffffff"},"ita13":{"s":"shield","d":"halves","c":["#c8102e","#00205b","#111111","#00205b"],"m":"griffin","p":"#e8b923"},"ita14":{"s":"round","d":"halves","c":["#b70f23","#08245c","#ffffff","#b70f23"],"m":"greek","p":"#ffffff"},"ita15":{"s":"shield","d":"stripes","c":["#00a752","#111111","#111111","#111111"],"m":"ball","p":"#ffffff"},"ita16":{"s":"shield","d":"cross","c":["#ffd200","#1b3f8b","#1b3f8b","#ffffff"]},"ita17":{"s":"shield","d":"plain","c":["#002f6c","#0b2a5b","#fcd116","#fcd116"],"m":"ladder"},"ita18":{"s":"shield","d":"stripes","c":["#9ca3af","#cc0000","#cc0000","#cc0000"],"m":"turret","p":"#ffffff"},"ita19":{"s":"round","d":"stripes","c":["#ffd700","#d7141a","#d7141a","#d7141a"],"m":"wolf","p":"#ffffff"},"ita20":{"s":"shield","d":"stripes","c":["#111111","#1e5aa8","#111111","#111111"],"m":"pisa","p":"#ffffff"},"ger1":{"s":"round","d":"lozenge","c":["#ffffff","#0066b2","#dc052d","#ffffff"]},"ger2":{"s":"shield","d":"plain","c":["#fde100","#fcd116","#111111","#111111"],"m":"ball"},"ger3":{"s":"shield","d":"plain","c":["#e32221","#d4001a","#111111","#111111"],"m":"lion"},"ger4":{"s":"oval","d":"plain","c":["#ffffff","#ffffff","#dd0741","#dd0741"],"m":"bull"},"ger5":{"s":"shield","d":"plain","c":["#111111","#111111","#e1000f","#ffffff"],"m":"eagle"},"ger6":{"s":"shield","d":"band","c":["#ffffff","#e32219","#e32219","#111111"],"m":"stag","p":"#e8b923"},"ger7":{"s":"french","d":"plain","c":["#111111","#111111","#e3000f","#ffffff"],"m":"pine"},"ger8":{"s":"shield","d":"plain","c":["#1961b5","#1d4ed8","#ffffff","#ffffff"],"m":"leaf"},"ger9":{"s":"shield","d":"plain","c":["#1d9053","#0a7a3b","#ffffff","#ffffff"],"m":"key"},"ger10":{"s":"round","d":"plain","c":["#ffffff","#ffffff","#00a03c","#111111"],"m":"horse"},"ger11":{"s":"shield","d":"plain","c":["#65b32e","#0a7a3b","#ffffff","#ffffff"],"m":"wolf"},"ger12":{"s":"round","d":"plain","c":["#c3141e","#d4001a","#ffffff","#ffffff"],"m":"wheel"},"ger13":{"s":"shield","d":"plain","c":["#eb1923","#d4001a","#e8b923","#ffffff"],"m":"anvil"},"ger14":{"s":"shield","d":"chief","c":["#ffffff","#46714d","#ba3733","#46714d"],"m":"pine"},"ger15":{"s":"shield","d":"plain","c":["#5c3a21","#5c3a21","#ffffff","#ffffff"],"m":"anchor"},"ger16":{"s":"round","d":"plain","c":["#0a3f86","#0b2a5b","#111111","#ffffff"],"m":"castle"},"ger17":{"s":"shield","d":"chief","c":["#ffffff","#ed1c24","#ed1c24","#ed1c24"],"m":"goat"},"ger18":{"s":"shield","d":"halves","c":["#e2001a","#003b79","#111111","#003b79"],"m":"keep","p":"#ffffff"},"fra1":{"s":"shield","d":"pstripe","c":["#004170","#da291c","#ffffff","#ffffff"],"m":"eiffel"},"fra2":{"s":"round","d":"plain","c":["#ffffff","#ffffff","#2faee0","#2faee0"],"m":"wave"},"fra3":{"s":"shield","d":"bend","c":["#e51b22","#ffffff","#111111","#e8b923"],"m":"crown","p":"#111111"},"fra4":{"s":"round","d":"plain","c":["#e01e13","#d4001a","#20325f","#ffffff"],"m":"dog"},"fra5":{"s":"shield","d":"plain","c":["#ffffff","#ffffff","#da0812","#14387f"],"m":"lion"},"fra6":{"s":"shield","d":"halves","c":["#ec1c24","#fff200","#111111","#e8b923"],"m":"lantern","p":"#111111"},"fra7":{"s":"shield","d":"stripes","c":["#c8102e","#111111","#111111","#c8102e"],"m":"eaglehead","p":"#ffffff"},"fra8":{"s":"shield","d":"hhalves","c":["#e13327","#111111","#111111","#111111"],"m":"ermine","p":"#ffffff"},"fra9":{"s":"round","d":"plain","c":["#009fe3","#6cabdd","#ffffff","#ffffff"],"m":"heron"},"fra10":{"s":"shield","d":"plain","c":["#e30613","#d4001a","#ffffff","#ffffff"],"m":"ship"},"fra11":{"s":"round","d":"plain","c":["#5c2d91","#5b2a86","#ffffff","#ffffff"],"m":"greek"},"fra12":{"s":"shield","d":"sash","c":["#ffffff","#00387b","#00387b","#00387b"],"m":"keep","p":"#ffffff"},"fra13":{"s":"round","d":"plain","c":["#fcd405","#fcd116","#00924e","#00924e"],"m":"dove"},"fra14":{"s":"shield","d":"stripes","c":["#ffffff","#111111","#111111","#111111"],"m":"castle","p":"#ffffff"},"fra15":{"s":"round","d":"halves","c":["#6cabdd","#0b2a5b","#0b2a5b","#0b2a5b"],"m":"anchor","p":"#ffffff"},"fra16":{"s":"shield","d":"plain","c":["#f58113","#f7a823","#111111","#111111"],"m":"fish"},"fra17":{"s":"round","d":"plain","c":["#1b2f5b","#0b2a5b","#6cabdd","#ffffff"],"m":"wave"},"fra18":{"s":"shield","d":"plain","c":["#7a1e3a","#7a263a","#ffffff","#ffffff"],"m":"lorraine"}};
-function crestSvg(c, cls) {      // c — параметры эмблемы: {s, d, c: [фон, второй, кайма, символ], m, p, h, x}
+function crestSvg(c, cls) {      // c — параметры эмблемы: {s, d, c: [фон, второй, кайма, символ], m, p, h, x, украшения…, t}
   const hex = v => /^#[0-9a-f]{6}$/i.test(v);
   if (!c || !CREST_SHAPES[c.s] || !Array.isArray(c.c) || c.c.length !== 4 || ![...c.c, c.p, c.h, c.x].filter(Boolean).every(hex)) return '';
   const id = 'cr' + (++CREST_N), [a, b, trim, ink] = c.c, shape = CREST_SHAPES[c.s];
-  let s = `<clipPath id="${id}"><path d="${shape}"/></clipPath><g clip-path="url(#${id})">${crestDiv(c.d, a, b)}`;
+  const small = !cls || /\bcr\b|crl/.test(cls);      // мелко (таблица, списки): без крыльев, лент и надписей
+  const metal = CREST_METAL[c.e], E = CREST_EDITOR, gold = metal || CREST_METAL.gold;
+  const stroke = metal ? `url(#${id}m)` : trim, deco = metal ? `url(#${id}m)` : gold[1];
+  const ribbon = !small && c.n && c.nm, motto = !small && E.mottos[c.o], top = !small && E.tops.includes(c.k) ? c.k : null;
+  const frame = !small && E.frames.includes(c.f) ? c.f : null;
+  let defs = `<clipPath id="${id}"><path d="${shape}"/></clipPath>`;
+  const deep = c.g && !small, lift = deep && /crbig/.test(cls) ? ` filter="url(#${id}f)"` : '';     // тени-фильтры дороги — только крупно
+  if (lift) defs += `<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1.8" stdDeviation="1.3" flood-color="#000" flood-opacity=".55"/></filter>`;
+  if (deep) defs += `<radialGradient id="${id}r" cx=".32" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+  if (c.g) defs += `<linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>`;
+  if (metal) defs += `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${metal[0]}"/><stop offset=".5" stop-color="${metal[1]}"/><stop offset="1" stop-color="${metal[2]}"/></linearGradient>`;
+  let s = '';
+  if (frame === 'laurel') s += `<path${lift} transform="translate(-16 -4) scale(.258)" d="${CREST_ORN.laurel}" fill="${deco}"/>`;
+  if (frame === 'wings') s += `<path${lift} transform="translate(66 4) scale(.12)" d="${CREST_ORN.wing}" fill="${deco}"/><path${lift} transform="translate(34 4) scale(-.12 .12)" d="${CREST_ORN.wing}" fill="${deco}"/>`;
+  if (frame === 'stars') for (let i = 0; i < 14; i++) { const t = (i / 14) * 2 * Math.PI - Math.PI / 2;
+    s += crestIcon('star', 50 + 60 * Math.cos(t), 60 + 66 * Math.sin(t), 9, deco); }
+  s += `<g clip-path="url(#${id})">${crestDiv(c.d, a, b)}`;
   if (c.h) s += `<rect width="100" height="32" fill="${c.h}"/>` + (c.x ? `<rect x="44" width="12" height="32" fill="${c.x}"/><rect y="11" width="100" height="10" fill="${c.x}"/>` : '');
+  if (c.g) s += `<rect width="100" height="120" fill="url(#${id}g)"/>`;
+  if (deep) s += `<rect width="100" height="120" fill="url(#${id}r)"/>` +        // блик и фаска: светлый край сверху-слева, тень снизу-справа
+    `<path d="${shape}" fill="none" stroke="#000" stroke-opacity=".38" stroke-width="12" transform="translate(2 3)"/>` +
+    `<path d="${shape}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="7" transform="translate(-1.5 -2)"/>`;
   s += `</g>`;
+  let cy = CREST_MID[c.s] || 58, size = 72;
+  if (c.h || c.d === 'chief') { cy += 14; size = 48; }
+  if (c.d === 'catalan') { cy = 80; size = 46; }
+  if (ribbon) { cy -= 5; size *= 0.86; }
+  if (motto) { cy += 4; size *= 0.92; }
+  if (!small && c.y) size *= 0.8;
   if (c.m) {
-    let cy = CREST_MID[c.s] || 58, size = 72;
-    if (c.h || c.d === 'chief') { cy += 14; size = 48; }
-    if (c.d === 'catalan') { cy = 80; size = 46; }
-    if (c.p) { s += `<circle cx="50" cy="${cy}" r="${size * 0.46}" fill="${c.p}" stroke="${trim}" stroke-width="3"/>`; size *= 0.74; }
-    s += crestIcon(c.m, 50, cy, size, ink);
+    if (c.p) { s += `<circle${lift} cx="50" cy="${cy}" r="${size * 0.46}" fill="${c.p}" stroke="${stroke}" stroke-width="3"/>`; size *= 0.74; }
+    s += `<g${lift}>${crestIcon(c.m, 50, cy, size, ink)}</g>`;
   }
-  s += `<path d="${shape}" fill="none" stroke="${trim}" stroke-width="6"/>`;
-  return `<svg class="${cls || 'cr'}" viewBox="-2 -2 104 124" aria-hidden="true">${s}</svg>`;
+  if (!small && c.y) { const yy = String(c.y), dark = crestDark(ink);      // цифры года — с обводкой: читаются на любом фоне
+    s += [[23, yy.slice(0, 2)], [77, yy.slice(2)]].map(([x, t]) => `<text x="${x}" y="${cy + 4}" font-size="11" font-weight="800" fill="${ink}" stroke="${dark ? '#fff' : '#111'}" stroke-width="2.4" paint-order="stroke" text-anchor="middle" font-family="system-ui,sans-serif">${t}</text>`).join(''); }
+  if (deep) s += `<path d="${shape}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="9"/>`;      // рельефная кайма: тёмный край, сама кайма, блик
+  s += `<path d="${shape}" fill="none" stroke="${stroke}" stroke-width="6"/>`;
+  if (deep) s += `<path d="${shape}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" transform="translate(-.7 -.9)"/>`;
+  if (frame === 'double') s += `<path d="${shape}" fill="none" stroke="${stroke}" stroke-width="2.5" transform="translate(50 60) scale(.84) translate(-50 -60)"/>`;
+  const txt = metal ? (c.e === 'gold' ? '#3b2a05' : '#1f2937') : crestDark(trim) ? '#fff' : '#111';
+  if (motto) s += `<path${lift} d="M-2 4Q50 -4 102 4V20Q50 12 -2 20Z" fill="${stroke}"/>` + crestText(50, 16, esc(motto), 8.5, txt, 92);
+  if (ribbon) s += `<path d="M-8 92L5 88V106L-8 110L-2 100Z" fill="${stroke}" opacity=".8"/><path d="M108 92L95 88V106L108 110L102 100Z" fill="${stroke}" opacity=".8"/>` +
+    `<path${lift} d="M3 86Q50 96 97 86V104Q50 114 3 104Z" fill="${stroke}"/>` + crestText(50, 102, esc(String(c.nm).toUpperCase()), 9.5, txt, 86);
+  let y0 = frame === 'stars' ? -12 : motto ? -6 : -2;
+  if (top) { y0 -= 28; s += `<g${lift}>` + crestIcon(top === 'crown' ? 'crown' : top === 'ball' ? 'ball' : 'star', 50, y0 + 17, 38, top === 'ball' ? '#f8fafc' : deco) + '</g>'; }
+  const t = !small && c.t > 0 ? Math.min(c.t, 5) : 0;      // звёзды за трофеи — над всем (в таблице — мелко, без них)
+  if (t) { y0 -= 22; for (let i = 0; i < t; i++) s += `<path transform="translate(${50 - (t * 21 - 2) / 2 + i * 21} ${y0 + 2}) scale(.19)" d="${CREST_ICONS.star.slice(1)}" fill="#facc15"/>`; }
+  const x0 = frame === 'wings' ? -28 : frame === 'laurel' ? -18 : frame === 'stars' ? -16 : ribbon ? -10 : -2;
+  const y1 = frame === 'laurel' || frame === 'stars' ? 130 : 122;
+  return `<svg class="${cls || 'cr'}" viewBox="${x0} ${y0} ${100 - 2 * x0} ${y1 - y0}" aria-hidden="true"><defs>${defs}</defs>${s}</svg>`;
 }
 const CREST_ICONS = {anchor:"M90.5 23c-18.3 0-36.7 7.0-50.7 21c-28.0 28.0-28.0 73.4 0 101.4c21.8 21.8 54.1 26.6 80.5 14.5l53.7 53.7c-21.4 19.7-44 38.3-67.4 55.9l30.1 30.1c18.7-22.5 38.0-44.5 57.8-65.5l169.6 169.6c-51.8 40.4-120.9 53.8-192.8 42.6L173 424.9L72.5 404.5l95.4 88.4l2.0-26c86.6 37.0 177.6 34.6 241.3-11.8l63.1 21.3l-21.5-63.6c44.6-63.6 46.4-153.4 9.9-238.9l26.0-2.0l-88.4-95.4l20.4 100.5l21.3-1.6c11.3 72.0-2.2 141.0-42.7 192.9l-169.8-169.8c21.1-20.3 42.9-39.7 65.8-57.7l-30.1-30.1c-17.0 24.2-35.7 46.7-55.7 67.8l-54.0-54.0C167.8 98.2 163.0 65.8 141.2 44c-14-14.0-32.3-21-50.7-21m0 27.0c11.4.0 22.9 4.3 31.6 13.1c17.4 17.4 17.4 45.7 0 63.2c-17.4 17.4-45.7 17.4-63.2 0c-17.4-17.4-17.4-45.7 0-63.2C67.7 54.4 79.1 50.0 90.5 50.0",
 anvil:"M128.7 115.6v147.8h285v-147.8zm-111.8 20.5c17.4 47.1 54.4 80.4 94.9 93.8v-93.8zm414.4 12.3v88.7c21.5-9.1 42.9-25.3 64.4-47.4c-21.5-22.6-42.6-35.2-64.4-41.3zm-226.2 132.5c-12.2 38.5-33.9 71.5-60.6 100.5l257.8-.0c-28.7-29.0-50.0-62.1-61.5-100.5H205.0zM101.8 400v43.8h337.6V400z",
@@ -572,7 +632,7 @@ function renderMatchSheet() {
 const M = () => H().manage || null;
 let PANEL = null;          // открытое окно раздела: {k, slot, step, focus, report, hist}; hist — куда вернуться «‹»
 const PANELS = [['club', '🏟 Клуб и игроки', 'название, имена и номера, замена игрока'], ['cards', '🃏 Карточки игроков', 'характеристики, роль, состояние'],
-  ['kit', '👕 Форма клуба', 'домашняя и выездная: футболка и шорты'], ['training', '🏋️ Тренировка', 'одна в сутки на клуб'],
+  ['kit', '👕 Форма клуба', 'домашняя и выездная: футболка и шорты'], ['crest', '🎨 Эмблема клуба', 'форма, фон, цвета и символ'], ['training', '🏋️ Тренировка', 'одна в сутки на клуб'],
   ['talk', '🗣 Разговор с игроками', 'с каждым — раз в сутки'], ['growth', '📈 Рост игроков', 'вложить очки роста'],
   ['trophies', '🏆 Полка трофеев', 'трофеи, места по сезонам, рекорды клуба']];
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
@@ -614,7 +674,7 @@ function renderPanel() {
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
+    crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
   $('sheetin').innerHTML = h;
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
   formCheck(false);
@@ -848,6 +908,147 @@ function panelFriends(m, P) {
   return h;
 }
 function ofClub(key) { for (const l of (H().official || {}).leagues || []) { const c = l.clubs.find(x => x.key === key); if (c) return [l, c]; } return [null, null]; }
+/* ---------------- конструктор эмблем (сервер проверяет то же самое: app/crests.py custom_problems) ---------------- */
+let CREST_DRAFT = null;      // эмблема в конструкторе до сохранения
+let CREST_READY_HTML = null; // [клуб, разметка] — сетка готовых эмблем, собирается один раз
+const CREST_EDITOR = {"divs":["plain","halves","hhalves","stripes","hoops","cross","bend","sash","chief","quarters","band","lozenge","chevron","checks","waves","rays","bends"],"symbols":["cannon","ship","heron","lion","trident","rooster","castle","gull","oak","house","cherry","bee","turret","hammers","wolf","rose","keep","cat","crown","bear","submarine","chains","bolt","star","parrot","ball","sword","anchor","palm","cross","greek","snake","horse","lily","eagle","eaglehead","griffin","ladder","cbull","bull","stag","pine","leaf","key","wheel","anvil","goat","wave","dog","lantern","ermine","dove","fish","bat"],"palette":["#dc2626","#2563eb","#f8fafc","#111827","#facc15","#16a34a","#f97316","#9333ea","#92400e","#ffffff","#111111","#9ca3af","#7a263a","#6cabdd","#0b2a5b","#0a7a3b","#e8b923","#e5508a"],"frames":["double","laurel","wings","stars"],"tops":["crown","ball","star"],"metals":["gold","silver"],"mottos":["ВПЕРЁД!","СИЛА И ЧЕСТЬ","ДО КОНЦА","ВМЕСТЕ","НИКОГДА НЕ СДАВАЙСЯ","ГОРДОСТЬ ГОРОДА","ОДНА КОМАНДА","ВЕРА И ВОЛЯ","БОРЬБА И СЛАВА","ВСЕГДА ВПЕРЁД","СЕРДЦЕ И ДУША","НАША ИГРА"],"years":[1850,2026]};   // = app/crests.py EDITOR_DIVS, EDITOR_SYMBOLS, PALETTE
+const CREST_NAMES = {shield: 'Щит', round: 'Круг', oval: 'Овал', arch: 'Арка', french: 'Фигурный', diamond: 'Ромб',
+  plain: 'Однотонный', halves: 'Половины', hhalves: 'Верх и низ', stripes: 'Полосы', hoops: 'Обручи', cross: 'Крест',
+  bend: 'Диагональ', sash: 'Лента', chief: 'Шапка', quarters: 'Четверти', band: 'Пояс', lozenge: 'Ромбики',
+  spanish: 'Испанский', badge: 'Значок', chevron: 'Шеврон', checks: 'Шахматка', waves: 'Волны', rays: 'Лучи', bends: 'Косые полосы',
+  double: 'Двойная', laurel: 'Венок', wings: 'Крылья', stars: 'Звёзды', crown: 'Корона', ball: 'Мяч', star: 'Звезда',
+  gold: 'Золото', silver: 'Серебро'};
+const CREST_COLORS = [[0, 'Основной цвет'], [1, 'Второй цвет'], [2, 'Кайма'], [3, 'Цвет символа']];
+// готовые эмблемы: A, B — цвета формы клуба, W/K — белый/чёрный палитры; берутся одним нажатием и сохраняются как свои
+const CREST_READY = [
+  ['Чемпион', {s: 'shield', d: 'plain', c: ['A', 'B', 'K', 'B'], m: 'lion', f: 'laurel', k: 'crown', e: 'gold', g: 1, n: 1}],
+  ['Орёл', {s: 'round', d: 'rays', c: ['A', 'B', 'K', 'W'], m: 'eagle', p: 'A', f: 'stars', e: 'gold', g: 1}],
+  ['Классика', {s: 'french', d: 'stripes', c: ['A', 'B', 'K', 'K'], m: 'ball', p: 'W', f: 'double', g: 1, n: 1}],
+  ['Крылья', {s: 'badge', d: 'chevron', c: ['A', 'B', 'K', 'B'], m: 'star', f: 'wings', e: 'silver', g: 1}],
+  ['Крепость', {s: 'spanish', d: 'checks', c: ['A', 'B', 'K', 'K'], m: 'castle', p: 'W', k: 'crown', g: 1, n: 1}],
+  ['Морской', {s: 'arch', d: 'waves', c: ['A', 'B', 'K', 'B'], m: 'anchor', p: 'A', f: 'double', e: 'silver', g: 1, n: 1}],
+  ['Волк', {s: 'round', d: 'plain', c: ['A', 'B', 'B', 'B'], m: 'wolf', f: 'laurel', e: 'gold', g: 1, o: 0}],
+  ['Корона', {s: 'oval', d: 'halves', c: ['A', 'B', 'K', '#e8b923'], m: 'crown', p: 'K', f: 'stars', k: 'star', e: 'gold', g: 1}],
+  ['Молния', {s: 'diamond', d: 'bends', c: ['A', 'B', 'K', 'W'], m: 'bolt', p: 'K', e: 'gold', g: 1}],
+  ['Старина', {s: 'shield', d: 'quarters', c: ['A', 'B', 'K', 'K'], m: 'oak', p: 'W', f: 'double', e: 'gold', g: 1, n: 1, y: 1905}],
+  ['Мяч', {s: 'round', d: 'hoops', c: ['A', 'B', 'K', 'K'], m: 'ball', p: 'W', f: 'wings', k: 'crown', e: 'gold', g: 1}],
+  ['Девиз', {s: 'shield', d: 'sash', c: ['A', 'B', 'K', 'B'], m: 'sword', p: 'K', k: 'star', g: 1, n: 1, o: 1}]];
+function crestReady(spec, E) {      // готовая эмблема в цветах клуба; цвет символа не сливается с фоном
+  const pal = CREST_EDITOR.palette, W = pal.includes('#f8fafc') ? '#f8fafc' : '#ffffff', K = pal.includes('#111827') ? '#111827' : '#111111';
+  let A = E.auto.c[0], B = E.auto.c[1] !== A ? E.auto.c[1] : (crestDark(A) ? W : K);
+  if (!pal.includes(A)) A = pal[0];
+  if (!pal.includes(B) || B === A) B = crestDark(A) ? W : K;
+  const map = v => ({A, B, W, K})[v] || v, x = JSON.parse(JSON.stringify(spec));
+  x.c = x.c.map(map); if (x.p) x.p = map(x.p);
+  if (x.p === x.c[3]) x.c[3] = crestDark(x.p) ? W : K;
+  if (!x.p && x.m && x.c[3] === x.c[0]) x.c[3] = crestDark(x.c[0]) ? W : K;
+  if (x.d !== 'plain' && x.c[0] === x.c[1]) x.c[1] = crestDark(x.c[0]) ? W : K;
+  if (x.p === x.c[3]) x.c[3] = crestDark(x.p) ? W : K;
+  return x;
+}
+function crestDraft() { const E = H().crest_edit; if (!CREST_DRAFT) CREST_DRAFT = JSON.parse(JSON.stringify(E.custom || E.auto)); delete CREST_DRAFT.t; delete CREST_DRAFT.nm; return CREST_DRAFT; }
+function crestErr(x) {
+  const pal = CREST_EDITOR.palette;
+  if (!x.c.every(c => pal.includes(c)) || (x.p && !pal.includes(x.p))) return 'Выберите цвета из палитры';
+  if (x.d !== 'plain' && x.c[0] === x.c[1]) return 'Для такого фона нужны два разных цвета';
+  if (x.m && x.c[3] === (x.p || x.c[0])) return 'Символ сливается с фоном — выберите другой цвет символа';
+  return '';
+}
+function crestRandom(E) {
+  const one = a => a[Math.floor(Math.random() * a.length)], C = CREST_EDITOR, pal = C.palette;
+  for (let i = 0; i < 50; i++) {
+    const x = {s: one(Object.keys(CREST_SHAPES)), d: one(C.divs), c: [one(pal), one(pal), one(pal), one(pal)], m: one(C.symbols)};
+    if (x.d !== 'plain') x.p = one(pal);
+    if (Math.random() < .5) x.f = one(C.frames);
+    if (Math.random() < .4) x.k = one(C.tops);
+    if (Math.random() < .4) x.e = one(C.metals);
+    if (Math.random() < .5) x.n = 1;
+    if (Math.random() < .3) x.o = Math.floor(Math.random() * C.mottos.length);
+    x.g = 1;
+    if (!crestErr(x)) return x;
+  }
+  return JSON.parse(JSON.stringify(E.auto));
+}
+function crestColors(cur, attr) {
+  return `<div class="colors">` + CREST_EDITOR.palette.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}" style="background:${c}" aria-label="${c}" ${attr}="${c}"></button>`).join('') + `</div>`;
+}
+function panelCrest(m) {
+  const E = H().crest_edit, hc = H().home && H().home.crest;
+  if (!E || E.why) return panelHead('🎨 Эмблема клуба') + `<div class="card note">🔒 ${esc(E ? E.why : 'Сначала создайте клуб')}</div>` +
+    (hc ? `<div class="crestprev">${crestSvg(hc, 'crbig')}</div>` : '');
+  const x = crestDraft(), err = crestErr(x), named = v => ({...v, nm: m.name}), alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
+  const plain = ch => { const v = {...x, ...ch}; ['f', 'k', 'n', 'o', 'y', 'g'].forEach(k => delete v[k]); return crestSvg(v, 'crmini'); };   // форма и фон — без украшений, крупнее
+  let h = panelHead('🎨 Эмблема клуба', E.custom ? 'Своя эмблема клуба' : 'Сейчас — автоэмблема: по названию и цветам формы') + lockBanner();
+  if (!E.everyone) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите конструктор как администратор (сохраняете бесплатно).</div>`;
+  if (E.price) h += `<div class="card note">Собирать — бесплатно. Сохранить новую эмблему — ${E.price} ⭐ (каждая смена оплачивается отдельно). Вернуть автоэмблему — бесплатно.</div>`;
+  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(x)}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+  const rk = JSON.stringify(E.auto) + m.name;
+  if (!CREST_READY_HTML || CREST_READY_HTML[0] !== rk) CREST_READY_HTML = [rk, CREST_READY.map(([t, v], i) =>
+    `<button type="button" class="crt" data-crready="${i}">${crestSvg(named(crestReady(v, E)), 'crmini')}<span>${t}</span></button>`).join('')];
+  h += `<div class="label">⭐ Готовые эмблемы — в цветах вашего клуба</div><div class="crgrid ready">` + CREST_READY_HTML[1] +
+    `</div><div class="hint">Нажмите — эмблема станет такой; можно сохранить как есть или подправить ниже.</div>`;
+  h += `<div class="label">Форма</div><div class="crgrid">` + Object.keys(CREST_SHAPES).map(k => `<button type="button" class="crt${x.s === k ? ' on' : ''}" data-crs="${k}">${plain({s: k})}<span>${CREST_NAMES[k] || k}</span></button>`).join('') + `</div>`;
+  h += `<div class="label">Фон</div><div class="crgrid">` + CREST_EDITOR.divs.map(k => `<button type="button" class="crt${x.d === k ? ' on' : ''}" data-crd="${k}">${plain({d: k})}<span>${CREST_NAMES[k] || k}</span></button>`).join('') + `</div>`;
+  h += CREST_COLORS.map(([i, t]) => `<div class="label">${t}</div>` + crestColors(x.c[i], `data-crc="${i}" data-crv`)).join('');
+  h += `<div class="label">Символ</div><div class="crgrid sym"><button type="button" class="crt${x.m ? '' : ' on'}" data-crm=""><span>без</span></button>` +
+    CREST_EDITOR.symbols.map(k => `<button type="button" class="crt${x.m === k ? ' on' : ''}" data-crm="${k}"><svg viewBox="0 0 100 100" aria-hidden="true">${crestIcon(k, 50, 50, 96, '#e5e7eb')}</svg></button>`).join('') + `</div>`;
+  if (x.m) h += `<button type="button" class="go" data-crp>${x.p ? '⭕ Убрать подложку под символом' : '⭕ Подложка под символом — если фон пёстрый'}</button>` +
+    (x.p ? `<div class="label">Цвет подложки</div>` + crestColors(x.p, 'data-crpc') : '');
+  const C = CREST_EDITOR, opt = (lab, k, cur, attr, prev) => `<button type="button" class="crt${cur === k ? ' on' : ''}" ${attr}="${k}">${prev ? alt(prev) : ''}<span>${lab}</span></button>`;
+  h += `<div class="label">✨ Украшения</div><div class="label">Рамка</div><div class="crgrid">` + opt('нет', '', x.f || '', 'data-crf', {f: undefined}) +
+    C.frames.map(k => opt(CREST_NAMES[k] || k, k, x.f, 'data-crf', {f: k})).join('') + `</div>`;
+  h += `<div class="label">Сверху</div><div class="crgrid">` + opt('нет', '', x.k || '', 'data-crk', {k: undefined}) +
+    C.tops.map(k => opt(CREST_NAMES[k] || k, k, x.k, 'data-crk', {k})).join('') + `</div>`;
+  h += `<div class="label">Кайма</div><div class="crgrid">` + opt('цветная', '', x.e || '', 'data-cre', {e: undefined}) +
+    C.metals.map(k => opt(CREST_NAMES[k] || k, k, x.e, 'data-cre', {e: k})).join('') + `</div>`;
+  h += `<button type="button" class="go" data-crn>${x.n ? '🎗 Убрать ленту с названием' : '🎗 Лента с названием клуба внизу'}</button>` +
+    `<button type="button" class="go" data-crg>${x.g ? '💡 Убрать блеск' : '💡 Блеск и объём'}</button>`;
+  h += `<div class="label">Девиз на ленте сверху</div><div class="crgrid mot">` + [['', 'без девиза'], ...C.mottos.map((t, i) => [String(i), t])].map(([k, t]) =>
+    `<button type="button" class="crt${String(x.o ?? '') === k ? ' on' : ''}" data-cro="${k}"><span>${esc(t)}</span></button>`).join('') + `</div>`;
+  h += `<div class="label">Год основания (${C.years[0]}–${C.years[1]})</div><div class="own"><input id="cryear" inputmode="numeric" maxlength="4" value="${x.y || ''}" placeholder="например, 1921">` +
+    `<button type="button" data-cry>OK</button>${x.y ? '<button type="button" data-cryx>✕</button>' : ''}</div>`;
+  if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
+  h += `<div class="mrow2"><button type="button" class="go" data-crrand>🎲 Случайная</button><button type="button" class="go" data-crundo>↩️ Как было</button></div>` +
+    `<button type="button" class="go main" data-crsave>💾 Сохранить${E.price ? ` за ${E.price} ⭐` : ' эмблему'}</button>` +
+    (E.custom ? `<button type="button" class="go" data-crreset>🔄 Вернуть автоэмблему</button>` : '');
+  return h;
+}
+function crestPay(link) {       // счёт в звёздах: эмблему ставит бот, когда придёт оплата
+  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  TG.openInvoice(link, st => {
+    if (st === 'paid') {
+      haptic('ok'); toast('⭐ Оплачено — ставим эмблему');
+      [1500, 4000].forEach(ms => setTimeout(() => { CREST_DRAFT = null; send({a: 'crest', check: true}); }, ms));
+    } else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+  });
+}
+function crestClick(b) {      // нажатия в конструкторе эмблем; true — обработано
+  const d = b.dataset, E = H().crest_edit;
+  if (!E || E.why) return false;
+  const x = crestDraft();
+  if (d.crs) x.s = d.crs;
+  else if (d.crd) x.d = d.crd;
+  else if (d.crc !== undefined) x.c[+d.crc] = d.crv;
+  else if (d.crm !== undefined) { if (d.crm) x.m = d.crm; else { delete x.m; delete x.p; } }
+  else if (b.hasAttribute('data-crp')) { if (x.p) delete x.p; else x.p = x.c[3] === '#ffffff' ? '#111111' : '#ffffff'; }
+  else if (d.crpc) x.p = d.crpc;
+  else if (d.crready !== undefined) { CREST_DRAFT = crestReady(CREST_READY[+d.crready][1], E); toast('Готово — можно сохранить или подправить'); }
+  else if (d.crf !== undefined) { if (d.crf) x.f = d.crf; else delete x.f; }
+  else if (d.crk !== undefined) { if (d.crk) x.k = d.crk; else delete x.k; }
+  else if (d.cre !== undefined) { if (d.cre) x.e = d.cre; else delete x.e; }
+  else if (d.cro !== undefined) { if (d.cro !== '') x.o = +d.cro; else delete x.o; }
+  else if (b.hasAttribute('data-crn')) { if (x.n) delete x.n; else x.n = 1; }
+  else if (b.hasAttribute('data-crg')) { if (x.g) delete x.g; else x.g = 1; }
+  else if (b.hasAttribute('data-cryx')) delete x.y;
+  else if (b.hasAttribute('data-cry')) { const v = +val('cryear'), [y0, y1] = CREST_EDITOR.years;
+    if (!Number.isInteger(v) || v < y0 || v > y1) { toast(`Год — от ${y0} до ${y1}`, true); return true; } x.y = v; }
+  else if (b.hasAttribute('data-crrand')) CREST_DRAFT = crestRandom(E);
+  else if (b.hasAttribute('data-crundo')) CREST_DRAFT = null;
+  else if (b.hasAttribute('data-crsave')) { const e = crestErr(x); if (e) toast(e, true); else send({a: 'crest', spec: x}); return true; }
+  else if (b.hasAttribute('data-crreset')) { ask('Вернуть автоэмблему? Своя эмблема удалится, а новая своя — снова за звёзды.', () => send({a: 'crest', reset: true})); return true; }
+  else return false;
+  haptic(); renderPanel(); return true;
+}
 function panelOfficial(m, P) {
   const O = H().official || {leagues: []}, mine = O.mine;
   if (P.club) {
@@ -891,6 +1092,9 @@ function panelAdmin(m, P) {
     `<div class="sub" style="margin-top:8px">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div>` +
     (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
+  h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? `Продажа открыта: менеджеры своих клубов сохраняют свою эмблему за ${A.crest_price} ⭐.` : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (бесплатно).'}</div>` +
+    `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
+    `<div class="label">Цена одной смены эмблемы, ⭐</div><div class="own"><input id="crprice" inputmode="numeric" maxlength="5" value="${A.crest_price || ''}"><button type="button" data-crprice>💾 Сохранить цену</button></div></div>`;
   const mg = A.managed || [];     // клубы официальных лиг с менеджером: снять — клуб снова ведёт бот
   h += `<div class="label">👤 Менеджеры официальных клубов</div>` + (mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b>` +
     `<div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div><button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('')
@@ -1072,7 +1276,8 @@ function renderMore() {
   const hb = H();
   let x = '';
   // сначала разделы — их видно сразу; уведомления и новости — ниже
-  if (hb.manage) x += `<div class="label">Клуб</div><div class="menu app">` + PANELS.map(([k, t, d]) => `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
+  if (hb.manage) x += `<div class="label">Клуб</div><div class="menu app">` + PANELS.map(([k, t, d]) => { const off = k === 'crest' && (!hb.crest_edit || hb.crest_edit.why);
+    return `<button type="button" data-panel="${k}"${off ? ' class="off"' : ''}>${esc(t)}${off ? ' 🔒' : ''}<span>${esc(off && hb.crest_edit ? hb.crest_edit.why : d)}</span></button>`; }).join('') + `</div>`;
   if (hb.manage) x += `<div class="label">Лиги</div><div class="menu app">` + LEAGUE_PANELS.filter(([k]) => k !== 'admin' || hb.admin).map(([k, t, d]) =>
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
@@ -1223,7 +1428,7 @@ function openSheet(slot) {
   const ob = H().onboarding;     // шаг «Посмотреть состав» ещё не пройден — бот проверит, что игрок из вашего клуба
   if (ob && !PVIEW_SENT && ob.steps.some(s => s.key === 'player' && !s.done)) { PVIEW_SENT = true; send({a: 'pview', slot}); }
 }
-function closeSheet() { open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+function closeSheet() { CREST_DRAFT = null; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
 /* ---------------- «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) ----------------
    Подсказка подсвечивает настоящую кнопку или поле (остальное затемнено) и пишет, что нажать и что ввести.
@@ -1236,6 +1441,7 @@ const GUIDES = [['club', '🧭', 'Создание клуба и игроков'
   ['tactics', '🧠', 'Тактика', 'кто кого бьёт и где её выбрать'],
   ['match', '⚽', 'Матч', 'окна решений и перерыв; пенальти и штрафные бьёте вы сами'],
   ['league', '👥', 'Лига с друзьями', 'создать лигу, позвать друга, сезон, таблица, кубок'],
+  ['crest', '🎨', 'Эмблема клуба', 'автоэмблема, свой конструктор и оплата звёздами'],
   ['minute', '⏱', 'Как играть за минуту', 'пять коротких экранов обо всём']];
 const TQ = sel => document.querySelector(sel);
 const TQA = sel => Array.from(document.querySelectorAll(sel));
@@ -1486,10 +1692,32 @@ function tourMinuteSteps() {        // «Как играть за минуту»
     {t: 'Лига', icon: '🏆', dots: true, last: true,
       x: 'Лига друзей по ссылке — до 8 клубов, свой сезон и таблица; официальные лиги и кубок страны. Каждый день — ❓ вопрос дня, а «🚀 Первые шаги» приносят болельщиков.'}];
 }
+function tourCrestSteps() {         // «Эмблема клуба»: где она видна, кнопка в «Ещё», конструктор, цена и оплата
+  const E = () => H().crest_edit || {}, on = () => !E().why && !!H().home;
+  return [
+    {t: 'Эмблема вашего клуба', icon: '🛡', soft: true, go: () => { if (PANEL || MS || open !== null) closeSheet(); if (TAB !== 'home') showTab('home'); },
+      at: '#t-home .crest svg',
+      x: 'Эмблема видна на «Главной», в таблице лиги, в матчах и в списке клубов. У своего клуба сначала — <b>автоэмблема</b>: игра собирает её по названию и цветам домашней формы. ' +
+        'У клубов топ-лиг — своя, по мотивам настоящей. За каждый трофей над эмблемой загорается <b>⭐</b> (до пяти).'},
+    {t: 'Где её поменять', go: () => { if (PANEL || MS || open !== null) closeSheet(); if (TAB !== 'more') showTab('more'); }, at: '#t-more [data-panel="crest"]',
+      x: () => !H().home ? 'Сначала создайте клуб — кнопка появится в меню «☰ Ещё».' :
+        E().why ? `Вкладка «☰ Ещё» → <b>«🎨 Эмблема клуба»</b>. Сейчас кнопка серая с 🔒: ${esc(E().why)}. Нажмите её — покажем, что внутри.` :
+        'Вкладка «☰ Ещё» → <b>«🎨 Эмблема клуба»</b>. Нажмите её.',
+      ok: () => !!(PANEL && PANEL.k === 'crest'), skip: () => !H().home},
+    {t: 'Конструктор', soft: true, go: () => { if (H().home && !(PANEL && PANEL.k === 'crest')) openPanel('crest'); }, at: () => TQ('#sheetin .crgrid') || TQ('#sheetin .card'),
+      x: () => (on() ? '' : '<b>Откроется позже</b> — когда администратор откроет продажу, кнопка станет яркой. ') +
+        'Сверху — <b>⭐ готовые эмблемы</b> в цветах вашего клуба: нажал — и она ваша. Или собирайте сами: <b>форма</b>, <b>фон</b> (полосы, шеврон, лучи, волны…), <b>четыре цвета</b>, <b>символ</b> — лев, орёл, волк, мяч и ещё полсотни. ' +
+        '<b>✨ Украшения</b>: крылья, лавровый венок, корона, золотая или серебряная кайма, лента с названием клуба, девиз, год основания, блеск и объём. «🎲 Случайная» — для вдохновения.'},
+    {t: 'Цена и оплата', icon: '⭐', soft: true, last: true, at: () => TQ('#sheetin [data-crsave]'),
+      x: () => 'Собирать эмблему — <b>бесплатно</b>. Сохранить новую — ' + (E().price ? `<b>${E().price} ⭐</b>` : 'за <b>звёзды Telegram</b>') +
+        ', каждая смена оплачивается отдельно. Платёж — в обычном окне оплаты Telegram; звёзды работают во всех странах. ' +
+        'Эмблема ставится сразу после оплаты, а если поставить не получилось — звёзды вернутся сами. Вернуть автоэмблему — бесплатно. ' +
+        'Вопросы по оплате — команда <b>/paysupport</b> в чате с ботом. Перед матчем и во время матча эмблему менять нельзя (как состав). У клубов топ-лиг эмблема своя — её не меняют.'}];
+}
 function minuteShow() { tourStart('minute', true); }
 function tourBuild(g, path) {
   return {club: () => tourClubSteps(path), squad: tourSquadSteps, tactics: tourTacticsSteps, match: tourMatchSteps,
-    league: tourLeagueSteps, minute: tourMinuteSteps}[g]();
+    league: tourLeagueSteps, minute: tourMinuteSteps, crest: tourCrestSteps}[g]();
 }
 
 /* ---- движок ---- */
@@ -1824,6 +2052,9 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   const P = PANEL, d = b.dataset, m = M();
   if (b.hasAttribute('data-pback')) { panelBack(); return true; }
   if (b.hasAttribute('data-pdone')) { PANEL = {k: P.k, hist: []}; renderPanel(); return true; }
+  if (P.k === 'crest' && crestClick(b)) return true;
+  if (b.hasAttribute('data-crprice')) { const v = +val('crprice'); if (!Number.isInteger(v) || v < 1) toast('Цена — целое число звёзд', true); else send({a: 'crestprice', price: v}); return true; }
+  if (d.crestopen !== undefined) { const on = d.crestopen === '1'; ask(on ? 'Открыть продажу эмблем? Менеджеры своих клубов смогут сохранять свою эмблему за звёзды.' : 'Закрыть продажу эмблем? Купленные эмблемы останутся.', () => send({a: 'crestopen', open: on})); return true; }
   if (d.pedit) { haptic(); panelSub({slot: +d.pedit}); return true; }
   if (d.card) { haptic(); panelSub({slot: +d.card}); return true; }
   if (b.hasAttribute('data-cname')) { if (val('cn')) send({a: 'rename', text: val('cn')}); else toast('Напишите название', true); return true; }
@@ -1962,6 +2193,8 @@ function onAck(m) {
   if (m.ok && m.report && PANEL) { PANEL.report = m.report; renderPanel(); }
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
+  if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
+  else if (m.ok && act && act.a === 'crest' && !act.check) CREST_DRAFT = null;      // дальше — то, что сохранил сервер
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
   if (m.ok && act && act.a === 'nudges' && S && S.hub) { S.hub.nudges = m.nudges; renderMore(); }
@@ -2088,7 +2321,8 @@ function demoHub() {
   const daily = {day: '2026-10-27', qid: 'demo', theme: 'Чемпионаты мира', text: 'Кто выиграл чемпионат мира 2006 года?',
     options: ['Франция', 'Италия', 'Германия', 'Португалия'], streak: 2, streak_text: '🔥 Серия: 2 дня', reward: 10,
     next: {in: 1, fans: 15, text: 'ещё 1 день подряд — +15 болельщиков'}, answered: false};
-  return {club: 'Девятка', unseen: 2, daily,
+  const crest_edit = {custom: null, everyone: false, price: null, auto: DC['Девятка']};      // демо: как у администратора
+  return {club: 'Девятка', unseen: 2, daily, crest_edit,
     home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
@@ -2120,7 +2354,7 @@ function demoHub() {
       leagues: [{key: 'eng', title: '🏴 Англия', clubs: [{key: 'eng1', name: 'Манчестер Сити', stars: '★★★★★', who: 'Боря'}, {key: 'eng2', name: 'Арсенал Лондон', stars: '★★★★★', who: null},
           {key: 'eng3', name: 'Ливерпуль', stars: '★★★★☆', who: null}]},
         {key: 'esp', title: '🇪🇸 Испания', clubs: [{key: 'esp1', name: 'Реал Мадрит', stars: '★★★★★', who: 'Аня'}, {key: 'esp2', name: 'Барселона', stars: '★★★★★', who: null}]}]},
-    admin: {requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
+    admin: {crest_editor: false, crest_price: 50, requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
@@ -2253,6 +2487,11 @@ function demoManage(kitAll) {   // раздел «Клуб» из демо-со�
 function demoClubAct(act) {   // демо: раздел «Клуб» меняется только на этой странице
   if (!M()) return null;
   const m = M(), q = mp(act.slot), hex = Object.fromEntries(m.colors.map(c => [c[0], c[3]]));
+  if (act.a === 'crest') {          // демо: своя эмблема — только на этой странице
+    const E = S.hub.crest_edit; E.custom = act.reset ? null : act.spec; S.hub.home.crest = E.custom || E.auto;
+    S.hub.table.rows.forEach(r => { if (r.mine) r.crest = S.hub.home.crest; });
+    return {ok: true, note: act.reset ? '↩️ Снова автоэмблема' : '🎨 Эмблема сохранена'};
+  }
   if (act.a === 'rename') { m.name = S.club = S.hub.home.club = act.text; return {ok: true, note: `Готово, клуб теперь называется «${act.text}» ✅`}; }
   if (act.a === 'player') {
     const w = act.text.split(' ');
