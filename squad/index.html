@@ -127,9 +127,13 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .menu button.off{opacity:.55}
 .crestprev{display:flex;align-items:center;justify-content:center;gap:18px;margin:8px 0 4px}.crestprev svg.crbig{width:150px;height:150px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
 .crrow{background:var(--card2);padding:8px 10px;border-radius:10px;font-size:14px}.crrow .sub{margin-top:2px}
-.crgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.crgrid.mot{grid-template-columns:repeat(2,1fr)}.crgrid.mot .crt{font-size:12px;font-weight:700;color:var(--text);min-height:34px}.crgrid.ready .crt svg{width:96px;height:100px}.crgrid.ready .crt span{font-size:12px;font-weight:700;color:var(--text)}.crgrid.ready{grid-template-columns:repeat(3,1fr)}.crgrid.sym{grid-template-columns:repeat(6,1fr)}
+.crgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.crgrid.mot{grid-template-columns:repeat(2,1fr)}.crlet{display:block;font-size:22px;font-weight:900;line-height:1.1}.crgrid.mot .crt{font-size:12px;font-weight:700;color:var(--text);min-height:34px}.crgrid.ready .crt svg{width:96px;height:100px}.crgrid.ready .crt span{font-size:12px;font-weight:700;color:var(--text)}.crgrid.ready{grid-template-columns:repeat(3,1fr)}.crgrid.sym{grid-template-columns:repeat(6,1fr)}
 .crt{background:var(--card2);border-radius:10px;padding:6px 2px;font-size:11px;color:var(--muted);text-align:center;min-height:40px}.crt.on{outline:2px solid var(--accent)}
 .crt svg{display:block;margin:0 auto 2px;width:36px;height:43px}.crgrid.sym .crt svg{width:30px;height:30px;margin:0 auto}
+.crt.lock,.go.lock{position:relative}.crt.lock>svg,.crt.lock>b,.color.lock,.crgrid.mot .crt.lock span{opacity:.4}.crt.lock::after,.color.lock::after{content:'🔒';position:absolute;top:2px;right:3px;font-size:10px;line-height:1}
+.crt .lk{display:block;font-size:10px;font-style:normal;color:var(--muted);font-weight:600}.color.lock{position:relative}.color.lock::after{top:50%;left:50%;right:auto;transform:translate(-50%,-50%)}
+.crlv{background:var(--card2);border-radius:12px;padding:10px 12px;margin:8px 0}.crlv b{font-size:16px}.crlv .sub{margin-top:3px;font-size:13px;color:var(--muted)}.crlv .go{margin-top:8px}
+.crlad{display:flex;gap:4px;margin:8px 0 2px}.crlad i{flex:1;font-style:normal;text-align:center;font-size:11px;padding:4px 0;border-radius:8px;background:var(--card);color:var(--muted)}.crlad i.on{background:var(--accent);color:#fff;font-weight:700}
 .stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .stats3 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
 .stats3 b{display:block;font-size:19px}
@@ -420,12 +424,26 @@ const CREST_SHAPES = {
   french: 'M10 8H90V82C90 98 76 104 62 106C55 107 52 110 50 114C48 110 45 107 38 106C24 104 10 98 10 82Z',
   diamond: 'M50 4L96 60L50 116L4 60Z',
   spanish: 'M10 8H90V70A40 44 0 0 1 10 70Z',
-  badge: 'M10 8H90V78L50 114L10 78Z'};
-const CREST_MID = {shield: 56, french: 56, round: 60, oval: 60, arch: 58, diamond: 60, spanish: 58, badge: 56};
-const CREST_METAL = {gold: ['#fff3b0', '#e8b923', '#8a5d06'], silver: ['#ffffff', '#c3c9d2', '#5b6472']};
+  badge: 'M10 8H90V78L50 114L10 78Z',
+  blade: 'M6 6L50 16L94 6L90 68L50 116L10 68Z',      // киберформы (уровень «Легенда»): острый щит, шестигранник, рубленый значок
+  hexa: 'M50 4L94 30V90L50 116L6 90V30Z',
+  cut: 'M26 6H74L94 26V76L50 116L6 76V26Z'};
+const CREST_MID = {shield: 56, french: 56, round: 60, oval: 60, arch: 58, diamond: 60, spanish: 58, badge: 56, blade: 56, hexa: 60, cut: 58};
+const CREST_METAL = {gold: ['#fff7cc', '#f2c94c', '#a87408', '#ffe9a3', '#7a5205'], silver: ['#ffffff', '#d5dbe2', '#7d8795', '#f4f6f8', '#4b5563'],
+  holo: ['#ff4dd2', '#7c5cff', '#22d3ee', '#a3e635', '#facc15']};      // голограмма — радужный перелив
+const CREST_CALM = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 let CREST_N = 0;           // у каждой эмблемы на странице свои clipPath и градиенты
+function crestMix(h, t) {      // t > 0 — светлее (к белому), t < 0 — темнее
+  const n = parseInt(h.slice(1), 16), k = Math.abs(t), to = t > 0 ? 255 : 0;
+  return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v + (to - v) * k).toString(16).padStart(2, '0')).join('');
+}
+function crestInitials(name) {      // 1–2 буквы клуба: первые буквы двух слов или две первые буквы слова
+  const w = String(name || '').toUpperCase().split(/[\s\-«»"'.]+/).filter(v => /\p{L}|\d/u.test(v));
+  const ch = v => v.match(/[\p{L}\d]/gu) || [];
+  return w.length > 1 ? ch(w[0])[0] + ch(w[1])[0] : ch(w[0] || '').slice(0, 2).join('');
+}
 function crestDark(h) { const n = parseInt(h.slice(1), 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 150; }
-function crestDiv(d, a, b) {     // деление фона: a — основной цвет, b — второй
+function crestDiv(d, a, b, id) {     // деление фона: a — основной цвет, b — второй
   const r = (x, y, w, h, c) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
   let s = r(0, 0, 100, 120, a);
   if (d === 'halves') s += r(50, 0, 50, 120, b);
@@ -452,19 +470,40 @@ function crestDiv(d, a, b) {     // деление фона: a — основн�
     s += r(0, 40, 100, 4, '#fcd116');
   } else if (d === 'lozenge') for (let y = 0; y < 120; y += 20) for (let x = (y / 20) % 2 ? 10 : 0; x < 110; x += 20)
     s += `<path d="M${x} ${y}l10 10-10 10-10-10z" fill="${b}"/>`;
+  else if (d === 'grad') s += `<linearGradient id="${id}d" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient><rect width="100" height="120" fill="url(#${id}d)"/>`;
+  else if (d === 'hex') s += `<pattern id="${id}x" width="18" height="30" patternUnits="userSpaceOnUse" patternTransform="translate(0 1)">` +      // соты
+    [[0, 0], [18, 0], [9, 15], [0, 30], [18, 30]].map(([x, y]) => `<path d="M${x} ${y - 9}l8 4.5v9l-8 4.5-8-4.5v-9z" fill="none" stroke="${b}" stroke-width="2.2"/>`).join('') +
+    `</pattern><rect width="100" height="120" fill="url(#${id}x)"/>`;
+  else if (d === 'camo') s += [['M-5 10C15 0 30 18 22 30S0 40-5 30Z', b], ['M40 -5C60 5 70 0 75 15S55 35 45 25 30 5 40-5Z', crestMix(b, .25)],
+    ['M70 40C90 30 108 45 100 60S75 75 68 60Z', b], ['M10 55C30 45 45 60 38 75S10 90 5 75Z', crestMix(b, .25)],
+    ['M45 80C65 70 80 90 70 105S40 115 38 100Z', b], ['M80 95C95 90 108 100 102 115S80 125 78 110Z', crestMix(b, .25)],
+    ['M20 100C30 95 40 110 32 120H10Z', b]].map(([q, f]) => `<path d="${q}" fill="${f}"/>`).join('');
+  else if (d === 'zigzag') for (let y = 10; y < 120; y += 26) s += `<path d="M-5 ${y}${Array.from({length: 6}, (_, k) => `l10 -9l10 9`).join('')}v8${Array.from({length: 6}, (_, k) => `l-10 -9l-10 9`).join('')}z" fill="${b}"/>`;
+  else if (d === 'dots') s += [[0, .9], [1, 1.8], [2, 2.8]].map(([k, r]) =>      // полутон: точки крупнее книзу — три полосы узора
+    `<pattern id="${id}x${k}" width="8" height="16" patternUnits="userSpaceOnUse"><circle cx="0" cy="4" r="${r}" fill="${b}"/><circle cx="8" cy="4" r="${r}" fill="${b}"/>` +
+    `<circle cx="4" cy="12" r="${r}" fill="${b}"/></pattern><rect y="${k * 40}" width="100" height="40" fill="url(#${id}x${k})"/>`).join('');
+  else if (d === 'graffiti') { const b2 = crestMix(b, crestDark(b) ? .35 : -.3);      // граффити: брызги, потёки и росчерк баллончика — один узор
+    s += `<pattern id="${id}y" width="50" height="60" patternUnits="userSpaceOnUse">` +
+      [[9, 9, 6, b], [31, 5, 2.5, b2], [43, 21, 4.5, b], [19, 33, 3, b2], [36, 45, 6.5, b], [5, 50, 2.2, b2], [24, 53, 1.8, b], [47, 36, 1.5, b2]]
+        .map(([x, y, rr, f]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${f}"/>`).join('') +
+      `<rect x="7.4" y="9" width="3.2" height="17" rx="1.6" fill="${b}"/><rect x="34.6" y="45" width="2.8" height="12" rx="1.4" fill="${b}"/><rect x="41.8" y="21" width="2.2" height="9" rx="1.1" fill="${b}"/>` +
+      `<path d="M2 29c9-8 15 7 24 0s14-6 22 1" fill="none" stroke="${b2}" stroke-width="2.6" stroke-linecap="round"/></pattern><rect width="100" height="120" fill="url(#${id}y)"/>`; }
   return s;
 }
-function crestIcon(m, cx, cy, size, col, lib) {
+function crestIcon(m, cx, cy, size, col, lib, edge) {      // edge — [цвет, толщина] обводки символа
   const p = (lib || CREST_ICONS)[m];
   if (!p) return '';
-  if (p[0] === '~') return `<path transform="translate(${cx - size / 2} ${cy - size / 2}) scale(${size / 100})" d="${p.slice(1)}" fill="${col}"/>`;
-  const k = size / 512, t = `translate(${cx - size / 2} ${cy - size / 2}) scale(${k})`;
-  if (p[0] === '@') return `<path transform="${t}" d="${p.slice(1)}" fill="${col}"/><path transform="${t} translate(512 0) scale(-1 1)" d="${p.slice(1)}" fill="${col}"/>`;
-  return `<path transform="${t}" d="${p}" fill="${col}"/>`;
+  const own = p[0] === '~', k = own ? size / 100 : size / 512, t = `translate(${cx - size / 2} ${cy - size / 2}) scale(${k})`;
+  const st = edge ? ` stroke="${edge[0]}" stroke-width="${(edge[1] / k).toFixed(1)}" stroke-linejoin="round" paint-order="stroke"` : '';
+  if (own) return `<path transform="${t}" d="${p.slice(1)}" fill="${col}"${st}/>`;
+  if (p[0] === '@') return `<path transform="${t}" d="${p.slice(1)}" fill="${col}"${st}/><path transform="${t} translate(512 0) scale(-1 1)" d="${p.slice(1)}" fill="${col}"${st}/>`;
+  return `<path transform="${t}" d="${p}" fill="${col}"${st}/>`;
 }
-function crestText(x, y, text, size, col, max) {      // текст ленты: уже экранирован; длинный — ужимается в ширину
-  const w = Math.min(max, text.length * size * 0.62);
-  return `<text x="${x}" y="${y}" font-size="${size}" font-weight="800" fill="${col}" text-anchor="middle" font-family="system-ui,sans-serif" textLength="${w.toFixed(1)}" lengthAdjust="spacingAndGlyphs">${text}</text>`;
+const CREST_FONT = "'Roboto Condensed','Arial Narrow','sans-serif-condensed',Impact,system-ui,sans-serif";
+function crestText(path, text, size, col, max) {      // текст ленты по дуге: уже экранирован; длинный — мельче шрифт; с обводкой
+  const len = text.replace(/&[a-z#0-9]+;/g, '_').length, fs = Math.min(size, max / Math.max(1, len * 0.6)), edge = crestDark(col) ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.45)';
+  return `<text font-size="${fs.toFixed(1)}" font-weight="800" letter-spacing=".3" fill="${col}" stroke="${edge}" stroke-width="1.4" paint-order="stroke" text-anchor="middle" font-family="${CREST_FONT}">` +
+    `<textPath href="#${path}" startOffset="50%">${text}</textPath></text>`;
 }
 // украшения конструктора (game-icons.net, CC BY 3.0): лавровый венок и крыло (второе — зеркально)
 const CREST_ORN = {"laurel": "M234.7 18.1c-21 .2-38.8 2.5-62 10.2c-4.1 2-8.2 4.1-12.2 6.2c.8 5.3 3.2 10.8 5.5 14.7c-4.9 4.2-9.6 8.4-14.1 12.8c-3.7-5.5-6.6-11.4-8.3-17.4c-14.2 9.2-27.7 19.6-40.1 31.4c1.9 9.5 9.2 18.2 15.2 24.1c-3.7 5.2-7.2 10.4-10.5 15.7c-8.2-7.2-15.1-15.5-19.3-24.6C75.0 108.1 61.9 126 53.1 142.3c5.3 13 19.0 22.7 29.8 28.4c-2 6.1-3.7 12.2-5.1 18.4c-13.5-6.4-26.3-15.7-34.5-26.6c-8.7 20.1-14.7 40.7-18.2 61.4c9.6 15.5 30.6 22.9 46 25.9q.1 9.6.9 19.2c-17.8-2.7-37.3-9.6-49.9-20.4c-1.6 22.3-.5 44.5 3.4 66.2c15.2 13.7 41.1 15.3 58.6 13.7c2 6.1 4.1 12.2 6.5 18.1c-18.6 4.5-43.3 1.1-59.3-6.2c6.6 23.7 16.4 46.4 29.2 67.4c19.3 8.6 44.5 3.6 61.7-2.5c3.7 5.3 7.6 10.5 11.6 15.5c-17.8 9.5-39.9 11.5-57.5 10.1c12.3 16.3 26.6 31.2 42.7 44.4c4.9 1.1 10.5 1.1 16.7.3c11.7-1.7 25.2-7 37.9-14.7c16.7 13.5 34.9 24.7 54.1 33.1l7.5-17.2c-16-6.9-31.3-16.2-45.6-27.3c13.3-10.9 24.3-24 30.2-36.5c4.7-9.7 6.3-18.4 4.5-26.3c-10.7-5.7-20.6-12.5-29.5-20.3c-7.8 20.8-26.4 36.1-43.5 46c-4-4.9-7.9-9.9-11.6-15c16.8-9.8 39.9-27.5 39.1-47.1c-8.9-10.3-16.6-21.8-22.9-34.1c-12 14-30.7 22.5-46.5 26.7c-2.4-5.8-4.6-11.6-6.6-17.6c16.8-5.2 37.9-13 44.1-29.7c-4.3-11.5-7.5-23.6-9.7-36c-13.8 8.4-32 11.1-46.3 10.9c-.6-6.2-1-12.4-1.2-18.7c15.5-.6 33.9-2.5 44.9-14.3c-.8-12.6-.5-25.5.9-38.5c-13.4 2.8-29 .3-40.4-3.2c1.3-6 2.9-12.1 4.8-18.1c12.8 3.2 27.1 6.7 38.8.8c2.7-13.6 6.7-27.3 12-40.8c-9.9-1.8-20.2-6.3-27.7-10.7c3.3-5.3 6.8-10.5 10.5-15.7c8.1 4.2 16.3 8.8 25.2 8.4c5.7-11.6 12.3-22.6 19.5-32.8c-5.1-2.7-10-6.4-14.4-10.6c4.4-4.3 9.1-8.5 13.9-12.7c3.8 3.5 8 6.2 12.3 8.2c15.9-18.6 35.9-36.2 49-53.8zm38.4 0c15.4 20.8 33.8 35.6 48.9 53.7c4.6-1.8 9.1-5.2 12.3-8.1c4.9 4.2 9.5 8.4 13.9 12.7c-4.4 4.2-9.2 7.9-14.4 10.6c7.3 10.1 13.9 21.1 19.6 32.6c9-.1 18.4-4.4 25.2-8.4c3.7 5.2 7.2 10.4 10.4 15.7c-8.8 5.9-18.2 9.6-27.6 10.7c5.3 13.5 9.3 27.2 12 40.8c12.3 5.4 27.3 2.7 38.7-.8c1.9 6 3.5 12.1 4.9 18.1c-14.2 3.4-27.3 6.2-40.4 3.3c1.4 12.9 1.6 25.8.8 38.5c11.4 12.3 30.2 14.4 44.9 14.2c-.2 6.3-.5 12.5-1.2 18.7c-17.1-.5-32.8-2.5-46.3-10.9c-2.1 12.4-5.3 24.5-9.6 36.1c8.2 17.4 27.8 25.3 44.1 29.6c-2 6-4.2 11.8-6.6 17.6c-18.5-5.6-34.9-13-46.6-26.7c-6.3 12.4-13.9 23.8-22.9 34.1c1.5 22.4 22.4 37.8 39.2 47.1c-3.7 5.1-7.6 10.1-11.6 15c-19-11.8-36.6-25.8-43.5-46c-9 7.8-18.8 14.6-29.6 20.3c-1.8 7.9-.1 16.6 4.5 26.3c6 12.5 17 25.6 30.3 36.5c-14.3 11.1-29.6 20.4-45.6 27.3l7.4 17.2c19.3-8.4 37.4-19.6 54.1-33.2c12.7 7.8 26.2 13.1 38 14.8c6.2.8 11.8.8 16.7-.3c16.1-13.2 30.4-28.1 42.7-44.4c-18 1.7-37.9-2.3-56.5-9.7c-.3-.1-.7-.3-1.1-.4c4.1-5 7.9-10.2 11.7-15.5c18.2 7.8 43.7 11.7 61.6 2.5c12.8-21 22.6-43.7 29.2-67.4c-.4.2-.8.4-1.2.5c-20.5 6.4-40.1 7.6-58.1 5.7c2.4-5.9 4.5-12 6.5-18c19.1 1.7 45.2.1 58.6-13.8c3.9-21.7 5.1-43.9 3.4-66.2c-14.4 10.7-34.9 17.9-49.9 20.4c.5-6.4.9-12.8 1-19.2c16.8-4.8 37.9-10 45.9-25.9c-3.5-20.7-9.5-41.3-18.2-61.4c-9.4 11.6-23.1 21-34.4 26.5c-1.5-6.1-3.2-12.2-5.2-18.3c12-7.4 25.1-15.3 29.9-28.4c-10.1-18.7-22.2-35.8-35.9-51.0c-4.2 9.1-11.1 17.4-19.2 24.6c-3.3-5.3-6.8-10.5-10.6-15.7c6.2-7.2 14.2-14.7 15.2-24.1c-12.4-11.8-25.8-22.2-40-31.4c-1.8 6-4.7 11.9-8.3 17.4c-4.5-4.4-9.2-8.6-14.1-12.8c2.7-4.8 4.7-9.6 5.4-14.7c-4-2.1-8.1-4.2-12.2-6.2c-24.7-8.2-43.3-10.3-66.2-10.2", "wing": "M22.5 28.8c107.6 68.1 207.0 121.5 322.0 133.7c40.7 4.3 47.8 34.9 31.7 70.1c-26.5 57.8 16.4 143.5 112.3 195.5c-6.0 28.0-46.3 51.5-71.2 43.3c-20.7-43.2-52.9-88.7-87.8-76.4c-71.4 25.3-144.9 30.7-194.8 3.4c66.2-9.0 129.3-26.6 184.8-54.3C219.2 359.0 100.4 359.4 55.4 309.0c91.1 3.6 164.9-5.6 247.3-26.2C192.9 272.7 72.2 252.6 38.3 185.3c81.0 25.2 189.6 34.6 263.0 35.2C186.9 191.7 32.9 112.7 22.5 28.8z"};
@@ -475,53 +514,97 @@ function crestSvg(c, cls) {      // c — параметры эмблемы: {s,
   const hex = v => /^#[0-9a-f]{6}$/i.test(v);
   if (!c || !CREST_SHAPES[c.s] || !Array.isArray(c.c) || c.c.length !== 4 || ![...c.c, c.p, c.h, c.x].filter(Boolean).every(hex)) return '';
   const id = 'cr' + (++CREST_N), [a, b, trim, ink] = c.c, shape = CREST_SHAPES[c.s];
-  const small = !cls || /\bcr\b|crl/.test(cls);      // мелко (таблица, списки): без крыльев, лент и надписей
+  const small = !cls || /\bcr\b|crl/.test(cls);      // мелко (таблица, списки): без крыльев, лент, надписей и объёма
+  const rich = !small, big = /crbig/.test(cls || '');      // крупно — объёмный символ, металл, окантовка, фактура
   const metal = CREST_METAL[c.e], E = CREST_EDITOR, gold = metal || CREST_METAL.gold;
-  const stroke = metal ? `url(#${id}m)` : trim, deco = metal ? `url(#${id}m)` : gold[1];
-  const ribbon = !small && c.n && c.nm, motto = !small && E.mottos[c.o], top = !small && E.tops.includes(c.k) ? c.k : null;
-  const frame = !small && E.frames.includes(c.f) ? c.f : null;
+  // уровень «Легенда»: w — неоновое свечение (размытие — только крупно), голограмма; «Живая»: a — анимация, только крупно
+  const glow = !!c.w, holo = c.e === 'holo', live = big && !!c.a && !CREST_CALM;
+  const spin = live && holo ? `<animateTransform attributeName="gradientTransform" type="rotate" values="0 .5 .5;360 .5 .5" dur="6s" repeatCount="indefinite"/>` : '';
+  const flick = live && glow ? `<animate attributeName="opacity" values=".95;.45;.95;.7;.95" keyTimes="0;.1;.2;.6;1" dur="2.4s" repeatCount="indefinite"/>` : '';
+  const stroke = metal ? `url(#${id}m)` : trim, deco = metal || rich ? `url(#${id}m)` : gold[1];
+  const ribbon = rich && c.n && c.nm, motto = rich && E.mottos[c.o], top = rich && E.tops.includes(c.k) ? c.k : null;
+  const frame = rich && E.frames.includes(c.f) ? c.f : null;
+  const vg = (gid, col, hi, lo) => `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${crestMix(col, hi)}"/>` +
+    `<stop offset=".55" stop-color="${col}"/><stop offset="1" stop-color="${crestMix(col, -lo)}"/></linearGradient>`;
   let defs = `<clipPath id="${id}"><path d="${shape}"/></clipPath>`;
-  const deep = c.g && !small, lift = deep && /crbig/.test(cls) ? ` filter="url(#${id}f)"` : '';     // тени-фильтры дороги — только крупно
+  const deep = c.g && rich, lift = deep && big ? ` filter="url(#${id}f)"` : '';     // тени-фильтры дороги — только крупно
   if (lift) defs += `<filter id="${id}f" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="1.8" stdDeviation="1.3" flood-color="#000" flood-opacity=".55"/></filter>`;
   if (deep) defs += `<radialGradient id="${id}r" cx=".32" cy=".18" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
   if (c.g) defs += `<linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient>`;
-  if (metal) defs += `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${metal[0]}"/><stop offset=".5" stop-color="${metal[1]}"/><stop offset="1" stop-color="${metal[2]}"/></linearGradient>`;
+  if (metal || rich) defs += `<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${gold[0]}"/><stop offset=".22" stop-color="${gold[1]}"/>` +
+    `<stop offset=".45" stop-color="${gold[2]}"/><stop offset=".62" stop-color="${gold[3]}"/><stop offset=".8" stop-color="${gold[1]}"/><stop offset="1" stop-color="${gold[4]}"/>${spin}</linearGradient>`;
+  if (holo && rich) defs += `<linearGradient id="${id}j" x1="0" y1="0" x2="1" y2="1">` + gold.map((col, i) => `<stop offset="${i / 4}" stop-color="${col}"/>`).join('') + `${spin}</linearGradient>`;
+  if (glow && big) defs += `<filter id="${id}w" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.4"/></filter>`;
+  if (big) defs += `<pattern id="${id}t" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1" height="3" fill="#fff"/><rect x="1.5" width="1" height="3" fill="#000"/></pattern>` +
+    `<radialGradient id="${id}v" cx=".5" cy=".42" r=".72"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".38"/></radialGradient>`;
+  if (rich) defs += `<linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>` +
+    vg(id + 'i', ink, crestDark(ink) ? .3 : .5, crestDark(ink) ? .15 : .28) + (c.p ? vg(id + 'q', c.p, .3, .3) : '');
+  const shine = big && c.g && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (shine) defs += `<linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
+  if (ribbon) defs += `<path id="${id}a" d="M4 98.5Q50 108.5 96 98.5"/>`;
+  if (motto) defs += `<path id="${id}o" d="M0 15Q50 7 100 15"/>`;
   let s = '';
+  if (glow && big) s += `<path d="${shape}" fill="none" stroke="${trim}" stroke-width="9" filter="url(#${id}w)" opacity=".95">${flick}</path>`;      // неоновый ореол
   if (frame === 'laurel') s += `<path${lift} transform="translate(-16 -4) scale(.258)" d="${CREST_ORN.laurel}" fill="${deco}"/>`;
   if (frame === 'wings') s += `<path${lift} transform="translate(66 4) scale(.12)" d="${CREST_ORN.wing}" fill="${deco}"/><path${lift} transform="translate(34 4) scale(-.12 .12)" d="${CREST_ORN.wing}" fill="${deco}"/>`;
   if (frame === 'stars') for (let i = 0; i < 14; i++) { const t = (i / 14) * 2 * Math.PI - Math.PI / 2;
     s += crestIcon('star', 50 + 60 * Math.cos(t), 60 + 66 * Math.sin(t), 9, deco); }
-  s += `<g clip-path="url(#${id})">${crestDiv(c.d, a, b)}`;
+  s += `<g clip-path="url(#${id})">${crestDiv(c.d, a, b, id)}`;
   if (c.h) s += `<rect width="100" height="32" fill="${c.h}"/>` + (c.x ? `<rect x="44" width="12" height="32" fill="${c.x}"/><rect y="11" width="100" height="10" fill="${c.x}"/>` : '');
+  if (big) s += `<rect width="100" height="120" fill="url(#${id}t)" opacity=".07"/><rect width="100" height="120" fill="url(#${id}v)"/>`;      // фактура ткани и затемнение к краям
   if (c.g) s += `<rect width="100" height="120" fill="url(#${id}g)"/>`;
+  if (holo && rich) s += `<rect width="100" height="120" fill="url(#${id}j)" opacity=".2"/>`;      // радужный отсвет голограммы
   if (deep) s += `<rect width="100" height="120" fill="url(#${id}r)"/>` +        // блик и фаска: светлый край сверху-слева, тень снизу-справа
     `<path d="${shape}" fill="none" stroke="#000" stroke-opacity=".38" stroke-width="12" transform="translate(2 3)"/>` +
     `<path d="${shape}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="7" transform="translate(-1.5 -2)"/>`;
+  if (shine) s += `<rect x="-60" y="-10" width="26" height="140" fill="url(#${id}h)" transform="skewX(-20)"><animate attributeName="x" values="-60;-60;150" keyTimes="0;.7;1" dur="5s" repeatCount="3"/></rect>`;
   s += `</g>`;
   let cy = CREST_MID[c.s] || 58, size = 72;
   if (c.h || c.d === 'chief') { cy += 14; size = 48; }
   if (c.d === 'catalan') { cy = 80; size = 46; }
   if (ribbon) { cy -= 5; size *= 0.86; }
   if (motto) { cy += 4; size *= 0.92; }
-  if (!small && c.y) size *= 0.8;
-  if (c.m) {
-    if (c.p) { s += `<circle${lift} cx="50" cy="${cy}" r="${size * 0.46}" fill="${c.p}" stroke="${stroke}" stroke-width="3"/>`; size *= 0.74; }
-    s += `<g${lift}>${crestIcon(c.m, 50, cy, size, ink)}</g>`;
+  if (rich && c.y) size *= 0.8;
+  const letters = c.l && !c.m ? crestInitials(c.nm) : '';
+  if (c.m || letters) {
+    if (c.p) { s += `<circle${lift} cx="50" cy="${cy}" r="${size * 0.46}" fill="${rich ? `url(#${id}q)` : c.p}" stroke="${stroke}" stroke-width="3"/>`;
+      if (rich) s += `<circle cx="50" cy="${cy}" r="${size * 0.46 - 3.2}" fill="none" stroke="${crestDark(c.p) ? '#fff' : '#000'}" stroke-opacity=".35" stroke-width=".8"/>`;
+      size *= 0.74; }
+    const sym0 = s.length;
+    if (glow && big && c.m) s += `<g filter="url(#${id}w)">${crestIcon(c.m, 50, cy, size, ink)}${flick}</g>`;      // символ светится своим цветом
+    if (letters) { const fs = size * (letters.length > 1 ? .62 : .8), y = cy + fs * .36,
+        tx = (x, y, f, more) => `<text x="${x}" y="${y}" font-size="${fs.toFixed(1)}" font-weight="900" text-anchor="middle" font-family="${CREST_FONT}" fill="${f}"${more || ''}>${esc(letters)}</text>`;
+      s += rich ? `<g opacity=".4">${tx(51.3, y + 2, '#000')}</g>` + `<g${lift}>${tx(50, y, `url(#${id}i)`, ` stroke="${crestDark(ink) ? crestMix(ink, .35) : crestMix(ink, -.6)}" stroke-width="1.6" paint-order="stroke"`)}</g>` : tx(50, y, ink);
+    } else if (rich) {      // объёмный символ: тень под ним, перелив сверху вниз, контрастная обводка
+      if (big) s += `<g opacity=".4">${crestIcon(c.m, 51.3, cy + 2, size, '#000')}</g><g opacity=".5">${crestIcon(c.m, 48.5, cy - 1.9, size, '#fff')}</g>`;
+      s +=
+        `<g${lift}>${crestIcon(c.m, 50, cy, size, `url(#${id}i)`, null, [crestDark(ink) ? crestMix(ink, .35) : crestMix(ink, -.6), 1.4])}</g>`;
+    } else s += crestIcon(c.m, 50, cy, size, ink);
+    if (live) { const pv = `50 ${(cy + size / 2).toFixed(1)}`;      // «Живая»: символ чуть колышется (как пламя) от нижней точки
+      s = s.slice(0, sym0) + `<g><animateTransform attributeName="transform" type="rotate" values="-3.5 ${pv};3.5 ${pv};-3.5 ${pv}" dur="2.8s" repeatCount="indefinite"/>` + s.slice(sym0) + '</g>'; }
   }
-  if (!small && c.y) { const yy = String(c.y), dark = crestDark(ink);      // цифры года — с обводкой: читаются на любом фоне
-    s += [[23, yy.slice(0, 2)], [77, yy.slice(2)]].map(([x, t]) => `<text x="${x}" y="${cy + 4}" font-size="11" font-weight="800" fill="${ink}" stroke="${dark ? '#fff' : '#111'}" stroke-width="2.4" paint-order="stroke" text-anchor="middle" font-family="system-ui,sans-serif">${t}</text>`).join(''); }
+  if (rich && c.y) { const yy = String(c.y), dark = crestDark(ink);      // цифры года — с обводкой: читаются на любом фоне
+    s += [[23, yy.slice(0, 2)], [77, yy.slice(2)]].map(([x, t]) => `<text x="${x}" y="${cy + 4}" font-size="12" font-weight="800" fill="${ink}" stroke="${dark ? '#fff' : '#111'}" stroke-width="2.4" paint-order="stroke" text-anchor="middle" font-family="${CREST_FONT}">${t}</text>`).join(''); }
   if (deep) s += `<path d="${shape}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="9"/>`;      // рельефная кайма: тёмный край, сама кайма, блик
   s += `<path d="${shape}" fill="none" stroke="${stroke}" stroke-width="6"/>`;
+  if (glow) s += `<path d="${shape}" fill="none" stroke="${crestMix(trim, .6)}" stroke-width="${small ? 2 : 1.6}">${flick}</path>`;      // неоновая трубка по кайме
   if (deep) s += `<path d="${shape}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" transform="translate(-.7 -.9)"/>`;
   if (frame === 'double') s += `<path d="${shape}" fill="none" stroke="${stroke}" stroke-width="2.5" transform="translate(50 60) scale(.84) translate(-50 -60)"/>`;
+  else if (rich) s += `<path d="${shape}" fill="none" stroke="${metal ? stroke : crestDark(a) ? '#fff' : '#000'}" stroke-opacity="${metal ? 1 : .45}" stroke-width="1.1" transform="translate(50 60) scale(.87) translate(-50 -60)"/>`;      // тонкая внутренняя окантовка
   const txt = metal ? (c.e === 'gold' ? '#3b2a05' : '#1f2937') : crestDark(trim) ? '#fff' : '#111';
-  if (motto) s += `<path${lift} d="M-2 4Q50 -4 102 4V20Q50 12 -2 20Z" fill="${stroke}"/>` + crestText(50, 16, esc(motto), 8.5, txt, 92);
-  if (ribbon) s += `<path d="M-8 92L5 88V106L-8 110L-2 100Z" fill="${stroke}" opacity=".8"/><path d="M108 92L95 88V106L108 110L102 100Z" fill="${stroke}" opacity=".8"/>` +
-    `<path${lift} d="M3 86Q50 96 97 86V104Q50 114 3 104Z" fill="${stroke}"/>` + crestText(50, 102, esc(String(c.nm).toUpperCase()), 9.5, txt, 86);
+  const sheen = d => rich ? `<path d="${d}" fill="url(#${id}s)"/>` : '';      // ленты — с бликом сверху и тенью снизу
+  if (motto) { const d = 'M-2 4Q50 -4 102 4V20Q50 12 -2 20Z'; s += `<path${lift} d="${d}" fill="${stroke}"/>` + sheen(d) + crestText(id + 'o', esc(motto), 8.5, txt, 90); }
+  if (ribbon) { const d = 'M3 86Q50 96 97 86V104Q50 114 3 104Z';
+    s += `<path d="M-8 92L5 88V106L-8 110L-2 100Z" fill="${stroke}" opacity=".8"/><path d="M108 92L95 88V106L108 110L102 100Z" fill="${stroke}" opacity=".8"/>` +
+      `<path${lift} d="${d}" fill="${stroke}"/>` + sheen(d) + crestText(id + 'a', esc(String(c.nm).toUpperCase()), 10.5, txt, 86); }
+  if (live) s += [[10, 0], [24, 1.1], [40, .5], [62, 1.6], [78, .3], [92, 1.3], [50, 2]].map(([x, b0], i) =>      // искры поднимаются вокруг
+    `<circle cx="${x}" cy="118" r="${i % 2 ? 1.2 : 1.7}" fill="${glow ? crestMix(ink, .3) : '#fde68a'}" opacity="0">` +
+    `<animate attributeName="cy" values="118;4" dur="2.6s" begin="${b0}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.6s" begin="${b0}s" repeatCount="indefinite"/></circle>`).join('');
   let y0 = frame === 'stars' ? -12 : motto ? -6 : -2;
-  if (top) { y0 -= 28; s += `<g${lift}>` + crestIcon(top === 'crown' ? 'crown' : top === 'ball' ? 'ball' : 'star', 50, y0 + 17, 38, top === 'ball' ? '#f8fafc' : deco) + '</g>'; }
-  const t = !small && c.t > 0 ? Math.min(c.t, 5) : 0;      // звёзды за трофеи — над всем (в таблице — мелко, без них)
-  if (t) { y0 -= 22; for (let i = 0; i < t; i++) s += `<path transform="translate(${50 - (t * 21 - 2) / 2 + i * 21} ${y0 + 2}) scale(.19)" d="${CREST_ICONS.star.slice(1)}" fill="#facc15"/>`; }
+  if (top) { y0 -= 28; s += `<g${lift}>` + crestIcon(top === 'crown' ? 'crown' : top === 'ball' ? 'ball' : 'star', 50, y0 + 17, 38, top === 'ball' ? '#f8fafc' : deco,
+    null, rich ? [top === 'ball' ? '#111' : 'rgba(0,0,0,.45)', 1.2] : null) + '</g>'; }
+  const t = rich && c.t > 0 ? Math.min(c.t, 5) : 0;      // звёзды за трофеи — над всем (в таблице — мелко, без них)
+  if (t) { y0 -= 22; for (let i = 0; i < t; i++) s += `<path transform="translate(${50 - (t * 21 - 2) / 2 + i * 21} ${y0 + 2}) scale(.19)" d="${CREST_ICONS.star.slice(1)}" fill="#facc15" stroke="#a16207" stroke-width="5"/>`; }
   const x0 = frame === 'wings' ? -28 : frame === 'laurel' ? -18 : frame === 'stars' ? -16 : ribbon ? -10 : -2;
   const y1 = frame === 'laurel' || frame === 'stars' ? 130 : 122;
   return `<svg class="${cls || 'cr'}" viewBox="${x0} ${y0} ${100 - 2 * x0} ${y1 - y0}" aria-hidden="true"><defs>${defs}</defs>${s}</svg>`;
@@ -582,7 +665,29 @@ trident:"M17.2 16.4v41.7L192.8 234.2l-51.4 51.4l-12.0 12L140.8 309l106.7 106.7l-
 turret:"M71 22.4v102.5h202.2v18.7h-73.2v37.0h-18.7v-37.0H79.2l43.4 53.8h180.4v18.7H180.9v37.0H162.2v-37.0h-39.4v163.6h58.5v-44.8H157.5V316.2h74.2v-33.7H193.7v-18.7h97.2v18.7h-40.6v33.7h73.3v18.7h-32.4v44.8h26.3v18.7h-63.7l-2.7 74.0l-18.7-.7l2.7-73.3H93.0V398h-.2l-28.7 92.8h79.8l9.8-70.7l18.5 2.6l-9.5 68.1H453.2L424.6 398h-30.0V197.8l51.8-64.2V22.4h-64.4v52.4h-39.2V22.4h-65.1v52.4h-38.5V22.4h-65.1v52.4h-38.5V22.4zm129.0 312.5v44.8h72.4v-44.8z",
 wave:"M319.4 75.2c-50.5.5-104.4 20.9-150.1 72.8c-10.2 9.7-19.9 19.6-29.2 29.3c-20.5 21.4-39.7 41.9-60.2 56.5c-18.5 13.1-37.7 21.6-61 22.8v89.9c53.9-32.8 59.9-67.8 115.6-136.3c6.4-6.5 12.7-13.2 19.1-19.9c10.0-10.4 20.0-20.8 30.6-30.7c46.4-36.8 92.0-27.9 107.2 2.5c4.6-49.3 58.0-30.6 66.8 18.9c6.9-33.7 20.3-44.4 34.0-31.6c-28.1 49.6-26.6 110.9-8.4 164.9c20.5 60.9 61.7 114.1 110.3 133.8v-20.6c-38.3-19.2-74.7-65.7-92.7-119.2c-15.9-47.3-17.8-99.1 2.8-141.7c8.5 16.9 16.3 43.4 21.9 79.5c18.0-84.6 54.8-72.5 56.6-10.6c43.0-66.3-52.2-161.5-163.4-160.4zm-35.7 95.8C194.2 181.7 66.2 359.6 43.6 495.0h91.2c1.0-134.0 71.1-282.0 148.9-324.0zm32.4 13.7c-76.8 49.1-114.6 208.7-109.8 310.3h78.4c-41.2-80.7-23.2-252.7 31.4-310.3zm21.9 26.2c-34.7 82.2-25.7 191.1 25.2 284.1h78c-75.6-53.8-120.1-190.5-103.2-284.1z",
 wheel:"M253.8 18.7C150.1 19.8 55.7 89.4 27.5 194.5C-6.4 321.1 68.6 451.0 195.2 484.9c126.6 33.9 256.5-41.1 290.4-167.7S444.5 60.8 317.9 26.9c-19.8-5.3-39.7-8.0-59.2-8.2c-1.6-.0-3.3-.0-4.9 0m2.3 53.8a182 182 0 0 1 38.8 4.0c1.0.2 2.1.5 3.1.7c.5.11.0.2 1.5.3q.8.2 1.5.4c1.0.3 2.0.5 3 .8a187 187 0 0 1 9.0 2.6c41.4 13.4 75.1 40.5 97.4 74.9c.1.2.2.3.3.5c.7 1.2 1.5 2.3 2.2 3.5a187 187 0 0 1 4.5 7.8a198 198 0 0 1 1.8 3.3c.1.2.2.4.3.6c.1.2.2.3.2.5c18.7 36.5 25.3 79.2 16.2 121.8c-.3 1.5-.7 3.0-1.1 4.5a218 218 0 0 1-1.2 4.6a184 184 0 0 1-2.6 9.0c-13.4 41.4-40.5 75.1-74.9 97.4c-.2.1-.3.2-.5.3a190 190 0 0 1-11.3 6.7c-1.1.6-2.2 1.2-3.3 1.8c-.2.1-.4.2-.6.3c-.2.1-.3.2-.5.2c-36.5 18.7-79.2 25.3-121.8 16.2a156 156 0 0 1-4.5-1.1c-.0-.0-.0.0-.0 0c-1.5-.4-3.0-.8-4.5-1.2c-3.0-.8-6.0-1.7-9.0-2.6c-41.5-13.4-75.1-40.6-97.2-75c-.1-.1-.1-.2-.2-.3c-.8-1.2-1.5-2.4-2.2-3.7c-.0-.0-.0-.0-.1-.1c-.3-.6-.7-1.1-1-1.7a180 180 0 0 1-3.4-5.9c-.7-1.3-1.4-2.6-2.1-3.9c-.1-.2-.2-.4-.3-.7c-18.5-36.4-24.9-79.0-15.8-121.5c.3-1.5.7-3.0 1.1-4.5c.0-.0-.0-.0 0-.0c.4-1.5.8-3.0 1.2-4.5c.3-1.2.7-2.5 1.0-3.7c.1-.3.2-.5.2-.8c.4-1.5.9-3.0 1.3-4.4c.0-.0.0-.0.0-.1c13.3-41.4 40.3-75.0 74.4-97.3a183 183 0 0 1 3.9-2.5q.0-.0.1-.0c1.0-.6 2.0-1.2 3-1.8c.3-.2.7-.4 1.0-.6q1.0-.6 2.1-1.2c.5-.31.0-.5 1.5-.8c.2-.1.5-.3.7-.4a179 179 0 0 1 4.0-2.1c23.3-12.0 49.2-19.1 76.1-20.2c2.2-.1 4.5-.1 6.8-.2zm34.0 22.2l-25.8 96.2a65.7 65.7 0 0 1 18.1 4.8l25.8-96.2a167 167 0 0 0-9.0-2.7c-3.0-.8-6.1-1.5-9.1-2.1zM182.5 109a165 165 0 0 0-16.2 9.4l49.7 86.1a66.3 66.3 0 0 1 16.2-9.3zm211.7 56.6l-86.2 49.8a66.4 66.4 0 0 1 9.4 16.2l86.2-49.8a166 166 0 0 0-9.4-16.2zM100.7 204.5c-1.0 2.9-1.9 5.9-2.7 9.0a169 169 0 0 0-2.2 9.1l95.7 25.6c.4-3.1.9-6.1 1.8-9.2a66 66 0 0 1 3.1-8.9l-95.7-25.6zM255.2 209c-20.2.6-38.6 14.3-44.0 34.8c-6.7 24.9 8.2 50.8 33.2 57.5c24.9 6.7 50.8-8.2 57.5-33.2c6.7-24.9-8.2-50.8-33.2-57.5a46.8 46.8 0 0 0-9.4-1.5a46 46 0 0 0-4.1-.1m1.7 18.6c.4.0.8.0 1.2.1c1.9.1 3.8.4 5.7.9c15.2 4.1 24.0 19.4 20.0 34.6c-4.1 15.2-19.4 24.0-34.6 20.0c-15.2-4.1-24.0-19.4-20.0-34.6c3.4-12.9 15.0-21.2 27.7-21.0zm64.7 36.0a65.4 65.4 0 0 1-1.8 9.2c-.8 3.1-1.9 6.0-3.1 8.8l96.2 25.8c1.0-2.9 1.9-5.9 2.7-9.0c.8-3.0 1.5-6.1 2.2-9.1l-96.2-25.8zM195.8 280.2l-86.1 49.7a165 165 0 0 0 9.3 16.2l86.1-49.7a66.3 66.3 0 0 1-9.3-16.2zm101.2 27.2a66.4 66.4 0 0 1-16.2 9.3l49.8 86.2c5.6-2.8 10.9-6.0 16.2-9.4l-49.8-86.2zm-66.3 8.8l-25.8 96.2c2.91.0 5.9 1.9 9.0 2.7c3.0.8 6.1 1.5 9.1 2.2l25.8-96.2a66 66 0 0 1-9.2-1.8a65.4 65.4 0 0 1-8.9-3.1z",
-wolf:"M179.3 38.9C154.7 77.7 142.7 139.7 168.4 185.9l-16.3 9.2c-6.7-11.9-11.2-24.4-13.9-37.2c-34.5-6.3-69.4-7.5-105.0-2.1c34.1 10.1 52.8 23.7 76.7 46.7c-26.8 9.7-60.2 30.2-92.9 70.2c35.5-8.8 64.8-11.5 89.4-6.3c-36.9 22.5-64.1 56.1-88.3 114.1c35.9-17.2 64.9-18.8 102.9-18.8c-23.1 32.7-35.3 77.2-36.3 112.8c24.5-26 57.6-60.2 87.2-79c3 29.9 15 58.3 35.9 85.3c-.2-43.9 10.3-88.3 31.6-133.4c-18.8 9-32.4 18.1-49.9 29.3c6.2-27.9 12.4-55.8 18.7-83.7c-23.3 2.4-39 10-60.5 18.5c16.3-33.1 32.7-66.1 49.1-99.2l16.8 8.3l-28.4 57.4c18.4-4.4 28.7-4.1 45.7-1.3c-4.5 20.4-9 40.7-13.6 61c65.3-36.2 148.3-45.9 226.7-50c7.6-12.9 13.8-24.2 18.8-34.8l-6.3-24.4l-24.4 30.8l-7.8-27.5l-22.5 29.2l-7.5-26.1l-23.9 31.5l-7.7-28.2l-23.8 31.4l1.2-41.1l22.6-42.7l7.6 28.3l23.9-31.5l7.6 28.2l23.5-30l6.5 26.9l24.5-30.8l7.8 27.5l24.6-32c2.3-10.8 4.6-22.4 7.4-35.7c-55.5-3.7-106.3 4.8-154 9.8c-38-20.8-80.8-26.8-121.9-18.5c-13.6-29.7-27.2-59.4-40.9-89.1M325.5 158.3c-4.5 14.2-13 18.3-24.7 20.6c-16.1-4.4-28.3-15.5-34.4-30.2c20.4-3.8 42.4 3.4 59.1 9.6"};
+wolf:"M179.3 38.9C154.7 77.7 142.7 139.7 168.4 185.9l-16.3 9.2c-6.7-11.9-11.2-24.4-13.9-37.2c-34.5-6.3-69.4-7.5-105.0-2.1c34.1 10.1 52.8 23.7 76.7 46.7c-26.8 9.7-60.2 30.2-92.9 70.2c35.5-8.8 64.8-11.5 89.4-6.3c-36.9 22.5-64.1 56.1-88.3 114.1c35.9-17.2 64.9-18.8 102.9-18.8c-23.1 32.7-35.3 77.2-36.3 112.8c24.5-26 57.6-60.2 87.2-79c3 29.9 15 58.3 35.9 85.3c-.2-43.9 10.3-88.3 31.6-133.4c-18.8 9-32.4 18.1-49.9 29.3c6.2-27.9 12.4-55.8 18.7-83.7c-23.3 2.4-39 10-60.5 18.5c16.3-33.1 32.7-66.1 49.1-99.2l16.8 8.3l-28.4 57.4c18.4-4.4 28.7-4.1 45.7-1.3c-4.5 20.4-9 40.7-13.6 61c65.3-36.2 148.3-45.9 226.7-50c7.6-12.9 13.8-24.2 18.8-34.8l-6.3-24.4l-24.4 30.8l-7.8-27.5l-22.5 29.2l-7.5-26.1l-23.9 31.5l-7.7-28.2l-23.8 31.4l1.2-41.1l22.6-42.7l7.6 28.3l23.9-31.5l7.6 28.2l23.5-30l6.5 26.9l24.5-30.8l7.8 27.5l24.6-32c2.3-10.8 4.6-22.4 7.4-35.7c-55.5-3.7-106.3 4.8-154 9.8c-38-20.8-80.8-26.8-121.9-18.5c-13.6-29.7-27.2-59.4-40.9-89.1M325.5 158.3c-4.5 14.2-13 18.3-24.7 20.6c-16.1-4.4-28.3-15.5-34.4-30.2c20.4-3.8 42.4 3.4 59.1 9.6",
+flame:"M245.1 15.5c34.3 48.8-23.5 320.5-90.3 136.7C106.8 325.1 39 332.5 38.9 252.6c-71.6 79.3 43.8 220.8 87.4 243.9h52.1c-45.9-40-76.8-78-82.2-136c47.3 9.4 71.9 21 81.3-62c60.7 86.6 100.9-49.4 137.2-107.1c-1.6 40.3-3.3 93.5 22.8 129.9c8.7 12.1 33.2 16.1 54.7 15.8c-9.9 16.1-44.8 69.4-17 89.2s33.1-.4 25.9 16.2c-13.3 20.9-23 39.4-59.1 54.1h56.1c59.4-18.7 111.8-91.7 94.6-135.5c-22 18.7-43.8 30.9-61.3 29.5c49.1-72.1 37.8-145.9 14.8-221.3c-20.2 72.4-33.5 82.5-54.6 99.5c29.1-68.7-85.4-214.4-146.5-253.2z",
+skull:"m268.7 389.3l3.7 28.7h-30.9l3.7-28.7a11.7 11.7 0 1 1 23.4 0m33.8-71.8a29.5 29.5 0 1 0 29.5 29.5a29.5 29.5 0 0 0-29.5-29.5zm-94.4 0a29.5 29.5 0 1 0 29.5 29.5a29.5 29.5 0 0 0-29.5-29.5zm245.7-62c0 98.2-48.2 182.7-117.4 220.2c-46 28.3-112.8 28.3-156.2 2.5c-71.7-36.2-122.2-122.3-122.2-222.7c0-78.2 30.5-147.6 77.9-191.7c0 0-42.1 82.9 9.1 135c-11.7-173.8 169.3-63 118-184c151.8 83.3 9.1 105 84.1 148.2c0 0 66.2 47 36.4-91.7c43 44 70.2 110.3 70.2 184.2zm-68.5 29.9c-2.5-65.5-54.9-119.6-120.3-124.1c-3.1-.2-6.2-.3-9.2-.3a129.4 129.4 0 0 0-129.4 129.3a132.2 132.2 0 0 0 24.5 76v25a35 35 0 0 0 34.7 34.7h6.3v16.6a34.7 34.7 0 0 0 34.7 34.4h61.8a34.5 34.5 0 0 0 34.5-34.4v-16.6h5.4a34.9 34.9 0 0 0 34.6-34.8v-28a129.3 129.3 0 0 0 22.3-77.9z",
+rocket:"M18.8 26c2.6 25.3 9.3 48.7 19.5 69.8l-21.2-6.6L73.5 146.7l-.8-1.8c16.7 17.3 36.8 31.4 59.4 41.6c-13.5-18.8-21.6-41.7-22-69.3c27.8.3 50.4 8.6 69.2 22.1c-.6-1.4-1.3-2.8-1.9-4.2l.7.6l-34.4-86.7l-2.5 33.8c-31-31.6-73-52.1-122.4-57zm236.8 31.6L217.2 160.9c-30.7 7.5-54.6 32.2-60.9 63.3l-.2-.2l-106.6 39.6l74.3 74.3l93-8l.4 0l23-2.5l-77.3-94.9l13.3-13.3l89.4 109.8l10.9 13.4l-17.1 1.8l-28.2 3a449 449 0 0 0 47.2 47.9c7.6-56.8 52.2-102 108.6-110.7a443.6 443.6 0 0 0-47.8-46.7l-2.8 26.1l-1.8 17.1L321.3 270l-107.9-88l13.2-13.2l93.1 75.9l2.2-20.8l7.9-91.9l-74.3-74.3zM401.5 301.6a111 111 0 0 0-25.4 4.2l13.9 16.9a116 116 0 0 1 23.5-5.3c-3.9-5.3-7.8-10.6-11.9-15.8zm-43.8 11.2a111 111 0 0 0-20.5 13.1l15.8 17.3a117 117 0 0 1 19.1-12.8zm68 22.4a99 99 0 0 0-23 3l14.5 17.7c6.1-1.8 12.4-3 19-3.7c-3.4-5.8-6.9-11.4-10.5-17zm-102 3.5a110.8 110.8 0 0 0-16.8 25.3l17.3 14.1c4.3-8 9.4-15.4 15.4-22.1l-15.8-17.4zm60.5 6.3c-6.7 3.2-12.9 7.3-18.6 11.9l16.3 17.9a102.3 102.3 0 0 1 17.3-11.5l-15-18.3zm-32 24.9a98.2 98.2 0 0 0-13.2 20.3l18 14.7a102.3 102.3 0 0 1 11.6-17l-16.3-18zm94.1.2v.2c-45.9 0-83 37-83.1 82.9a444.7 444.7 0 0 0 127.1 44.3c-8.3-45.3-23.3-88.1-44-127.4zM299.9 382.6a111 111 0 0 0-4 26.9a448 448 0 0 0 15.1 11.3c.9-8.6 2.8-16.9 5.4-24.8l-16.5-13.5zm32.2 26.2a99 99 0 0 0-3.1 24.4a448 448 0 0 0 16.1 9.9a101.5 101.5 0 0 1 4.2-20.3l-17.2-14z",
+shark:"M258 20.2C150.4 88.6 72.1 275.2 69.9 494.4h375.2c-2.2-219.2-79.5-405.8-187.1-474.2zm-18.8 163.1l18.3 36.3l18.3-36.3c10 2.3 19.7 6.5 29.1 12.4l4.2 48.6l20.1-28.6c7.9 8.1 15.5 17.6 22.6 28.2L345.4 279l18.4-15.3c24.4 44.3 42 103.6 49.5 170.8c-10-32.1-26.6-60.4-47.6-82.3l4-35.8L344.1 333a158 158 0 0 0-19-12.2l-3.3-41l-26.3 28.9c-7.3-2.1-14.8-3.6-22.4-4.4l-15.5-33.2l-15.5 33.3c-8.1.9-16.1 2.5-23.9 4.8l-24.9-27.3l-3.2 38.9a158.5 158.5 0 0 0-19.2 12.2l-25.6-16.7l4 35.8c-21.1 21.9-37.6 50.2-47.7 82.3c7.5-67.2 25.2-126.5 49.6-170.8L169.5 279l-6.3-35.2c7.4-11 15.2-20.7 23.5-29l19.2 27.4l3.9-46.3c9.4-6 19.2-10.2 29.2-12.6z",
+dragon:"M188.8 20.4c-5.3 26.9 4.6 55.7 34.1 86.5c11.2-7.3 31.6-10.9 50-8.2c-46-22.3-66.5-47.1-84.1-78.4M29.2 26.6C43.6 73.1 81.1 128.8 129.6 168.3C93.5 166 49.9 153.1 18.8 143c25 35.2 64.2 52.9 103.3 66.3C97.1 227 67 245 18.7 248c54.6 19.2 107.5 8.9 131.3.7c-17.9 34.9-100.7 66.2-122.3 77c53.3 4.2 121.7-11 167-32.9c10 24.6-1.6 53.2-10.1 77.8c-1.9 4.5-3.8 8.9-5.7 13.3c5.1-3.5 10.1-7 14.9-10.6c23.6-16.2 47.8-31.9 59.5-58.8c26.1 31.2 62.7 62.1 107 85.4c17.4 22.1 28.3 49 34.2 73.8c8.3-19.1 13.8-40.2 9.7-60.3c24.5-3.6 35.6-29.7 35.5-54.4c-12.6 6.2-15.1 6.3-31.2 8.2c0-10.1.6-12.5-3-28.7c-10.3 8.4-21 11.2-30.8 11.8c2.1-7.6 3-19.5 3.7-27.3c-13 7.1-19.2 9.7-30.1 10.8c-.4-10.9-.1-20-4.1-30.4c-29.6 19-48.6 1.5-68-21.3c19.8-17 96.4-21.8 95.1 7.1c14-7.3 18.8-11.2 23.6-15.9c9.1 8.5 13.4 20.9 15.1 31.4c9.3-9.4 10.3-10.5 17.1-23.8c5.7 10.1 8.8 17 10.7 30.6c8.5-6.2 15.4-13.1 19.8-21.4c7.5 15.5 8.3 16 12.4 33c17.8-13.1 21.8-31.2 22.8-47.6c2-33-.3-108.2-31-142.9c1.7 36.3-13.1 70-33.8 80.7c-12.6 4.9-96.5-74.6-137.6-93.3c-23.5-10.2-48.1 7.1-67.8 9.3C147 106.2 83.6 70.9 29.2 26.6M296.1 152.8c13.3 20.9 32.2 36.9 60.1 55c-19.4 2.9-65.8-6.7-77.7-24c-5.5-7.9 7.1-21.3 17.6-31M180.6 319.1c-14.4 6.2-29.2 10.9-43.8 14.3c-2.4 3.6-4.6 7.1-6.7 10.5c14.8 5.3 31.5 7 44.1 2.8c3.3-9.8 5.5-19.3 6.4-27.6m-68 19.1l-10.2 1.5c-31.8 36.6-61.9 103.2-48.2 151.9h36.1c-11.1-37.7-16.5-87.1 22.3-153.4m8.5 21.5c-5.9 11.4-10.4 22.1-13.8 32.1c12.9 6.7 29.1 8.9 44.8 8.2c4.6-10.5 9.8-21.8 14.6-33.3c-15.4 1.8-31.4-1.4-45.6-7m111.4 6.6c-12 10.5-25.2 20.3-38.9 29.6c7 34 33.4 63.4 73.9 95.7h83.3c-57.2-31.8-94.6-73.3-118.3-125.3m-130 43.2c-2.5 11.8-3.3 22.7-3 32.9c37.3 14.2 62.5 13.5 97.5 4.1c-7.2-10.3-13-21-16.9-32.3c-32.7 9.4-55.4 5.7-77.6-4.7m106.6 52.4c-38.1 10.9-68.8 13.2-107.5.3c1.8 10.4 4.5 20.1 7.5 29.4h130.1c-11.3-9.8-21.4-19.6-30.1-29.7",
+fox:"M141.2 16.6c3.5 67.7 1 131.2-4.1 193.8l-23.6-12.3l14.4 41.6L66.5 215.5l53 54.1l-41.3 2.8c30.5 19.6 68.5 32.4 90.7 59.5c27.8 39.7 43.3 79.7 44.8 155.6c22.8 10.6 51.1 10.1 71.6 0c4.9-78.1 15.1-113.1 43-154.8c0-.1.1-.1.1-.2c22.1-27.6 60.5-40.5 91.2-60.2l-41.2-2.8l53-54.1l-61.3 24.2l14.4-41.6l-22.2 11.6c-10.8-61.1-19-122.3-16.4-183.4c-28.4 44-51.7 99.4-63.8 150.5l-18.2-4.3c3.1-12.9 6.8-26.1 11.1-39.2c-17.6-3-35.2-3.5-52.8-1.1c4.9 12.8 9.4 26.1 13.3 40l-18 5C200.2 115.8 171.2 66.4 141.2 16.6zm46.8 244.4c9.4-.1 19.1 5.2 28.7 15.2c18 18.7 14.7 47.7-.9 70.5c2.8-40.5-15.2-63.9-51.9-72.5c7.7-8.9 15.8-13.2 24.1-13.3m126.6 0c7.5.1 14.7 3.5 21.4 10.8l-.7 3.2c-35.2 9.2-53 32.4-51.9 71.8c-14.7-22.9-16.8-51.8 1.9-70.5c10-10 19.9-15.3 29.3-15.2",
+tiger:"M425.5 25.7c.7 0 1.2.2 1.6.6c28.2 30.9 23.8 58.5 18.4 87.4c-2.4 4.8-4.5 8.8-6.8 12.1c-5.1 7.2-11.3 12.5-26.7 20.1l8.1 16.1c16.7-8.3 26.4-16 33.3-25.9a76 76 0 0 0 2-3c23.5 29.6 37.6 65.6 40.2 105.7c-10.5-11.1-20.3-14.4-32.9-16.9c-3.7-17.4-11.1-34.9-23.4-51.4l-14.4 10.8c22.3 29.8 26 62.9 20.4 90.8c-5.6 27.9-21.5 49.9-33.2 55.7c-17.6 8.8-30.3 21.7-40.3 31.7c-5 5-9.4 9.3-12.9 12c-.2.1-.3.2-.5.4c-.9-4.9-2.1-9.9-3.7-15.1c-5.3-17.5-14.6-37.1-26.9-57.5l-15.4 9.3c11.7 19.5 20.4 38 25.1 53.5s5 27.7 2.3 34.5c-2.7 6.8-7.2 10.4-19.9 10.8c-11.1.4-27.8-3-49.9-11.6C317.9 378.9 305.9 349 304 320c-16 32-32 32-48 32s-32 0-48-32c-1.9 29-13.9 58.9 34.2 75.9c-22.2 8.6-38.9 12-49.9 11.6c-12.7-.4-17.2-4-19.9-10.8c-2.7-6.8-2.4-19.1 2.3-34.5c4.7-15.5 13.4-33.9 25.1-53.5l-15.4-9.3c-12.3 20.5-21.6 40-26.9 57.5c-1.6 5.2-2.8 10.2-3.7 15.1c-.2-.1-.3-.2-.5-.4c-3.5-2.7-7.9-7-12.9-12c-10-10-22.7-22.9-40.3-31.7c-11.7-5.9-27.6-27.8-33.2-55.7s-2-61 20.4-90.8l-14.4-10.8c-12.4 16.5-19.8 34.1-23.4 51.4c-12.5 2.5-22.4 5.8-32.9 16.9c2.5-40.1 16.7-76 40.2-105.7a76 76 0 0 0 2 3c6.9 9.8 16.7 17.5 33.3 25.9l8.1-16.1c-15.3-7.7-21.6-13-26.7-20.1c-2.3-3.3-4.4-7.2-6.8-12.1c-5.4-28.9-9.8-56.6 18.4-87.4c.4-.4.9-.6 1.6-.6c9.1-.4 45.2 28.9 79.1 35.6c19.7-6.1 40.8-10.2 63.3-12.1l4.4 15.6c-13.9 1.9-28.3 5.4-44.2 10.7l5.7 17.1c16.1-5.4 30.1-8.9 43.4-10.6l4.5 15.6c-6 .5-11.9 1.4-17.3 2.7c-9.4 2.2-17.7 5.3-23.8 11.4l12.7 12.7c1.9-1.9 7.6-4.8 15.2-6.6c5.4-1.3 11.7-2.1 18.2-2.5L256 144l8.2-28.7c6.5.4 12.8 1.2 18.2 2.5c7.6 1.8 13.3 4.7 15.2 6.6l12.7-12.7c-6.1-6.1-14.4-9.2-23.8-11.4c-5.4-1.3-11.3-2.1-17.3-2.7l4.5-15.6c13.3 1.7 27.3 5.2 43.4 10.6l5.7-17.1c-15.9-5.3-30.3-8.9-44.2-10.7l4.4-15.6c22.5 1.9 43.7 6 63.3 12.1c33.8-6.6 70-36 79-35.6zm-92.8 110c-40 16-59.1 23.4-76.7 23.4s-36.7-7.4-76.7-23.4l-6.7 16.7c40 16 60.9 24.6 83.3 24.6s43.3-8.6 83.3-24.6zm43.3 4.3c-14.4 28.8-44 44-76 60l7.6 15.2c-4.8 6.5-8.9 14.3-11.9 23.5c0 0-7.6 33.4-8.5 47.9l17.8 3C304 272 304 256 312.5 244.7c5.2 7 13.4 11.6 22.7 11.6c15.7 0 28.4-13.2 28.4-28.9c0-9.1-4.3-17.3-10.9-22.7c12.3-3.7 24.3-3.8 31.3-3.8v-18c-4.7 0-12.7 0-22.1 1.4c12.1-9.7 22.7-21.3 30.2-36.3zm-239.9 0l-16.1 8.1c7.5 15 18.1 26.7 30.2 36.3c-9.4-1.4-17.4-1.4-22.1-1.4v18c7 0 19 .1 31.3 3.8c-6.6 5.3-10.9 13.6-10.9 22.7c0 15.7 12.7 28.9 28.4 28.9c9.3 0 17.5-4.6 22.7-11.6C208 256 208 272 207.1 289.5l17.8-3c-.9-14.5-8.5-47.9-8.5-47.9c-3-9.2-7.1-17-11.9-23.5l7.6-15.2c-32-16-61.6-31.2-76-60zm272.5 49.2l-17.1 5.7c3.3 10 2.5 18.5-.7 27.3c-3.2 8.8-9.1 17.6-15.9 26.3s-14.3 17.2-20.5 26.1c-6.2 8.9-11.4 18.4-11.4 29.4h18c0-5 2.8-11.5 8.1-19.1s12.7-16.1 20-25.4c7.2-9.3 14.3-19.5 18.6-31.2c4.3-11.7 5.5-25.2.8-39.2zm-305.1 0c-4.7 14-3.5 27.5.8 39.2s11.4 21.9 18.6 31.2s14.7 17.8 20 25.4c5.3 7.6 8.1 14.1 8.1 19.1h18c0-11-5.2-20.5-11.4-29.4s-13.8-17.4-20.5-26.1c-6.8-8.7-12.7-17.5-15.9-26.3s-4-17.3-.7-27.3zm231.8 27.4c5.7 0 10.4 4.6 10.4 10.9c0 6.2-4.7 10.9-10.4 10.9c-5.7 0-10.4-4.6-10.4-10.9c0-6.2 4.7-10.9 10.4-10.9m-158.4 0c5.7 0 10.4 4.6 10.4 10.9c0 6.2-4.7 10.9-10.4 10.9s-10.4-4.6-10.4-10.9c0-6.2 4.7-10.9 10.4-10.9zm287.1 12C499.5 289.2 495.4 352.6 480 368c-9.8-15.4-20.1-27.8-32-32c9.4 36.1 0 64-16 80c0-16-3.4-23.7-16-32c3.3 39.9-18.2 56.8-32 64c-6-11.7-17.5-24.4-33.3-35.5a31.8 31.8 0 0 0 5.6-9.2c1.5-3.6 2.4-7.5 2.8-11.5c3.9-1.3 7.4-3.5 10.5-5.9c5-3.8 9.6-8.5 14.6-13.5c10-10 21.3-21.1 35.7-28.3c20.3-10.1 36.4-36.2 42.8-68.3c2.9-14.7 3.6-30.8 1-47.2m-415.7 0c-2.6 16.4-1.9 32.5 1 47.2c6.4 32.1 22.5 58.1 42.8 68.3c14.4 7.2 25.7 18.3 35.7 28.3c5 5 9.6 9.7 14.6 13.5c3.2 2.4 6.6 4.6 10.5 5.9c.5 4 1.4 7.9 2.8 11.5a31.8 31.8 0 0 0 5.6 9.2C145.5 423.6 134 436.4 128 448c-13.8-7.2-35.3-24.1-32-64c-12.6 8.3-16 16-16 32c-16-16-25.4-43.9-16-80c-11.9 4.2-22.2 16.6-32 32c-15.4-15.4-19.5-78.8 16.2-139.4M425 256h-18c0 11.5-10.1 26.5-21.8 40.1c-5.9 6.8-11.9 13.3-16.8 19.6s-9.4 11.8-9.4 20.3h18c0 .5 1.5-3.9 5.6-9.2s10.1-11.8 16.2-18.9c12.3-14.3 26.2-31.4 26.2-51.9m-320 0H87c0 20.5 13.9 37.5 26.2 51.9c6.1 7.2 12.1 13.7 16.2 18.9s5.6 9.7 5.6 9.2h18c0-8.5-4.5-14.1-9.4-20.3s-10.9-12.7-16.8-19.6c-11.7-13.7-21.8-28.6-21.8-40.1m201.7 168.8c4.8.6 9.3.8 13.6.7a54 54 0 0 0 5.4-.5c-2.5 8.9-6.6 17.4-12.8 24.7C301.2 463.9 282 473 256 473s-45.2-9.1-56.9-23.2c-6.1-7.4-10.2-15.8-12.8-24.7c1.8.2 3.5.4 5.4.5c4.2.1 8.8-.1 13.6-.7c1.9 5 4.4 9.5 7.6 13.4c8.2 9.9 21.1 16.8 43.1 16.8s34.8-6.9 43.1-16.8c3.3-3.9 5.8-8.5 7.6-13.4",
+gem:"m92.9 94.8l60.4 79.8l78.1-79.8H92.9zm189.2 0L359.2 173.5l58.7-78.7H282.2zm-25.3.8l-84.7 86.5H341.5zm177.9 7.9l-58.6 78.6H494.5zm-358.1.8l-57.8 77.8h116.8zm-58.5 96.5L226.6 429.2l-83.2-228.4H18.2zm145.1 0l93.6 256.8l93.6-256.8H163.2zm207.1 0L287.1 429.2l208.4-228.4H370.3z",
+gamepad:"M155.1 125.9q-.7 0-1.4 0c-5.6.3-12.1 2.5-20.7 8.2c-21.8 14.6-51.9 60.4-67.8 110c-15.9 49.6-18 102.2 5.9 133c4.1 5.3 13.4 8.9 23.8 8.8c10.2-.1 20.7-3.8 26.5-9.4c1-1.5 9.3-13.3 21.4-27.4c12.9-15 28.7-31.7 45.8-38.8c41.9-17.3 93-17.3 134.9 0c17.1 7.1 33 23.8 45.8 38.8c12.1 14.1 20.4 25.9 21.4 27.4c5.8 5.6 16.3 9.4 26.5 9.4c10.4.1 19.6-3.5 23.8-8.8c24-30.7 21.9-83.6 6-133.3s-46.1-95.5-67.8-109.6c-11.5-7.5-19.2-8.7-26.3-7.6c-7.1 1.1-14.3 5.2-22.9 11.1c-17 11.7-38.9 30-74 30c-35.2 0-57.1-18.5-74.1-30.4c-8.5-5.9-15.7-10-22.7-11.1a27.6 27.6 0 0 0-4-.3zm212.9 48.8a16 16 0 0 1 16 16a16 16 0 0 1-16 16a16 16 0 0 1-16-16a16 16 0 0 1 16-16M135 183h18v32h32v18h-32v32h-18v-32h-32v-18h32zm201 23.7a16 16 0 0 1 16 16a16 16 0 0 1-16 16a16 16 0 0 1-16-16a16 16 0 0 1 16-16m64 0a16 16 0 0 1 16 16a16 16 0 0 1-16 16a16 16 0 0 1-16-16a16 16 0 0 1 16-16m-32 32a16 16 0 0 1 16 16a16 16 0 0 1-16 16a16 16 0 0 1-16-16a16 16 0 0 1 16-16m-160 7h32v18h-32zm64 0h27.9v18h-27.9z",
+robot:"M256 19c-13.8 0-27.9 3-41.5 8.5L256 79.4l41.5-52C283.9 22 269.8 19 256 19m-59.4 17c-18.5 10.3-35.9 24.7-50.9 41.7c-10.8 12.2-20.2 25.7-24.8 32.4l-64.8 87.1l59.1 83L95.9 348l71.6 64.2l-6.9-27.3l36.1-108.2l-40.7 27.1l-76-106.3l42.3-56.3l97.4 48.7h72.7l97.4-48.7l42.3 56.3l-76 106.3l-40.8-27.2l1 3.2l35.2 105.1l-6.9 27.3l71.5-64.2l-19.4-67.8l59.2-83l-64.8-87.1c-4.6-6.7-14-20.2-24.8-32.4c-15-17.1-32.4-31.5-50.9-41.7L256 110.2zm15.1 256.4l-5 15h98.6l-5-15zm-11.5 34.2l-16.3 49.1h144.2l-16.4-49.1zm-17.3 68.3l12.3 49.2h121.6l12.2-49.2zm33.6 68.4L256 493l39.5-29.7z",
+ninja:"M280.1 19.9c-64.3 0-121.8 28.8-159.6 73.9c27.4.1 87.9 3 96.1 25.7c-38.4-12.1-79.8-11.3-108.5-9.3a201 201 0 0 0-13.7 23.3c31.5-8.3 148-3.4 154.8 21.3c-76-18.6-140.6-8.7-162.1-4.9c-8.8 22.4-13.6 46.8-13.6 72.3c0 111.7 96.2 269.9 210.3 269.9c57.8 0 109.1-40.6 145.6-95.2c-31.4 23.8-98 57.3-139 34.6c81.6-9 140-51 156.2-63.4c25.2-47.1 40-100.4 40-146c0-111.7-92.5-202.3-206.6-202.3m0 151.7c105.1 0 190.3 27.7 190.3 61.9c0 22-4.5 33.5-57.8 44.5c-29.4 6.1-95.1-31.2-132.5-31.2c-34.9 0-87.1 41.3-115.2 36c-56.6-10.7-75.1-26.4-75.1-49.3c0-34.2 85.2-61.9 190.3-61.9m83.9 39.9c-20.1-.1-41.6 3.3-41.5 9.9c.2 12.5 17.4 22.3 38.4 22c21-.3 18.6-16.2 37.7-23.1c-.1-5.8-16.9-8.7-34.6-8.8zm-172.7 2.9c-17.8.1-34.5 3-34.6 8.8c19.2 6.9 16.7 22.8 37.7 23.1c21 .3 38.2-9.5 38.4-22c.1-6.6-21.3-10-41.5-9.9m92.6 82.4c31 0 56.2 25.2 56.2 25.2s-28.2-11.1-59.2-11.1s-53.2 11.1-53.2 11.1s25.2-25.2 56.2-25.2zM31.2 411.4c4.3 2 7.8-40.3 52.2-61.3c-8.1-8.5-12.4-24.6-14.2-35.5c-32.7 4.2-55 84.9-38 96.8m56.3-41.7c-7.5-.1-17.3-.2-17.4 16.9c-.5 46.3-42.8 97-40.1 98.2c7.1 3.4 49.6-32.1 61.9-59.4c4.2-9.2 11.5-55.6-4.3-55.7",
+alien:"M256 21.3c-134.9 0-192.2 105.2-192.2 211.4C63.8 338.8 256 493.7 256 493.7s192.2-154.8 192.2-261c0-106.2-57.3-211.4-192.2-211.4zm-.1 74.4c.8.6 1.4 1.1 2.2 1.7c46.4 36.3 46.4 95.2 0 131.5c-.8.6-1.4 1.1-2.2 1.7c-.8-.6-1.4-1.1-2.2-1.7c-46.4-36.3-46.4-95.2 0-131.5c.8-.6 1.4-1.1 2.2-1.7zm0 40.7c-14.9 0-26.9 12.1-26.9 26.9c0 14.9 12.1 26.9 26.9 26.9s26.9-12.1 26.9-26.9s-12.1-26.9-26.9-26.9M135 203.1c40-.5 72.5 27.4 78.9 73.1c.1.9.2 1.8.4 2.8c-.9.3-1.6.7-2.6 1c-54.7 22.1-105.6-7.3-113.9-65.7c-.2-1-.3-1.8-.4-2.8c1-.3 1.7-.7 2.6-1c12-4.8 23.7-7.2 34.9-7.3zm244.1 0c11.2.1 23 2.5 34.9 7.3c.9.4 1.6.8 2.6 1c-.1 1-.2 1.8-.4 2.8c-8.3 58.4-59.2 87.8-113.9 65.7c-.9-.3-1.6-.8-2.6-1c.1-1 .3-1.8.4-2.8c6.4-45.6 39-73.5 78.9-73.1m-223.9 15a26.9 26.9 0 0 0-22.8 13.5c-7.4 12.9-3 29.4 9.9 36.8c12.9 7.4 29.4 3 36.8-9.9s3-29.4-9.9-36.8a26.9 26.9 0 0 0-14.1-3.6zm203.8 0c-4.8-.1-9.6 1.1-14.1 3.6c-12.9 7.4-17.3 23.9-9.9 36.8c7.4 12.9 23.9 17.3 36.8 9.9c12.9-7.4 17.3-23.9 9.9-36.8a26.9 26.9 0 0 0-22.8-13.5z",
+viking:"M52.4 53.9c-35.1 34.7-41.3 73.9-33.2 117.8c6.3 34.2 22.1 70.8 40.9 107.8c17.7-27.1 41.1-56.8 68.7-78.5c-20.7-17.2-38.3-35.9-51.4-56.4c-17.3-27.1-26.5-57.6-25-90.6m407.1 0c1.5 33-7.7 63.5-25 90.6c-13.1 20.6-30.7 39.3-51.4 56.4c27.6 21.7 50.9 51.4 68.7 78.5c18.8-37 34.6-73.6 40.9-107.8c8.1-43.9 1.9-83.1-33.2-117.8zM256 179c-8.7 0-17.1 2.8-23 7.3v22.4c6.7-2.6 14.5-4 23-4s16.3 1.4 23 4v-22.4c-5.9-4.6-14.3-7.3-23-7.3m-41 30.1c-30.5 11.6-60 34.7-84.2 62.8C98.7 309.3 76.8 355.5 73.5 391H215zm82 0V391h141.5c-3.3-35.5-25.2-81.7-57.4-119.1c-24.1-28.1-53.7-51.2-84.2-62.8m-153.5 3.5c-29.1 22.2-55.2 56.2-73.7 85.5a2034 2034 0 0 0 9.4 17.6c10.2-19.2 23.1-38.1 38-55.5c12-14 25.3-27 39.6-38.2a416 416 0 0 1-13.2-9.4m225 0a416 416 0 0 1-13.2 9.4c14.3 11.2 27.6 24.2 39.6 38.2c14.9 17.3 27.8 36.2 38 55.5c3.2-5.8 6.3-11.7 9.4-17.6c-18.5-29.3-44.6-63.3-73.7-85.5M256 222.7c-7.6 0-14.4 1.7-18.6 3.7c-3.3 1.6-4.1 3-4.3 3.3c.2.3 1.1 1.6 4.3 3.3c4.2 2.1 11 3.7 18.6 3.7c7.6 0 14.4-1.7 18.6-3.7c3.3-1.6 4.1-3 4.3-3.3c-.2-.3-1.1-1.6-4.3-3.3c-4.2-2.1-11-3.7-18.6-3.7m22.9 7c.1.1.1.1.1 0c0-.1 0-.1-.1 0m-45.8 0c-.1-.1-.1-.1-.1 0c0 .1 0 .1.1 0m-.1 21v48.4c6.7-2.6 14.5-4 23-4s16.3 1.4 23 4v-48.4c-6.7 2.6-14.5 4-23 4s-16.3-1.4-23-4M256 313c-7.6 0-14.4 1.7-18.6 3.7c-3.3 1.6-4.1 3-4.3 3.3c.2.3 1.1 1.6 4.3 3.3C241.6 325.3 248.4 327 256 327s14.4-1.7 18.6-3.7c3.3-1.6 4.1-3 4.3-3.3c-.2-.3-1.1-1.6-4.3-3.3C270.4 314.7 263.6 313 256 313m22.9 7c.1.1.1.1.1 0s0-.1-.1 0m-45.8 0c-.1-.1-.1-.1-.1 0s0 .1.1 0m-.1 21v45.9c6.7-2.6 14.5-4 23-4s16.3 1.4 23 4v-45.9c-6.7 2.6-14.5 4-23 4s-16.3-1.4-23-4m23 59.9c-7.6 0-14.4 1.7-18.6 3.7c-3.3 1.6-4.1 3-4.3 3.3c.2.3 1.1 1.6 4.3 3.3c4.2 2.1 11 3.7 18.6 3.7c7.6 0 14.4-1.7 18.6-3.7c3.3-1.6 4.1-3 4.3-3.3c-.2-.3-1.1-1.6-4.3-3.3c-4.2-2.1-11-3.7-18.6-3.7m22.9 7c.1.1.1.1.1 0c0-.1 0-.1-.1 0m-45.8 0c-.1-.1-.1-.1-.1 0c0 .1 0 .1.1 0M73 409v30h18.5c-2.8-4.4-4.5-9.5-4.5-15s1.7-10.6 4.5-15zm55 0c-7 0-13.2 2.2-17.2 5.2S105 420.6 105 424s1.7 6.7 5.8 9.8S121 439 128 439s13.2-2.2 17.2-5.2S151 427.4 151 424s-1.7-6.7-5.8-9.8S135 409 128 409m36.5 0c2.8 4.4 4.5 9.5 4.5 15s-1.7 10.6-4.5 15H215v-30zM297 409v30h50.5c-2.8-4.4-4.5-9.5-4.5-15s1.7-10.6 4.5-15zm87 0c-7 0-13.2 2.2-17.2 5.2S361 420.6 361 424s1.7 6.7 5.8 9.8S377 439 384 439s13.2-2.2 17.2-5.2S407 427.4 407 424s-1.7-6.7-5.8-9.8S391 409 384 409m36.5 0c2.8 4.4 4.5 9.5 4.5 15s-1.7 10.6-4.5 15H439v-30zM233 428.8v16.5l23 34.5l23-34.5v-16.5c-6.7 2.6-14.5 4-23 4s-16.3-1.4-23-4",
+samurai:"m356.1 32.6l50 25c-2.2 8.7-9.2 22.5-20.1 37.3C372.7 113 354.4 133.3 335.6 152c-18.7 18.8-38.1 36.2-53.5 48.7c-7.7 6.2-14.5 11.3-19.6 14.6c-2.5 1.6-4.6 2.9-6 3.6c-.3.1-.3.1-.5.1s-.2 0-.5-.1c-1.4-.7-3.5-2-6-3.6c-5.1-3.3-11.9-8.4-19.6-14.6c-15.4-12.5-34.8-29.9-53.5-48.7c-18.8-18.7-37.1-39-50.4-57.1c-10.9-14.8-17.9-28.6-20.1-37.3l50-25c14.6 29.7 29.3 62.1 44.2 90c16.2 30.5 31.6 55.7 51.9 65.9l4 2l4-2c20.3-10.2 35.7-35.4 51.9-65.9c14.9-27.9 29.6-60.3 44.2-90M256 141.4c7.9 0 15.5.7 22.7 1.9c-8.2 12.2-16 21.5-22.7 26.5c-6.7-5-14.5-14.3-22.7-26.5c7.2-1.2 14.8-1.9 22.7-1.9m83.1 32.5c23.3 22.7 35.9 54.6 35.9 86.5v.6c-33-12-75.9-17.6-119-17.6S170 249 137 261v-.6c0-31.9 12.6-63.8 35.9-86.5c16.2 15.6 32.2 29.8 45.7 40.7c8 6.5 15.1 11.9 21 15.7c2.9 2 5.5 3.5 8 4.7s4.4 2.4 8.4 2.4s5.9-1.2 8.4-2.4s5.1-2.7 8-4.7c5.9-3.8 13-9.2 21-15.7c13.5-10.9 29.5-25.1 45.7-40.7m64.3 38.3c20.6 20 31.5 26.2 63.8 37.3c-12.6 24.9-25.9 47.1-57 61.2l-17.3-52c-.1-5.7-.5-11.4-1.3-17.1zm-294.8 0l11.8 29.4c-.8 5.7-1.2 11.4-1.3 17.1l-17.3 52c-31.1-14.1-44.4-36.3-57-61.2c32.3-11.1 43.2-17.3 63.8-37.3M265 261.5c45.1.9 89.3 8.7 117.2 22.2l28.4 85l-43.3-19.8c-3.9-23.6-6.3-46.3-6.3-58.5v-14.6l-13 6.5c-27.9 14-55.5 21.6-83 23zm-18 0v43.8c-27.5-1.4-55.1-9-83-23l-13-6.5v14.6c0 12.2-2.4 34.9-6.3 58.5l-43.3 19.8l28.4-85c27.9-13.5 72.1-21.3 117.2-22.2m96.6 42.8c1.3 18.6 4.8 43.5 9.6 67.6c3 15.4 6.6 30.2 10.5 42.4c3.9 12.3 7.3 21.8 13.9 28.5l2.7 2.6h3.7c14.1 0 38.9 1.2 52.7 9.6c-1.8 1.4-4.8 3.2-8.7 4.9c-9.4 4-23.9 7.7-41.5 10.6c-35.2 5.9-82.9 8.9-130.5 8.9s-95.3-3-130.5-8.9c-17.6-2.9-32.1-6.6-41.5-10.6c-3.9-1.7-6.9-3.5-8.7-4.9c13.7-8.4 38.6-9.6 52.7-9.6h3.7l2.7-2.6c6.6-6.7 10-16.2 13.9-28.5c3.9-12.2 7.5-27 10.5-42.4c4.8-24.1 8.3-49 9.6-67.6c58 25.3 117.2 25.3 175.2 0m-202.8 66.2c-2.9 14.1-6.2 27.6-9.6 38.4c-2.9 9.1-6.1 15.3-8.1 18.5c-11.2-.1-27.7 0-43 5.1l13.5-40.4zm230.4 0l47.2 21.6l13.5 40.4c-15.3-5.1-31.8-5.2-43-5.1c-2-3.2-5.2-9.4-8.1-18.5c-3.4-10.8-6.7-24.3-9.6-38.4",
+scorpion:"M118.2 13.6c-9.3.1-18.5 3-25.9 9.2c-28.5-14.1-63.6.1-58.8 33.4C7.2 77.8 13 118.4 43.4 131c-.7 28.3 22.5 53.2 49.6 51c7.4 19.5 25.9 31.8 46 34.2q.1 3.5.6 7.2c-9.3 5-18.9 9.7-28.6 14.4l8.1 16.8c8.3-4 16.6-8 24.8-12.3c1.8 5.8 4.2 11.9 6.9 18c-9.2 4.8-18.6 9.4-28 14l8.2 16.8c9.5-4.6 19-9.3 28.4-14.2a240 240 0 0 0 11.4 18.1c-9.8 5.1-19.8 10.1-29.9 15l8.2 16.8c11.1-5.4 22.1-10.9 33.1-16.6a293 293 0 0 0 15.3 17.6c-12 6.4-24.3 12.5-36.7 18.5l8.2 16.8c14.2-6.9 28.4-14 42.4-21.6a270 270 0 0 0 14.6 12.5c-19.2 11.2-38.2 24.8-55.1 40.4l-4.8 4.4l2.5 6c6.1 14.9 12.4 27.6 19.3 38.5c16.7 43.7 117.7 67.5 169.9 50c-40.1-76.5-110.5-107.2-163.5-77.2a288 288 0 0 1-5.7-12.3c16.7-14.6 35.2-27.5 53.9-37.7c14.7 10 29.5 17.7 43.3 23.2a165 165 0 0 0 14.4-4.9c-5.1-5-10.3-10.6-15.5-16.8l14.3-12c6.7 8 13.2 14.8 19.4 20.3c9.1-5 17.4-10.8 24.6-17c-4.4-6.3-9.9-13.2-16.6-20.7l13.9-12.5c6.3 7 11.6 13.6 16.2 19.8c2.8-3.2 5.3-6.5 7.6-9.8c-2.3-9.8-6-20.2-11.2-30.9c4.5-14.8 10.3-29.6 17.2-43.8c4.3.6 8.3 1.3 12.2 2c-23.7 40.5 31.8 122.8 84.1 144.2c29.6-76.2 7.6-136.2-53-155.5c-13.6-4.8-29.3-8-47.6-10.3l-6.5-.8l-3 5.8c-6.1 11.7-11.4 23.9-15.8 36.2c-5.4-8.5-11.6-17-18.5-25.5a257 257 0 0 0 22-30.4l-15.9-9.8c-5.7 9.3-12 17.9-18.6 26a305 305 0 0 0-7.4-7.6a308 308 0 0 0-8.7-8.4a241 241 0 0 0 20.2-28l-15.9-9.8a221.6 221.6 0 0 1-18.5 25.6c-6-4.9-12.1-9.4-18.1-13.5a216 216 0 0 0 17.7-24.5l-15.9-9.9c-5.4 8.7-11.4 16.8-17.8 24.3c-6.6-3.8-13.1-7.1-19.4-9.9a175 175 0 0 0 13.9-19.1l-15.8-9.9c-5.1 8.1-10.7 15.4-16.9 22.2c-9.5-2.7-18.5-4.1-26.6-4c-.2 0-.4 0-.6 0c-15.8-18-44.2-24.1-67.1-15.2c-3.7-21.8-22.1-39.4-42.8-41.6c4.8-14.8 1.1-31.5-8.9-43.2c14.6-2 28.2-10.6 35.2-22.6c12.2 14.7 34.1 21.6 51.7 15.6c8.1 17.2 29 28.6 48.6 26c35.6 81 139.9 84.9 177.4 1.3c-36.9 23.3-66.7 3.7-89.6-26.5c-17.6-23.3-43.5-38.9-75.8-9c-10.2-15.3-30.8-23.5-49.3-19c-8.5-14.4-24.8-22.6-40.7-22.5z",
+hawk:"m43.7 18.4l77.9 83.3l-103.6-52.2v20.9l110.6 55.8l-110.6-18.7v19l104.3 17.6l-104.3 12.4v18.8L126.2 162.4L18 204.9v20.1l113.2-44.5L19.5 256.4l-1.5-.8v21.2c65.8 34.3 132.5 46.5 179.2 32.2c3.8 12.5 9.2 23.7 15.9 33.1l-98.9 151.5h22.3l86.9-133.2l-51.4 133.2h20l47.4-122.8l-16.7 122.8h18.9l16.7-123.1l16.7 123.1h18.9l-16.7-122.8l47.4 122.8h20L293.5 360.8l86.7 132.8h22.3l-98.8-151.5c6.9-9.4 12.5-20.6 16.4-33.2c45.3 13.8 109.4 2.8 173.2-29.3v-24.5L383.4 180.5l109.9 43.2v-20.1L388.4 162.4l104.9 12.4v-18.8l-101-12l101-17.1V108l-104.8 17.7l104.8-52.7V52.2L388.4 104.8l80.9-86.5h-25.6l-87.1 93l10.3 9.7l1.2 3.2c2.3 6.3 3.5 11.9 3.5 18.3c0 27.9-22.4 53.9-57.8 67.8c-14.7-16-20.8-32.2-19.7-40.4c.6-4.5 2.1-6.8 6.6-8.9c4.4-2.1 12.7-3.2 24.9-1.1l11 1.9l0-11.1c0-20-4.4-35.8-14.8-46.7c-10.4-10.9-25.5-15.3-43.4-15.8h0c-21.5-.6-47.9 4.3-80.8 12.5l-12 3l6.2 10.7c17.8 30.9 20.4 45.6 18.6 57.8c-1.4 10-6.7 20.6-11.1 36.3c-33.3-14.2-54.3-39.2-54.3-66.2c0-5.5 1.8-11.2 4.1-17.9l2.8-7.8c4.3-5.6 3.1-4.4 4.3-5.6l-87.1-93zm231.3 88.7q1.5 0 3 0h0c15.2.4 24.5 3.9 30.4 10c4.6 4.8 7.7 12.2 9 23.3c-9.5-.5-17.6.7-24.5 3.9c-7.2 3.4-12.5 9.4-15.3 16.3c-8.8-10.2-11.9-19.7-13.2-31c-30.5 13.7-38.5-12.4-13.2-20.5c8.9-1.3 16.8-2 23.7-2zm.4 65c-.4 14.7 7 30.4 19.8 45.6c-27.7 8.3-55.7 9.2-78.9.2c3.8-15.2 9.7-25.7 12.3-39.6c12.5 3.9 33.2 3.2 46.8-6.2m-131.3 22.3L77.1 281.7c-12.7-4.2-25.6-9.4-38.6-15.6zm226.5 0L477 266.7c-13.2 6.2-26.3 11.3-39.1 15.5zm-213.3 13.5l-29.9 85.8c-10-1.4-20.4-3.5-31.1-6.3zm200.1 0l61.3 80c-10.8 2.8-21.3 4.8-31.4 6.1zm-185.2 14l-1.5 73.2c-7.6.7-15.6.9-24.2.5zm170.3 0l25.7 73.6c-8.6.3-16.6 0-24.2-.9zm-151.7 3.8a153 153 0 0 0 12.1 4.7l5.5 1.9l-1.4 53l-7 2.9c-3.3 1.4-6.8 2.5-10.5 3.5zm133.1 1.1l1.3 64.1a82 82 0 0 1-7.7-2.7L307.3 284c-3.1-.5 1.9-51.8 1.9-51.8l5.4-1.9a151 151 0 0 0 9.3-3.5z",
+planet:"M417.1 85.6c-35.5-.1-80.7 9.8-129.6 29a148 148 0 0 0-28.3-2.7c-25 0-50.4 6.5-73.7 19.9c-32 18.6-54.6 47.3-65.8 79.8c-80.3 64.2-123.4 133.9-100.7 173.3c23.4 40.5 109.4 36.7 208.6-4.2c1.7-.7 3.4-1.4 5.1-2.1c.6-.3 1.2-.5 1.9-.8c1.8-.8 3.6-1.6 5.4-2.3l1.6-.7c1.4-.6 2.9-1.3 4.3-1.9c19.7-8.8 39.8-19 59.8-30.6a654 654 0 0 0 45.2-28.7c.4-.3.8-.5 1.2-.8c.7-.5 1.3-.9 2-1.4c100.4-70 158.2-152.8 132.6-197.2c-11-19.1-36-28.4-69.7-28.5zm-56.4 50c24.5-.4 42.6 5.8 50.4 19.4c8.4 14.5 3.6 35.1-11.2 57.9a149.5 149.5 0 0 0-12.1-26.8c-11.7-20.4-27.5-36.8-45.8-49.1c6.5-.9 12.8-1.4 18.7-1.5zM111.8 269.9c1.4 22.1 7.8 44.3 19.6 64.8a149.5 149.5 0 0 0 17.4 24.3c-27.7 1.7-48.3-4.4-56.8-19.2c-9.8-17.1-1.6-42.4 19.8-69.9m291.2 27.7c-25.8 21.3-55.3 41.9-87.9 60.8c-32 18.5-64 33.7-94.8 45.3c36.8 10.1 77.6 6.1 113.3-14.6c35.8-20.7 59.8-54.2 69.3-91.4z",
+cobra:"M185.7 51.7c-5.3 0-9.6 12.7-9.6 28.4s4.3 28.4 9.6 28.4s9.6-12.7 9.6-28.4s-4.3-28.4-9.6-28.4m140.1 0c-5.3 0-9.5 12.7-9.5 28.4s4.2 28.4 9.5 28.4v0c5.3 0 9.6-12.7 9.6-28.4s-4.3-28.4-9.6-28.4m-82.7 37.8l13.7 23.8l13.7-23.8zm13 50.1c-.4.5-.9.9-1.3 1.3a128.6 128.6 0 0 1-59 35c-5.2 75 13 104.2 13 104.2s-24.6-15.9-37.4-100a128.4 128.4 0 0 1-53.6-7.5a306.7 306.7 0 0 0 19 52.2c12.2 26.1 43.3 55.2 52.8 84.5c24.8 76.7 2.9 151 66.5 151s41.8-74.3 66.5-151c9.5-29.3 40.5-58.4 52.8-84.5a306.7 306.7 0 0 0 19-52.2a128.4 128.4 0 0 1-44.3 7.8a130 130 0 0 1-15.5-.9c-12.8 84.6-37.4 100.6-37.4 100.6s18.5-29.6 12.8-106.1a128.8 128.8 0 0 1-52.6-33.1zm-6.6 123.1h18.4c0 23.3-7.4 37.6-12.8 48c-4.8 9.3-6.9 13.7-5.1 20.2c2.5 9 6.8 14.1 11.8 20c13.8 16.4 22.9 31.8 12.5 80.6l-5.7-24l-12.3 20.2c9.3-43.9 1-53.7-8.6-65c-5.6-6.6-11.9-14.1-15.5-26.9c-3.8-13.7 1.4-23.9 6.5-33.6s10.8-20.7 10.8-39.6",
+headphones:"M256 51c-55 0-107.3 25.1-148.2 66.8l16.5 8.3C163.2 88 210.6 65 256 65c45.5 0 92.8 23 131.7 61.1l16.5-8.2C363.3 76.1 311 51 256 51M95.2 131.7C54.1 180 27.2 246.5 25.2 321h14c2.2-70.6 30.3-133.3 70-178.9c.7-.8 1.4-1.6 2.1-2.4l-16.1-8.1zm321.6 0l-16.1 8.1c.7.8 1.4 1.5 2.1 2.3C442.5 187.6 470.6 250.3 472.8 321h14c-2-74.5-28.9-141-70-189.3zM128 262.8c-3.5 0-7 1.1-7 3.4V458c0 4 14 4 14 0V266c0-2.1-3.5-3.2-7-3.2zm255.9 0c-3.5 0-7 1.1-7 3.2v192c0 4 14 4 14 0V266.2c-.1-2.3-3.6-3.4-7-3.4zM103 275.7c-15.6 2.4-25.6 11.2-33.1 24.6C61 316.3 57 339 57 362s4 45.7 12.9 61.6c7.5 13.5 17.5 22.2 33.1 24.6zm306 0v172.5c15.6-2.4 25.6-11.2 33.1-24.6C451 407.7 455 385 455 362s-4-45.7-12.9-61.6c-7.5-13.5-17.5-22.2-33.1-24.6M25 339v46h14v-46zm448 0v46h14v-46z",
+target:"M247 32v23.2C143.2 59.8 59.8 143.2 55.2 247H32v18h23.2C59.8 368.8 143.2 452.2 247 456.8V480h18v-23.2C368.8 452.2 452.2 368.8 456.8 265H480v-18h-23.2C452.2 143.2 368.8 59.8 265 55.2V32zm0 41.2V128h18V73.2C359 77.8 434.2 153 438.8 247H384v18h54.8C434.2 359 359 434.2 265 438.8V384h-18v54.8C153 434.2 77.8 359 73.2 265H128v-18H73.2C77.8 153 153 77.8 247 73.2M247 224v23h-23v18h23v23h18v-23h23v-18h-23v-23z",
+zap:"m292.5 20.5l19 40.6L66.3 28.8L362 158.1l-19-40.6l149.2 15.3zm-252 23.4L318.3 414L312.9 348l185 146.5L294 186.7l5.4 66zM20.9 76.2l36.5 316.4L83 351.8l68.1 139.3l-9.6-241.1l-25.6 40.8l-95-214.6z",
+octopus:"M150.2 20c-114.5-.6-140 184.9 20.6 212.1c-29.5.5-55.4 8.1-91.8 26C-19.2 306.3.7 463 100.9 446c34.5-5.8 51.2-50.3.9-65.4c16.5 29.6-28 47.1-41.9 1.9c-11.3-36.5 21.1-74.9 52.5-85c30.5-9.8 55.2-10.9 82.5-5.8c-36.6 34.2-56.5 80.5-42.4 123.6c44.5 135.6 192.1 82.5 162.8-6.7c-10.3-31.5-41.4-46.5-68-10.2c35.2-8.9 50.5 38.8 18.2 49.3c-26.4 8.7-60.2-13.5-66-41.3c-7.8-37.4 19.8-77.2 54.8-95.2c22.2 35.4 38.8 48.7 83.2 72.2c85.8 45.4 213-36.5 143.9-110.5c-22.6-24.2-54.6-30-67.5 13.1c30.2-20.1 60.7 26.8 33.9 47.6c-21.9 17-61.5 19.1-86.4 5.5c-30.8-16.8-53.8-37.8-70.2-66.5c57.1 13.7 119.6-1.1 143-45.3c45.7-86.5-7-152.5-59.1-153.4c-20.4-.4-40.7 9.2-54.9 31.5c-17.9 27.9-9.8 61.5 35.2 59.1c-29.1-21.6-1.9-63.6 26.7-45.3c23.4 14.9 22.5 51.9 9.8 77.3c-15.2 30.2-60.6 50.7-95.1 24.7c-3-5.7-5.6-11.7-7.8-17.8c9-6.5 14.9-17 14.9-28.9c0-17.8-13.3-32.6-30.3-35.2c-9.8-47.1-23.3-92.6-84.8-112.6c-13.6-4.4-26.4-6.5-38.3-6.5zm117.8 137.4c9.5 0 16.9 7.5 16.9 16.9s-7.5 16.9-16.9 16.9s-16.9-7.5-16.9-16.9s7.4-16.9 16.9-16.9zm-65.4 10.5c9.5 0 16.9 7.5 16.9 16.9s-7.5 16.9-16.9 16.9s-16.9-7.5-16.9-16.9s7.5-16.9 16.9-16.9"};
 function initials(name) { const w = name.replace(/[«»"]/g, '').split(/[\s-]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); }
 function matchCard(m, title) {
   const where = m.home ? 'дома' : 'в гостях';
@@ -911,16 +1016,37 @@ function ofClub(key) { for (const l of (H().official || {}).leagues || []) { con
 /* ---------------- конструктор эмблем (сервер проверяет то же самое: app/crests.py custom_problems) ---------------- */
 let CREST_DRAFT = null;      // эмблема в конструкторе до сохранения
 let CREST_READY_HTML = null; // [клуб, разметка] — сетка готовых эмблем, собирается один раз
-const CREST_EDITOR = {"divs":["plain","halves","hhalves","stripes","hoops","cross","bend","sash","chief","quarters","band","lozenge","chevron","checks","waves","rays","bends"],"symbols":["cannon","ship","heron","lion","trident","rooster","castle","gull","oak","house","cherry","bee","turret","hammers","wolf","rose","keep","cat","crown","bear","submarine","chains","bolt","star","parrot","ball","sword","anchor","palm","cross","greek","snake","horse","lily","eagle","eaglehead","griffin","ladder","cbull","bull","stag","pine","leaf","key","wheel","anvil","goat","wave","dog","lantern","ermine","dove","fish","bat"],"palette":["#dc2626","#2563eb","#f8fafc","#111827","#facc15","#16a34a","#f97316","#9333ea","#92400e","#ffffff","#111111","#9ca3af","#7a263a","#6cabdd","#0b2a5b","#0a7a3b","#e8b923","#e5508a"],"frames":["double","laurel","wings","stars"],"tops":["crown","ball","star"],"metals":["gold","silver"],"mottos":["ВПЕРЁД!","СИЛА И ЧЕСТЬ","ДО КОНЦА","ВМЕСТЕ","НИКОГДА НЕ СДАВАЙСЯ","ГОРДОСТЬ ГОРОДА","ОДНА КОМАНДА","ВЕРА И ВОЛЯ","БОРЬБА И СЛАВА","ВСЕГДА ВПЕРЁД","СЕРДЦЕ И ДУША","НАША ИГРА"],"years":[1850,2026]};   // = app/crests.py EDITOR_DIVS, EDITOR_SYMBOLS, PALETTE
+const CREST_EDITOR = {"divs":["plain","halves","hhalves","stripes","hoops","cross","bend","sash","chief","quarters","band","lozenge","chevron","checks","waves","rays","bends","grad","hex","camo","zigzag","dots","graffiti"],"symbols":["cannon","ship","heron","lion","trident","rooster","castle","gull","oak","house","cherry","bee","turret","hammers","wolf","rose","keep","cat","crown","bear","submarine","chains","bolt","star","parrot","ball","sword","anchor","palm","cross","greek","snake","horse","lily","eagle","eaglehead","griffin","ladder","cbull","bull","stag","pine","leaf","key","wheel","anvil","goat","wave","dog","lantern","ermine","dove","fish","bat","flame","skull","rocket","shark","dragon","fox","tiger","gem","gamepad","robot","ninja","alien","viking","samurai","scorpion","hawk","planet","cobra","headphones","target","zap","octopus"],"palette":["#dc2626","#2563eb","#f8fafc","#111827","#facc15","#16a34a","#f97316","#9333ea","#92400e","#ffffff","#111111","#9ca3af","#7a263a","#6cabdd","#0b2a5b","#0a7a3b","#e8b923","#e5508a","#39ff14","#ff1f8f","#00e5ff","#a855f7","#fbcfe8","#bae6fd","#ddd6fe"],"frames":["double","laurel","wings","stars"],"tops":["crown","ball","star"],"metals":["gold","silver","holo"],"mottos":["ВПЕРЁД!","СИЛА И ЧЕСТЬ","ДО КОНЦА","ВМЕСТЕ","НИКОГДА НЕ СДАВАЙСЯ","ГОРДОСТЬ ГОРОДА","ОДНА КОМАНДА","ВЕРА И ВОЛЯ","БОРЬБА И СЛАВА","ВСЕГДА ВПЕРЁД","СЕРДЦЕ И ДУША","НАША ИГРА","ОДИН ЗА ВСЕХ","НЕ ЧИСЛОМ, А УМЕНЬЕМ","ЧЕРЕЗ ТЕРНИИ К ЗВЁЗДАМ","ФОРТУНА ЛЮБИТ СМЕЛЫХ","ПРИШЁЛ, УВИДЕЛ, ПОБЕДИЛ","СМЕЛОСТЬ ГОРОДА БЕРЁТ","БОРОТЬСЯ И ИСКАТЬ","ГЕРОЯМИ НЕ РОЖДАЮТСЯ","ПОБЕДА ЛЮБИТ ТРУД","VENI, VIDI, VICI","PER ASPERA AD ASTRA","МЯЧ КРУГЛЫЙ, ПОЛЕ РОВНОЕ","ИГРАЕМ ДО СВИСТКА","ЖИВИ ИГРОЙ","ИГРАЙ ГРОМЧЕ","НА МАКСИМУМ","БЕЗ ТОРМОЗОВ","ЛЕГЕНДЫ ДВОРА","РОЖДЁННЫЕ ПОБЕЖДАТЬ","НЕ ПРОСТО ИГРА","ВЫШЕ НЕБА","НА ВСЕ СТО","МЫ — ЭТО ИГРА","ЗАЖИГАЙ!"],"years":[1850,2026],"levels":{"shapes":{"blade":4,"hexa":4,"cut":4},"divs":{"grad":2,"hex":2,"camo":2,"zigzag":2,"dots":2,"graffiti":4},"symbols":{"flame":2,"skull":2,"rocket":2,"shark":2,"dragon":2,"fox":2,"tiger":2,"gem":2,"gamepad":2,"robot":2,"ninja":2,"alien":2,"viking":2,"samurai":2,"scorpion":2,"hawk":2,"planet":2,"cobra":2,"headphones":2,"target":2,"zap":2,"octopus":2},"colors":{"#39ff14":2,"#ff1f8f":2,"#00e5ff":2,"#a855f7":2,"#fbcfe8":4,"#bae6fd":4,"#ddd6fe":4},"keys":{"l":2,"n":2,"o":2,"f":3,"k":3,"e":3,"y":3,"g":3,"w":4,"a":5},"holo":4},"level_names":["","Базовая","Стиль","Премиум","Легенда","Живая"]};   // = app/crests.py editor_lists()
 const CREST_NAMES = {shield: 'Щит', round: 'Круг', oval: 'Овал', arch: 'Арка', french: 'Фигурный', diamond: 'Ромб',
   plain: 'Однотонный', halves: 'Половины', hhalves: 'Верх и низ', stripes: 'Полосы', hoops: 'Обручи', cross: 'Крест',
   bend: 'Диагональ', sash: 'Лента', chief: 'Шапка', quarters: 'Четверти', band: 'Пояс', lozenge: 'Ромбики',
   spanish: 'Испанский', badge: 'Значок', chevron: 'Шеврон', checks: 'Шахматка', waves: 'Волны', rays: 'Лучи', bends: 'Косые полосы',
   double: 'Двойная', laurel: 'Венок', wings: 'Крылья', stars: 'Звёзды', crown: 'Корона', ball: 'Мяч', star: 'Звезда',
-  gold: 'Золото', silver: 'Серебро'};
+  gold: 'Золото', silver: 'Серебро', holo: 'Голограмма', blade: 'Клинок', hexa: 'Шестигранник', cut: 'Рубленый',
+  grad: 'Градиент', hex: 'Соты', camo: 'Камуфляж', zigzag: 'Зигзаг', dots: 'Точки', graffiti: 'Граффити'};
+// что даёт каждый уровень эмблемы (сами правила — CREST_EDITOR.levels = app/crests.py LEVEL_OF)
+const CREST_LV_TEXT = ['', 'форма, классические фоны и символы, 18 цветов, подложка',
+  'молодёжные символы, буквы клуба, неоновые цвета, 5 современных фонов, лента с названием, девиз',
+  'рамки, украшение сверху, золотая и серебряная кайма, год основания, блеск и объём',
+  'голограмма, неоновое свечение, киберформы, фон «граффити», пастельные цвета и готовые темы',
+  'анимация: символ колышется, неон мерцает, вокруг искры'];
+function crestNeed(x) {      // какой уровень нужен для эмблемы — как app/crests.py level_of
+  const L = CREST_EDITOR.levels, g = (o, k) => (k !== undefined && o[k]) || 1;
+  let n = Math.max(1, g(L.shapes, x.s), g(L.divs, x.d), g(L.symbols, x.m), ...[...(x.c || []), x.p].filter(Boolean).map(c => g(L.colors, c)));
+  for (const k in L.keys) if (x[k] !== undefined) n = Math.max(n, L.keys[k]);
+  if (x.e === 'holo') n = Math.max(n, L.holo);
+  return n;
+}
+const crestLv = () => (H().crest_edit || {}).level || 1;
+const crestLock = n => n > crestLv() ? ` lock" data-crlock="${n}` : '';      // вставляется в class="…": замок и подсказка уровня
+const crestLk = n => n > crestLv() ? `<i class="lk">ур. ${n}</i>` : '';
 const CREST_COLORS = [[0, 'Основной цвет'], [1, 'Второй цвет'], [2, 'Кайма'], [3, 'Цвет символа']];
 // готовые эмблемы: A, B — цвета формы клуба, W/K — белый/чёрный палитры; берутся одним нажатием и сохраняются как свои
 const CREST_READY = [
+  // уровень 1 — без украшений, доступны всем
+  ['Лев', {s: 'shield', d: 'stripes', c: ['A', 'B', 'K', 'K'], m: 'lion', p: 'W'}],
+  ['Звезда', {s: 'round', d: 'halves', c: ['A', 'B', 'K', 'W'], m: 'star', p: 'K'}],
+  ['Дуб', {s: 'french', d: 'chief', c: ['A', 'B', 'K', 'K'], m: 'oak'}],
   ['Чемпион', {s: 'shield', d: 'plain', c: ['A', 'B', 'K', 'B'], m: 'lion', f: 'laurel', k: 'crown', e: 'gold', g: 1, n: 1}],
   ['Орёл', {s: 'round', d: 'rays', c: ['A', 'B', 'K', 'W'], m: 'eagle', p: 'A', f: 'stars', e: 'gold', g: 1}],
   ['Классика', {s: 'french', d: 'stripes', c: ['A', 'B', 'K', 'K'], m: 'ball', p: 'W', f: 'double', g: 1, n: 1}],
@@ -932,7 +1058,23 @@ const CREST_READY = [
   ['Молния', {s: 'diamond', d: 'bends', c: ['A', 'B', 'K', 'W'], m: 'bolt', p: 'K', e: 'gold', g: 1}],
   ['Старина', {s: 'shield', d: 'quarters', c: ['A', 'B', 'K', 'K'], m: 'oak', p: 'W', f: 'double', e: 'gold', g: 1, n: 1, y: 1905}],
   ['Мяч', {s: 'round', d: 'hoops', c: ['A', 'B', 'K', 'K'], m: 'ball', p: 'W', f: 'wings', k: 'crown', e: 'gold', g: 1}],
-  ['Девиз', {s: 'shield', d: 'sash', c: ['A', 'B', 'K', 'B'], m: 'sword', p: 'K', k: 'star', g: 1, n: 1, o: 1}]];
+  ['Девиз', {s: 'shield', d: 'sash', c: ['A', 'B', 'K', 'B'], m: 'sword', p: 'K', k: 'star', g: 1, n: 1, o: 1}],
+  // молодёжные: неон, буквы клуба, современные фоны
+  ['Неон', {s: 'badge', d: 'hex', c: ['K', '#00e5ff', '#00e5ff', '#00e5ff'], m: 'zap', p: 'K', g: 1}],
+  ['Буквы', {s: 'badge', d: 'grad', c: ['A', 'B', 'K', 'W'], l: 1, e: 'gold', g: 1, n: 1}],
+  ['Дракон', {s: 'shield', d: 'grad', c: ['A', 'K', 'K', 'W'], m: 'dragon', e: 'silver', g: 1, n: 1}],
+  ['Геймер', {s: 'arch', d: 'hex', c: ['K', '#ff1f8f', '#ff1f8f', '#00e5ff'], m: 'gamepad', p: 'K', g: 1, o: 26}],
+  ['Пламя', {s: 'spanish', d: 'camo', c: ['K', 'A', '#f97316', '#f97316'], m: 'flame', g: 1, o: 35}],
+  ['Акула', {s: 'round', d: 'zigzag', c: ['A', 'B', 'K', 'W'], m: 'shark', p: 'K', f: 'double', g: 1}],
+  ['Кибер', {s: 'diamond', d: 'dots', c: ['K', '#a855f7', '#a855f7', 'W'], m: 'robot', p: '#a855f7', g: 1}],
+  ['Викинг', {s: 'shield', d: 'bends', c: ['A', 'B', 'K', 'W'], m: 'viking', p: 'K', k: 'star', e: 'silver', g: 1, n: 1}]];
+// темы (уровень «Легенда»): готовые наборы в своих цветах, ставятся одним нажатием
+const CREST_THEMES = [
+  ['Киберпанк', {s: 'blade', d: 'hex', c: ['K', '#ff1f8f', '#00e5ff', '#00e5ff'], m: 'robot', p: 'K', e: 'holo', w: 1, g: 1, n: 1}],
+  ['Кислотный', {s: 'cut', d: 'zigzag', c: ['K', '#39ff14', '#39ff14', '#39ff14'], m: 'zap', p: 'K', w: 1, g: 1, o: 28}],
+  ['Улица', {s: 'hexa', d: 'graffiti', c: ['K', '#ff1f8f', '#facc15', '#facc15'], m: 'skull', p: 'K', w: 1, g: 1, n: 1}],
+  ['Пастель', {s: 'round', d: 'dots', c: ['#bae6fd', '#fbcfe8', '#ddd6fe', '#0b2a5b'], m: 'planet', e: 'holo', f: 'stars', g: 1}],
+  ['Ночь', {s: 'blade', d: 'grad', c: ['K', '#0b2a5b', '#00e5ff', '#f8fafc'], m: 'hawk', f: 'wings', e: 'silver', w: 1, g: 1, n: 1}]];
 function crestReady(spec, E) {      // готовая эмблема в цветах клуба; цвет символа не сливается с фоном
   const pal = CREST_EDITOR.palette, W = pal.includes('#f8fafc') ? '#f8fafc' : '#ffffff', K = pal.includes('#111827') ? '#111827' : '#111111';
   let A = E.auto.c[0], B = E.auto.c[1] !== A ? E.auto.c[1] : (crestDark(A) ? W : K);
@@ -941,7 +1083,7 @@ function crestReady(spec, E) {      // готовая эмблема в цвет
   const map = v => ({A, B, W, K})[v] || v, x = JSON.parse(JSON.stringify(spec));
   x.c = x.c.map(map); if (x.p) x.p = map(x.p);
   if (x.p === x.c[3]) x.c[3] = crestDark(x.p) ? W : K;
-  if (!x.p && x.m && x.c[3] === x.c[0]) x.c[3] = crestDark(x.c[0]) ? W : K;
+  if (!x.p && (x.m || x.l) && x.c[3] === x.c[0]) x.c[3] = crestDark(x.c[0]) ? W : K;
   if (x.d !== 'plain' && x.c[0] === x.c[1]) x.c[1] = crestDark(x.c[0]) ? W : K;
   if (x.p === x.c[3]) x.c[3] = crestDark(x.p) ? W : K;
   return x;
@@ -951,101 +1093,140 @@ function crestErr(x) {
   const pal = CREST_EDITOR.palette;
   if (!x.c.every(c => pal.includes(c)) || (x.p && !pal.includes(x.p))) return 'Выберите цвета из палитры';
   if (x.d !== 'plain' && x.c[0] === x.c[1]) return 'Для такого фона нужны два разных цвета';
-  if (x.m && x.c[3] === (x.p || x.c[0])) return 'Символ сливается с фоном — выберите другой цвет символа';
+  if ((x.m || x.l) && x.c[3] === (x.p || x.c[0])) return 'Символ сливается с фоном — выберите другой цвет символа';
   return '';
 }
-function crestRandom(E) {
-  const one = a => a[Math.floor(Math.random() * a.length)], C = CREST_EDITOR, pal = C.palette;
-  for (let i = 0; i < 50; i++) {
-    const x = {s: one(Object.keys(CREST_SHAPES)), d: one(C.divs), c: [one(pal), one(pal), one(pal), one(pal)], m: one(C.symbols)};
+function crestRandom(E) {      // случайная эмблема — только из того, что открыто на уровне клуба
+  const lv = crestLv(), C = CREST_EDITOR, L = C.levels, ok = (o, k) => (o[k] || 1) <= lv, key = k => L.keys[k] <= lv;
+  const one = a => a[Math.floor(Math.random() * a.length)], pal = C.palette.filter(c => ok(L.colors, c));
+  for (let i = 0; i < 80; i++) {
+    const x = {s: one(Object.keys(CREST_SHAPES).filter(k => ok(L.shapes, k))), d: one(C.divs.filter(k => ok(L.divs, k))),
+      c: [one(pal), one(pal), one(pal), one(pal)], m: one(C.symbols.filter(k => ok(L.symbols, k)))};
     if (x.d !== 'plain') x.p = one(pal);
-    if (Math.random() < .5) x.f = one(C.frames);
-    if (Math.random() < .4) x.k = one(C.tops);
-    if (Math.random() < .4) x.e = one(C.metals);
-    if (Math.random() < .5) x.n = 1;
-    if (Math.random() < .3) x.o = Math.floor(Math.random() * C.mottos.length);
-    x.g = 1;
-    if (!crestErr(x)) return x;
+    if (key('l') && Math.random() < .15) { delete x.m; x.l = 1; }      // иногда — буквы клуба
+    if (key('f') && Math.random() < .5) x.f = one(C.frames);
+    if (key('k') && Math.random() < .4) x.k = one(C.tops);
+    if (key('e') && Math.random() < .4) x.e = one(C.metals.filter(k => k !== 'holo' || L.holo <= lv));
+    if (key('n') && Math.random() < .5) x.n = 1;
+    if (key('o') && Math.random() < .3) x.o = Math.floor(Math.random() * C.mottos.length);
+    if (key('w') && Math.random() < .3) x.w = 1;
+    if (key('a') && Math.random() < .3) x.a = 1;
+    if (key('g')) x.g = 1;
+    if (!crestErr(x) && crestNeed(x) <= lv) return x;
   }
   return JSON.parse(JSON.stringify(E.auto));
 }
 function crestColors(cur, attr) {
-  return `<div class="colors">` + CREST_EDITOR.palette.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}" style="background:${c}" aria-label="${c}" ${attr}="${c}"></button>`).join('') + `</div>`;
+  const L = CREST_EDITOR.levels.colors;
+  return `<div class="colors">` + CREST_EDITOR.palette.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}${crestLock(L[c] || 1)}" style="background:${c}" aria-label="${c}" ${attr}="${c}"></button>`).join('') + `</div>`;
+}
+function crestLevelCard(E) {      // «Уровень N — название», лесенка уровней, кнопки «Улучшить» и набор «Все уровни сразу»
+  const lv = E.level || 1, N = CREST_EDITOR.level_names, P = E.prices;
+  let h = `<div class="crlv"><b>🎨 Уровень ${lv} — «${N[lv]}»</b>` +
+    `<div class="crlad">${N.slice(1).map((t, i) => `<i class="${i + 1 <= lv ? 'on' : ''}">${i + 1 <= lv ? '✅' : '🔒'} ${i + 1}</i>`).join('')}</div>`;
+  if (!P) h += `<div class="sub">У администратора открыты все уровни — бесплатно.</div>`;
+  else if (!Object.keys(P).length) h += `<div class="sub">Продажа уровней сейчас закрыта — меняйте эмблему в пределах купленного уровня бесплатно.</div>`;
+  else if (lv >= 5) h += `<div class="sub">Открыты все уровни. Меняйте эмблему сколько угодно — бесплатно.</div>`;
+  else {
+    h += `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_LV_TEXT[lv + 1]}. Менять эмблему в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда.</div>` +
+      `<button type="button" class="go main" data-crbuy="next">⬆️ Улучшить до уровня ${lv + 1} за ${P[lv + 1]} ⭐</button>`;
+    if (lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
+      h += `<button type="button" class="go" data-crbuy="all">🎁 Все уровни сразу — ${P.all} ⭐${gain > 0 ? ` (выгода ${gain} ⭐)` : ''}</button>`; }
+  }
+  return h + `</div>`;
 }
 function panelCrest(m) {
   const E = H().crest_edit, hc = H().home && H().home.crest;
   if (!E || E.why) return panelHead('🎨 Эмблема клуба') + `<div class="card note">🔒 ${esc(E ? E.why : 'Сначала создайте клуб')}</div>` +
     (hc ? `<div class="crestprev">${crestSvg(hc, 'crbig')}</div>` : '');
-  const x = crestDraft(), err = crestErr(x), named = v => ({...v, nm: m.name}), alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
-  const plain = ch => { const v = {...x, ...ch}; ['f', 'k', 'n', 'o', 'y', 'g'].forEach(k => delete v[k]); return crestSvg(v, 'crmini'); };   // форма и фон — без украшений, крупнее
+  const lv = crestLv(), L = CREST_EDITOR.levels;
+  const x = crestDraft(), err = crestErr(x), need = crestNeed(x), named = v => ({...v, nm: m.name}), alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
+  const plain = ch => { const v = {...x, ...ch}; ['f', 'k', 'n', 'o', 'y', 'g', 'w', 'a'].forEach(k => delete v[k]); return crestSvg(named(v), 'crmini'); };   // форма и фон — без украшений, крупнее
   let h = panelHead('🎨 Эмблема клуба', E.custom ? 'Своя эмблема клуба' : 'Сейчас — автоэмблема: по названию и цветам формы') + lockBanner();
-  if (!E.everyone) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите конструктор как администратор (сохраняете бесплатно).</div>`;
-  if (E.price) h += `<div class="card note">Собирать — бесплатно. Сохранить новую эмблему — ${E.price} ⭐ (каждая смена оплачивается отдельно). Вернуть автоэмблему — бесплатно.</div>`;
-  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(x)}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
-  const rk = JSON.stringify(E.auto) + m.name;
-  if (!CREST_READY_HTML || CREST_READY_HTML[0] !== rk) CREST_READY_HTML = [rk, CREST_READY.map(([t, v], i) =>
-    `<button type="button" class="crt" data-crready="${i}">${crestSvg(named(crestReady(v, E)), 'crmini')}<span>${t}</span></button>`).join('')];
+  if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите конструктор как администратор (все уровни, бесплатно).</div>`;
+  h += crestLevelCard(E);
+  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(named(x))}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+  const grid = (list, attr) => list.map(([t, v], i) => { const r = crestReady(v, E), n = crestNeed(r);
+    return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${crestSvg(named(r), 'crmini')}<span>${t}</span>${crestLk(n)}</button>`; }).join('');
+  const rk = JSON.stringify(E.auto) + m.name + lv;
+  if (!CREST_READY_HTML || CREST_READY_HTML[0] !== rk) CREST_READY_HTML = [rk, grid(CREST_READY, 'data-crready'), grid(CREST_THEMES, 'data-crtheme')];
   h += `<div class="label">⭐ Готовые эмблемы — в цветах вашего клуба</div><div class="crgrid ready">` + CREST_READY_HTML[1] +
     `</div><div class="hint">Нажмите — эмблема станет такой; можно сохранить как есть или подправить ниже.</div>`;
-  h += `<div class="label">Форма</div><div class="crgrid">` + Object.keys(CREST_SHAPES).map(k => `<button type="button" class="crt${x.s === k ? ' on' : ''}" data-crs="${k}">${plain({s: k})}<span>${CREST_NAMES[k] || k}</span></button>`).join('') + `</div>`;
-  h += `<div class="label">Фон</div><div class="crgrid">` + CREST_EDITOR.divs.map(k => `<button type="button" class="crt${x.d === k ? ' on' : ''}" data-crd="${k}">${plain({d: k})}<span>${CREST_NAMES[k] || k}</span></button>`).join('') + `</div>`;
+  h += `<div class="label">🌈 Темы — одним нажатием (уровень ${L.keys.w})</div><div class="crgrid ready">` + CREST_READY_HTML[2] + `</div>`;
+  h += `<div class="label">Форма</div><div class="crgrid">` + Object.keys(CREST_SHAPES).map(k => `<button type="button" class="crt${x.s === k ? ' on' : ''}${crestLock(L.shapes[k] || 1)}" data-crs="${k}">${plain({s: k})}<span>${CREST_NAMES[k] || k}</span>${crestLk(L.shapes[k] || 1)}</button>`).join('') + `</div>`;
+  h += `<div class="label">Фон</div><div class="crgrid">` + CREST_EDITOR.divs.map(k => `<button type="button" class="crt${x.d === k ? ' on' : ''}${crestLock(L.divs[k] || 1)}" data-crd="${k}">${plain({d: k})}<span>${CREST_NAMES[k] || k}</span>${crestLk(L.divs[k] || 1)}</button>`).join('') + `</div>`;
   h += CREST_COLORS.map(([i, t]) => `<div class="label">${t}</div>` + crestColors(x.c[i], `data-crc="${i}" data-crv`)).join('');
-  h += `<div class="label">Символ</div><div class="crgrid sym"><button type="button" class="crt${x.m ? '' : ' on'}" data-crm=""><span>без</span></button>` +
-    CREST_EDITOR.symbols.map(k => `<button type="button" class="crt${x.m === k ? ' on' : ''}" data-crm="${k}"><svg viewBox="0 0 100 100" aria-hidden="true">${crestIcon(k, 50, 50, 96, '#e5e7eb')}</svg></button>`).join('') + `</div>`;
-  if (x.m) h += `<button type="button" class="go" data-crp>${x.p ? '⭕ Убрать подложку под символом' : '⭕ Подложка под символом — если фон пёстрый'}</button>` +
+  h += `<div class="label">Символ</div><div class="crgrid sym"><button type="button" class="crt${x.m || x.l ? '' : ' on'}" data-crm=""><span>без</span></button>` +
+    `<button type="button" class="crt${x.l ? ' on' : ''}${crestLock(L.keys.l)}" data-crl><b class="crlet">${esc(crestInitials(m.name)) || 'АБ'}</b><span>буквы</span></button>` +
+    CREST_EDITOR.symbols.map(k => `<button type="button" class="crt${x.m === k ? ' on' : ''}${crestLock(L.symbols[k] || 1)}" data-crm="${k}"><svg viewBox="0 0 100 100" aria-hidden="true">${crestIcon(k, 50, 50, 96, '#e5e7eb')}</svg></button>`).join('') + `</div>`;
+  if (x.m || x.l) h += `<button type="button" class="go" data-crp>${x.p ? '⭕ Убрать подложку под символом' : '⭕ Подложка под символом — если фон пёстрый'}</button>` +
     (x.p ? `<div class="label">Цвет подложки</div>` + crestColors(x.p, 'data-crpc') : '');
-  const C = CREST_EDITOR, opt = (lab, k, cur, attr, prev) => `<button type="button" class="crt${cur === k ? ' on' : ''}" ${attr}="${k}">${prev ? alt(prev) : ''}<span>${lab}</span></button>`;
+  const C = CREST_EDITOR, opt = (lab, k, cur, attr, prev, n) => `<button type="button" class="crt${cur === k ? ' on' : ''}${crestLock(n || 1)}" ${attr}="${k}">${prev ? alt(prev) : ''}<span>${lab}</span>${crestLk(n || 1)}</button>`;
+  const tog = (on, attr, yes, no, n) => `<button type="button" class="go${on ? '' : crestLock(n)}" ${attr}>${on ? yes : no}${!on && n > lv ? ` 🔒 ур. ${n}` : ''}</button>`;      // убрать — можно всегда
   h += `<div class="label">✨ Украшения</div><div class="label">Рамка</div><div class="crgrid">` + opt('нет', '', x.f || '', 'data-crf', {f: undefined}) +
-    C.frames.map(k => opt(CREST_NAMES[k] || k, k, x.f, 'data-crf', {f: k})).join('') + `</div>`;
+    C.frames.map(k => opt(CREST_NAMES[k] || k, k, x.f, 'data-crf', {f: k}, L.keys.f)).join('') + `</div>`;
   h += `<div class="label">Сверху</div><div class="crgrid">` + opt('нет', '', x.k || '', 'data-crk', {k: undefined}) +
-    C.tops.map(k => opt(CREST_NAMES[k] || k, k, x.k, 'data-crk', {k})).join('') + `</div>`;
+    C.tops.map(k => opt(CREST_NAMES[k] || k, k, x.k, 'data-crk', {k}, L.keys.k)).join('') + `</div>`;
   h += `<div class="label">Кайма</div><div class="crgrid">` + opt('цветная', '', x.e || '', 'data-cre', {e: undefined}) +
-    C.metals.map(k => opt(CREST_NAMES[k] || k, k, x.e, 'data-cre', {e: k})).join('') + `</div>`;
-  h += `<button type="button" class="go" data-crn>${x.n ? '🎗 Убрать ленту с названием' : '🎗 Лента с названием клуба внизу'}</button>` +
-    `<button type="button" class="go" data-crg>${x.g ? '💡 Убрать блеск' : '💡 Блеск и объём'}</button>`;
-  h += `<div class="label">Девиз на ленте сверху</div><div class="crgrid mot">` + [['', 'без девиза'], ...C.mottos.map((t, i) => [String(i), t])].map(([k, t]) =>
-    `<button type="button" class="crt${String(x.o ?? '') === k ? ' on' : ''}" data-cro="${k}"><span>${esc(t)}</span></button>`).join('') + `</div>`;
-  h += `<div class="label">Год основания (${C.years[0]}–${C.years[1]})</div><div class="own"><input id="cryear" inputmode="numeric" maxlength="4" value="${x.y || ''}" placeholder="например, 1921">` +
-    `<button type="button" data-cry>OK</button>${x.y ? '<button type="button" data-cryx>✕</button>' : ''}</div>`;
+    C.metals.map(k => opt(CREST_NAMES[k] || k, k, x.e, 'data-cre', {e: k}, k === 'holo' ? L.holo : L.keys.e)).join('') + `</div>`;
+  h += tog(x.n, 'data-crn', '🎗 Убрать ленту с названием', '🎗 Лента с названием клуба внизу', L.keys.n) +
+    tog(x.g, 'data-crg', '💡 Убрать блеск', '💡 Блеск и объём', L.keys.g) +
+    tog(x.w, 'data-crw', '🌟 Убрать неоновое свечение', '🌟 Неоновое свечение', L.keys.w) +
+    tog(x.a, 'data-cra', '🎬 Убрать анимацию', '🎬 Живая эмблема — анимация', L.keys.a);
+  h += `<div class="label">Девиз на ленте сверху${L.keys.o > lv ? ` · 🔒 ур. ${L.keys.o}` : ''}</div><div class="crgrid mot">` + [['', 'без девиза'], ...C.mottos.map((t, i) => [String(i), t])].map(([k, t]) =>
+    `<button type="button" class="crt${String(x.o ?? '') === k ? ' on' : ''}${k ? crestLock(L.keys.o) : ''}" data-cro="${k}"><span>${esc(t)}</span></button>`).join('') + `</div>`;
+  h += `<div class="label">Год основания (${C.years[0]}–${C.years[1]})${L.keys.y > lv ? ` · 🔒 ур. ${L.keys.y}` : ''}</div><div class="own"><input id="cryear" inputmode="numeric" maxlength="4" value="${x.y || ''}" placeholder="например, 1921">` +
+    `<button type="button" class="${crestLock(L.keys.y).replace(/^ /, '')}" data-cry>OK</button>${x.y ? '<button type="button" data-cryx>✕</button>' : ''}</div>`;
   if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
+  else if (need > lv) h += `<div class="banner warn">🔒 В эмблеме есть то, что открывается с уровня ${need} — «${C.level_names[need]}». Улучшите эмблему или уберите отмеченное замком.</div>`;
   h += `<div class="mrow2"><button type="button" class="go" data-crrand>🎲 Случайная</button><button type="button" class="go" data-crundo>↩️ Как было</button></div>` +
-    `<button type="button" class="go main" data-crsave>💾 Сохранить${E.price ? ` за ${E.price} ⭐` : ' эмблему'}</button>` +
+    `<button type="button" class="go main" data-crsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить эмблему — бесплатно'}</button>` +
     (E.custom ? `<button type="button" class="go" data-crreset>🔄 Вернуть автоэмблему</button>` : '');
   return h;
 }
-function crestPay(link) {       // счёт в звёздах: эмблему ставит бот, когда придёт оплата
+function crestPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
   if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
     if (st === 'paid') {
-      haptic('ok'); toast('⭐ Оплачено — ставим эмблему');
-      [1500, 4000].forEach(ms => setTimeout(() => { CREST_DRAFT = null; send({a: 'crest', check: true}); }, ms));
+      haptic('ok'); toast('⭐ Оплачено — открываем уровень');
+      [1500, 4000].forEach(ms => setTimeout(() => { CREST_READY_HTML = null; send({a: 'crest', check: true}); }, ms));
     } else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
   });
 }
 function crestClick(b) {      // нажатия в конструкторе эмблем; true — обработано
   const d = b.dataset, E = H().crest_edit;
   if (!E || E.why) return false;
-  const x = crestDraft();
+  const x = crestDraft(), N = CREST_EDITOR.level_names, need = n => `🔒 Это с уровня ${n} — «${N[n]}». Нажмите «⬆️ Улучшить» вверху`;
+  if (d.crbuy) { send({a: 'crest', buy: d.crbuy}); return true; }
+  if (d.crready !== undefined || d.crtheme !== undefined) {      // готовые и темы — показываем даже закрытые: видно, что даёт уровень
+    const r = crestReady((d.crtheme !== undefined ? CREST_THEMES[+d.crtheme] : CREST_READY[+d.crready])[1], E), n = crestNeed(r);
+    CREST_DRAFT = r; toast(n > crestLv() ? need(n) : 'Готово — можно сохранить или подправить', n > crestLv());
+    haptic(); renderPanel(); return true;
+  }
+  if (d.crlock) { toast(need(+d.crlock), true); return true; }
   if (d.crs) x.s = d.crs;
   else if (d.crd) x.d = d.crd;
   else if (d.crc !== undefined) x.c[+d.crc] = d.crv;
-  else if (d.crm !== undefined) { if (d.crm) x.m = d.crm; else { delete x.m; delete x.p; } }
+  else if (d.crm !== undefined) { delete x.l; if (d.crm) x.m = d.crm; else { delete x.m; delete x.p; } }
+  else if (b.hasAttribute('data-crl')) { delete x.m; x.l = 1; }
   else if (b.hasAttribute('data-crp')) { if (x.p) delete x.p; else x.p = x.c[3] === '#ffffff' ? '#111111' : '#ffffff'; }
   else if (d.crpc) x.p = d.crpc;
-  else if (d.crready !== undefined) { CREST_DRAFT = crestReady(CREST_READY[+d.crready][1], E); toast('Готово — можно сохранить или подправить'); }
   else if (d.crf !== undefined) { if (d.crf) x.f = d.crf; else delete x.f; }
   else if (d.crk !== undefined) { if (d.crk) x.k = d.crk; else delete x.k; }
   else if (d.cre !== undefined) { if (d.cre) x.e = d.cre; else delete x.e; }
   else if (d.cro !== undefined) { if (d.cro !== '') x.o = +d.cro; else delete x.o; }
   else if (b.hasAttribute('data-crn')) { if (x.n) delete x.n; else x.n = 1; }
   else if (b.hasAttribute('data-crg')) { if (x.g) delete x.g; else x.g = 1; }
+  else if (b.hasAttribute('data-crw')) { if (x.w) delete x.w; else x.w = 1; }
+  else if (b.hasAttribute('data-cra')) { if (x.a) delete x.a; else x.a = 1; }
   else if (b.hasAttribute('data-cryx')) delete x.y;
   else if (b.hasAttribute('data-cry')) { const v = +val('cryear'), [y0, y1] = CREST_EDITOR.years;
     if (!Number.isInteger(v) || v < y0 || v > y1) { toast(`Год — от ${y0} до ${y1}`, true); return true; } x.y = v; }
   else if (b.hasAttribute('data-crrand')) CREST_DRAFT = crestRandom(E);
   else if (b.hasAttribute('data-crundo')) CREST_DRAFT = null;
-  else if (b.hasAttribute('data-crsave')) { const e = crestErr(x); if (e) toast(e, true); else send({a: 'crest', spec: x}); return true; }
-  else if (b.hasAttribute('data-crreset')) { ask('Вернуть автоэмблему? Своя эмблема удалится, а новая своя — снова за звёзды.', () => send({a: 'crest', reset: true})); return true; }
+  else if (b.hasAttribute('data-crsave')) { const e = crestErr(x), n = crestNeed(x);
+    if (e) toast(e, true); else if (n > crestLv()) toast(need(n), true); else send({a: 'crest', spec: x}); return true; }
+  else if (b.hasAttribute('data-crreset')) { ask('Вернуть автоэмблему? Своя эмблема удалится; собрать новую в пределах вашего уровня можно бесплатно.', () => send({a: 'crest', reset: true})); return true; }
   else return false;
   haptic(); renderPanel(); return true;
 }
@@ -1092,9 +1273,11 @@ function panelAdmin(m, P) {
     `<div class="sub" style="margin-top:8px">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div>` +
     (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
-  h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? `Продажа открыта: менеджеры своих клубов сохраняют свою эмблему за ${A.crest_price} ⭐.` : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (бесплатно).'}</div>` +
+  const CP = A.crest_prices || {}, LN = CREST_EDITOR.level_names;
+  h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
-    `<div class="label">Цена одной смены эмблемы, ⭐</div><div class="own"><input id="crprice" inputmode="numeric" maxlength="5" value="${A.crest_price || ''}"><button type="button" data-crprice>💾 Сохранить цену</button></div></div>`;
+    [2, 3, 4, 5, 'all'].map(k => `<div class="label">${k === 'all' ? '🎁 Набор «Все уровни сразу»' : `Уровень ${k} — «${LN[k]}»`}, ⭐</div><div class="own"><input id="crprice${k}" inputmode="numeric" maxlength="5" value="${CP[k] || ''}"><button type="button" data-crprice="${k}">💾 Сохранить</button></div>`).join('') +
+    `<div class="sub">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (CP[k] || 0), 0)} ⭐, набор — ${CP.all || '?'} ⭐.</div></div>`;
   const mg = A.managed || [];     // клубы официальных лиг с менеджером: снять — клуб снова ведёт бот
   h += `<div class="label">👤 Менеджеры официальных клубов</div>` + (mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b>` +
     `<div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div><button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('')
@@ -1441,7 +1624,7 @@ const GUIDES = [['club', '🧭', 'Создание клуба и игроков'
   ['tactics', '🧠', 'Тактика', 'кто кого бьёт и где её выбрать'],
   ['match', '⚽', 'Матч', 'окна решений и перерыв; пенальти и штрафные бьёте вы сами'],
   ['league', '👥', 'Лига с друзьями', 'создать лигу, позвать друга, сезон, таблица, кубок'],
-  ['crest', '🎨', 'Эмблема клуба', 'автоэмблема, свой конструктор и оплата звёздами'],
+  ['crest', '🎨', 'Эмблема клуба', 'автоэмблема, конструктор и уровни эмблемы'],
   ['minute', '⏱', 'Как играть за минуту', 'пять коротких экранов обо всём']];
 const TQ = sel => document.querySelector(sel);
 const TQA = sel => Array.from(document.querySelectorAll(sel));
@@ -1707,11 +1890,15 @@ function tourCrestSteps() {         // «Эмблема клуба»: где о�
     {t: 'Конструктор', soft: true, go: () => { if (H().home && !(PANEL && PANEL.k === 'crest')) openPanel('crest'); }, at: () => TQ('#sheetin .crgrid') || TQ('#sheetin .card'),
       x: () => (on() ? '' : '<b>Откроется позже</b> — когда администратор откроет продажу, кнопка станет яркой. ') +
         'Сверху — <b>⭐ готовые эмблемы</b> в цветах вашего клуба: нажал — и она ваша. Или собирайте сами: <b>форма</b>, <b>фон</b> (полосы, шеврон, лучи, волны…), <b>четыре цвета</b>, <b>символ</b> — лев, орёл, волк, мяч и ещё полсотни. ' +
-        '<b>✨ Украшения</b>: крылья, лавровый венок, корона, золотая или серебряная кайма, лента с названием клуба, девиз, год основания, блеск и объём. «🎲 Случайная» — для вдохновения.'},
-    {t: 'Цена и оплата', icon: '⭐', soft: true, last: true, at: () => TQ('#sheetin [data-crsave]'),
-      x: () => 'Собирать эмблему — <b>бесплатно</b>. Сохранить новую — ' + (E().price ? `<b>${E().price} ⭐</b>` : 'за <b>звёзды Telegram</b>') +
-        ', каждая смена оплачивается отдельно. Платёж — в обычном окне оплаты Telegram; звёзды работают во всех странах. ' +
-        'Эмблема ставится сразу после оплаты, а если поставить не получилось — звёзды вернутся сами. Вернуть автоэмблему — бесплатно. ' +
+        'Что доступно, зависит от <b>уровня эмблемы</b> — закрытое видно, но с 🔒 и подписью «ур. N». «🎲 Случайная» — для вдохновения.'},
+    {t: 'Уровни эмблемы', icon: '⬆️', soft: true, at: () => TQ('#sheetin .crlv'),
+      x: () => `Сейчас у клуба <b>уровень ${E().level || 1}</b>. 1 «Базовая» — есть у всех; 2 «Стиль» — молодёжные символы, буквы клуба, неон, современные фоны, лента и девиз; ` +
+        '3 «Премиум» — рамки, корона, золотая кайма, год, блеск; 4 «Легенда» — голограмма, неоновое свечение, киберформы, граффити и готовые <b>темы</b>; 5 «Живая» — анимация. ' +
+        'Уровни покупаются <b>по порядку</b>, купленный остаётся у клуба навсегда' + (E().prices && E().prices.all && (E().level || 1) === 1 ? `; пока открыт только первый, можно взять <b>🎁 все уровни сразу за ${E().prices.all} ⭐</b>` : '') + '.'},
+    {t: 'Сохранение и оплата', icon: '⭐', soft: true, last: true, at: () => TQ('#sheetin [data-crsave]'),
+      x: () => 'Собирать и <b>сохранять</b> эмблему в пределах своего уровня — <b>бесплатно</b>, сколько угодно. Звёзды Telegram — только за новый уровень' +
+        (E().prices && E().prices.all && (E().level || 1) < 5 ? ` (следующий — <b>${E().prices[(E().level || 1) + 1]} ⭐</b>)` : '') + '. Платёж — в обычном окне оплаты Telegram; звёзды работают во всех странах. ' +
+        'Уровень открывается сразу после оплаты, а если не получилось — звёзды вернутся сами. Вернуть автоэмблему — бесплатно. ' +
         'Вопросы по оплате — команда <b>/paysupport</b> в чате с ботом. Перед матчем и во время матча эмблему менять нельзя (как состав). У клубов топ-лиг эмблема своя — её не меняют.'}];
 }
 function minuteShow() { tourStart('minute', true); }
@@ -2053,8 +2240,9 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (b.hasAttribute('data-pback')) { panelBack(); return true; }
   if (b.hasAttribute('data-pdone')) { PANEL = {k: P.k, hist: []}; renderPanel(); return true; }
   if (P.k === 'crest' && crestClick(b)) return true;
-  if (b.hasAttribute('data-crprice')) { const v = +val('crprice'); if (!Number.isInteger(v) || v < 1) toast('Цена — целое число звёзд', true); else send({a: 'crestprice', price: v}); return true; }
-  if (d.crestopen !== undefined) { const on = d.crestopen === '1'; ask(on ? 'Открыть продажу эмблем? Менеджеры своих клубов смогут сохранять свою эмблему за звёзды.' : 'Закрыть продажу эмблем? Купленные эмблемы останутся.', () => send({a: 'crestopen', open: on})); return true; }
+  if (d.crprice) { const k = d.crprice === 'all' ? 'all' : +d.crprice, v = +val('crprice' + d.crprice);
+    if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'crestprice', level: k, price: v}); return true; }
+  if (d.crestopen !== undefined) { const on = d.crestopen === '1'; ask(on ? 'Открыть продажу эмблем? Менеджеры своих клубов смогут собирать эмблему и покупать её уровни за звёзды.' : 'Закрыть продажу эмблем? Купленные уровни и эмблемы останутся.', () => send({a: 'crestopen', open: on})); return true; }
   if (d.pedit) { haptic(); panelSub({slot: +d.pedit}); return true; }
   if (d.card) { haptic(); panelSub({slot: +d.card}); return true; }
   if (b.hasAttribute('data-cname')) { if (val('cn')) send({a: 'rename', text: val('cn')}); else toast('Напишите название', true); return true; }
@@ -2194,7 +2382,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
-  else if (m.ok && act && act.a === 'crest' && !act.check) CREST_DRAFT = null;      // дальше — то, что сохранил сервер
+  else if (m.ok && act && act.a === 'crest' && !act.check && !act.buy) CREST_DRAFT = null;      // дальше — то, что сохранил сервер
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
   if (m.ok && act && act.a === 'nudges' && S && S.hub) { S.hub.nudges = m.nudges; renderMore(); }
@@ -2321,7 +2509,7 @@ function demoHub() {
   const daily = {day: '2026-10-27', qid: 'demo', theme: 'Чемпионаты мира', text: 'Кто выиграл чемпионат мира 2006 года?',
     options: ['Франция', 'Италия', 'Германия', 'Португалия'], streak: 2, streak_text: '🔥 Серия: 2 дня', reward: 10,
     next: {in: 1, fans: 15, text: 'ещё 1 день подряд — +15 болельщиков'}, answered: false};
-  const crest_edit = {custom: null, everyone: false, price: null, auto: DC['Девятка']};      // демо: как у администратора
+  const crest_edit = {custom: null, everyone: true, level: 1, prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, auto: DC['Девятка']};      // демо: уровень 1, уровни «покупаются» без оплаты
   return {club: 'Девятка', unseen: 2, daily, crest_edit,
     home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
@@ -2354,7 +2542,7 @@ function demoHub() {
       leagues: [{key: 'eng', title: '🏴 Англия', clubs: [{key: 'eng1', name: 'Манчестер Сити', stars: '★★★★★', who: 'Боря'}, {key: 'eng2', name: 'Арсенал Лондон', stars: '★★★★★', who: null},
           {key: 'eng3', name: 'Ливерпуль', stars: '★★★★☆', who: null}]},
         {key: 'esp', title: '🇪🇸 Испания', clubs: [{key: 'esp1', name: 'Реал Мадрит', stars: '★★★★★', who: 'Аня'}, {key: 'esp2', name: 'Барселона', stars: '★★★★★', who: null}]}]},
-    admin: {crest_editor: false, crest_price: 50, requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
+    admin: {crest_editor: false, crest_prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
@@ -2488,7 +2676,10 @@ function demoClubAct(act) {   // демо: раздел «Клуб» меняе�
   if (!M()) return null;
   const m = M(), q = mp(act.slot), hex = Object.fromEntries(m.colors.map(c => [c[0], c[3]]));
   if (act.a === 'crest') {          // демо: своя эмблема — только на этой странице
-    const E = S.hub.crest_edit; E.custom = act.reset ? null : act.spec; S.hub.home.crest = E.custom || E.auto;
+    const E = S.hub.crest_edit;
+    if (act.buy) { E.level = act.buy === 'all' ? 5 : Math.min(5, E.level + 1); CREST_READY_HTML = null; return {ok: true, note: `Демо: открыт уровень ${E.level} (в игре — за звёзды Telegram)`}; }
+    if (act.spec && crestNeed(act.spec) > E.level) return {ok: false, note: `Нужен уровень эмблемы ${crestNeed(act.spec)}`};
+    E.custom = act.reset ? null : act.spec; S.hub.home.crest = E.custom || E.auto;
     S.hub.table.rows.forEach(r => { if (r.mine) r.crest = S.hub.home.crest; });
     return {ok: true, note: act.reset ? '↩️ Снова автоэмблема' : '🎨 Эмблема сохранена'};
   }
