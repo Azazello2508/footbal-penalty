@@ -58,6 +58,27 @@ canvas{display:block}
 #rpl b i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#fff;margin-right:6px;vertical-align:1px;animation:rpl 1s steps(2) infinite}
 #rpl b small{font-weight:700;opacity:.8;letter-spacing:0;margin-left:5px}
 @keyframes rpl{50%{opacity:0}}
+#rpl em{position:absolute;top:0;bottom:0;left:-50%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-18deg)}
+#rpl.on em{animation:wipe .45s ease-out}
+@keyframes wipe{to{left:115%}}
+/* ТВ-графика: плашка удара внизу слева (скорость, xG) и карта ударов в перерыве */
+#tvg{position:absolute;left:8px;bottom:calc(7% + 10px);z-index:3;display:flex;align-items:stretch;border-radius:6px;overflow:hidden;opacity:0;
+  transform:translateX(-12px);transition:opacity .25s,transform .25s;pointer-events:none;font-family:"Trebuchet MS",sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.5)}
+#tvg.on{opacity:1;transform:none}
+#tvg i{width:5px;background:var(--tc,#facc15)}
+#tvg b{background:#0b1220;color:#fff;font-size:11px;font-weight:900;letter-spacing:1px;padding:5px 8px;display:flex;align-items:center}
+#tvg span{background:linear-gradient(#1e3a8a,#172554);color:#e0e7ff;font-size:12px;font-weight:800;padding:5px 9px;display:flex;align-items:center;white-space:nowrap}
+#smap{position:absolute;left:50%;top:46px;transform:translate(-50%,-6px);z-index:3;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;
+  background:rgba(5,10,24,.88);border:1px solid #ffffff26;border-radius:12px;padding:8px 10px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-family:"Trebuchet MS",sans-serif;max-width:94%}
+#smap.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#smap .h{font-weight:900;font-size:12px;letter-spacing:1px;color:#facc15;text-transform:uppercase;margin-bottom:6px;text-align:center}
+#smap .row{display:flex;gap:10px;align-items:center}
+#smap canvas{border-radius:6px;flex:none}
+#smap .row>div{flex:1;min-width:150px}
+#smap .st{font-size:12px;color:#cbd5e1;line-height:1.35;margin:4px 0 8px;white-space:nowrap}
+#smap .st b{display:block;font-size:13px;color:#fff;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#smap .st b i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--c);border:1px solid #fff9}
+#smap .lg{font-size:10.5px;color:#94a3b8;max-width:170px}
 #flash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0}
 #flash b{font-size:76px;font-weight:900;letter-spacing:3px;color:#fff;-webkit-text-stroke:3px #000;paint-order:stroke fill;
   text-shadow:0 0 24px var(--fc,#facc15),0 6px 0 #000}
@@ -192,7 +213,7 @@ body.deciding #feed{display:none}
   <div id="clockrow"><span id="clock">0'</span><div id="bar"><div id="fill"></div><i></i></div><span id="period">до свистка</span></div>
   <div id="stats"></div>
 </div>
-<div id="pitchwrap"><canvas id="c"></canvas><div id="status"></div><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div><div id="rpl"><b><i></i>ПОВТОР<small>×0.5</small></b></div>
+<div id="pitchwrap"><canvas id="c"></canvas><div id="status"></div><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div><div id="rpl"><em></em><b><i></i>ПОВТОР<small>×0.5</small></b></div><div id="tvg"><i></i><b></b><span></span></div><div id="smap"></div>
   <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><button id="talk" type="button" aria-label="Чат">💬<b></b></button><div id="bub"></div><div id="note"></div><div id="tip"><span id="tiptx"></span><button type="button" id="tipok">Понятно</button></div></div>
 <div id="feed"></div>
 <div id="dec"></div>
@@ -401,7 +422,8 @@ function syncLineup(st, only) {
         const half = st.phase === 'half', pt = only || half ? {x: TUNNEL.x + 4, y: TUNNEL.y + rnd(-5, 5)} : at(t, b.depth, b.xf);   // в перерыве — сразу в подтрибунном
         f = players[k] = {t, s: p.s, x: pt.x, y: pt.y, enter: !!only};
       }
-      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b, sp: p.sp || 20, pw: p.pw === undefined ? 100 : p.pw});
+      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b, sp: p.sp || 20, pw: p.pw === undefined ? 100 : p.pw,
+                        pa: p.pa, df: p.df, sh: p.sh, kp: p.kp});   // грубые уровни 0–2: пас, защита, удар, вратарство
     });
   });
   if (!only) for (const k of Object.keys(players)) if (!seen.has(k)) delete players[k];
@@ -442,6 +464,22 @@ function tac(t) {
   const w = Object.keys(TAC_BY_TITLE).find(x => String(tm.tactic || '').includes(x));
   return w ? TAC_BY_TITLE[w] : 'balance';
 }
+// форма блока без мяча (доли длины поля от своих ворот): back — линия защиты, когда мяч в центре; follow — насколько блок
+// едет за мячом вперёд-назад; gap — между линиями; width — ширина блока (1 — как в схеме); shift — сдвиг к флангу мяча;
+// lo/hi — пределы линии защиты; reach — до какой глубины мяча ближайший выходит на владельца (1 — по всему полю).
+// Прессинг — высоко и двое на мяч; Оборона — две плотные узкие линии у своей штрафной, на мяч выходят только в своей
+// половине; Контратака — ниже середины, нападающий ждёт выше, после отбора — сразу длинный пас на рывок; штурм — все вперёд
+const SHAPE = {
+  balance: {back: .17, follow: .34, gap: .13, width: .85, shift: .3, lo: .06, hi: .44, reach: 1},
+  press:   {back: .27, follow: .42, gap: .12, width: .92, shift: .34, lo: .1, hi: .52, reach: 1},
+  counter: {back: .12, follow: .26, gap: .12, width: .8, shift: .3, lo: .06, hi: .34, reach: .62},
+  park:    {back: .1, follow: .14, gap: .075, width: .68, shift: .4, lo: .05, hi: .2, reach: .5},
+  rush:    {back: .3, follow: .4, gap: .13, width: .95, shift: .3, lo: .14, hi: .56, reach: 1},
+};
+function rushing(t) { return !!(S && S.teams[t] && S.teams[t].rush); }
+function shape(t) { return SHAPE[rushing(t) ? 'rush' : tac(t)] || SHAPE.balance; }
+let possWas = -1, wonAt = [0, 0];      // когда команда отобрала мяч у себя в половине (для контратаки)
+function counterOn(t, now) { return tac(t) === 'counter' && !rushing(t) && poss === t && now - wonAt[t] < 4500 && !step; }
 function teamPlayers(t, field) { return Object.values(players).filter(p => p.t === t && !p.enter && (!field || !p.gk)); }   // выбегающий из тоннеля пока не в игре
 function P(t, s) { return players[key(t, s)]; }
 
@@ -557,8 +595,8 @@ function goalFlash(team, text) {
    в облегчённом режиме слабого телефона, при открытом окне пенальти или если запись короче нужного. */
 const REC = {buf: [], last: 0}, RPL_BEFORE = 2800, RPL_AFTER = 500, RPL_RATE = .5;
 let replay = null;           // {t0, end, from, goalAt, t, into, frames, meta, figs, cur}
-function recTick(now) {
-  if (replay || now - REC.last < 33) return;
+function recTick(now) {               // пишет и во время повтора: гол сразу после повтора момента тоже покажем
+  if (now - REC.last < 33) return;
   REC.last = now;
   const ps = [];
   for (const k in players) { const p = players[k]; ps.push([k, p.x, p.y, p.ang || 0, p.vx || 0, p.vy || 0, p.stride || 0, p.pose && now < p.pose.until ? p.pose.k : null, p.pose ? p.pose.dir || 0 : 0]); }
@@ -568,24 +606,44 @@ function recTick(now) {
 function startReplay(a, goalAt, into) {
   const now = performance.now(), from = goalAt - RPL_BEFORE, to = goalAt + RPL_AFTER;
   if (!goalAt || lagging() || perf.lite || Q.get('replay') === '0' || (pen && pen.open) || document.body.classList.contains('deciding')) return;
-  if (!REC.buf.length || REC.buf[0].at > from + 200 || REC.buf[REC.buf.length - 1].at < to - 100) return;   // записи не хватает
-  const frames = REC.buf.filter(f => f.at >= from - 40 && f.at <= to + 40);
-  if (frames.length < 20) return;
-  const meta = {};
-  for (const [k] of frames[0].ps) { const p = players[k] || gone.find(q => q.gone.k === k); if (p) meta[k] = {t: p.t, s: p.s, n: p.n, nm: p.nm, gk: p.gk, c: p.c, y_: p.y_, pw: p.pw, role: p.role}; }
+  if (replay) endReplay();                      // повтор момента перед голом — уступает повтору гола
+  const got = recSlice(from, to); if (!got) return;
+  const {frames, meta} = got;
   replay = {t0: now, end: now + (frames[frames.length - 1].at - frames[0].at) / RPL_RATE, from: frames[0].at, goalAt, t: a.t, into, frames, meta, figs: {}, cur: null, net: false};
   focus = {}; crowd = null;                     // праздник окончен: пока идёт повтор, команды расходятся по своим половинам
-  bprev = null; $('rpl').classList.add('on');
+  bprev = null; rplPlate(RPL_RATE, 'гол');
 }
-function endReplay() { if (!replay) return; replay = null; bprev = null; $('rpl').classList.remove('on'); }
+function recSlice(from, to) {                   // кусок записи [from, to] и кто в нём играл; записи не хватает — null
+  if (!REC.buf.length || REC.buf[0].at > from + 200 || REC.buf[REC.buf.length - 1].at < to - 100) return null;
+  const frames = REC.buf.filter(f => f.at >= from - 40 && f.at <= to + 40);
+  if (frames.length < 20) return null;
+  const meta = {};
+  for (const [k] of frames[0].ps) { const p = players[k] || gone.find(q => q.gone.k === k); if (p) meta[k] = {t: p.t, s: p.s, n: p.n, nm: p.nm, gk: p.gk, c: p.c, y_: p.y_, pw: p.pw, role: p.role}; }
+  return {frames, meta};
+}
+function rplPlate(rate, what) {                 // плашка «ПОВТОР ×0.5 · что показываем»; шторка-переход при смене ракурса
+  const el = $('rpl'), sm = el.querySelector('small');
+  if (sm) sm.textContent = '×' + rate + (what ? ' · ' + what : '');
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+}
+function endReplay() {
+  if (!replay) return;
+  if (replay.view) cam.cut = true;              // повтор момента снят с другой стороны — назад к игре монтажной склейкой
+  replay = null; bprev = null; $('rpl').classList.remove('on');
+}
 // отстаёт ли сцена: в очереди кроме доигрываемой минуты ждёт ещё больше одной (одна ждёт почти всегда — эпизод с голом
 // длиннее минуты бота). Тогда повтор не начинаем, а начатый — обрываем
 function lagging() { let n = 0; for (const s of queue) if (s.tick) n++; return n > 2; }
 function replayTick(now) {        // открылось окно решения или пенальти — повтор обрываем, поле нужно живым
-  if (replay && (now >= replay.end || lagging() || (pen && pen.open) || document.body.classList.contains('deciding'))) endReplay();
+  if (!replay) return;
+  const done = now >= replay.end, goal = !replay.view;
+  if (done || lagging() || (pen && pen.open) || document.body.classList.contains('deciding') || (replay.view && speed() > 1)) {
+    endReplay();
+    if (done && goal) tvAfterGoal();           // досмотрели повтор гола — крупно тренер пропустивших
+  }
 }
 function replaySample(now) {                     // кадр повтора: положения между двумя записями
-  const R = replay, rt = R.from + (now - R.t0) * RPL_RATE, F = R.frames;
+  const R = replay, RT = R.rate || RPL_RATE, rt = R.from + (now - R.t0) * RT, F = R.frames;
   let i = 0; while (i < F.length - 2 && F[i + 1].at <= rt) i++;
   const A = F[i], B = F[i + 1] || A, k = B.at > A.at ? clamp((rt - A.at) / (B.at - A.at), 0, 1) : 0;
   const L = (x, y) => x + (y - x) * k;
@@ -594,12 +652,165 @@ function replaySample(now) {                     // кадр повтора: п�
     const m = R.meta[e[0]]; if (!m) continue;
     const e2 = B.ps.find(q => q[0] === e[0]) || e;
     const f = R.figs[e[0]] || (R.figs[e[0]] = {...m});
-    f.x = L(e[1], e2[1]); f.y = L(e[2], e2[2]); f.vx = L(e[4], e2[4]) * RPL_RATE; f.vy = L(e[5], e2[5]) * RPL_RATE; f.stride = L(e[6], e2[6]);
+    f.x = L(e[1], e2[1]); f.y = L(e[2], e2[2]); f.vx = L(e[4], e2[4]) * RT; f.vy = L(e[5], e2[5]) * RT; f.stride = L(e[6], e2[6]);
     f.face = {a: e[3], until: Infinity}; f.pose = e[7] ? {k: e[7], dir: e[8], until: Infinity} : null;
     list.push(f);
   }
   if (!R.net && rt >= R.goalAt && R.into) { R.net = true; netHit = {x: R.into.x, y: R.into.y, t0: now, t: R.t}; }
   return R.cur = {bx: L(A.bx, B.bx), by: L(A.by, B.by), bh: L(A.bh, B.bh), rx: L(A.rx, B.rx), ry: L(A.ry, B.ry), list};
+}
+/* ---------------- телевизионная подача: повторы моментов, плашки «скорость · xG», реакция, карта ударов ----------------
+   Только показ — исход решил бот. Сцена замечает удар эпизода (гол/сейв/мимо), берёт скорость мяча из анимации и xG — по
+   месту удара (расстояние и угол, под которым видны ворота; оценка для зрителя, на матч не влияет). После сейва и удара
+   рядом со штангой — крупно реакция (вратарь или тренер у бровки) и короткий повтор с другой стороны (из-за ворот),
+   после карточки — повтор фола с противоположной бровки; после повтора гола — тренер пропустивших. Повтор момента и
+   реакция — только если сцена не отстаёт от бота и в этой минуте больше нет важных эпизодов; удар, гол, карточка
+   следующего эпизода обрывают повтор сразу. В перерыве — карта ударов первого тайма поверх облёта дрона (рисуется один раз). */
+const U2M = 40 / 840, POST = 48;                          // единица поля в метрах; полуширина ворот
+const TV_BIG = new Set(['goal', 'save', 'miss', 'pen', 'corner', 'card', 'foul', 'varcheck', 'var', 'brawl', 'whistle', 'stop', 'protest']);
+const TV = {t0: -1, shots: [], last: null, next: null, cool: 0, downed: null, foul: null, react: [null, null], map: null};
+let curAct = null;                                        // эпизод от бота, который сейчас разыгрывается
+function xgOf(x, y, t, how, head) {
+  if (/пенальти/.test(how || '')) return .76;
+  const gl = goalOf(t), dx = Math.abs(x - gl.x) * U2M, dy = Math.max(.5, Math.abs(y - gl.y) * U2M), hw = POST * U2M;
+  let th = Math.atan2(2 * hw * dy, dx * dx + dy * dy - hw * hw); if (th < 0) th += Math.PI;   // угол, под которым видны ворота
+  let v = 1 / (1 + Math.exp(1.9 - 2.4 * th + .07 * Math.hypot(dx, dy)));
+  if (head) v *= .7; if (/штрафной/.test(how || '')) v *= .8;
+  return clamp(v, .01, .95);
+}
+function tvFree() {                                       // можно отвлечь зрителя: сцена не отстаёт, важных эпизодов в минуте больше нет
+  if (!S || S.phase !== 'play' || stopped || replay || speed() > 1 || lagging() || perf.lite || Q.get('replay') === '0') return false;
+  if ((pen && pen.open) || document.body.classList.contains('deciding')) return false;
+  return !queue.some(q => q.act && q.act !== curAct && TV_BIG.has(q.act.a));
+}
+function tvStep(st) {                                     // начался шаг эпизода
+  const a = st.act; if (!a) return;
+  curAct = a;
+  if (!TV_BIG.has(a.a)) return;
+  if (replay && replay.view && replay.a !== a) endReplay();   // новый удар, гол, карточка — сразу в прямой эфир
+  if (TV.next && TV.next.a !== a) TV.next = null;
+  if (a.a === 'card' && !a._tv) {                         // карточка: после показа — повтор фола, за который она
+    a._tv = true;
+    const f = TV.foul, now = performance.now();
+    if (f && now - f.at < 8000 && now > TV.cool) TV.next = {a, at: now + 1900, run: () => momentFoul(f, a)};
+  }
+}
+function tvTick(now) {
+  if (S && S.phase === 'half') { if (!TV.map) { TV.map = 'half'; setTimeout(showMap, 3000); } }
+  else if (TV.map === 'half') { TV.map = 'done'; hideMap(); }
+  if (ball.mode === 'lin' && ball.t0 !== TV.t0 && S && S.phase === 'play') {   // по прямой летит только удар
+    TV.t0 = ball.t0;
+    const a = curAct, t = Math.hypot(ball.tx - goalOf(0).x, ball.ty - goalOf(0).y) < Math.hypot(ball.tx - goalOf(1).x, ball.ty - goalOf(1).y) ? 0 : 1;
+    if (a && ['goal', 'save', 'miss'].includes(a.a) && a.t === t && !a._shot) {
+      a._shot = true;
+      const len = Math.hypot(ball.tx - ball.fx, ball.ty - ball.fy), sh = {a, k: a.a, t, x: ball.fx, y: ball.fy, tx: ball.tx, ty: ball.ty,
+        at: ball.t0, end: ball.t0 + ball.d, half: (shown || S).minute > 30 ? 2 : 1, over: ball.arc > 20,
+        kmh: clamp(Math.round(len * U2M / (ball.d / 1000) * 3.6), 40, 140), xg: xgOf(ball.fx, ball.fy, t, a.how, (ball.h0 || 0) > 8)};
+      sh.near = sh.k === 'miss' && (sh.over ? Math.abs(sh.tx - W / 2) < 24 : Math.abs(sh.tx - W / 2) < 95);
+      TV.shots.push(sh); TV.last = sh;
+    }
+  }
+  const sh = TV.last;
+  if (sh && !sh.done && now >= sh.end + 250) {            // мяч долетел: плашка, реакция, повтор
+    sh.done = true;
+    if (speed() <= 1) tvPlate(sh);
+    if (sh.k === 'goal') { TV.react[sh.t] = {pz: 'cele', until: now + 4500}; TV.react[1 - sh.t] = {pz: 'argue', until: now + 4500}; }
+    else if (sh.k === 'save' || sh.near) planMoment(sh, now);
+  }
+  if (downed && downed !== TV.downed) {                   // фол: кто упал и где — для повтора, если покажут карточку
+    TV.downed = downed;
+    const p = players[downed.k];
+    if (p && curAct && curAct.a === 'foul') TV.foul = {at: now, x: p.x, y: p.y};
+  }
+  if (TV.next && now >= TV.next.at) { const n = TV.next; TV.next = null; n.run(); }
+}
+function planMoment(sh, now) {
+  const worth = sh.xg >= .1 || /пенальти/.test(sh.a.how || '');
+  TV.next = {a: sh.a, at: now + 600, run: () => {
+    const go = tvFree() && camOn, t2 = performance.now();
+    if (go) tvReact(sh);
+    if (worth && t2 > TV.cool) TV.next = {a: sh.a, at: t2 + (go ? 1500 : 300), run: () => momentShot(sh)};
+  }};
+}
+function coachAt(t, now) {                                // тренер у своей скамейки (ходит вдоль технической зоны)
+  const [a, b] = DUGOUT[t];
+  return {x: 14 + Math.sin(now / 2300 + t) * 3, y: (a + b) / 2 + Math.sin(now / 1700 + t * 2) * 18};
+}
+function tvReact(sh) {                                    // реакция крупно: сейв — вратарь, мимо — тренер атаковавших машет руками
+  if (sh.k === 'save') { const gk = teamPlayers(1 - sh.t).find(p => p.gk); if (gk) camTo(2.5, 1500, () => gk, undefined, true, cam.r); return; }
+  TV.react[sh.t] = {pz: 'argue', until: performance.now() + 2600};
+  camTo(2.6, 1500, () => coachAt(sh.t, performance.now()), undefined, true, cam.r);
+}
+function tvAfterGoal() {                                  // досмотрели повтор гола — тренер пропустивших
+  const sh = TV.last; if (!sh || sh.k !== 'goal' || !camOn || speed() > 1) return;
+  const t = 1 - sh.t; TV.react[t] = {pz: 'argue', until: performance.now() + 2400};
+  camTo(2.6, 1500, () => coachAt(t, performance.now()), undefined, true, cam.r);
+}
+function startMoment(a, from, to, view, what) {           // короткий повтор момента: быстрее повтора гола, свой ракурс, склейкой
+  const got = recSlice(from, to); if (!got) return false;
+  const {frames, meta} = got, now = performance.now(), rate = .6;
+  replay = {t0: now, end: now + (frames[frames.length - 1].at - frames[0].at) / rate, from: frames[0].at, goalAt: Infinity, t: a.t, into: null,
+            frames, meta, figs: {}, cur: null, net: true, rate, view, a};
+  TV.cool = now + 25000; cam.cut = true; bprev = null; rplPlate(rate, what);
+  return true;
+}
+function momentShot(sh) {                                 // из-за ворот на бьющего
+  if (!tvFree()) return;
+  const gl = goalOf(sh.t);
+  if (startMoment(sh.a, sh.at - 1700, Math.min(sh.end + 450, performance.now() - 40), {r: aimUp(gl, {x: sh.x, y: sh.y}), z: 2.2, c: gl, k: .35},
+                  sh.k === 'save' ? 'сейв' : 'рядом со штангой')) tvPlate(sh, true);
+}
+function momentFoul(f, a) {                               // с противоположной бровки, крупнее
+  if (!tvFree()) return;
+  startMoment(a, f.at - 1900, Math.min(f.at + 700, performance.now() - 40), {r: baseRot() + Math.PI, z: 2.6, c: {x: f.x, y: f.y}, k: .75},
+              a.c === 'red' ? 'удаление' : 'фол');
+}
+function tvPlate(sh, inReplay) {                          // плашка внизу слева: что за удар, скорость, xG
+  const el = $('tvg'); if (!el || !S) return;
+  el.style.setProperty('--tc', kitOf(sh.t).c1);
+  el.querySelector('b').textContent = sh.k === 'goal' ? 'ГОЛ' : sh.k === 'save' ? 'В СТВОР' : sh.over ? 'ВЫШЕ' : sh.near ? 'У ШТАНГИ' : 'МИМО';
+  el.querySelector('span').textContent = `⚡ ${sh.kmh} км/ч · xG ${sh.xg.toFixed(2)}`;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  clearTimeout(tvPlate.tm); tvPlate.tm = setTimeout(() => el.classList.remove('on'), inReplay ? 3600 : 2800);
+}
+function hideMap() { const el = $('smap'); if (el) el.classList.remove('on'); clearTimeout(showMap.tm); }
+function showMap() {                                      // карта ударов 1-го тайма: точки ударов (размер — xG), гол / в створ / мимо
+  const el = $('smap'), list = TV.shots.filter(q => q.half === 1);
+  if (!el || !S || S.phase !== 'half' || !list.length) return;
+  el.textContent = '';
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt) e.textContent = txt; return e; };
+  el.appendChild(mk('div', 'h', 'Карта ударов · 1-й тайм'));
+  const row = mk('div', 'row'); el.appendChild(row);
+  const cw = 116, ch = Math.round(cw * H / W), dpr = Math.min(2, window.devicePixelRatio || 1), c = mk('canvas');
+  c.width = cw * dpr; c.height = ch * dpr; c.style.width = cw + 'px'; c.style.height = ch + 'px'; row.appendChild(c);
+  const x = c.getContext('2d'); x.scale(dpr * cw / W, dpr * ch / H);   // рисуем в координатах поля, как на большом экране
+  x.fillStyle = '#14532d'; x.fillRect(0, 0, W, H);
+  x.fillStyle = 'rgba(255,255,255,.04)'; for (let i = 0; i < 8; i += 2) x.fillRect(0, M + i * (H - 2 * M) / 8, W, (H - 2 * M) / 8);
+  x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 4;
+  x.strokeRect(M, M, W - 2 * M, H - 2 * M); x.beginPath(); x.moveTo(M, H / 2); x.lineTo(W - M, H / 2); x.stroke();
+  x.beginPath(); x.arc(W / 2, H / 2, 60, 0, 7); x.stroke();
+  for (const y0 of [M, H - M]) { const sg = y0 === M ? 1 : -1; x.strokeRect(W / 2 - 150, Math.min(y0, y0 + sg * 120), 300, 120);
+    x.fillStyle = '#fff'; x.fillRect(W / 2 - POST, y0 - (sg > 0 ? 10 : 0), POST * 2, 10); }
+  for (const q of list) {
+    const col = kitOf(q.t).c1, r = 14 + q.xg * 34;
+    x.strokeStyle = 'rgba(255,255,255,.28)'; x.lineWidth = 3; x.beginPath(); x.moveTo(q.x, q.y); x.lineTo(q.tx, q.ty); x.stroke();
+    x.beginPath(); x.arc(q.x, q.y, r, 0, 7);
+    if (q.k === 'miss') { x.fillStyle = 'rgba(0,0,0,.35)'; x.fill(); x.strokeStyle = col; x.lineWidth = 6; x.stroke(); }
+    else { x.fillStyle = col; x.fill(); x.strokeStyle = q.k === 'goal' ? '#fff' : 'rgba(0,0,0,.6)'; x.lineWidth = q.k === 'goal' ? 8 : 3; x.stroke(); }
+    if (q.k === 'goal') { x.beginPath(); x.arc(q.x, q.y, r + 9, 0, 7); x.strokeStyle = '#facc15'; x.lineWidth = 4; x.stroke(); }
+  }
+  const col = mk('div'); row.appendChild(col);
+  for (const t of [0, 1]) {
+    const my = list.filter(q => q.t === t), on = my.filter(q => q.k !== 'miss').length, gl = my.filter(q => q.k === 'goal').length;
+    const box = mk('div', 'st'), nm = mk('b'), dot = mk('i');
+    dot.style.setProperty('--c', kitOf(t).c1); nm.appendChild(dot); nm.appendChild(document.createTextNode(S.teams[t].name)); box.appendChild(nm);
+    box.appendChild(mk('div', '', `удары ${my.length} · в створ ${on}`));
+    box.appendChild(mk('div', '', `голы ${gl} · xG ${my.reduce((v, q) => v + q.xg, 0).toFixed(2)}`));
+    col.appendChild(box);
+  }
+  col.appendChild(mk('div', 'lg', '◉ гол  ● в створ  ○ мимо · крупнее — выше xG'));
+  el.classList.add('on'); el.onclick = hideMap;
+  clearTimeout(showMap.tm); showMap.tm = setTimeout(hideMap, 16000);
 }
 /* ---------------- игра на поле: бег с разгоном, мяч в ногах, пасы, строй команд ----------------
    Эпизоды (гол, сейв, угловой, фол…) присылает бот — страница разыгрывает их правдоподобно. Между эпизодами — «фон»:
@@ -620,6 +831,11 @@ function moveBall(to, d, arc, mode) {
   holder = null; carry = null; dribbleUntil = 0;
   ball.fx = ball.x; ball.fy = ball.y; ball.tx = to.x; ball.ty = to.y; ball.t0 = performance.now(); ball.d = Math.max(1, d);
   ball.arc = arc || 0; ball.mode = mode || 'ease'; ball.recv = null; ball.cv = 0; ball.pk = 0; ball.h0 = ball.h || 0;   // с высоты (головой, из рук) — опускается плавно
+  // реализм полёта: hEnd — на какой высоте мяч приходит в цель (перекладина), bnc — верховой мяч перед адресатом
+  // ещё раз подскакивает от газона, next — следующий отрезок без остановки (от штанги в сетку, рикошет от ноги),
+  // tch — отскок от ноги на приёме уже был, vk — скорость мяча (ед./с): по ней — насколько трудно принять
+  ball.hEnd = 0; ball.bnc = 0; ball.next = null; ball.tch = 0; ball.kind = null;
+  ball.vk = Math.hypot(to.x - ball.fx, to.y - ball.fy) / ball.d * 1000;
 }
 function strike(power, noPose) {          // кто бил — выносит ногу; на ударе из-под ноги летит газон
   const k = holderP() || nearestTo(ball, Object.values(players).filter(q => dd(q, ball) < 30));
@@ -628,17 +844,68 @@ function strike(power, noPose) {          // кто бил — выносит н
   for (let i = 0; i < n; i++) fx.push({k: 'turf', x: ball.x + rnd(-4, 4), y: ball.y + rnd(-4, 4), vx: rnd(-.9, .9), vy: rnd(-.9, .9), r: rnd(1.2, 2.4), life: rnd(350, 700), t0: performance.now()});
   if (power > 1) fx.push({k: 'ring', x: ball.x, y: ball.y, vx: 0, vy: 0, r: 6, life: 260, t0: performance.now()});
 }
-function shoot(to, speed, arc, noPose) {
+function shoot(to, speed, arc, noPose, who, kind) {
   const hp = holderP(); if (hp) hp.face = {a: Math.atan2(to.y - hp.y, to.x - hp.x), until: performance.now() + 500};
-  strike(2, noPose); const d = Math.hypot(to.x - ball.x, to.y - ball.y);
-  moveBall(to, d / ((speed || 520) * 1.3) * 1000, (arc || 8) * .7, 'lin'); kick();
+  const sh0 = lv(who || hp, 'sh'), sh = sh0 === 0 && !flair() ? 1 : sh0;   // удар: сильный — хлёстко и низом, слабый — мягче и выше (при отставании — не медленнее обычного)
+  // как бьёт (shotKind): мощно в ближний — быстрее и прямо, щёчкой в угол — точно и мягче, с подкруткой — дугой (закрутку ставит shotSteps)
+  const k = kind || 'plain', km = k === 'power' ? 1.25 : k === 'place' ? .86 : k === 'curl' ? .95 : 1, ka = k === 'power' ? .45 : k === 'place' ? .55 : 1;
+  strike(k === 'place' ? 1 : 2, noPose); const d = Math.hypot(to.x - ball.x, to.y - ball.y);
+  moveBall(to, d / ((speed || 520) * 1.3 * (sh === 2 ? 1.2 : sh === 0 ? .87 : 1) * km) * 1000, (arc || 8) * .7 * (arc > 30 ? 1 : (sh === 2 ? .65 : sh === 0 ? 1.6 : 1) * ka), 'lin'); kick();   // дуга штрафного — как есть
+  ball.kind = k;
+  if ((sh === 2 || k === 'power') && !noPose) fx.push({k: 'ring', x: ball.x, y: ball.y, vx: 0, vy: 0, r: 9, life: 320, t0: performance.now()});   // хлёсткий удар — волна от мяча
+}
+function shotKind(sh, to) {               // какой удар выбрать по месту бьющего и цели (цель — от бота, её не трогаем)
+  if (!sh || !flair()) return 'plain';    // сцена отстаёт — обычный удар, без украшений
+  const l = lv(sh, 'sh'), dep = depthOf(sh.t, sh.y), cx = W / 2, r = Math.random();
+  const wide = Math.abs(to.x - cx) > 22, near = wide && Math.abs(sh.x - cx) > 30 && Math.sign(to.x - cx) === Math.sign(sh.x - cx);
+  if (dep < .78) return wide && !near ? (r < [.25, .5, .7][l] ? 'curl' : 'plain') : (r < [.15, .25, .45][l] ? 'power' : 'plain');   // издали: «банан» в дальний или пушка
+  if (near) return r < [.4, .65, .75][l] ? 'power' : 'plain';                                     // из штрафной в ближний — мощно и прямо
+  return wide ? (r < [.3, .55, .75][l] ? 'place' : 'plain') : 'plain';                             // в дальний угол — щёчкой, на технику
+}
+function curlCv(to, l) {                  // закрутка «банана»: мяч уходит наружу от ворот и заворачивает в угол
+  const L = Math.hypot(to.x - ball.fx, to.y - ball.fy) || 1, nx = -(to.y - ball.fy) / L;
+  return rnd(28, 38) * (l === 0 ? .8 : 1) * Math.sign(to.x - W / 2 || 1) * (Math.sign(nx) || 1);
+}
+function woodHit(pt) {                    // мяч в каркас ворот: звон и вспышка у штанги / перекладины
+  kick(); fx.push({k: 'ring', x: pt.x, y: pt.y, vx: 0, vy: 0, r: 7, life: 300, t0: performance.now()});
+}
+function deflect(t, into) {               // рикошет: защитник команды t на линии удара подставил ногу — мяч меняет направление, но летит туда же
+  const f = {x: ball.fx, y: ball.fy}, L = dd(f, into) || 1, v = L / ball.d * 1000;
+  let best = null, bd = 34;
+  for (const q of teamPlayers(t, true)) {
+    const u = ((q.x - f.x) * (into.x - f.x) + (q.y - f.y) * (into.y - f.y)) / (L * L);
+    if (u < .45 || u > .9 || dd(q, into) > 170) continue;
+    const side = Math.hypot(q.x - (f.x + (into.x - f.x) * u), q.y - (f.y + (into.y - f.y) * u));
+    if (side < bd) { bd = side; best = q; }
+  }
+  if (!best) return;
+  const pt = lerpPt(best, f, 6 / Math.max(1, dd(best, f))), d2 = dd(pt, into) / v * 1150;
+  if (d2 > 260) return;                    // второй отрезок короткий — трибуны и гол не опаздывают
+  const k = key(best.t, best.s), arc = ball.arc;
+  moveBall(pt, dd(f, pt) / v * 1000, arc * .5, 'lin'); ball.kind = 'defl'; focus[k] = pt;
+  ball.next = {to: into, d: d2, arc: 5, mode: 'lin', fn: () => { delete focus[k]; pose(best, 'kick', 320); kick(); }};
 }
 let oneTouch = false;
 function giveBall(p) {
   if (!p) return;
   const d = dd(p, ball);                     // мяч не прыгает в ноги: доезжает от того места, где лежал
   ball.gx = ball.x; ball.gy = ball.y; ball.gh = ball.h; ball.gt = performance.now(); ball.gd = clamp(d * 4, 120, 700);
-  holder = key(p.t, p.s); carry = null; poss = p.t; ball.recv = null; dribbleUntil = oneTouch ? -1 : 0; oneTouch = false;
+  holder = key(p.t, p.s); carry = null; poss = p.t; ball.recv = null; ball.next = null; dribbleUntil = oneTouch ? -1 : 0; oneTouch = false;
+}
+/* Приём: сильный пас тяжелее принять — мяч отскакивает от ноги дальше, особенно у слабого в технике (pa 0) и с верхового.
+   Адресат тот же, мяч всё равно его — он делает пару шагов следом. Только в «фоне» и когда сцена не отстаёт:
+   эпизоды от бота не удлиняются. */
+function heavyTouch(r) {
+  if (step || ball.tch || r.gk || !flair()) return false;
+  const pa = lv(r, 'pa'), v = ball.vk || 0, air = ball.arc > 10;
+  const chance = [.3, .1, .03][pa] * clamp((v - 250) / 200, 0, 1.5) + (air ? [.2, .07, .02][pa] : 0);
+  if (Math.random() >= chance) return false;
+  const L = Math.hypot(ball.tx - ball.fx, ball.ty - ball.fy) || 1, a = Math.atan2((ball.ty - ball.fy) / L, (ball.tx - ball.fx) / L) + rnd(-.6, .6);
+  const r0 = clamp((8 + v * .03) * (pa === 0 ? 1.4 : 1) + (air ? 6 : 0), 12, 34), rv = key(r.t, r.s);
+  pose(r, 'kick', 200, 0); kick();
+  moveBall({x: clamp(ball.x + Math.cos(a) * r0, M + 8, W - M - 8), y: clamp(ball.y + Math.sin(a) * r0, M + 8, H - M - 8)}, r0 / 110 * 1000, air ? 4 : 1, 'out');
+  ball.recv = rv; ball.tch = 1; ball.kind = 'touch';
+  return true;
 }
 /* Мяч сам не ездит: его можно только отдать пасом, выбить, отобрать или подобрать. Перед стандартом игрок бежит к мячу,
    берёт его (в ноги или в руки), несёт к месту и ставит — и только потом бьёт. */
@@ -707,13 +974,30 @@ function forceBall() {                     // эпизод затянулся (�
   if (fetch) { const p = players[fetch.k], h = fetch.hands; fetch = null; if (p) { handOver(p); if (h && holder === key(p.t, p.s)) carry = holder; } }
 }
 function holderP() { return holder ? players[holder] || null : null; }
-function passTo(p, speed) {               // пас в ноги с упреждением: p получит мяч, когда тот доедет
+/* Характер игроков: бот присылает грубые уровни 0/1/2 (пас pa, защита df, удар sh, вратарство kp), сцена ставит по ним
+   только КАК выглядит то же самое: технарь обыгрывает финтом, сильный защитник отбирает корпусом, бомбардир бьёт хлёстко
+   в угол, надёжный вратарь ловит намертво, слабый — отбивает перед собой, уставший упирается руками в колени.
+   Исходы (гол, сейв, удар, отбор от бота) не меняются, новых событий нет. Украшения «фона» — только когда сцена
+   не отстаёт от бота (flair); удары, сейвы, карточки и стандарты показываются всегда. */
+function lv(p, k) { const v = p && p[k]; return v === 0 || v === 1 || v === 2 ? v : 1; }
+function tired(p) { return !!p && (p.pw === undefined ? 100 : p.pw) < 35; }
+function tech(p) { return lv(p, 'pa') === 2 && (p.sp || 20) >= 24; }                 // технарь: точный пас и быстрые ноги
+function flair() { return speed() <= 1 && !perf.lite; }
+function passTo(p, speed, kind) {         // пас в ноги с упреждением: p получит мяч, когда тот доедет; kind 'through' — в ход за спину
   const hp = holderP();
+  const pa = hp && !hp.gk ? lv(hp, 'pa') : 1;     // точный пасующий — быстрее и точно в ход, слабый — мягче и мимо хода
+  speed = (speed || 360) * (pa === 2 ? 1.07 : pa === 0 && !step ? .94 : 1);
   let lead = {x: p.x, y: p.y}, d = 0;
   for (let i = 0; i < 3; i++) {                   // где они встретятся: игрок бежит, мяч летит — пару итераций хватает
     d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
     const tt = d / ((speed || 360) * 1.12) * .85;
     lead = {x: clamp(p.x + (p.ux || 0) * tt * .8, M + 6, W - M - 6), y: clamp(p.y + (p.uy || 0) * tt * .8, M + 6, H - M - 6)};
+  }
+  // неточный пас: мимо хода — партнёру приходится подстраиваться (в эпизоде от бота — чуть-чуть, при отставании — нет)
+  const miss = pa === 0 ? (step ? 7 : 17) : pa === 1 && !step ? 5 : 0;
+  if (miss && flair() && d > 60) {                // flair, а не speed(): здесь speed — скорость паса
+    const a = rnd(0, 6.28), r = miss * rnd(.6, 1);
+    lead = {x: clamp(lead.x + Math.cos(a) * r, M + 6, W - M - 6), y: clamp(lead.y + Math.sin(a) * r, M + 6, H - M - 6)};
   }
   d = Math.hypot(lead.x - ball.x, lead.y - ball.y);
   if (hp) {
@@ -722,8 +1006,14 @@ function passTo(p, speed) {               // пас в ноги с упрежд�
   }
   p.face = {a: Math.atan2(ball.y - p.y, ball.x - p.x), until: performance.now() + d / (speed || 360) * 1000 + 200};   // принимающий смотрит на мяч
   const lofted = d > 280 || (hp && hp.gk && d >= 260);   // длинная — верхом, дугой и медленнее; короткая — по газону
-  moveBall(lead, d / ((speed || 360) * (lofted ? .9 : 1.12)) * 1000, lofted ? d * .1 : 0, lofted ? 'ease' : 'out');
-  if (lofted) ball.cv = rnd(-18, 18);
+  const thr = kind === 'through' && flair();            // в ход: низом — хлёстко и катится в ноги на бегу; длинный — парашютом через линию защиты
+  if (thr && lofted) { moveBall(lead, d / (speed * .95) * 1000, d * .07, 'out'); ball.bnc = 1; ball.cv = rnd(-8, 8); }
+  else if (thr) moveBall(lead, d / (speed * 1.15) * 1000, 0, 'roll');
+  else {
+    moveBall(lead, d / ((speed || 360) * (lofted ? .9 : 1.12)) * 1000, lofted ? d * .1 : 0, lofted ? 'ease' : 'out');
+    if (lofted) { ball.cv = rnd(-18, 18); if (flair()) ball.bnc = 1; }   // верховой мяч перед адресатом подскакивает от газона
+  }
+  ball.kind = thr ? 'through' : lofted ? 'lofted' : 'ground';
   ball.recv = key(p.t, p.s); poss = p.t; kick();
 }
 function nearestTo(pt, list) { let best = null, bd = 1e9; for (const q of list) { const d = dd(q, pt); if (d < bd) { bd = d; best = q; } } return best; }
@@ -748,7 +1038,7 @@ function approach(a) {                     // бьющий получает мя
     focus[key(sh.t, sh.s)] = at(a.t, rnd(.72, .8), clamp(xfOf(sh.x) * .5 + rnd(.15, .35), .2, .8));
   }, wait: () => { const sh = shooter(a), f = sh && focus[key(sh.t, sh.s)]; return cross || !f || dd(sh, f) < 18 || holder !== key(sh.t, sh.s); }}];
 }
-function shotSteps(a, to, arc, after, aim) {        // aim(gk) — уточнить точку удара по тому, где встал вратарь (сейв — в его руки)
+function shotSteps(a, to, arc, after, aim, fire) {  // aim(gk) — уточнить точку удара по тому, где встал вратарь (сейв — в его руки); fire() — сразу после удара
   const set = /пенальти|штрафной/.test(a.how || ''), fkS = /штрафной/.test(a.how || '');
   if (fkS) arc = Math.max(arc, 64);                  // штрафной — дугой над стенкой
   let air = false, fired = false;
@@ -768,7 +1058,7 @@ function shotSteps(a, to, arc, after, aim) {        // aim(gk) — уточни�
   }, wait: () => air || set || !acquire},
   // шаг длится, пока мяч не долетит (замах + полёт), и не ускоряется, когда сцена догоняет бота:
   // гол, сейв и «о-о-ох» трибун — в тот миг, когда мяч в сетке или в перчатках, а не раньше и не позже
-  {d: 0, real: true, max: 3500, poss: a.t, wait: now => fired && now >= ball.t0 + ball.d - 20, run: () => {
+  {d: 0, real: true, max: 3500, poss: a.t, wait: now => fired && !ball.next && now >= ball.t0 + ball.d - 20, run: () => {
     const sh = shooter(a); if (sh) delete focus[key(sh.t, sh.s)];
     // бьёт всегда тот, кто бьёт: мяч не у него — сначала докатывается ему в ноги, иначе удар полетел бы
     // из-под ног соперника (со стороны — защитник лупит по своим воротам)
@@ -780,16 +1070,20 @@ function shotSteps(a, to, arc, after, aim) {        // aim(gk) — уточни�
     if (set) setTimeout(() => { if (crowd && (crowd.kind === 'wall' || crowd.kind === 'clearbox')) crowd = null; }, 700);   // после удара стенка расходится
     setTimeout(() => { if (crowd && crowd.kind === 'box') crowd = null; }, 900);         // удар после углового — штрафная расходится
     fired = false;
-    if (air && sh) { pose(sh, head ? 'head' : 'kick', 600, 0); shoot(to, head ? 430 : 560, 4, true); fired = true; }   // с лёта или головой — без замаха
+    if (air && sh) { pose(sh, head ? 'head' : 'kick', 600, 0); shoot(to, head ? 430 : 560, 4, true, sh); fired = true; fire && fire(); }   // с лёта или головой — без замаха
     else windup(sh, to, wu, () => {
-      shoot(to, fkS ? 400 : 540, arc);              // штрафной чуть медленнее — видно дугу
-      if (!set) ball.cv = rnd(-26, 26);
+      const kind = set ? 'plain' : shotKind(sh, to);
+      shoot(to, fkS ? 400 : 540, arc, false, sh, kind);   // штрафной чуть медленнее — видно дугу
+      if (kind === 'curl') ball.cv = curlCv(to, lv(sh, 'sh'));                 // «банан»: наружу и в угол
+      else if (kind === 'place') ball.cv = rnd(-5, 5);                          // щёчкой — почти прямо, точно
+      else if (kind === 'power') ball.cv = 0;                                   // пушка — по прямой
+      else if (!set) ball.cv = rnd(-26, 26) * (lv(sh, 'sh') === 2 ? .45 : 1);   // сильный бьёт прямо в цель, без «бананов»
       else if (fkS) {                                // штрафной: закрутка в обход стенки, верх дуги — над ней, стенка подпрыгивает
         ball.cv = (Math.random() < .5 ? -1 : 1) * rnd(24, 34); ball.pk = .3;
         if (crowd && crowd.kind === 'wall') for (const q of teamPlayers(crowd.t, true)) pose(q, 'head', 480);
         if (foam) foam.until = performance.now() + 5000;
       }
-      fired = true;
+      fired = true; fire && fire();
     });
     snap(a.t);
     const gk = teamPlayers(1 - a.t).find(p => p.gk);
@@ -817,9 +1111,17 @@ function build(a) {
       }});
       break;
     case 'goal': {
-      const into = goalMouth(a.t, -10); into.x += rnd(-38, 38);
+      const into = goalMouth(a.t, -10), shL = lv(P(a.t, a.s), 'sh');
+      into.x += shL === 2 && !pen ? (Math.random() < .5 ? -1 : 1) * rnd(36, 46) : rnd(-38, 38) * (shL === 0 ? .6 : 1);   // бомбардир — в самый угол
+      // как залетел (гол решил бот): иногда от штанги в сетку или рикошетом от ноги защитника — только когда сцена не отстаёт
+      const sgn = into.x >= W / 2 ? 1 : -1, wood = flair() && Math.random() < (pen ? .08 : .12), defl = !wood && !setPiece && flair() && Math.random() < .15;
+      if (wood) into.x = W / 2 + sgn * rnd(32, 42);
+      const post = {x: W / 2 + sgn * 52, y: goalOf(a.t).y};
       if (!setPiece) steps.push(...approach(a));
-      steps.push(...shotSteps(a, into, pen ? 4 : 18, gk => { if (gk) { gk.dive = performance.now(); pose(gk, 'dive', 900, Math.sign(into.x - gk.x)); } }));
+      steps.push(...shotSteps(a, wood ? post : into, pen ? 4 : 18, gk => { if (gk) { gk.dive = performance.now(); pose(gk, 'dive', 900, Math.sign(into.x - gk.x)); } }, undefined, () => {
+        if (wood) { ball.hEnd = rnd(4, 14); ball.next = {to: into, d: 190, arc: 0, mode: 'out', fn: () => woodHit(post)}; }   // внутренняя сторона штанги — и в сетку
+        else if (defl) deflect(1 - a.t, into);
+      }));
       let goalAt = 0;
       steps.push({d: 2900, run: () => {
         goalAt = performance.now();
@@ -832,8 +1134,8 @@ function build(a) {
         camTo(2.1, 2900, () => { const s2 = shooter(a); return s2 || corner; }, undefined, true, n => r0 + (n - tg) / 1000 * .45);
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
         const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
-        if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); }
-        crowd = {t: a.t, to: corner, kind: 'celebrate'};
+        if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); if (lifeOK()) sh.pose.life = true; }   // «самолётик» к угловому — в lifeTick
+        crowd = {t: a.t, to: corner, kind: 'celebrate', sh: sh ? key(sh.t, sh.s) : null};
         restart = {t: 1 - a.t, until: performance.now() + 12000, kick: true};      // остальные расходятся по своим половинам
         fetchBall(teamPlayers(1 - a.t).find(p => p.gk), true);                      // вратарь достаёт мяч из сетки
       }});
@@ -860,7 +1162,8 @@ function build(a) {
     }
     case 'save': {
       const d = 1 - a.t, hit = goalMouth(a.t, 12); hit.x += rnd(-48, 48);
-      const catchIt = Math.random() < .5;
+      // как именно спас (сейв решил бот): надёжный вратарь ловит намертво, слабый — отбивает перед собой
+      const kp = lv(teamPlayers(d).find(p => p.gk), 'kp'), catchIt = Math.random() < (kp === 2 ? .85 : kp === 0 ? .15 : .5);
       if (!setPiece) steps.push(...approach(a));
       steps.push(...shotSteps(a, hit, pen ? 4 : 14, gk => { if (gk) { focus[key(gk.t, gk.s)] = hit; gk.dive = performance.now(); pose(gk, 'dive', 900, Math.sign(hit.x - gk.x)); } },
         gk => { if (gk && dd(gk, goalOf(a.t)) < 90) hit.x = clamp(gk.x + rnd(-30, 30), W / 2 - 46, W / 2 + 46); }));   // в досягаемости прыжка
@@ -868,24 +1171,40 @@ function build(a) {
         const gk = teamPlayers(d).find(p => p.gk);
         label(pen ? '🧤 Вратарь отбил пенальти!' : (catchIt ? '🧤 Вратарь ловит! ' : '🧤 Сейв! ') + (gk ? `№${gk.n} ${gk.nm}` : ''));
         haptic('medium'); jump = {t: d, until: performance.now() + 1600}; crowdOoh(pen || !catchIt);
-        if (catchIt && gk) giveBall(gk);
-        else { const out = {x: clamp(hit.x + (hit.x < W / 2 ? -1 : 1) * rnd(60, 110), M + 10, W - M - 10), y: hit.y + (a.t === 0 ? 1 : -1) * rnd(40, 90)}; moveBall(out, 520, 14, 'out'); }
+        if (catchIt && gk) { giveBall(gk); pose(gk, 'carry', 800); }             // прижал мяч к груди
+        else if (kp === 0 && !pen) {                                              // отбил перед собой — мяч скачет у ворот
+          const out = {x: clamp(hit.x + rnd(-28, 28), M + 10, W - M - 10), y: hit.y + (a.t === 0 ? 1 : -1) * rnd(34, 58)}; moveBall(out, 460, 9, 'out');
+        } else { const out = {x: clamp(hit.x + (hit.x < W / 2 ? -1 : 1) * rnd(60, 110), M + 10, W - M - 10), y: hit.y + (a.t === 0 ? 1 : -1) * rnd(40, 90)}; moveBall(out, 520, 14, 'out'); }
       }});
       steps.push({d: 300, run: () => { focus = {}; if (!catchIt) restart = null; }});
       break;
     }
     case 'miss': {
-      const g = goalOf(a.t), side = Math.random() < .5 ? -1 : 1, over = Math.random() < .35;
-      const to = {x: g.x + side * (over ? rnd(0, 40) : rnd(70, 120)), y: g.y + (a.t === 0 ? -22 : 22)};
+      const shM = lv(P(a.t, a.s), 'sh');                          // промах слабого — чаще выше ворот, сильного — рядом со штангой
+      const g = goalOf(a.t), side = Math.random() < .5 ? -1 : 1, over = Math.random() < (shM === 0 ? .55 : shM === 2 ? .2 : .35);
+      const to = {x: g.x + side * (over ? rnd(0, 40) : shM === 2 ? rnd(62, 76) : rnd(70, 120)), y: g.y + (a.t === 0 ? -22 : 22)};
+      // в каркас (промах решил бот): штанга — мяч отлетает за лицевую в сторону, перекладина — вверх и за ворота
+      const wood = flair() && Math.random() < (over ? .2 : .22) ? (over ? 'bar' : 'post') : null, back = a.t === 0 ? -1 : 1;
+      if (wood === 'post') { to.x = W / 2 + side * 55; to.y = g.y; }
+      else if (wood === 'bar') { to.x = g.x + rnd(-38, 38); to.y = g.y; }
       if (!setPiece) steps.push(...approach(a));
-      steps.push(...shotSteps(a, to, over ? 46 : 12));
+      steps.push(...shotSteps(a, to, wood === 'bar' ? 8 : over ? 46 : 12, undefined, undefined, () => {
+        if (wood) { ball.hEnd = wood === 'bar' ? 30 : rnd(4, 16); if (wood === 'bar') ball.arc = Math.min(ball.arc, 6); }   // к перекладине — набирая высоту
+      }));
       const d = 1 - a.t, spot = at(d, .07, rnd(.4, .6)), gkOf = () => teamPlayers(d).find(p => p.gk);
-      steps.push({d: 900, run: () => { label(over ? '💨 Выше ворот!' : '💨 Мимо!'); crowdOoh(!over); }, poss: d});
+      steps.push({d: 900, run: () => {
+        if (wood) {                                 // от каркаса — за лицевую: удар от ворот, как решил бот
+          woodHit(to);
+          const out = wood === 'post' ? {x: to.x + side * rnd(18, 40), y: g.y + back * rnd(14, 24)} : {x: to.x + rnd(-20, 20), y: g.y + back * rnd(18, 28)};
+          moveBall(out, wood === 'post' ? 360 : 440, wood === 'post' ? 5 : 9, 'out');
+        }
+        label(wood === 'post' ? '🥅 Штанга!' : wood === 'bar' ? '🥅 Перекладина!' : over ? '💨 Выше ворот!' : '💨 Мимо!'); crowdOoh(!over || !!wood);
+      }, poss: d});
       // удар от ворот: вратарь сходит за мяч, несёт его в руках, ставит в площадь и выбивает партнёру
       steps.push({d: 0, max: 3500, poss: d, run: () => { focus = {}; restart = {t: d, until: performance.now() + 9000}; fetchBall(gkOf(), true); }, wait: () => !fetch});
       steps.push({d: 0, max: 3500, run: () => { const gk = gkOf(); if (gk) focus[key(gk.t, gk.s)] = {x: spot.x, y: spot.y, sp: 'jog'}; },
                   wait: () => { const gk = gkOf(); return !gk || dd(gk, spot) < 8; }});
-      steps.push({d: 900, run: () => {
+      steps.push({d: 900, rest: () => rhRest(d), run: () => {        // rest — вратарь тянет время перед ударом от ворот (обрывается эпизодом)
         placeBall(spot); const gk = gkOf(); if (gk) focus[key(gk.t, gk.s)] = lerpPt(spot, goalOf(1 - d), 14 / Math.max(1, dd(spot, goalOf(1 - d))));   // отошёл для разбега
       }});
       steps.push({d: 1000, poss: d, run: () => {
@@ -951,7 +1270,7 @@ function build(a) {
       // 3) флажок, свисток; подающий бежит за мячом, все занимают места в штрафной
       let taker = null;
       steps.push({d: 0, max: 4000, poss: a.t, run: () => {
-        focus = {}; flagUp(flag, a.t, 2200); whistle(); label('🚩 Угловой · ' + names[a.t]); drumRoll();
+        focus = {}; flagUp(flag, a.t, 2200); refSig('point', 1400, Math.atan2(flag.y - ref.y, flag.x - ref.x)); whistle(); label('🚩 Угловой · ' + names[a.t]); drumRoll();
         camTo(1.55, 9000, 'ball', a.t, false, nearRot(aimUp(flag, at(a.t, .86, .5))));   // от флажка на ворота
         taker = nearestTo(ball, teamPlayers(a.t, true).filter(q => q.s !== a.next)); fetchBall(taker, true);
         crowd = {t: a.t, to: at(a.t, .86, .5), kind: 'box', xf};
@@ -1023,13 +1342,22 @@ function build(a) {
       if (zone) steps.push({d: 0, max: 4500, poss: 1 - a.t, run: () => { if (v && holder === key(v.t, v.s)) focus[key(v.t, v.s)] = zone; },
                             wait: () => !v || holder !== key(v.t, v.s) || dd(v, zone) < 22});
       steps.push({d: 0, max: 3500, wait: () => { if (!f || !v) return true; focus[key(f.t, f.s)] = {x: v.x, y: v.y}; return dd(f, v) < 18; }});   // догоняет
+      let adv = null;                                      // преимущество: фол без стандарта и без карточки, рядом свой — игра идёт
       steps.push({d: 1300, run: () => {
         const spot = v ? {x: v.x, y: v.y} : near(ball, 20);
         if (f) { focus[key(f.t, f.s)] = near(spot, 10); pose(f, 'slide', 700, 0); divot(f); }
         if (v) { downed = {k: key(v.t, v.s), until: performance.now() + 1700}; if (holder === key(v.t, v.s)) moveBall(near(spot, 12), 300, 0, 'out'); }   // мяч отскочил от ног
-        whistle(); label('🛑 Фол · ' + tag(a.t, a.s)); refTo(near(spot, 30)); camTo(1.9, 1500, spot, undefined, false, cam.r);
+        const nx = queue.find(q => q.act !== a), more = nx && nx.act && ['card', 'brawl', 'protest'].includes(nx.act.a);
+        adv = v && !a.lead && !more && !holderP() && lifeOK() && Math.random() < .5 ? nearestTo(spot, teamPlayers(v.t, true).filter(q => q !== v && dd(q, spot) < 150)) : null;
+        if (adv) { label('🛑 Фол · ' + tag(a.t, a.s) + ' · преимущество'); refSig('adv', 1500, atkDir(v.t)); ball.recv = key(adv.t, adv.s); adv.face = {a: Math.atan2(ball.y - adv.y, ball.x - adv.x), until: performance.now() + 600}; }
+        else {
+          whistle(); label('🛑 Фол · ' + tag(a.t, a.s)); refSig('point', 1300, atkDir(v ? v.t : 1 - a.t));   // свисток и рука — в сторону штрафного
+          if (f && v && !a.lead && Math.random() < .5) { const aw = lerpPt(spot, ref, 85 / Math.max(1, dd(spot, ref))); refTo(aw, 1800); startDissent(f.t, f, 1700); }   // спорят — судья отходит от мяча
+          else refTo(near(spot, 30));
+        }
+        camTo(1.9, 1500, spot, undefined, false, cam.r);
       }});
-      steps.push({d: 300, run: () => { focus = {}; if (v) { if (!a.lead) ball.recv = key(v.t, v.s); restart = {t: v.t, until: performance.now() + 1500}; } }});
+      steps.push({d: 300, run: () => { focus = {}; if (v && !adv) { if (!a.lead) ball.recv = key(v.t, v.s); restart = {t: v.t, until: performance.now() + 1500}; } }});
       break;
     }
     case 'tackle': {                                       // отбор: догоняет того, кто с мячом, и выбивает мяч подкатом или ногой
@@ -1038,13 +1366,21 @@ function build(a) {
         if (mine()) return true;
         const tg = holderP() || ball; focus[key(p.t, p.s)] = {x: tg.x, y: tg.y}; return dd(p, tg) < 16;
       }});
-      steps.push({d: 500, poss: a.t, run: () => { if (p && !mine()) { pose(p, 'slide', 600); divot(p); kick(); giveBall(p); } focus = {}; }});
+      steps.push({d: 500, poss: a.t, run: () => {
+        if (p && !mine()) {
+          const hp = holderP();
+          if (lv(p, 'df') === 2 && hp && Math.random() < .6) shoulder(p, hp);        // сильный защитник — корпусом, мяч его
+          else { pose(p, 'slide', 600); divot(p); }
+          kick(); giveBall(p);
+        }
+        focus = {};
+      }});
       break;
     }
     case 'card': {
       steps.push({d: 1600, run: () => {
         const p = P(a.t, a.s);
-        if (p) { cards.push({k: key(a.t, a.s), c: a.c, until: performance.now() + 2200}); refTo(near(p, 18)); ref.card = {c: a.c, until: performance.now() + 2000};
+        if (p) { cards.push({k: key(a.t, a.s), c: a.c, until: performance.now() + 2200}); refTo(near(p, 18)); ref.card = {c: a.c, until: performance.now() + 2000}; startDissent(a.t, p, 2000, true);
           camTo(2.2, 1700, () => lerpPt(p, ref, .4), undefined, true, cam.r); }                         // карточка крупно: судья и игрок
         label((a.c === 'red' ? '🟥 Удаление · ' : '🟨 Жёлтая · ') + tag(a.t, a.s), 1800);
         if (a.c === 'red') haptic('heavy');
@@ -1105,7 +1441,7 @@ function build(a) {
       break;
     case 'stop':
       steps.push({d: 2800, poss: null, run: () => {
-        stopped = true; whistle(true); renderStatus(); holder = null; roar(2.2);
+        stopped = true; whistle(true); refSig('up', 1600); renderStatus(); holder = null; roar(2.2);
         if (a.what === 'fan') {
           const left = Math.random() < .5;
           fan = {t0: performance.now(), y: rnd(H * .25, H * .75), x0: left ? -8 : W + 8, dir: left ? 1 : -1, team: Math.random() < .75 ? 0 : 1};
@@ -1168,6 +1504,86 @@ function startProtest(t, dur) {
   brawl = {lvl: 'protest', t, t0: now, dur, mid: {x: ref.x, y: ref.y}, cast: mates.map((p, i) => ({p, ang: i * 2.1 + rnd(-.3, .3), r: rnd(12, 17), ph: rnd(0, 6)})),
            extras: [], tgt: {}};
   const away = lerpPt(ref, CENTER, -.4); refTo({x: clamp(ref.x + (ref.x - away.x) * 0 + rnd(-20, 20), M + 20, W - M - 20), y: clamp(ref.y + (ref.y < H / 2 ? 40 : -40), M + 30, H - M - 30)});
+}
+/* ---------------- живые мелочи: жесты игроков, судьи и вратаря ----------------
+   Только позы (положение рук), эпизоды не удлиняют: сцена отстаёт (speed() > 1), облегчённый режим или повтор — жестов нет. */
+let dissent = null;                                   // спор с судьёй после фола / карточки: {t, map: {"t:s": {ang, r}}, until, card}
+function atkDir(t) { return goalOf(t).y < H / 2 ? -Math.PI / 2 : Math.PI / 2; }   // куда атакует команда t (угол на поле)
+function lifeOK() { return !!S && flair() && !replay && !(pen && pen.open) && !document.body.classList.contains('deciding'); }
+function lifePose(p, k, ms, dir) {                    // свою позу не ставим поверх «настоящей» (удар, подкат, бросок, мяч в руках)
+  const now = performance.now();
+  if (!p || (p.pose && now < p.pose.until && !p.pose.life) || (downed && downed.k === key(p.t, p.s) && now < downed.until)) return;
+  p.pose = {k, until: now + ms, dir: dir || 0, life: true};
+}
+function refSig(k, ms, dir) { if (lifeOK()) ref.sig = {k, until: performance.now() + ms, dir: dir || 0}; }
+function startDissent(t, culprit, ms, card) {         // команда t спорит с судьёй: ближайшие обступают его, капитан подходит
+  if (!lifeOK() || brawl) return;
+  const now = performance.now(), cast = teamPlayers(t, true).filter(q => q !== culprit && dd(q, ref) < 190 && !focus[key(q.t, q.s)])
+    .sort((a, b) => dd(a, ref) - dd(b, ref)).slice(0, card ? 3 : 2);
+  const cap = teamPlayers(t, true).find(q => q.c);
+  if (cap && cap !== culprit && !cast.includes(cap) && dd(cap, ref) < 330) cast.push(cap);
+  if (!cast.length) return;
+  const map = {};
+  cast.forEach((q, i) => { map[key(q.t, q.s)] = {ang: Math.atan2(q.y - ref.y, q.x - ref.x) + (i - (cast.length - 1) / 2) * .55, r: q.c ? 11 : rnd(13, 17)}; });
+  dissent = {t, map, until: now + ms, card: !!card, culprit: culprit ? key(culprit.t, culprit.s) : null};
+}
+function dissentSpot(k) {                             // куда бежит спорящий (зовётся из target0)
+  const c = dissent && performance.now() < dissent.until && dissent.map[k];
+  return c ? {x: ref.x + Math.cos(c.ang) * c.r, y: ref.y + Math.sin(c.ang) * c.r, sp: 'run'} : null;
+}
+function lifeTick(now) {
+  if (dissent && (now > dissent.until || brawl)) dissent = null;
+  if (now - (lifeTick.at || 0) < 200) return;
+  lifeTick.at = now;
+  if (!lifeOK()) { dissent = null; return; }
+  if (crowd && crowd.kind === 'celebrate') {          // гол: автор — «самолётик», у углового — прыгают и обнимаются; соперники — руки на голове / на поясе
+    for (const p of teamPlayers(crowd.t, true)) {
+      const d = dd(p, crowd.to);
+      if (key(p.t, p.s) === crowd.sh) lifePose(p, d > 34 ? 'plane' : 'cele', 450);
+      else if (d < 40) { lifePose(p, (p.s + Math.floor(now / 900)) % 3 ? 'hug' : 'cele', 450); p.face = {a: Math.atan2(crowd.to.y - p.y, crowd.to.x - p.x), until: now + 300}; }
+    }
+    for (const p of teamPlayers(1 - crowd.t, true)) lifePose(p, (p.s + p.t) % 3 ? 'hips' : 'headh', 450);
+    return;
+  }
+  if (dissent) {                                      // спорят: разводят руками, машут; капитан говорит спокойнее
+    for (const k in dissent.map) {
+      const p = players[k]; if (!p || dd(p, ref) > 30) continue;
+      lifePose(p, p.c ? 'arms' : Math.sin(now / 500 + p.s) > 0 ? 'argue' : 'arms', 400);
+      p.face = {a: Math.atan2(ref.y - p.y, ref.x - p.x), until: now + 300};
+    }
+    const cu = dissent.culprit && players[dissent.culprit];
+    if (cu) lifePose(cu, dissent.card && Math.sin(now / 700) > 0 ? 'headh' : 'arms', 400);       // виновник: «я же в мяч!»
+  }
+  if (crowd && crowd.kind === 'wall') {               // штрафной: вратарь рукой выстраивает стенку и кричит, стенка сдвигается
+    const gk = teamPlayers(crowd.t).find(q => q.gk);
+    if (crowd.x0 === undefined) { crowd.x0 = crowd.to.x; crowd.c0 = now; crowd.sd = crowd.to.x >= W / 2 ? 1 : -1; }   // закрыть ближний угол
+    const k = now - crowd.c0;
+    if (k < 2600) {
+      crowd.to.x = crowd.x0 + crowd.sd * Math.min(1, k / 1800) * 9;
+      if (gk) lifePose(gk, 'shout', 400, crowd.sd > 0 ? 0 : Math.PI);
+    }
+    if (foam) for (const q of teamPlayers(crowd.t, true)) if (Math.abs(q.y - crowd.to.y) < 10) lifePose(q, 'guard', 400);
+    return;
+  }
+  if (!S || S.phase !== 'play' || stopped || restart || throwIn) return;
+  const hp = holderP();
+  if (!hp || hp.gk) return;
+  // партнёр без мяча просит пас: машет «дай» или показывает рукой, куда отдать — в свободную зону впереди
+  if (!lifeTick.call || now > lifeTick.call) {
+    lifeTick.call = now + rnd(1400, 2600);
+    const mates = teamPlayers(hp.t, true).filter(q => q !== hp && !(q.pose && now < q.pose.until) && dd(q, hp) > 60 && dd(q, hp) < 280 && depthOf(q.t, q.y) > depthOf(hp.t, hp.y) - .05 && openness(q, q.t) > 26);
+    const q = mates.sort((a, b) => openness(b, b.t) - openness(a, a.t))[0];
+    if (q) {
+      if (Math.random() < .55) { lifePose(q, 'call', 900); q.face = {a: Math.atan2(hp.y - q.y, hp.x - q.x), until: now + 700}; }
+      else { const gl = goalOf(q.t); lifePose(q, 'point', 900, Math.atan2(gl.y - q.y, (gl.x - q.x) * .35)); }
+    }
+  }
+  // вратарь кричит защитникам, когда соперник подходит к штрафной
+  const gk = teamPlayers(1 - hp.t).find(q => q.gk);
+  if (gk && depthOf(hp.t, hp.y) > .62 && (!lifeTick.gk || now > lifeTick.gk)) {
+    lifeTick.gk = now + rnd(3000, 5000);
+    lifePose(gk, 'shout', 1000, Math.atan2(hp.y - gk.y, hp.x - gk.x) + (Math.random() < .5 ? -.6 : .6));
+  }
 }
 function brawlTick(now) {
   const B = brawl;
@@ -1276,19 +1692,25 @@ function updatePlay(now) {
     try { waiting = !step.wait(now); } catch (e) { console.error(e); }
     if (waiting && now >= stepHard) { waiting = false; forceBall(); }
   }
+  if (step && step.rest && step._base && queue.length && stepEnd > Math.max(now, step._base)) stepEnd = Math.max(now, step._base);   // пришёл эпизод — тянуть время некогда
   if (!step || (now >= stepEnd && !waiting)) {
     step = queue.shift() || null;
+    if (step && step.act && RH_AFTER[step.act.a]) rh.last = step.act.a;
+    else if (!step && rh.last) { rhEnd(rh.last, now); rh.last = null; }   // эпизоды доиграны — после опасного момента пауза, после гола спокойная разводка
     if (step && throwIn) { if (throwIn.taker) delete focus[throwIn.taker]; throwIn = null; restart = null; }   // эпизод от бота важнее
     if (step && pendingKick && pendingKick.bg) pendingKick = null;
     if (step && ref.job) refDrop();                  // новый эпизод — мяч у игроков, судья его больше не держит
     if (step) {
       if (step.poss !== undefined && step.poss !== null) poss = step.poss;
+      tvStep(step);
       try { step.run && step.run(); } catch (e) { console.error(e); }
       stepEnd = now + (typeof step.d === 'function' ? step.d() : step.d || 0) / (step.real ? 1 : speed());
+      if (step.rest) { step._base = stepEnd; if (!queue.length && speed() <= 1) stepEnd += step.rest(); }   // rest — потянуть время, только когда ничего не ждёт
       stepHard = stepEnd + (typeof step.max === 'function' ? step.max() : step.max || 0) / Math.sqrt(speed());
       nextIdle = stepEnd + 400;
     }
   }
+  tvTick(now);
   // мяч: в ногах у игрока — чуть впереди по ходу; в полёте — по своей траектории; доехал до адресата — у него
   const hp = holderP();
   if (ref.job === 'carry') { ball.x = ref.x + 5; ball.y = ref.y - 1; ball.h = 12; }                  // мяч в руках у судьи
@@ -1299,23 +1721,33 @@ function updatePlay(now) {
     const saw = hp.dribble % 1, push = sp > 40 ? (saw < .25 ? saw / .25 : 1 - (saw - .25) / .75) : 0;
     const ang = hp.ang !== undefined ? hp.ang : 0, touch = (6 + 10 * push) * PS;
     let bx = hp.x + Math.cos(ang) * touch, by = hp.y + Math.sin(ang) * touch, bh = 0;
+    if (hp.feint && now < hp.feint.until) {             // финт «убрал под себя»: подошвой назад и в сторону, мимо ноги защитника
+      const f = hp.feint.dir * 5 * PS; bx = hp.x - Math.cos(ang) * 2 * PS - Math.sin(ang) * f; by = hp.y - Math.sin(ang) * 2 * PS + Math.cos(ang) * f;
+    }
     if (carry === holder) { bx = hp.x + Math.cos(ang) * 5; by = hp.y + Math.sin(ang) * 5; bh = 12; pose(hp, 'carry', 120); }   // несёт в руках
     else if (hp.gk && depthOf(hp.t, hp.y) < .17) { bx = hp.x + Math.cos(ang) * 4; by = hp.y + Math.sin(ang) * 4; bh = 16; }   // в руках у вратаря
     const gk = ball.gt ? clamp((now - ball.gt) / ball.gd, 0, 1) : 1;      // только что взял — мяч доезжает до ноги, а не прыгает
     if (gk >= 1) { ball.x = bx; ball.y = by; ball.h = bh; ball.gt = 0; }
     else { ball.x = lerp(ball.gx, bx, gk); ball.y = lerp(ball.gy, by, gk); ball.h = lerp(ball.gh || 0, bh, gk); }
+  }
+  if (hp || ref.job === 'carry' || (throwIn && throwIn.at)) {   // мяч в ногах / в руках: отпустили без удара — он остаётся тут, а не прыгает к цели старого паса
+    ball.fx = ball.tx = ball.x; ball.fy = ball.ty = ball.y; ball.cv = 0; ball.hEnd = 0; ball.next = null;
   } else {
     const k = clamp((now - ball.t0) / ball.d, 0, 1);
-    const e = ball.mode === 'out' ? 1 - (1 - k) * (1 - k) : ball.mode === 'lin' ? k : ease(k);
-    ball.x = lerp(ball.fx, ball.tx, e); ball.y = lerp(ball.fy, ball.ty, e); const kh = ball.pk ? (k < ball.pk ? k / ball.pk * .5 : .5 + (k - ball.pk) / (1 - ball.pk) * .5) : k;   // pk — где верх дуги (штрафной — над стенкой)
-    ball.h = (ball.h0 || 0) * (1 - e) + ball.arc * Math.sin(Math.PI * kh);
+    const e = ball.mode === 'out' ? 1 - (1 - k) * (1 - k) : ball.mode === 'roll' ? 1 - (1 - k) ** 3 : ball.mode === 'lin' ? k : ease(k);   // roll — пас в ход: хлёстко, потом катится медленнее
+    ball.x = lerp(ball.fx, ball.tx, e); ball.y = lerp(ball.fy, ball.ty, e); let kh = ball.pk ? (k < ball.pk ? k / ball.pk * .5 : .5 + (k - ball.pk) / (1 - ball.pk) * .5) : k;   // pk — где верх дуги (штрафной — над стенкой)
+    let arcH = ball.arc;
+    if (ball.bnc) { if (k < .8) kh = k / .8; else { kh = (k - .8) / .2; arcH *= .16; } }   // верховой мяч приземлился и ещё раз подскочил
+    ball.h = (ball.h0 || 0) * (1 - e) + arcH * Math.sin(Math.PI * kh) + (ball.hEnd || 0) * e;
     if (ball.cv) {                                   // закрутка: мяч уходит дугой вбок и возвращается к цели
       const L = Math.hypot(ball.tx - ball.fx, ball.ty - ball.fy) || 1, bend = ball.cv * Math.sin(Math.PI * e);
       ball.x += -(ball.ty - ball.fy) / L * bend; ball.y += (ball.tx - ball.fx) / L * bend;
     }
-    if (k >= 1 && ball.recv) {                       // пас доехал: адресат рядом — принял; нет — бежит к мячу (не дольше 2,5 с)
+    if (k >= 1 && ball.next) {                       // следующий отрезок без остановки: от штанги в сетку, рикошет от ноги
+      const n = ball.next, rv = ball.recv; moveBall(n.to, n.d, n.arc, n.mode); ball.recv = rv; ball.kind = 'bounce'; if (n.fn) n.fn();
+    } else if (k >= 1 && ball.recv) {                // пас доехал: адресат рядом — принял; нет — бежит к мячу (не дольше 2,5 с)
       const r = players[ball.recv];
-      if (r && dd(r, ball) < 16) giveBall(r);
+      if (r && dd(r, ball) < 16) { if (!heavyTouch(r)) giveBall(r); }
       else if (!r || now - ball.t0 - ball.d > 2500) ball.recv = null;
     }
   }
@@ -1334,19 +1766,24 @@ function updatePlay(now) {
   if (!step && crowd && crowd.kind === 'box' && now - ball.t0 > ball.d + 800) crowd = null;
   updateThrow(now);
   brawlTick(now);
+  rhythmTick(now);
   if (!step && S && S.phase === 'play' && !stopped && now > nextIdle && !restart) director(now);
   // кто прессингует и кто бежит к ничейному мячу (раз в кадр)
   const free = !holderP() && !ball.recv && now - ball.t0 >= ball.d && !throwIn && !fetch && !ref.job;
   if (!plan || now - plan.at > 250) {
     const old = plan || {press: [null, null]};
     plan = {press: [null, null], press2: [null, null], chase: [null, null], support: [null, null], spot: [null, null], overlap: [null, null], at: now};
+    if (poss !== possWas) { if (possWas >= 0 && depthOf(poss, ball.y) < .58) wonAt[poss] = now; possWas = poss; }
     for (const t of [0, 1]) {
       const field = teamPlayers(t, true).filter(q => !focus[key(q.t, q.s)] && !(q.beaten > now));   // обведённый не сразу встаёт
       if (poss !== t || free) {
         const best = nearestTo(ball, field), cur = old.press[t];
         plan.press[t] = cur && field.includes(cur) && best && dd(cur, ball) < dd(best, ball) * 1.35 + 12 ? cur : best;
-        if (tac(t) === 'press' && !free && plan.press[t])     // прессинг: второй закрывает ближний пас
-          plan.press2[t] = nearestTo(ball, field.filter(q => q !== plan.press[t] && q.role !== 'def'));
+        if (!free && depthOf(t, ball.y) > shape(t).reach) plan.press[t] = null;   // оборона и контратака ждут соперника в своём блоке
+        if ((tac(t) === 'press' || rushing(t)) && !free && plan.press[t]) {       // прессинг: второй тоже бежит на владельца
+          const p2 = nearestTo(ball, field.filter(q => q !== plan.press[t] && q.role !== 'def'));
+          if (p2 && dd(p2, ball) < 280) plan.press2[t] = p2;
+        }
       }
       if (free) plan.chase[t] = plan.press[t];
     }
@@ -1366,7 +1803,7 @@ function updatePlay(now) {
         plan.support[t] = sup; plan.spot[t] = best;
       }
       const side = hp.x < W / 2 ? 0 : 1;                  // фланговый защитник подключается по своей бровке: раз в несколько секунд
-      if (bd > .52 && hp.role !== 'def' && Math.floor(now / 5000) % 3 !== 0) {
+      if (bd > .52 && hp.role !== 'def' && tac(t) !== 'park' && Math.floor(now / 5000) % 3 !== 0) {   // в обороне тылы не оголяют
         const fb = mates.filter(q => q.role === 'def' && (q.b.xf < .5 ? 0 : 1) === side && q.b.xf !== .5).sort((a, b) => Math.abs(a.b.xf - .5) - Math.abs(b.b.xf - .5)).pop();
         if (fb && teamPlayers(t, true).filter(q => q.role === 'def').length >= 2) plan.overlap[t] = fb;
       }
@@ -1428,8 +1865,8 @@ function updatePlay(now) {
 }
 function spaceOut(list, tg) {              // партнёры без особой задачи не стоят кучкой: держат дистанцию ~3,5 м
   if (crowd || brawl || !S || S.phase !== 'play') return;
-  const busy = p => { const k = key(p.t, p.s); return p.gk || !!focus[k] || holder === k || ball.recv === k || !!(fetch && fetch.k === k)
-    || !!(plan && (plan.press[p.t] === p || plan.chase[p.t] === p)); };
+  const busy = p => { const k = key(p.t, p.s); return p.gk || !!focus[k] || !!(dissent && dissent.map[k]) || holder === k || ball.recv === k || !!(fetch && fetch.k === k)
+    || !!(plan && (plan.press[p.t] === p || plan.press2[p.t] === p || plan.chase[p.t] === p)); };
   const MIN = 78, field = list.filter(p => !p.gk);
   for (let it = 0; it < 2; it++) for (let i = 0; i < field.length; i++) for (let j = i + 1; j < field.length; j++) {
     const a = field[i], b = field[j];
@@ -1464,12 +1901,12 @@ function laneRisk(from, to, t) {           // ближайший к линии �
 function openness(pt, t) { let d = 200; for (const o of teamPlayers(1 - t)) d = Math.min(d, dd(o, pt)); return d; }
 function cutChance(d) { return d < 10 ? .45 : d < 18 ? .22 : d < 28 ? .08 : .02; }
 function passOrCut(hp, q, to, spd, now) {  // пас (с замахом); соперник у линии паса может его перехватить
-  const L = laneRisk(hp, to, hp.t), cut = L.q && Math.random() < cutChance(L.d);
+  const pa = lv(hp, 'pa'), L = laneRisk(hp, to, hp.t), cut = L.q && Math.random() < cutChance(L.d) * (pa === 2 ? .7 : pa === 0 ? 1.4 : 1);   // точный пас реже перехватывают
   dribbleUntil = now + 700;
   windup(hp, to, Math.random() < .3 ? 70 : 150, () => {
     if (holderP() !== hp) return;
     if (cut) { const pt = lerpPt(hp, to, clamp(dd(hp, L.q) / Math.max(1, dd(hp, to)), .2, .9)); passTo({x: pt.x, y: pt.y, t: L.q.t, s: L.q.s, ux: 0, uy: 0}, spd); ball.recv = key(L.q.t, L.q.s); poss = L.q.t; }
-    else { passTo(to === q ? q : {x: to.x, y: to.y, t: q.t, s: q.s, ux: 0, uy: 0}, spd); oneTouch = Math.random() < .25; }
+    else { passTo(to === q ? q : {x: to.x, y: to.y, t: q.t, s: q.s, ux: 0, uy: 0}, spd, to === q ? null : 'through'); oneTouch = Math.random() < (lv(q, 'pa') === 2 ? .4 : .25); }   // технарь чаще играет в одно касание
   }, true);
 }
 function brainCross(hp, now) {             // навес из глубины фланга: вынос, вратарь ловит или свой обрабатывает (без удара)
@@ -1484,8 +1921,80 @@ function brainCross(hp, now) {             // навес из глубины ф�
     if (who === def && def) setTimeout(() => {                         // защитник выносит головой подальше от ворот
       if (step || holderP()) return; pose(def, 'head', 500); strike(2, true); kick();
       moveBall(at(hp.t, rnd(.35, .55), rnd(.15, .85)), 900, 46, 'out'); poss = def.t; }, dd(ball, box) / 330 * 1000);
-    else if (who) ball.recv = key(who.t, who.s);                       // вратарь забирает в руки / свой принимает
+    else if (who === gk && gk && lv(gk, 'kp') === 0) setTimeout(() => {    // ненадёжный вратарь не ловит — выбивает кулаками
+      if (step || holderP()) return; pose(gk, 'throw', 420); strike(1, true); kick();
+      moveBall(at(hp.t, rnd(.66, .76), rnd(.25, .75)), 650, 26, 'out'); }, dd(ball, box) / 330 * 1000);
+    else if (who) { ball.recv = key(who.t, who.s); if (who === gk && lv(gk, 'kp') === 2) setTimeout(() => { if (holder === key(gk.t, gk.s)) pose(gk, 'carry', 700); }, dd(ball, box) / 330 * 1000 + 150); }   // вратарь забирает в руки / свой принимает
   }, true);
+}
+function shoulder(pr, hp) {                // силовой приём плечом: отбирающий наваливается корпусом, владелец отлетает в сторону
+  const d = dd(pr, hp) || 1, nx = (hp.x - pr.x) / d, ny = (hp.y - pr.y) / d, now = performance.now();
+  pr.face = {a: Math.atan2(ny, nx), until: now + 400}; pose(pr, 'push', 420);
+  hp.ux = (hp.ux || 0) * .3 + nx * 90; hp.uy = (hp.uy || 0) * .3 + ny * 90; pose(hp, 'plant', 320, 0);
+  hp.beaten = now + 900;
+}
+/* Ритм «фона», как в настоящем футболе: темп не ровный. calm — спокойная перепасовка в обороне и поперёк поля,
+   шагом и трусцой; build — обычный розыгрыш; attack — ускорение: пасы в ход, рывки, вход в штрафную; breath — пауза
+   после опасного момента (удар, сейв, угловой): игроки отходят шагом, вратарь тянет время, мяч не сразу в игру.
+   Темп зависит от счёта и минуты: проигрывающие в конце торопятся, выигрывающие тянут время, штурм — давление всегда.
+   Паузы только украшают «фон»: эпизод от бота в очереди или отставание сцены (speed() > 1) их сразу обрывают. */
+const rh = {ph: 'build', t: -1, until: 0, last: null, on: false};   // on — ритм действует в этом кадре (считается раз в кадр)
+const RH_AFTER = {save: 1, miss: 1, corner: 1, clear: 1, fk: 1, pen: 1, goal: 1};   // после каких эпизодов меняется ритм
+function rhOn() { return !!S && S.phase === 'play' && !stopped && !step && !queue.length && speed() <= 1; }
+function urgency(t) {                      // +1 — проигрывают в конце и торопятся, −1 — выигрывают в конце и тянут время
+  if (t < 0 || !S || !S.teams[t]) return 0;
+  if (rushing(t)) return 1;
+  const st = shown && shown.teams ? shown : S, m = S.minute || 0;
+  if (m < 44 || !st.teams[t] || !st.teams[1 - t]) return 0;
+  const d = (st.teams[t].score || 0) - (st.teams[1 - t].score || 0);
+  return d < 0 ? 1 : d > 0 ? -1 : 0;
+}
+function rhSet(ph, t, ms, now) { rh.ph = ph; rh.t = t; rh.until = now + ms; }
+function rhEnd(a, now) {                   // доигран эпизод a: гол — спокойная разводка, удар/сейв/угловой — передышка
+  if (!rhOn()) return;
+  if (a === 'goal') { rhSet('calm', poss, rnd(4000, 6500), now); return; }
+  const u = urgency(poss);
+  rhSet('breath', poss, u > 0 ? rnd(500, 900) : u < 0 ? rnd(4200, 5600) : rnd(2400, 3600), now);
+}
+function rhythmTick(now) { rhTick(now); rh.on = rhOn(); }
+function rhTick(now) {
+  const live = !!S && S.phase === 'play' && !stopped && speed() <= 1;
+  if (!live || (step && step.act)) { if (rh.ph === 'breath' || rh.ph === 'calm') rhSet('build', poss, 0, now); return; }   // эпизод от бота или отставание — без пауз
+  if (!rhOn()) return;                     // служебный шаг (табло минуты) — ритм не сбивает
+  const hp = holderP(), u = urgency(poss), d0 = hp ? depthOf(poss, hp.y) : depthOf(poss, ball.y);
+  if (rh.ph === 'breath' && poss === rh.t && now < rh.until) return;
+  if (poss !== rh.t) {                     // мяч сменил хозяина: отобрали в контратаку — сразу вперёд, у своих ворот — спокойно
+    if (rushing(poss) || counterOn(poss, now) || u > 0) rhSet('attack', poss, rnd(4000, 6500), now);
+    else if (d0 < .45) rhSet('calm', poss, rnd(3000, 6000) * (u < 0 ? 1.6 : 1), now);
+    else rhSet('build', poss, rnd(2500, 4500), now);
+    return;
+  }
+  if (rushing(poss) && rh.ph !== 'attack') { rhSet('attack', poss, 4000, now); return; }   // штурм — давление без передышки
+  if (rh.ph === 'build' && d0 > .62 && u >= 0) { rhSet('attack', poss, rnd(3500, 6000), now); return; }   // в чужой трети — ускорение
+  if (now < rh.until) return;
+  if (rh.ph === 'breath') rhSet(u > 0 ? 'attack' : 'calm', poss, u > 0 ? rnd(3000, 5000) : rnd(2500, 5000) * (u < 0 ? 1.6 : 1), now);
+  else if (rh.ph === 'calm') rhSet(u < 0 ? 'calm' : 'build', poss, u < 0 ? rnd(2500, 4000) : rnd(2000, 4000), now);   // ведут в конце — катают дальше
+  else if (rh.ph === 'build') rhSet(u < 0 && d0 < .5 ? 'calm' : 'attack', poss, rnd(3500, 6000), now);
+  else rhSet(u > 0 ? 'attack' : 'build', poss, rnd(2500, 4500), now);
+}
+function rhPhase(t) { return rh.on && rh.t === t ? rh.ph : 'build'; }   // фаза команды t (у соперника — обычный темп)
+function rhPace(p, T) {                    // шаг игрока без особой задачи по ритму: спокойно — шагом/трусцой, атака — бегом
+  if (!rh.on || restart || crowd || throwIn || brawl) return T;
+  const k = key(p.t, p.s);
+  if (p.gk || focus[k] || ball.recv === k || holder === k || (fetch && fetch.k === k)
+      || (plan && (plan.chase[p.t] === p || plan.press[p.t] === p || plan.press2[p.t] === p || plan.overlap[p.t] === p))) return T;
+  const mine = p.t === rh.t, sp = T.sp || 'jog';
+  if (rh.ph === 'breath') return {...T, sp: dd(p, T) > 160 ? 'jog' : 'walk'};          // переводят дух: отходят шагом
+  if (rh.ph === 'calm' && (mine || (tac(p.t) !== 'press' && !rushing(p.t))))         // прессинг и штурм своего рисунка не меняют
+    return {...T, sp: sp === 'sprint' ? 'run' : sp === 'run' ? 'jog' : dd(p, T) < 50 ? 'walk' : sp};
+  if (rh.ph === 'attack') {
+    if (mine && p.role !== 'def' && depthOf(p.t, T.y) > depthOf(p.t, p.y) + .02) return {...T, sp: sp === 'jog' ? 'run' : 'sprint'};   // рывки вперёд
+    if (!mine && sp === 'jog') return {...T, sp: 'run'};                                 // обороняющиеся возвращаются бегом
+  }
+  return T;
+}
+function rhRest(t) {                       // сколько потянуть время перед вводом мяча (удар от ворот): ведут — дольше, горят — сразу
+  const u = urgency(t); return u > 0 ? 0 : u < 0 ? rnd(1600, 2600) : rnd(400, 1000);
 }
 function director(now) {
   const hp = holderP();
@@ -1505,18 +2014,26 @@ function director(now) {
     if (now >= duel.at) {
       duel = null; hp.duelT = pr.duelT = now + 2000;
       const fit = q => (q.sp || 20) * (.75 + .25 * (q.pw === undefined ? 100 : q.pw) / 100);
+      // кто сильнее в схватке: скорость и свежесть, роль, защита отбирающего против паса (техники) того, кто с мячом;
+      // выдохшийся (< 35% сил) проигрывает чаще
       const win = clamp(.5 + (fit(pr) - fit(hp)) / 60 + (pr.role === 'def' ? .1 : pr.role === 'att' ? -.08 : 0)
-                             + (hp.role === 'att' ? -.06 : hp.role === 'def' ? .08 : 0), .18, .72);
+                             + (hp.role === 'att' ? -.06 : hp.role === 'def' ? .08 : 0)
+                             + (lv(pr, 'df') - 1) * .1 - (lv(hp, 'pa') - 1) * .08 - (tired(pr) ? .08 : 0) + (tired(hp) ? .08 : 0), .12, .8);
       if (Math.random() < win) {                                   // отбор: подкат или в ноги, мяч отскакивает или у него
+        if (lv(pr, 'df') === 2 && Math.random() < .5) { shoulder(pr, hp); kick(); giveBall(pr); poss = pr.t; dribbleUntil = 0; return; }   // корпусом — мяч его
         const slide = Math.random() < .4; pose(pr, slide ? 'slide' : 'kick', slide ? 560 : 380); if (slide) divot(pr); kick();
-        if (Math.random() < .45) giveBall(pr);
+        if (Math.random() < (lv(pr, 'df') === 2 ? .65 : lv(pr, 'df') === 0 ? .3 : .45)) giveBall(pr);
         else { const a = Math.atan2(hp.y - pr.y, hp.x - pr.x) + rnd(-1.1, 1.1), r = rnd(18, 36);
                moveBall({x: clamp(ball.x + Math.cos(a) * r, M + 8, W - M - 8), y: clamp(ball.y + Math.sin(a) * r, M + 8, H - M - 8)}, rnd(260, 380), rnd(2, 7), 'out'); }
         poss = pr.t; dribbleUntil = 0;
       } else {                                                     // обводка: уход в сторону и рывок мимо, соперник проскочил
         const side = Math.random() < .5 ? -1 : 1, fwd = at(hp.t, clamp(d0 + .1, .05, .88), clamp(x0 + side * .12, .06, .94));
         hp.carry = {x: fwd.x, y: fwd.y, sp: 'sprint', until: now + 800}; pr.beaten = now + 1000;
-        if (Math.random() < .3) pose(pr, 'slide', 520);
+        if (tech(hp) && flair()) {               // технарь — финтом: ложный замах или убрал мяч под себя, защитник проваливается
+          const fake = Math.random() < .5;
+          if (fake) pose(hp, 'plant', 200, 0); else hp.feint = {until: now + 260, dir: side};
+          pose(pr, Math.random() < .5 ? 'slide' : 'kick', 520); pr.beaten = now + 1400;
+        } else if (Math.random() < .3) pose(pr, 'slide', 520);
         dribbleUntil = now + 800;
       }
     }
@@ -1524,39 +2041,55 @@ function director(now) {
   }
   duel = null;
   if (dribbleUntil === -1) { dribbleUntil = now + 140; return; }   // в одно касание
-  if (!dribbleUntil) { dribbleUntil = now + (hp.gk ? rnd(1100, 1800) : rnd(800, 1700) * (hp.role === 'def' ? 1.15 : 1)); return; }
+  const cnt = counterOn(hp.t, now);                                // контратака: отобрали — думать некогда, сразу вперёд
+  const ph = rhPhase(hp.t), calm = ph === 'calm' || ph === 'breath', fast = ph === 'attack', u = urgency(hp.t);
+  if (!dribbleUntil) {                                             // сколько думает: спокойно — дольше, в атаке и когда горят — быстрее
+    const k = (cnt ? .35 : 1) * (calm ? 1.5 : fast ? .65 : 1) * (u > 0 ? .7 : u < 0 ? 1.2 : 1);
+    dribbleUntil = now + (hp.gk ? rnd(1100, 1800) : rnd(800, 1700) * (hp.role === 'def' ? 1.15 : 1)) * k;
+    if (hp.gk && ph === 'breath') dribbleUntil = Math.max(dribbleUntil, rh.until);   // вратарь тянет время до конца передышки
+    return;
+  }
   if (now < dribbleUntil) return;
   dribbleUntil = 0;
   const mates = teamPlayers(hp.t).filter(q => q !== hp), press = openness(hp, hp.t);
   const opts = [];
+  const wP = cnt ? 6 : calm ? 2 : fast ? 8 : 6;                   // ценность паса вперёд: спокойно катают поперёк, в атаке — только вперёд
   for (const q of mates) {                                         // пас в ноги
     const dist = dd(hp, q); if (dist < 45 || dist > 470) continue;
     const prog = depthOf(q.t, q.y) - d0, L = laneRisk(hp, q, hp.t);
-    let s = prog * 6 + Math.min(openness(q, q.t), 140) / 70 + Math.min(L.d, 70) / 30 - Math.abs(dist - 170) / 280 - (prog < -.12 ? .5 : 0);
-    if (q.gk) s -= press < 40 && d0 < .3 ? .3 : 2;                 // вратарю — только под давлением у своих ворот
+    let s = prog * wP + Math.min(openness(q, q.t), 140) / 70 + Math.min(L.d, 70) / 30 - Math.abs(dist - 170) / 280 - (prog < -.12 ? .5 : 0);
+    if (calm && !cnt && Math.abs(prog) < .12 && dist < 300) s += .35;   // спокойно — поперёк, без риска
+    if (q.gk) s -= press < 40 && d0 < .3 ? .3 : calm && d0 < .4 && !cnt ? .9 : 2;   // вратарю — под давлением или когда катают у своих ворот
     else if (depthOf(q.t, q.y) < .22) s -= .7;                     // не катать поперёк у своих ворот
     if (dist > 300) s -= .4;
     opts.push({k: 'pass', q, to: q, s});
   }
-  for (const q of mates.filter(m => m.role === 'att' || (m.role === 'mid' && depthOf(m.t, m.y) > .55))) {   // пас в ход за спину
-    const dq = depthOf(q.t, q.y); if (dq < .5 || dq > .84) continue;
-    const spot = at(q.t, Math.min(dq + .1, .9), clamp(xfOf(q.x) + (.5 - xfOf(q.x)) * .2, .1, .9));
+  for (const q of mates.filter(m => m.role === 'att' || (m.role === 'mid' && depthOf(m.t, m.y) > (cnt ? .42 : .55)))) {   // пас в ход за спину
+    const dq = depthOf(q.t, q.y); if (dq < (cnt ? .3 : .5) || dq > .84) continue;   // в контратаке — длинный, с глубины
+    const spot = at(q.t, Math.min(dq + (cnt ? .18 : .1), .9), clamp(xfOf(q.x) + (.5 - xfOf(q.x)) * .2, .1, .9));
     const dfn = nearestTo(spot, teamPlayers(1 - hp.t)), L = laneRisk(hp, spot, hp.t);
     const race = (dfn ? dd(dfn, spot) : 200) - dd(q, spot);        // кто первым к мячу: нападающий или защитник
-    opts.push({k: 'through', q, to: spot, s: .6 + race / 60 + Math.min(L.d, 60) / 50 - (dd(hp, spot) > 420 ? 1 : 0)});
+    opts.push({k: 'through', q, to: spot, s: .6 + race / 60 + Math.min(L.d, 60) / 50 - (dd(hp, spot) > (cnt ? 560 : 420) ? 1 : 0) + (cnt ? 1.4 : 0) + (calm && !cnt ? -1.4 : fast ? .25 : 0)});
   }
   if (!hp.gk) {
     const ahead = at(hp.t, clamp(d0 + .11, .05, .88), clamp(x0 + (.5 - x0) * .15, .06, .94)), room = openness(ahead, hp.t);
-    opts.push({k: 'carry', to: ahead, s: room / 60 - .2 + (hp.role === 'att' ? .4 : hp.role === 'def' ? -.3 : 0) - (d0 > .8 ? 1.5 : 0)});
+    opts.push({k: 'carry', to: ahead, s: room / 60 - .2 + (hp.role === 'att' ? .4 : hp.role === 'def' ? -.3 : 0) - (d0 > .8 ? 1.5 : 0) + (tech(hp) ? .35 : 0) + (calm && !cnt ? -.4 : fast ? .3 : 0)});   // технарь охотнее идёт в обводку
     if (d0 > .7 && Math.abs(x0 - .5) > .26) opts.push({k: 'cross', s: 1 + mates.filter(q => depthOf(q.t, q.y) > .78).length * .35});
   }
   for (const o of opts) o.s += rnd(0, .7);
   const pick = opts.sort((a, b) => b.s - a.s)[0];
   if (!pick) return;
-  if (pick.k === 'carry') { hp.carry = {x: pick.to.x, y: pick.to.y, sp: 'run', until: now + 1300}; dribbleUntil = now + rnd(900, 1500); return; }
+  if (pick.k === 'carry') {
+    if (lv(hp, 'pa') === 0 && press < 50 && flair() && Math.random() < .3) {        // слабый в технике под давлением — далеко отпустил мяч
+      const a = Math.atan2(pick.to.y - hp.y, pick.to.x - hp.x) + rnd(-.5, .5), r = rnd(30, 44);
+      strike(1); moveBall({x: clamp(ball.x + Math.cos(a) * r, M + 8, W - M - 8), y: clamp(ball.y + Math.sin(a) * r, M + 8, H - M - 8)}, rnd(320, 420), 2, 'out');
+      return;
+    }
+    hp.carry = {x: pick.to.x, y: pick.to.y, sp: cnt || fast ? 'sprint' : calm ? 'jog' : 'run', until: now + 1300}; dribbleUntil = now + rnd(900, 1500) * (calm ? 1.3 : fast ? .8 : 1); return;
+  }
   if (pick.k === 'cross') { brainCross(hp, now); return; }
   if (Math.random() < (dd(hp, pick.to) > 300 ? .06 : .02)) { outForThrow(hp, pick.q); return; }   // неточный пас — мяч в ауте
-  passOrCut(hp, pick.q, pick.to, pick.k === 'through' ? 400 : hp.gk ? 380 : rnd(330, 400), now);
+  passOrCut(hp, pick.q, pick.to, pick.k === 'through' ? (cnt ? 450 : 400) : hp.gk ? 380 : calm && !cnt ? rnd(290, 340) : fast ? rnd(370, 420) : rnd(330, 400), now);   // спокойно — пас мягче
 }
 function offsideLine(t) {                 // офсайд: глубже предпоследнего соперника (последний полевой) и мяча — нельзя;
   let line = .5;                           // в своей половине офсайда нет
@@ -1577,13 +2110,14 @@ function updateThrow(now) {
   if (!ti.taker) {                               // мяч за линией: флажок лайнсмена, к бровке идёт ближайший
     const tk = nearestTo(ti.spot, teamPlayers(ti.t, true));
     if (!tk) { throwIn = null; restart = null; return; }
-    ti.taker = key(tk.t, tk.s); focus[ti.taker] = ti.spot; flagUp(ti.spot, ti.t, 2200);
+    ti.taker = key(tk.t, tk.s); focus[ti.taker] = ti.spot; flagUp(ti.spot, ti.t, 2200); refSig('point', 1300, atkDir(ti.t));   // судья показывает, чей аут
     label('↩️ Аут · вбрасывание «' + S.teams[ti.t].name + '»', 1300); whistle();
     return;
   }
   const tk = players[ti.taker];
   if (!tk) { throwIn = null; restart = null; return; }
-  if (!ti.at && dd(tk, ti.spot) < 10) { ti.at = now + 700; holder = null; ball.x = tk.x; ball.y = tk.y; ball.h = 10; pose(tk, 'throw', 900); }
+  if (!ti.at && dd(tk, ti.spot) < 10) { const u = rhOn() ? urgency(ti.t) : 0; ti.at = now + (u > 0 ? 350 : u < 0 ? 1500 : 700);   // ведут в конце — не спешат вбрасывать
+    holder = null; ball.x = tk.x; ball.y = tk.y; ball.h = 10; pose(tk, 'throw', ti.at - now + 200); }
   if (ti.at && now >= ti.at) {                   // вбрасывание двумя руками из-за головы — свободному партнёру
     const mates = teamPlayers(ti.t, true).filter(q => q !== tk);
     const to = nearestTo(lerpPt(tk, CENTER, .35), mates);
@@ -1603,7 +2137,7 @@ function targetOf(p, now) {
     const d = dd(T, ball);
     if (d < 70) { const ux = d ? (T.x - ball.x) / d : 0, uy = d ? (T.y - ball.y) / d : 1; return {x: ball.x + ux * 70, y: ball.y + uy * 70, sp: 'run'}; }
   }
-  return T;
+  return rhPace(p, T);
 }
 function target0(p, now) {
   const k = key(p.t, p.s), f = focus[k];
@@ -1614,6 +2148,7 @@ function target0(p, now) {
   if (ball.recv === k && now - ball.t0 < ball.d + 300) return {x: ball.tx, y: ball.ty, sp: 'sprint'};   // пас летит ему — к мячу, а не на свою точку
   if (f) return {x: f.x, y: f.y, sp: f.sp || 'sprint'};
   if (brawl && brawl.tgt[k]) return {x: brawl.tgt[k].x, y: brawl.tgt[k].y, sp: 'sprint'};
+  if (dissent && dissent.map[k]) { const ds = dissentSpot(k); if (ds) return ds; }   // спорит с судьёй
   if (crowd && !p.gk) {
     if (crowd.kind === 'celebrate' && p.t === crowd.t) return {...near2(crowd.to, p, 20), sp: 'sprint'};
     if (crowd.kind === 'box') return {...cornerSpot(p), sp: 'sprint'};
@@ -1634,36 +2169,42 @@ function target0(p, now) {
   const hp = holderP();
   const bd = depthOf(p.t, ball.y), bx = xfOf(ball.x);
   if (p.gk) {                                                   // вратарь: на линии, смещается за мячом, выходит при опасности
+    if (hp === p && rhPhase(p.t) === 'breath') { const pt = at(p.t, .13, p.x < W / 2 ? .4 : .6); return {x: pt.x, y: pt.y, sp: 'walk'}; }   // тянет время: с мячом в руках к краю штрафной
     const out = bd < .3 ? (.3 - bd) * .18 : 0, x = W / 2 + clamp((ball.x - W / 2) * .28, -46, 46);
     return {x, y: at(p.t, .028 + out, .5).y, sp: hp && hp.t === p.t ? 'jog' : 'run'};
   }
   if (hp === p) {                                               // ведёт мяч: куда решил (проход, обводка), иначе — потихоньку вперёд
     if (p.carry && now < p.carry.until && !step) return {x: p.carry.x, y: p.carry.y, sp: p.carry.sp};
-    const d0 = depthOf(p.t, p.y), fwd = d0 < .8 ? .06 : 0;
+    const d0 = depthOf(p.t, p.y), ph = rhPhase(p.t), slow = ph === 'calm' || ph === 'breath', fwd = d0 < .8 ? (slow ? .025 : .06) : 0;
     const pt = at(p.t, clamp(d0 + fwd, .05, .86), clamp(xfOf(p.x) + (.5 - xfOf(p.x)) * .2 + jit(.06, 900), .08, .92));
-    return {x: pt.x, y: pt.y, sp: 'jog'};
+    return {x: pt.x, y: pt.y, sp: slow ? 'walk' : ph === 'attack' ? 'run' : 'jog'};   // спокойно — катит мяч шагом, атака — набегу
   }
   if (plan && plan.chase[p.t] === p) return {x: ball.x, y: ball.y, sp: 'sprint'};
   const attacking = poss === p.t;
   let depth, xf;
   if (attacking) {                                              // с мячом: команда поднимается и раскрывается, каждый — по роли
     if (plan && plan.support[p.t] === p && plan.spot[p.t]) return {...plan.spot[p.t], sp: 'run'};   // открывается под пас рядом
+    const tk = tac(p.t), rush = rushing(p.t), cnt = counterOn(p.t, now);
     xf = .5 + (b.xf - .5) * 1.25 + (bx - .5) * .22;
-    if (p.role === 'def') {                                     // защитник страхует сзади, до центра поля — не выше
-      depth = clamp(b.depth + (bd - .3) * .5, .1, .5);
+    if (p.role === 'def') {                                     // защитник страхует сзади, до центра поля — не выше (на штурме — выше)
+      depth = clamp(b.depth + (bd - .3) * .5, .1, rush ? .62 : tk === 'park' ? .34 : tk === 'counter' ? .42 : .5);
       if (plan && plan.overlap[p.t] === p) { depth = clamp(bd + .06, .45, .8); xf = b.xf < .5 ? .08 : .92; }   // подключение по флангу
-    } else if (p.role === 'mid') depth = clamp(b.depth + (bd - .3) * .85, .2, .76);
+    } else if (p.role === 'mid') depth = clamp(b.depth + (bd - .3) * .85, .2, tk === 'park' && !rush ? .58 : .76);
     else {
       depth = b.depth + clamp(bd - .3, -.05, .34) + .04;
       if (Math.floor(now / 2600 + p.s) % 3 === 0) depth += .07;                         // рывок за спину защитникам
       if (bd < .4 && Math.floor(now / 3100 + p.s) % 3 === 1) depth = bd + .18;           // или открывается навстречу, под пас
     }
-    const tk = tac(p.t);
     if (tk === 'press') depth += .03;                           // прессинг: вся команда выше
     else if (tk === 'park') depth -= p.role === 'att' ? 0 : p.role === 'mid' ? .05 : .08;   // оборона: тылы не оголяют
     else if (tk === 'counter' && p.role === 'att') depth += .05;   // контратака: нападающие сразу в рывок
+    if (cnt && p.role !== 'def') depth = Math.max(depth, Math.min(bd + (p.role === 'att' ? .32 : .14), .86));   // отобрали — рывок за спину
+    if (rush) depth += p.role === 'def' ? .06 : .08;            // штурм: вся команда в чужой половине
+    const rp = rhPhase(p.t);                                    // ритм: в атаке — рывки вперёд, спокойно — полузащита опускается под мяч
+    if (rp === 'attack' && p.role !== 'def') depth += p.role === 'att' ? .05 : .04;
+    else if ((rp === 'calm' || rp === 'breath') && p.role === 'mid') depth -= .04;
     if (hp !== p && ball.recv !== k) depth = Math.min(depth, offsideLine(p.t) - .012);  // но не в офсайд
-    if (plan && plan.overlap[p.t] === p) return {...at(p.t, clamp(depth, .05, .9), xf), sp: 'sprint'};
+    if ((plan && plan.overlap[p.t] === p) || (cnt && p.role !== 'def')) return {...at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94)), sp: 'sprint'};
   } else {                                                      // без мяча: сжимаются, линия — между мячом и своими воротами
     if (plan && plan.press[p.t] === p && !(restart && restart.t !== p.t)) {
       const gl = goalOf(1 - p.t), pt = lerpPt(ball, gl, 18 / Math.max(1, dd(ball, gl)));
@@ -1671,29 +2212,31 @@ function target0(p, now) {
     }
     // три линии сдвигаются вместе с мячом, но не схлопываются: защита — между мячом и воротами,
     // полузащита и атака остаются выше (нападающий ждёт выхода в контратаку), а не бегут всей командой в штрафную
-    const tk = tac(p.t);
-    if (plan && plan.press2[p.t] === p && hp) {              // прессинг: второй встаёт между мячом и ближним партнёром владельца
+    const tk = tac(p.t), sh = shape(p.t), lanes = (tk === 'press' || rushing(p.t)) && hp && hp.t !== p.t;
+    if (plan && plan.press2[p.t] === p && hp) {              // прессинг: второй тоже бежит на владельца — со стороны ближнего паса
       const mate = nearestTo(hp, teamPlayers(hp.t, true).filter(q => q !== hp));
-      if (mate) { const pt = lerpPt(hp, mate, .45); return {x: pt.x, y: pt.y, sp: 'run'}; }
+      const pt = mate ? lerpPt(hp, mate, Math.min(.3, 34 / Math.max(1, dd(hp, mate)))) : hp;
+      return {x: pt.x, y: pt.y, sp: dd(p, hp) < 200 ? 'sprint' : 'run'};
     }
+    // линии блока: по схеме, но едут за мячом вглубь (follow) и вбок (shift), ширина и плотность — по тактике
     const line = p.role === 'def' ? 0 : p.role === 'mid' ? 1 : 2;
-    const back = clamp(.17 + (bd - .5) * .34 + (tk === 'press' ? .08 : tk === 'park' ? -.05 : tk === 'counter' ? -.03 : 0), .06, .44);
-    depth = back + line * (tk === 'park' ? .1 : tk === 'press' ? .12 : .13);
-    if (tk === 'counter' && line === 2) depth += .1;           // контратака: нападающий ждёт у центра — под длинный пас
+    const back = clamp(sh.back + (bd - .5) * sh.follow, sh.lo, sh.hi);
+    depth = back + line * sh.gap;
+    if (tk === 'counter' && line === 2 && !rushing(p.t)) depth += .1;    // контратака: нападающий ждёт у центра — под длинный пас
+    if (tk === 'park' && line === 2 && !rushing(p.t) && b.xf >= .5 && b.xf < .8) depth += .08;   // в «автобусе» впереди один, на отскок
     if (line === 0) depth = Math.min(depth, Math.max(.05, bd - .03));
-    xf = .5 + (b.xf - .5) * .85 + (bx - .5) * .3;
-    if (p.role !== 'att') {                                      // опека: ближайший соперник в зоне — встать между ним и воротами, не вплотную
-      const zone = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94)), own = goalOf(1 - p.t);
-      let best = null, bd2 = 110;
-      for (const q of teamPlayers(1 - p.t, true)) { const d = dd(q, zone); if (d < bd2) { bd2 = d; best = q; } }
+    xf = .5 + (b.xf - .5) * sh.width + (bx - .5) * sh.shift;
+    if (p.role !== 'att' || lanes) {   // опека: ближайший в зоне — между ним и воротами; в прессинге — между ним и мячом (перекрыть пас)
+      const zone = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94)), own = goalOf(1 - p.t), R = lanes ? 130 : 110;
+      let best = null, bd2 = R;
+      for (const q of teamPlayers(1 - p.t, true)) { const d = dd(q, zone); if ((!lanes || q !== hp) && d < bd2) { bd2 = d; best = q; } }
       if (best) {
-        const gs = lerpPt(best, own, 34 / Math.max(1, dd(best, own))), w = .4 * (1 - bd2 / 110);
+        const gs = lanes ? lerpPt(best, hp, .3) : lerpPt(best, own, 34 / Math.max(1, dd(best, own))), w = (lanes ? .6 : .4) * (1 - bd2 / R);
         const pt = lerpPt(zone, gs, w);
-        return {x: pt.x, y: pt.y, sp: 'jog'};
+        return {x: pt.x, y: pt.y, sp: lanes ? 'run' : 'jog'};
       }
     }
   }
-  if (S.teams[p.t].rush) depth += .06;
   const pt = at(p.t, clamp(depth, .05, .9), clamp(xf, .06, .94));
   return {x: pt.x + jit(2, 2600), y: pt.y + jit(2, 2300), sp: attacking ? 'run' : 'jog'};
 }
@@ -1743,7 +2286,8 @@ function drawARs(now) {
     const v = Math.abs(ar.vy || 0) / 60, up = ar.flag && now < ar.flag.until;
     ar.stride = (ar.stride || 0) + Math.min(v, 4) * .2;
     g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ar.x, ar.y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
-    const body = {ang: (ar.vy || 0) > 6 ? Math.PI / 2 : (ar.vy || 0) < -6 ? -Math.PI / 2 : (ar.side > 0 ? Math.PI : 0), stride: ar.stride, pw: 100, x: ar.x, y: ar.y};
+    const body = {ang: (ar.vy || 0) > 6 ? Math.PI / 2 : (ar.vy || 0) < -6 ? -Math.PI / 2 : (ar.side > 0 ? Math.PI : 0), stride: ar.stride, pw: 100, x: ar.x, y: ar.y,
+                  pose: up ? {k: 'flag', until: now + 100, dir: ar.flag.dir < 0 ? -Math.PI / 2 : Math.PI / 2} : null};   // флажок наискось — в сторону атаки
     upright(ar.x, ar.y, () => figure(body, now, {shorts: '#111827'}, '#facc15', {skin: '#d6a77a', hair: '#1c1917', bald: false}, v, up ? 'flag' : null, false, {flag: true}));
   }
 }
@@ -1754,7 +2298,7 @@ function moveRef(dt, now) {                // судья: держится по�
   else if (S && S.phase === 'half') T = {x: TUNNEL.x, y: TUNNEL.y};
   else if (ref.goal && now < ref.goal.until) T = ref.goal;
   else { const side = ball.x < W / 2 ? 1 : -1; T = {x: clamp(ball.x + side * 70, M + 20, W - M - 20), y: clamp(ball.y + (poss === 0 ? 55 : -55), M + 30, H - M - 30)}; }
-  const dx = T.x - ref.x, dy = T.y - ref.y, d = Math.hypot(dx, dy), want = Math.min(ref.job || ref.goal && now < ref.goal.until ? 150 : 90, d * 2.4);
+  const dx = T.x - ref.x, dy = T.y - ref.y, d = Math.hypot(dx, dy), want = Math.min(ref.job || ref.goal && now < ref.goal.until ? 150 : d > 110 ? 130 : 90, d * 2.4);   // отстал от игры — догоняет бегом
   let ax = (d ? dx / d * want : 0) - ref.ux, ay = (d ? dy / d * want : 0) - ref.uy;
   const al = Math.hypot(ax, ay), lim = ACC * dt; if (al > lim) { ax *= lim / al; ay *= lim / al; }
   ref.ux += ax; ref.uy += ay; ref.x += ref.ux * dt; ref.y += ref.uy * dt;
@@ -1792,7 +2336,7 @@ function onTick(m) {
     if (next && next.t === a.t) a.next = next.s;
     if (a.a === 'foul') { const sp = rest.find(x => ['fk', 'pen', 'foul'].includes(x.a)); if (sp && sp.a !== 'foul') a.lead = sp.a; }
   });
-  for (const a of acts) { a._st = fresh; steps.push(...build(a)); }   // _st — каким стал состав после этой минуты
+  for (const a of acts) { a._st = fresh; const bs = build(a); for (const q of bs) q.act = a; steps.push(...bs); }   // act — для ТВ-подачи   // _st — каким стал состав после этой минуты
   // в конце эпизода — табло, состав и лента (чтобы счёт и строки не обгоняли мяч)
   steps.push({d: 0, tick: true, run: () => { shown = fresh; syncLineup(fresh); addFeed(m.feed || [], true); renderBoard(); }});   // состав — этой минуты, а не последней пришедшей
   queue.push(...steps);
@@ -2249,7 +2793,9 @@ function drawPlayer(p, now) {
   p.ang = p.ang === undefined ? want : turn(p.ang, want, facing ? .3 : v > .25 ? .14 : .05);
   p.stride = (p.stride || 0) + Math.min(v, 4) * .2;
   const sw = v > .12 ? Math.sin(p.stride) : 0, L = looks(p);
-  const pz = p.pose && now < p.pose.until ? p.pose.k : null;      // подкат, прыжок вратаря, празднование
+  let pz = p.pose && now < p.pose.until ? p.pose.k : null;        // подкат, прыжок вратаря, празднование
+  // выдохся (< 35% сил): в остановке игры стоит, упёршись руками в колени
+  if (!pz && !down && !p.gk && v < .15 && tired(p) && (stopped || S.phase !== 'play' || restart || throwIn)) pz = 'knees';
   g.save(); g.translate(p.x, p.y); g.scale(PS, PS);
   if (!drawPlayer.sg) {
     drawPlayer.sg = g.createLinearGradient(0, 0, 22, 0); drawPlayer.sg.addColorStop(0, 'rgba(0,0,0,.16)'); drawPlayer.sg.addColorStop(1, 'rgba(0,0,0,0)');
@@ -2305,9 +2851,13 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     shaded(23, -12, 2.8, 2.6, '#e5e7eb'); shaded(23, -4, 2.8, 2.6, '#e5e7eb');
     g.restore(); return;
   }
-  const lift = pz === 'head' ? 11 : 0, lean = side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0)) : 0;
+  const knees = pz === 'knees';
+  const jumpy = pz === 'cele' || pz === 'hug';                          // празднуют — подпрыгивают (каждый в своём ритме)
+  const lift = pz === 'head' ? 11 : jumpy ? Math.max(0, Math.sin(now / 150 + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : 5) : 0;
+  const lean = (side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (knees ? .3 : 0)) : 0)
+             + (pz === 'plane' ? Math.sin(now / 260 + (p.s || 0)) * .16 : 0);   // «самолётик» — покачивает крыльями
   g.translate(0, -lift); g.rotate(lean);
-  const hip = -15 - hop * .5, shoulder = hip - 13, neck = shoulder - 1.5, head = neck - 4;
+  const hip = -15 - hop * .5 + (knees ? 1.5 : 0), shoulder = hip - (knees ? 10 : 13), neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже
   // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса
   for (const i of [-1, 1]) {
     const far = side ? (i === face ? 0 : 1) : 0;                       // дальняя нога в профиль — темнее
@@ -2328,7 +2878,9 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-.5, hip, 1, 4);
   // руки за корпусом (дальняя) — сначала
   const armSw = -sw * 4.5, up = pz === 'cele' || pz === 'throw', gloves = p.gk;
-  const oneUp = pz === 'card' || pz === 'flag';                         // одна рука вверх: карточка / флажок
+  const oneUp = pz === 'card' || pz === 'flag' || pz === 'up';          // одна рука вверх: карточка / флажок / свисток
+  // жест «туда»: направление (угол на поле) — в pose.dir, на экране поворачиваем вместе с камерой
+  const gd = p.pose && p.pose.dir !== undefined ? p.pose.dir + cam.r : 0, gx = Math.cos(gd), gy = Math.sin(gd);
   const arm = (i, behind) => {
     const sh = {x: i * (side ? 1.5 : 6.2), y: shoulder + 1.5};
     let hx = sh.x + (side ? face * armSw * i * 1.2 : i * 1.5), hy = hip - 1 + (side ? 0 : armSw * i * .5);
@@ -2341,9 +2893,23 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (pz === 'watch') { hx = sh.x + i * 1.5; hy = hip - 3; }                                    // руки за спиной, смотрит повтор
     if (pz === 'push') { hx = side ? sh.x + face * 10 : sh.x + i * 2.2; hy = side ? shoulder + 3 : shoulder + (back ? -3 : 5); }      // толчок: обе руки вперёд
     if (pz === 'hold') { hx = side ? sh.x + face * 8 : sh.x - i * 1.5; hy = hip - 2; }                                             // обхватил сзади
+    if (knees) { hx = side ? sh.x + face * 5 : i * 3.4; hy = hip + 6.5; }                                                       // руки на коленях
     if (pz === 'punch') { if (i === 1) { hx = side ? sh.x + face * 13 : sh.x + 1; hy = side ? shoulder + 1 : shoulder - (back ? 6 : -6); } else { hx = sh.x + (side ? face * 3 : i * 2); hy = shoulder - 1; } }   // удар и защита
     if (pz === 'argue') { const w = Math.sin(now / 110 + (p.s || 0)); if (i === 1) { hx = sh.x + 3 + w * 3; hy = shoulder - 8 - w * 2; } else { hx = sh.x + i * 8; hy = shoulder + 2 + w; } }   // кричит, машет руками
-    const ex = (sh.x + hx) / 2 + i * 1.2, ey = (sh.y + hy) / 2;
+    // живые мелочи: жесты — только положение кисти (и локтя), без нового рисования
+    let eo = 1.2;                                                       // локоть наружу
+    if (pz === 'arms') { const w = Math.sin(now / 240 + (p.s || 0)) * 1.6; hx = sh.x + i * 9; hy = shoulder + 3 - w; }   // развёл руками: «за что?»
+    if (pz === 'headh') { hx = i * 2.4; hy = head - 1.5; eo = 5; }                                // руки на голове
+    if (pz === 'hips') { hx = i * 5.6; hy = hip - 1.5; eo = 4.5; }                                // руки на поясе
+    if (pz === 'plane') { hx = sh.x + i * 13; hy = shoulder + 1 + i * 2; }                        // «самолётик»
+    if (pz === 'hug') { hx = side ? sh.x + face * 9 : i * 2.5; hy = side ? shoulder + 2 : shoulder + (back ? -2 : 4); }   // обнимает партнёров
+    if (pz === 'guard') { hx = i * 1.2; hy = hip + 1; }                                           // в стенке: руки перед собой
+    if (pz === 'call' && i === 1) { const w = Math.sin(now / 95 + (p.s || 0)); hx = sh.x + 2 + w * 2.5; hy = shoulder - 11 + Math.abs(w); }   // «дай!» — машет поднятой рукой
+    if ((pz === 'point' || pz === 'shout') && i === 1) { hx = sh.x + gx * 11; hy = sh.y + gy * 7 - 1; }   // показывает рукой, куда
+    if (pz === 'shout' && i === -1) { hx = side ? face * 2.6 : 1.4; hy = head + 2; }              // и кричит, ладонь у рта
+    if (pz === 'adv') { hx = sh.x * 1.8 + gx * 12; hy = sh.y + gy * 5 + 2; }                       // «преимущество»: обе руки вперёд по ходу атаки
+    if (pz === 'flag' && opt.flag && p.pose && p.pose.dir !== undefined && i === 1) { hx = sh.x + gx * 8; hy = shoulder - 9 + gy * 4; }   // флажок — наискось, в сторону атаки
+    const ex = (sh.x + hx) / 2 + i * eo, ey = (sh.y + hy) / 2;
     const sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
     g.strokeStyle = behind ? mix(sl, -.3) : sl; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
     if (kit) {                                                          // манжета рукава — цветом окантовки
@@ -2437,11 +3003,13 @@ function plate(p, now, shirt, active, down, kit) {
 /* ---------------- мяч: рисунок из пятиугольников, вращение, след, тень по высоте ---------------- */
 let spin = 0, bprev = null;
 function drawBall() {
-  const h = ball.h, r = 7.2 + h * .07, bx = ball.x - Math.sin(cam.r) * h, by = ball.y - Math.cos(cam.r) * h;   // высота — вверх по экрану
+  const h = Math.max(0, ball.h), r = 7.2 + Math.min(h, 60) * .09, bx = ball.x - Math.sin(cam.r) * h, by = ball.y - Math.cos(cam.r) * h;   // высота — вверх по экрану, высокий мяч крупнее
   const sp = bprev ? Math.hypot(bx - bprev.x, by - bprev.y) : 0;
   spin += sp * .09;
-  const sa = clamp(.38 - h * .004, .12, .38);
-  g.fillStyle = `rgba(0,0,0,${sa})`; g.beginPath(); g.ellipse(ball.x + 2 + h * .25, ball.y + 3 + h * .18, 6.5 + h * .04, 3.3 + h * .02, 0, 0, 7); g.fill();
+  // тень на газоне — там, где мяч над землёй: чем выше мяч, тем она дальше, меньше и бледнее (видно, что он в воздухе)
+  const sa = clamp(.38 - h * .005, .1, .38), sx = ball.x + 2 + h * .25, sy = ball.y + 3 + h * .18;
+  g.fillStyle = `rgba(0,0,0,${sa})`; g.beginPath(); g.ellipse(sx, sy, Math.max(4.2, 6.5 - h * .04), Math.max(2.2, 3.3 - h * .02), 0, 0, 7); g.fill();
+  if (h > 12 && !perf.lite) { g.strokeStyle = 'rgba(255,255,255,.13)'; g.lineWidth = 1; g.beginPath(); g.moveTo(sx, sy); g.lineTo(bx, by); g.stroke(); }   // тонкая «нить» высоты
   if (sp > 3 && bprev) {                                     // след в полёте: полоса от прошлых кадров, на ударе длиннее
     const tx = bx - (bx - bprev.x) * clamp(sp / 3, 2, 7), ty = by - (by - bprev.y) * clamp(sp / 3, 2, 7);
     const gr = g.createLinearGradient(bx, by, tx, ty);
@@ -2498,13 +3066,14 @@ function drawSideline(now) {
   }
     // тренеры у своих скамеек: ходят вдоль технической зоны (люди в костюмах; на конфликтах — машут руками)
   if (S) DUGOUT.forEach(([a, b], t) => {
-    const y = (a + b) / 2 + Math.sin(now / 1700 + t * 2) * 18, x = 14 + Math.sin(now / 2300 + t) * 3;
+    const {x, y} = coachAt(t, now), rc = TV.react[t] && now < TV.react[t].until ? TV.react[t].pz : null;   // реакция на гол и промах
     const c = coachState[t] || (coachState[t] = {stride: 0, pw: 100, ang: 0, py: y});
     const v = Math.abs(y - c.py); c.py = y; c.stride += Math.min(v, 4) * .2;
     c.ang = v > .02 ? (Math.sin(now / 1700 + t * 2 + .01) > Math.sin(now / 1700 + t * 2) ? Math.PI / 2 : -Math.PI / 2) : 0;   // лицом к полю
-    const angry = brawl && (brawl.lvl !== 'protest' || brawl.t === t);
+    const angry = brawl && (brawl.lvl !== 'protest' || brawl.t === t) || (dissent && dissent.card && dissent.t === t && now < dissent.until);   // карточка своему — тоже машет
+    const cel = !rc && crowd && crowd.kind === 'celebrate' && lifeOK() ? (crowd.t === t ? 'cele' : 'hips') : null;                       // гол: свой прыгает, чужой — руки в боки
     g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x, y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
-    upright(x, y, () => figure({...c, x, y, s: t}, now, {shorts: '#111827'}, '#1e293b', {skin: '#d6a77a', hair: '#57534e', bald: t === 1}, v, angry ? 'argue' : null, false, {trousers: '#111827'}));
+    upright(x, y, () => figure({...c, x, y, s: t}, now, {shorts: '#111827'}, '#1e293b', {skin: '#d6a77a', hair: '#57534e', bald: t === 1}, v, angry ? 'argue' : rc || cel, false, {trousers: '#111827'}));
   });
 }
 
@@ -2674,8 +3243,9 @@ function drawRef(now) {                         // судья: чёрная фо
   g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ref.x, ref.y, 9 * PS, 5.5 * PS, 0, 0, 7); g.fill();
   const card = ref.card && now < ref.card.until, vp = ref.varPose && now < ref.varPose.until ? ref.varPose.k : null;
   if (ref.monitor && now < ref.monitor.until && dd(ref, MONITOR_SPOT) < 12 && !vp) ref.ang = 0;     // смотрит в экран
-  const pz = card ? 'card' : vp || (ref.monitor && now < ref.monitor.until && dd(ref, MONITOR_SPOT) < 12 ? 'watch' : null);
-  const body = {ang: ref.ang, stride: ref.stride, pw: 100, pose: pz ? {k: pz, until: now + 100} : null, card: card && ref.card.c, x: ref.x, y: ref.y};
+  const sig = !card && !vp && ref.sig && now < ref.sig.until ? ref.sig : null;     // жест судьи: преимущество, направление, рука со свистком
+  const pz = card ? 'card' : vp || (sig ? sig.k : null) || (ref.monitor && now < ref.monitor.until && dd(ref, MONITOR_SPOT) < 12 ? 'watch' : null);
+  const body = {ang: ref.ang, stride: ref.stride, pw: 100, pose: pz ? {k: pz, until: now + 100, dir: sig ? sig.dir : undefined} : null, card: card && ref.card.c, x: ref.x, y: ref.y};
   upright(ref.x, ref.y, () => figure(body, now, {shorts: '#0b0b0b'}, '#111827', {skin: '#d6a77a', hair: '#3f2a1d', bald: false}, v / 60, pz, false, {ref: true}));
 }
 function drawNetHit(now) {                      // сетка прогибается и колышется там, куда влетел мяч
@@ -2766,6 +3336,10 @@ function nextBase(now) {                            // фоновый план: 
 }
 function camAim(now) {
   const full = {x: W / 2, y: H / 2, z: 1, r: 0};
+  if (replay && replay.cur && replay.view && camMode !== 'wide') {   // повтор момента — свой ракурс (из-за ворот, с другой бровки)
+    const v = replay.view, c = lerpPt({x: replay.cur.bx, y: replay.cur.by}, v.c, v.k);
+    return {x: c.x, y: c.y, z: Math.max(v.z, zMin(v.r)), r: v.r};
+  }
   if (replay && replay.cur && camMode !== 'wide') {  // повтор — крупно: мяч и ворота, куда он летит
     const r = baseRot(), c = lerpPt({x: replay.cur.bx, y: replay.cur.by}, goalOf(replay.t), .3);
     return {x: c.x, y: c.y, z: Math.max(1.85, zMin(r)), r};
@@ -2802,6 +3376,10 @@ function spring(p, v, target, w, dt) {             // «пружина» с кр
 }
 function camUpdate(now, dt) {
   const t = camAim(now);
+  if (cam.cut) {                                     // монтажная склейка (повтор момента и обратно) — без облёта
+    cam.cut = false;
+    if (!t.drone && cam.tl === 0) { cam.r = t.r; cam.z = Math.max(t.z, zMin(t.r)); cam.x = t.x; cam.y = t.y; cam.vx = cam.vy = cam.vz = cam.vr = 0; }
+  }
   let dr = t.r - cam.r; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
   [cam.r, cam.vr] = spring(cam.r, cam.vr, cam.r + dr, 1.15, dt);            // поворот — медленнее всего
   [cam.z, cam.vz] = spring(cam.z, cam.vz, t.drone ? t.z : Math.max(t.z, zMin(cam.r)), 1.5, dt);
@@ -3517,6 +4095,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   perfTick(now);
   updatePlay(now);
+  lifeTick(now);
   if (!pitchImg) return;
   const R = replay ? replaySample(now) : null, live = R && {bx: ball.x, by: ball.y, bh: ball.h, rx: ref.x, ry: ref.y};
   if (R) { ball.x = R.bx; ball.y = R.by; ball.h = R.bh; ref.x = R.rx; ref.y = R.ry; }   // повтор: рисуем записанное, игра идёт своим чередом
@@ -4126,13 +4705,31 @@ function connect() {
 
 /* ---------------- ДЕМО без бота: случайный матч, чтобы посмотреть сцену ---------------- */
 function demo() {
-  const mk = (name, shirt, shorts, form, base) => {
-    const [d, mm, a] = form.split('-').map(Number), p = i => ({s: i, n: [1, 4, 5, 6, 8, 10, 9][i - 1], nm: name.slice(0, 3) + ' ' + base[i - 1], y: 0, c: i === 2});
+  // характер игроков (как шлёт бот): скорость и грубые уровни 0–2 — пас, защита, удар, вратарство.
+  // ?tired=1 — все сразу выдохшиеся (видно, как в остановках упираются руками в колени)
+  const tiredQ = Q.get('tired') === '1';
+  const mk = (name, shirt, shorts, form, base, prof) => {
+    const [d, mm, a] = form.split('-').map(Number), p = i => {
+      const [sp, pa, df, sh, kp] = prof[i - 1];
+      return {s: i, n: [1, 4, 5, 6, 8, 10, 9][i - 1], nm: name.slice(0, 3) + ' ' + base[i - 1], y: 0, c: i === 2, sp, pa, df, sh, kp, ...(tiredQ ? {pw: 30} : {})};
+    };
     const f = [2, 3, 4, 5, 6, 7];
     return {name, score: 0, shirt, shorts, formation: form, tactic: 'Баланс', rush: false, gk: p(1),
             def: f.slice(0, d).map(p), mid: f.slice(d, d + mm).map(p), att: f.slice(d + mm, d + mm + a).map(p), off: [], shots: 0, on: 0, corners: 0, fouls: 0, poss: 50};
   };
-  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов']), mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'])]};
+  // Альфа — команда «с характером»: вратарь ловит намертво, защитники-силачи, два технаря в центре, бомбардир впереди.
+  // Бета — середняки, вратарь ненадёжный (отбивает перед собой), один слабый в технике защитник
+  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [
+    mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов'],
+       [[10, 1, 1, 0, 2], [15, 1, 2, 0, 0], [16, 0, 2, 0, 0], [30, 2, 1, 1, 0], [27, 2, 0, 1, 0], [34, 1, 0, 2, 0], [22, 0, 0, 1, 0]]),
+    mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'],
+       [[10, 0, 0, 0, 0], [18, 0, 1, 0, 0], [20, 1, 1, 0, 0], [20, 1, 1, 0, 0], [20, 1, 1, 1, 0], [20, 1, 1, 1, 0], [20, 1, 0, 1, 0]])]};
+  // ?tac0=press&tac1=park — тактика команды с первой минуты (balance, press, counter, park; 0 — Альфа внизу, 1 — Бета),
+  // тогда смена тактики по ходу демо для неё отключена; ?rush=0 или ?rush=1 — эта команда сразу на штурме
+  const TAC_T = {balance: '⚖️ Баланс', press: '🔥 Прессинг', counter: '⚡ Контратака', park: '🛡 Оборона'};
+  const tacQ = [0, 1].map(t => TAC_T[Q.get('tac' + t)] || null);
+  tacQ.forEach((x, t) => { if (x) st.teams[t].tactic = x; });
+  if (Q.get('rush') === '0' || Q.get('rush') === '1') st.teams[Number(Q.get('rush'))].rush = true;
   // форма в демо: ?kit=stripes.ffffff,hoops.facc15 — узор[.второй цвет[.гетры[.окантовка[.1 — свечение]]]] по командам через запятую;
   // ?shirts=dc2626.f5f5f5,2563eb.202024 — футболка.шорты; ?gk=22c55e.14532d,… — форма вратаря
   const hx = v => v && /^[0-9a-f]{6}$/i.test(v) ? '#' + v : undefined;
@@ -4153,8 +4750,8 @@ function demo() {
     if (st.minute >= 2 && st.minute < 19 && Q.get('script') !== '0' && queue.some(x => x.tick)) return;
     st.minute++; st.phase = 'play';
     for (const tm of st.teams) for (const p of field(tm)) p.pw = Math.max(15, Math.round((p.pw === undefined ? 100 : p.pw) - rnd(.4, 1.8)));
-    if (st.minute === 8) st.teams[0].tactic = '🔥 Прессинг';
-    if (st.minute === 14) st.teams[1].tactic = '🛡 Оборона';
+    if (st.minute === 8 && !tacQ[0]) st.teams[0].tactic = '🔥 Прессинг';
+    if (st.minute === 14 && !tacQ[1]) st.teams[1].tactic = '🛡 Оборона';
     const acts = [], feed = [];
     if (st.minute === 1) acts.push({a: 'whistle', w: 'start'});
     const scripted = demoScript(st, acts, feed);       // в каждом демо: гол с повтором, штрафной, замена, удаление
