@@ -70,7 +70,7 @@ canvas{display:block}
 #tvg span{background:linear-gradient(#1e3a8a,#172554);color:#e0e7ff;font-size:12px;font-weight:800;padding:5px 9px;display:flex;align-items:center;white-space:nowrap}
 #smap{position:absolute;left:50%;top:46px;transform:translate(-50%,-6px);z-index:3;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;
   background:rgba(5,10,24,.88);border:1px solid #ffffff26;border-radius:12px;padding:8px 10px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-family:"Trebuchet MS",sans-serif;max-width:94%}
-#smap.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#smap.on{opacity:1;transform:translate(-50%,0)}
 #smap .h{font-weight:900;font-size:12px;letter-spacing:1px;color:#facc15;text-transform:uppercase;margin-bottom:6px;text-align:center}
 #smap .row{display:flex;gap:10px;align-items:center}
 #smap canvas{border-radius:6px;flex:none}
@@ -422,7 +422,7 @@ function syncLineup(st, only) {
         const half = st.phase === 'half', pt = only || half ? {x: TUNNEL.x + 4, y: TUNNEL.y + rnd(-5, 5)} : at(t, b.depth, b.xf);   // в перерыве — сразу в подтрибунном
         f = players[k] = {t, s: p.s, x: pt.x, y: pt.y, enter: !!only};
       }
-      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b, sp: p.sp || 20, pw: p.pw === undefined ? 100 : p.pw,
+      Object.assign(f, {n: p.n, nm: p.nm, y_: p.y, c: p.c, gk: role === 'gk', role, b, sp: spOf(p.sp), pw: p.pw === undefined ? 100 : p.pw,
                         pa: p.pa, df: p.df, sh: p.sh, kp: p.kp});   // грубые уровни 0–2: пас, защита, удар, вратарство
     });
   });
@@ -667,7 +667,7 @@ function replaySample(now) {                     // кадр повтора: п�
    реакция — только если сцена не отстаёт от бота и в этой минуте больше нет важных эпизодов; удар, гол, карточка
    следующего эпизода обрывают повтор сразу. В перерыве — карта ударов первого тайма поверх облёта дрона (рисуется один раз). */
 const U2M = 40 / 840, POST = 48;                          // единица поля в метрах; полуширина ворот
-const TV_BIG = new Set(['goal', 'save', 'miss', 'pen', 'corner', 'card', 'foul', 'varcheck', 'var', 'brawl', 'whistle', 'stop', 'protest']);
+const TV_BIG = new Set(['goal', 'save', 'miss', 'pen', 'corner', 'card', 'foul', 'varcheck', 'var', 'brawl', 'whistle', 'stop', 'protest', 'sub']);
 const TV = {t0: -1, shots: [], last: null, next: null, cool: 0, downed: null, foul: null, react: [null, null], map: null};
 let curAct = null;                                        // эпизод от бота, который сейчас разыгрывается
 function xgOf(x, y, t, how, head) {
@@ -711,7 +711,7 @@ function tvTick(now) {
     }
   }
   const sh = TV.last;
-  if (sh && !sh.done && now >= sh.end + 250) {            // мяч долетел: плашка, реакция, повтор
+  if (sh && !sh.done && now >= sh.end + 250 && !ball.next && !(ball.kind === 'bounce' && now < ball.t0 + ball.d)) {   // мяч долетел (и рикошет тоже): плашка, реакция, повтор
     sh.done = true;
     if (speed() <= 1) tvPlate(sh);
     if (sh.k === 'goal') { TV.react[sh.t] = {pz: 'cele', until: now + 4500}; TV.react[1 - sh.t] = {pz: 'argue', until: now + 4500}; }
@@ -742,7 +742,7 @@ function tvReact(sh) {                                    // реакция кр
   camTo(2.6, 1500, () => coachAt(sh.t, performance.now()), undefined, true, cam.r);
 }
 function tvAfterGoal() {                                  // досмотрели повтор гола — тренер пропустивших
-  const sh = TV.last; if (!sh || sh.k !== 'goal' || !camOn || speed() > 1) return;
+  const sh = TV.last; if (!sh || sh.k !== 'goal' || !camOn || !tvFree()) return;
   const t = 1 - sh.t; TV.react[t] = {pz: 'argue', until: performance.now() + 2400};
   camTo(2.6, 1500, () => coachAt(t, performance.now()), undefined, true, cam.r);
 }
@@ -773,7 +773,7 @@ function tvPlate(sh, inReplay) {                          // плашка вни
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   clearTimeout(tvPlate.tm); tvPlate.tm = setTimeout(() => el.classList.remove('on'), inReplay ? 3600 : 2800);
 }
-function hideMap() { const el = $('smap'); if (el) el.classList.remove('on'); clearTimeout(showMap.tm); }
+function hideMap() { const el = $('smap'); if (el) el.classList.remove('on'); clearTimeout(showMap.tm); document.removeEventListener('pointerdown', hideMap); }
 function showMap() {                                      // карта ударов 1-го тайма: точки ударов (размер — xG), гол / в створ / мимо
   const el = $('smap'), list = TV.shots.filter(q => q.half === 1);
   if (!el || !S || S.phase !== 'half' || !list.length) return;
@@ -809,7 +809,7 @@ function showMap() {                                      // карта удар
     col.appendChild(box);
   }
   col.appendChild(mk('div', 'lg', '◉ гол  ● в створ  ○ мимо · крупнее — выше xG'));
-  el.classList.add('on'); el.onclick = hideMap;
+  el.classList.add('on'); document.addEventListener('pointerdown', hideMap, {once: true});   // касание проходит дальше, карта просто уходит
   clearTimeout(showMap.tm); showMap.tm = setTimeout(hideMap, 16000);
 }
 /* ---------------- игра на поле: бег с разгоном, мяч в ногах, пасы, строй команд ----------------
@@ -980,6 +980,7 @@ function holderP() { return holder ? players[holder] || null : null; }
    Исходы (гол, сейв, удар, отбор от бота) не меняются, новых событий нет. Украшения «фона» — только когда сцена
    не отстаёт от бота (flair); удары, сейвы, карточки и стандарты показываются всегда. */
 function lv(p, k) { const v = p && p[k]; return v === 0 || v === 1 || v === 2 ? v : 1; }
+function spOf(v) { return v === undefined || v === null ? 20 : v <= 2 ? [12, 20, 32][v] : v; }   // уровень скорости 0–2 → примерная скорость (старый бот присылал число)
 function tired(p) { return !!p && (p.pw === undefined ? 100 : p.pw) < 35; }
 function tech(p) { return lv(p, 'pa') === 2 && (p.sp || 20) >= 24; }                 // технарь: точный пас и быстрые ноги
 function flair() { return speed() <= 1 && !perf.lite; }
@@ -1316,7 +1317,7 @@ function build(a) {
       steps.push({d: 0, max: 3500, run: () => { if (taker) focus[key(taker.t, taker.s)] = {x: spot.x, y: spot.y, sp: 'jog'}; },
                   wait: () => !taker || dd(taker, spot) < 8});
       steps.push({d: 1500, run: () => { placeBall(spot); if (taker) focus[key(taker.t, taker.s)] = lerpPt(spot, goalOf(1 - a.t), 20 / Math.max(1, dd(spot, goalOf(1 - a.t))));
-        const gl = goalOf(a.t); foam = {x: spot.x, y: spot.y, a: Math.atan2(gl.y - spot.y, gl.x - spot.x), wall: lerpPt(spot, gl, .2), t0: performance.now(), until: performance.now() + 20000};   // судья наносит пену
+        const gl = goalOf(a.t); foam = {x: spot.x, y: spot.y, a: Math.atan2(gl.y - spot.y, gl.x - spot.x), wall: crowd && crowd.kind === 'wall' ? crowd.to : lerpPt(spot, gl, .2), t0: performance.now(), until: performance.now() + 20000};   // судья наносит пену
       }});
       break;
     }
@@ -1692,7 +1693,7 @@ function updatePlay(now) {
     try { waiting = !step.wait(now); } catch (e) { console.error(e); }
     if (waiting && now >= stepHard) { waiting = false; forceBall(); }
   }
-  if (step && step.rest && step._base && queue.length && stepEnd > Math.max(now, step._base)) stepEnd = Math.max(now, step._base);   // пришёл эпизод — тянуть время некогда
+  if (step && step.rest && step._base && restBusy(step) && stepEnd > Math.max(now, step._base)) stepEnd = Math.max(now, step._base);   // пришёл эпизод — тянуть время некогда
   if (!step || (now >= stepEnd && !waiting)) {
     step = queue.shift() || null;
     if (step && step.act && RH_AFTER[step.act.a]) rh.last = step.act.a;
@@ -1705,7 +1706,7 @@ function updatePlay(now) {
       tvStep(step);
       try { step.run && step.run(); } catch (e) { console.error(e); }
       stepEnd = now + (typeof step.d === 'function' ? step.d() : step.d || 0) / (step.real ? 1 : speed());
-      if (step.rest) { step._base = stepEnd; if (!queue.length && speed() <= 1) stepEnd += step.rest(); }   // rest — потянуть время, только когда ничего не ждёт
+      if (step.rest) { step._base = stepEnd; if (!restBusy(step) && speed() <= 1) stepEnd += step.rest(); }   // rest — потянуть время, только когда ничего не ждёт
       stepHard = stepEnd + (typeof step.max === 'function' ? step.max() : step.max || 0) / Math.sqrt(speed());
       nextIdle = stepEnd + 400;
     }
@@ -1993,6 +1994,7 @@ function rhPace(p, T) {                    // шаг игрока без осо�
   }
   return T;
 }
+function restBusy(st) { return lagging() || queue.some(q => q.act && q.act !== st.act); }   // ждёт другой эпизод (свои шаги и конец минуты — не в счёт)
 function rhRest(t) {                       // сколько потянуть время перед вводом мяча (удар от ворот): ведут — дольше, горят — сразу
   const u = urgency(t); return u > 0 ? 0 : u < 0 ? rnd(1600, 2600) : rnd(400, 1000);
 }
