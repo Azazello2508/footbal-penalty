@@ -249,6 +249,8 @@ tr[data-pedit]{cursor:pointer}
 .kits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
 .kits div{background:var(--card2);border-radius:12px;padding:8px 4px;text-align:center;font-size:13px;color:var(--muted)}
 .colors{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+.kitprev{display:flex;align-items:flex-end;justify-content:center;gap:14px;margin:8px 0 6px}.kitprev svg.kitbig{width:120px;height:170px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}.kitgk{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--muted)}.kitgk svg.kitmid{width:66px;height:94px}
+.crgrid.kittabs .crt svg,.crgrid.kitready .crt svg{width:40px;height:57px}.crgrid.kittabs .crlet{height:57px;line-height:57px;font-size:20px}.kitx{float:right;background:none;border:0;color:var(--accent);font-size:12px;padding:0}
 .color{aspect-ratio:1;border-radius:50%;border:2px solid rgba(255,255,255,.35);max-width:36px;justify-self:center;width:100%}
 .color.on{outline:3px solid var(--accent);outline-offset:2px}
 .cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -737,7 +739,7 @@ function renderMatchSheet() {
 const M = () => H().manage || null;
 let PANEL = null;          // открытое окно раздела: {k, slot, step, focus, report, hist}; hist — куда вернуться «‹»
 const PANELS = [['club', '🏟 Клуб и игроки', 'название, имена и номера, замена игрока'], ['cards', '🃏 Карточки игроков', 'характеристики, роль, состояние'],
-  ['kit', '👕 Форма клуба', 'домашняя и выездная: футболка и шорты'], ['crest', '🎨 Эмблема клуба', 'форма, фон, цвета и символ'], ['training', '🏋️ Тренировка', 'одна в сутки на клуб'],
+  ['kit', '👕 Форма клуба', 'узоры, цвета, третья форма — уровни формы'], ['crest', '🎨 Эмблема клуба', 'форма, фон, цвета и символ'], ['training', '🏋️ Тренировка', 'одна в сутки на клуб'],
   ['talk', '🗣 Разговор с игроками', 'с каждым — раз в сутки'], ['growth', '📈 Рост игроков', 'вложить очки роста'],
   ['trophies', '🏆 Полка трофеев', 'трофеи, места по сезонам, рекорды клуба']];
 const LEAGUE_PANELS = [['friends', '👥 Лига друзей', 'создать, вступить по коду, позвать друга, начать сезон'],
@@ -852,13 +854,166 @@ function panelCards(m, P) {
   }
   return h + `<div class="cond">${esc(p.cond)}</div></div></div>`;
 }
+/* ---------------- 👕 Форма клуба: комплекты с узорами и уровни формы (правила — app/kits.py, оплата — app/level_shop.py) ----------------
+   Комплект: {s: футболка, sh: шорты, p: узор, c2: второй цвет, so: гетры, co: воротник и окантовка, gk: [футболка, шорты вратаря]};
+   форма: {home, away, third?, final?, gl?}. Уровень проверяет сервер; здесь — только замки и подсказки. */
+const KIT_EDITOR = {"colors":["#dc2626","#2563eb","#f8fafc","#111827","#facc15","#16a34a","#f97316","#9333ea","#92400e","#ffffff","#111111","#9ca3af","#7a263a","#6cabdd","#0b2a5b","#0a7a3b","#e8b923","#e5508a","#39ff14","#ff1f8f","#00e5ff","#a855f7","#fbcfe8","#bae6fd","#ddd6fe"],"patterns":["plain","stripes","hoops","halves","sleeves","sash","quarters","chevron","fade","camo"],"levels":{"colors":{"#ffffff":2,"#111111":2,"#9ca3af":2,"#7a263a":2,"#6cabdd":2,"#0b2a5b":2,"#0a7a3b":2,"#e8b923":2,"#e5508a":2,"#39ff14":4,"#ff1f8f":4,"#00e5ff":4,"#a855f7":4,"#fbcfe8":4,"#bae6fd":4,"#ddd6fe":4},"patterns":{"stripes":2,"hoops":2,"halves":2,"sleeves":2,"sash":3,"quarters":3,"chevron":3,"fade":4,"camo":4},"keys":{"c2":2,"so":2,"co":3,"gk":3},"slots":{"third":3,"final":5},"glow":5},"level_names":["","Базовая","Стиль","Премиум","Легенда","Живая"]};   // = app/kits.py editor_lists()
+const KIT_SLOTS = ['home', 'away', 'third', 'final'];
+const KIT_SLOT_T = {home: '🏠 Домашняя', away: '✈️ Выездная', third: '3️⃣ Третья', final: '🏆 Финал'};
+const KIT_P_NAMES = {plain: 'Однотонная', stripes: 'Полосы', hoops: 'Обручи', halves: 'Половинки', sleeves: 'Рукава', sash: 'Лента',
+  quarters: 'Четвертинки', chevron: 'Галочка', fade: 'Переход', camo: 'Камуфляж'};
+const KIT_LV_TEXT = ['', 'однотонные футболка и шорты, 9 цветов',
+  'узоры «полосы», «обручи», «половинки», «рукава», второй цвет, цвет гетр, 18 цветов',
+  'узоры «лента», «четвертинки», «галочка», воротник и окантовка, своя форма вратаря, третья форма',
+  'неоновые и пастельные цвета, «переход» и «камуфляж», готовые темы',
+  'форма светится в вечерних матчах, особая форма на финал кубка'];
+// готовые формы (общие названия, без настоящих клубов и брендов) и темы; уровень считает kitNeed — так же, как сервер
+const KIT_READY = [["Классика",{"s":"#dc2626","sh":"#f8fafc"}],["Ночной синий",{"s":"#2563eb","sh":"#111827"}],["Снежная",{"s":"#f8fafc","sh":"#111827"}],["Полосы",{"s":"#f8fafc","sh":"#111827","p":"stripes","c2":"#dc2626","so":"#dc2626"}],["Обручи",{"s":"#16a34a","sh":"#f8fafc","p":"hoops","c2":"#ffffff","so":"#16a34a"}],["Половинки",{"s":"#0b2a5b","sh":"#0b2a5b","p":"halves","c2":"#6cabdd","so":"#6cabdd"}],["Реглан",{"s":"#ffffff","sh":"#7a263a","p":"sleeves","c2":"#7a263a","so":"#ffffff"}],["Лента",{"s":"#ffffff","sh":"#111111","p":"sash","c2":"#dc2626","so":"#111111","co":"#dc2626"}],["Четвертинки",{"s":"#0b2a5b","sh":"#f8fafc","p":"quarters","c2":"#e8b923","so":"#0b2a5b","co":"#e8b923"}],["Галочка",{"s":"#111111","sh":"#111111","p":"chevron","c2":"#e8b923","so":"#e8b923","co":"#e8b923","gk":["#16a34a","#111111"]}],["Пастель",{"s":"#bae6fd","sh":"#ddd6fe","p":"hoops","c2":"#fbcfe8","so":"#ddd6fe"}]];
+const KIT_THEMES = [["Ретро 70-х",{"s":"#f97316","sh":"#92400e","p":"fade","c2":"#92400e","so":"#f97316","co":"#fbcfe8"}],["Киберпанк",{"s":"#111111","sh":"#111111","p":"chevron","c2":"#ff1f8f","so":"#a855f7","co":"#00e5ff","gk":["#39ff14","#111111"]}],["Ночь",{"s":"#0b2a5b","sh":"#111111","p":"camo","c2":"#111111","so":"#111111","co":"#00e5ff"}]];
+let KIT_DRAFT = null, KIT_SLOT = 'home', KIT_UID = 0;
+function kitNeed(d) {      // какой уровень нужен форме — как app/kits.py level_of
+  const L = KIT_EDITOR.levels, g = (o, k) => (k !== undefined && o[k]) || 1;
+  let n = 1;
+  for (const s of KIT_SLOTS) {
+    const x = d[s]; if (!x || typeof x !== 'object') continue;
+    n = Math.max(n, g(L.slots, s), g(L.patterns, x.p), ...['s', 'sh', 'c2', 'so', 'co'].map(k => x[k]).concat(x.gk || []).filter(c => typeof c === 'string').map(c => g(L.colors, c)));
+    for (const k in L.keys) if (k in x) n = Math.max(n, L.keys[k]);
+  }
+  if ('gl' in d) n = Math.max(n, L.glow);
+  return n;
+}
+function kitErr(d) {       // то же, что сервер проверит при сохранении (кроме уровня)
+  for (const s of KIT_SLOTS) { const x = d[s]; if (!x) continue;
+    if (x.p && x.p !== 'plain' && (!x.c2 || x.c2 === x.s)) return `${KIT_SLOT_T[s]}: для узора нужны два разных цвета`; }
+  return '';
+}
+const kitLv = () => (H().kit_edit || {}).level || 1;
+const kitLock = n => n > kitLv() ? ` lock" data-kitlock="${n}` : '';
+const kitLk = n => n > kitLv() ? `<i class="lk">ур. ${n}</i>` : '';
+const kitAlt = s => crestDark(s) ? '#f8fafc' : '#111827';      // второй цвет по умолчанию — контрастный, из базовых
+function kitDraft() { const E = H().kit_edit; if (!KIT_DRAFT) KIT_DRAFT = JSON.parse(JSON.stringify(E.design)); if (!KIT_DRAFT[KIT_SLOT]) KIT_SLOT = 'home'; return KIT_DRAFT; }
+// фигурка игрока в форме (спереди): футболка с узором, номер, воротник и манжеты, шорты, гетры; glow — свечение, gk — перчатки
+function kitFig(x, cls, opt) {
+  opt = opt || {};
+  const id = 'kf' + (++KIT_UID), s = x.s, sh = x.sh, p = x.p || 'plain', c2 = x.c2 || kitAlt(s);
+  const so = x.so || crestMix(sh, -.12), co = x.co || (p === 'plain' ? crestMix(s, -.4) : c2), skin = '#e3b28c', line = 'rgba(0,0,0,.35)';
+  const body = 'M34 32 L18 40 L9 58 L21 64 L28 53 L28 82 L72 82 L72 53 L79 64 L91 58 L82 40 L66 32 Q50 41 34 32Z';
+  let pat = '';
+  if (p === 'stripes') pat = [30, 42, 54, 66].map(v => `<rect x="${v}" y="28" width="6" height="56" fill="${c2}"/>`).join('');
+  else if (p === 'hoops') pat = [38, 50, 62, 74].map(v => `<rect x="0" y="${v}" width="100" height="6" fill="${c2}"/>`).join('');
+  else if (p === 'halves') pat = `<rect x="50" y="28" width="50" height="60" fill="${c2}"/>`;
+  else if (p === 'quarters') pat = `<rect x="50" y="28" width="50" height="27" fill="${c2}"/><rect x="0" y="55" width="50" height="30" fill="${c2}"/>`;
+  else if (p === 'sash') pat = `<path d="M22 28 L38 28 L82 86 L66 86Z" fill="${c2}"/>`;
+  else if (p === 'sleeves') pat = `<path d="M0 28 L35 28 L28 53 L28 72 L0 72Z M100 28 L65 28 L72 53 L72 72 L100 72Z" fill="${c2}"/>`;
+  else if (p === 'chevron') pat = `<path d="M22 40 L50 60 L78 40 L78 49 L50 69 L22 49Z" fill="${c2}"/>`;
+  else if (p === 'fade') pat = `<linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset=".12" stop-color="${c2}" stop-opacity="0"/><stop offset="1" stop-color="${c2}"/></linearGradient><rect x="0" y="30" width="100" height="54" fill="url(#${id}f)"/>`;
+  else if (p === 'camo') pat = [[30, 38, 9, 5, 1], [62, 41, 10, 5, 0], [46, 53, 11, 6, 1], [70, 62, 8, 5, 1], [32, 66, 9, 5, 0], [55, 75, 11, 5, 0], [38, 80, 7, 4, 1], [18, 50, 5, 7, 0], [82, 50, 5, 7, 1]]
+    .map(([cx, cy, rx, ry, c]) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(-25 ${cx} ${cy})" fill="${c ? c2 : crestMix(s, -.35)}"/>`).join('');
+  const num = ink(s), edge = num === '#fff' ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.7)';
+  const glow = opt.glow ? `<filter id="${id}w" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter><path d="${body}" fill="none" stroke="${co}" stroke-width="5" filter="url(#${id}w)" opacity=".95"/>` : '';
+  return `<svg class="${cls || ''}" viewBox="0 0 100 142" aria-hidden="true"><defs><clipPath id="${id}c"><path d="${body}"/></clipPath></defs>${glow}` +
+    `<rect x="45" y="22" width="10" height="12" fill="${crestMix(skin, -.12)}"/><circle cx="50" cy="16" r="10" fill="${skin}"/><path d="M40 15 Q41 4 50 5 Q60 4 60 15 Q55 9 50 10 Q44 9 40 15Z" fill="#3f2a1d"/>` +
+    `<circle cx="14" cy="66" r="4.2" fill="${opt.gk ? '#e5e7eb' : skin}"/><circle cx="86" cy="66" r="4.2" fill="${opt.gk ? '#e5e7eb' : skin}"/>` +
+    `<rect x="32" y="100" width="11" height="10" fill="${skin}"/><rect x="57" y="100" width="11" height="10" fill="${skin}"/>` +
+    `<rect x="32" y="108" width="11" height="26" rx="2" fill="${so}" stroke="${line}"/><rect x="57" y="108" width="11" height="26" rx="2" fill="${so}" stroke="${line}"/>` +
+    `<rect x="32" y="110" width="11" height="2.5" fill="${co}" opacity=".8"/><rect x="57" y="110" width="11" height="2.5" fill="${co}" opacity=".8"/>` +
+    `<ellipse cx="37" cy="137" rx="8" ry="4" fill="#0b0f19"/><ellipse cx="63" cy="137" rx="8" ry="4" fill="#0b0f19"/>` +
+    `<path d="M28 82 H72 L75 103 H53 L50 95 L47 103 H25Z" fill="${sh}" stroke="${line}" stroke-width="1.2"/>` +
+    `<path d="${body}" fill="${s}"/><g clip-path="url(#${id}c)">${pat}<rect x="0" y="79.5" width="100" height="3" fill="${co}"/></g>` +
+    `<path d="${body}" fill="none" stroke="${line}" stroke-width="1.2"/>` +
+    `<path d="M42 33 L50 41 L58 33" stroke="${co}" stroke-width="3" fill="none" stroke-linejoin="round"/><path d="M9.5 58 L21 63.5 M90.5 58 L79 63.5" stroke="${co}" stroke-width="3"/>` +
+    (opt.num ? `<text x="50" y="66" text-anchor="middle" font-size="17" font-weight="900" font-family="Trebuchet MS,sans-serif" fill="${num}" stroke="${edge}" stroke-width="1.6" paint-order="stroke">${opt.num}</text>` : '') + `</svg>`;
+}
+function kitGk(x) { return {s: x.gk[0], sh: x.gk[1], so: x.gk[0], co: crestMix(x.gk[0], -.45)}; }
+function kitColors(cur, key, need) {      // палитра: замок — по уровню цвета и по уровню самой части формы (гетры, окантовка…)
+  const L = KIT_EDITOR.levels.colors;
+  return `<div class="colors">` + KIT_EDITOR.colors.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}${kitLock(Math.max(need || 1, L[c] || 1))}" style="background:${c}" aria-label="${c}" data-kitk="${key}" data-kitv="${c}"></button>`).join('') + `</div>`;
+}
+function kitLevelCard(E) {      // «Уровень N — название», лесенка уровней, кнопки «Улучшить» и набор «Все уровни сразу»
+  const lv = E.level || 1, N = KIT_EDITOR.level_names, P = E.prices;
+  let h = `<div class="crlv"><b>👕 Уровень формы ${lv} — «${N[lv]}»</b>` +
+    `<div class="crlad">${N.slice(1).map((t, i) => `<i class="${i + 1 <= lv ? 'on' : ''}">${i + 1 <= lv ? '✅' : '🔒'} ${i + 1}</i>`).join('')}</div>`;
+  if (!P) h += `<div class="sub">У администратора открыты все уровни формы — бесплатно.</div>`;
+  else if (!Object.keys(P).length) h += `<div class="sub">${lv > 1 ? 'Продажа уровней формы сейчас закрыта — меняйте форму в пределах купленного уровня бесплатно.' : 'Улучшения формы откроются позже — пока доступна базовая форма: однотонные футболка и шорты, 9 цветов.'}</div>`;
+  else if (lv >= 5) h += `<div class="sub">Открыты все уровни формы. Меняйте форму сколько угодно — бесплатно.</div>`;
+  else {
+    h += `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${KIT_LV_TEXT[lv + 1]}. Менять форму в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда. Уровень эмблемы покупается отдельно.</div>` +
+      `<button type="button" class="go main" data-kitbuy="next">⬆️ Улучшить до уровня ${lv + 1} за ${P[lv + 1]} ⭐</button>`;
+    if (lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
+      h += `<button type="button" class="go" data-kitbuy="all">🎁 Все уровни сразу — ${P.all} ⭐${gain > 0 ? ` (выгода ${gain} ⭐)` : ''}</button>`; }
+  }
+  return h + `</div>`;
+}
 function panelKit(m) {
-  let h = panelHead('👕 Форма клуба', 'Хозяева играют в домашней форме, гости — в выездной. Если цвета футболок совпали, гости надевают свою домашнюю, а если и она совпала — нейтральную.') +
-    `<div class="kits"><div>${shirtSvg(m.home_kit, 10)}<br>🏠 Дома</div><div>${shirtSvg(m.away, 10)}<br>✈️ В гостях</div></div>`;
-  if (!m.kit_ok) h += `<div class="banner warn">⚠️ Выберите все четыре цвета — без этого нельзя начать сезон.</div>`;
-  h += m.kit_fields.map(([f, t]) => `<div class="label">${esc(t)}${m.kit[f] ? '' : ' — не выбрано'}</div><div class="colors">` +
-    m.colors.map(([k, name, , hex]) => `<button type="button" class="color${m.kit[f] === k ? ' on' : ''}" style="background:${hex}" title="${esc(name)}" aria-label="${esc(name)}" data-kitf="${f}" data-kitc="${k}"></button>`).join('') + `</div>`).join('');
+  const E = H().kit_edit;
+  if (!E) return panelHead('👕 Форма клуба') + `<div class="card note">Сначала создайте клуб</div>`;
+  const lv = kitLv(), L = KIT_EDITOR.levels, d = kitDraft(), x = d[KIT_SLOT], err = kitErr(d), need = kitNeed(d);
+  let h = panelHead('👕 Форма клуба', 'Хозяева — в домашней, гости — в выездной. Совпали цвета — гости надевают домашнюю, потом третью, иначе нейтральную.') + lockBanner();
+  if (!m.kit_ok) h += `<div class="banner warn">⚠️ Сохраните форму — без всех четырёх цветов нельзя начать сезон.</div>`;
+  if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа уровней формы закрыта — вы видите все уровни как администратор (бесплатно).</div>`;
+  h += kitLevelCard(E);
+  h += `<div class="kitprev">${kitFig(x, 'kitbig', {num: 10, glow: d.gl && KIT_SLOT !== 'final' ? 1 : 0})}` +
+    (x.gk ? `<div class="kitgk">${kitFig(kitGk(x), 'kitmid', {num: 1, gk: 1})}<span>вратарь</span></div>` : '') + `</div>`;
+  h += `<div class="crgrid kittabs">` + KIT_SLOTS.map(s => { const n = L.slots[s] || 1, has = !!d[s];
+    return `<button type="button" class="crt${s === KIT_SLOT ? ' on' : ''}${has ? '' : kitLock(n)}" data-kitslot="${s}">${has ? kitFig(d[s], 'kmini') : `<b class="crlet">${n > lv ? '🔒' : '➕'}</b>`}<span>${KIT_SLOT_T[s]}</span>${has ? '' : kitLk(n)}</button>`; }).join('') + `</div>`;
+  if (KIT_SLOT === 'third' || KIT_SLOT === 'final') h += `<div class="hint">${KIT_SLOT === 'third' ? 'Третья форма — если обе ваши формы совпали по цвету с соперником (вместо нейтральной).' : 'Особая форма на финал кубка: в финале клуб выходит в ней.'}</div>` +
+    `<button type="button" class="go" data-kitdel>🗑 Убрать ${KIT_SLOT === 'third' ? 'третью' : 'финальную'} форму</button>`;
+  const grid = (list, attr) => list.map(([t, v], i) => { const n = kitNeed({[KIT_SLOT]: v});
+    return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${kitFig(v, 'kmini')}<span>${t}</span>${kitLk(n)}</button>`; }).join('');
+  h += `<div class="label">⭐ Готовые формы — одним нажатием</div><div class="crgrid kitready">` + grid(KIT_READY, 'data-kitready') + `</div>`;
+  h += `<div class="label">🌈 Темы (уровень ${L.patterns.fade})</div><div class="crgrid kitready">` + grid(KIT_THEMES, 'data-kittheme') + `</div>`;
+  h += `<div class="label">Узор футболки</div><div class="crgrid kitready">` + KIT_EDITOR.patterns.map(k => { const n = L.patterns[k] || 1, v = {...x, p: k};
+    if (k === 'plain') delete v.c2; else if (!v.c2 || v.c2 === v.s) v.c2 = kitAlt(v.s);
+    return `<button type="button" class="crt${(x.p || 'plain') === k ? ' on' : ''}${kitLock(n)}" data-kitp="${k}">${kitFig(v, 'kmini')}<span>${KIT_P_NAMES[k] || k}</span>${kitLk(n)}</button>`; }).join('') + `</div>`;
+  const sect = (t, key, n, opt) => `<div class="label">${t}${n > lv ? ` · 🔒 ур. ${n}` : ''}${opt && x[key] ? ` <button type="button" class="kitx" data-kitx="${key}">✕ ${opt}</button>` : ''}</div>` + kitColors(x[key], key, n);
+  h += sect('Футболка', 's', 1) + sect('Шорты', 'sh', 1);
+  if (x.p && x.p !== 'plain') h += sect('Второй цвет узора', 'c2', L.keys.c2);
+  h += sect('Гетры', 'so', L.keys.so, 'как шорты') + sect('Воротник и окантовка', 'co', L.keys.co, 'авто');
+  h += `<div class="label">🧤 Форма вратаря${L.keys.gk > lv ? ` · 🔒 ур. ${L.keys.gk}` : ''}</div>` +
+    `<button type="button" class="go${x.gk ? '' : kitLock(L.keys.gk)}" data-kitgk>${x.gk ? '🧤 Убрать свою форму вратаря (будет яркий цвет автоматически)' : '🧤 Своя форма вратаря'}${!x.gk && L.keys.gk > lv ? ` 🔒 ур. ${L.keys.gk}` : ''}</button>`;
+  if (x.gk) h += `<div class="label">Вратарь: футболка</div>` + kitColors(x.gk[0], 'gk0', L.keys.gk) + `<div class="label">Вратарь: шорты</div>` + kitColors(x.gk[1], 'gk1', L.keys.gk);
+  h += `<div class="label">✨ Живая форма${L.glow > lv ? ` · 🔒 ур. ${L.glow}` : ''}</div>` +
+    `<button type="button" class="go${d.gl ? '' : kitLock(L.glow)}" data-kitgl>${d.gl ? '🌟 Убрать свечение формы' : '🌟 Свечение формы в вечерних матчах'}${!d.gl && L.glow > lv ? ` 🔒 ур. ${L.glow}` : ''}</button>` +
+    `<div class="hint">Вечерний матч — начало с 18:00 до 06:00 по Москве: окантовка и номер светятся в свете прожекторов.</div>`;
+  if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
+  else if (need > lv) h += `<div class="banner warn">🔒 В форме есть то, что открывается с уровня ${need} — «${KIT_EDITOR.level_names[need]}». Улучшите форму или уберите отмеченное замком.</div>`;
+  h += `<div class="mrow2"><button type="button" class="go" data-kitundo>↩️ Как было</button></div>` +
+    `<button type="button" class="go main" data-kitsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить форму — бесплатно'}</button>`;
   return h;
+}
+function kitPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
+  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  TG.openInvoice(link, st => {
+    if (st === 'paid') { haptic('ok'); toast('⭐ Оплачено — открываем уровень формы'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'kits', check: true}), ms)); }
+    else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+  });
+}
+function kitClick(b) {      // нажатия на экране «Форма»; true — обработано
+  const dd = b.dataset, E = H().kit_edit;
+  if (!E) return false;
+  const d = kitDraft(), x = d[KIT_SLOT], N = KIT_EDITOR.level_names, L = KIT_EDITOR.levels, lv = kitLv();
+  const need = n => `🔒 Это с уровня формы ${n} — «${N[n]}». Нажмите «⬆️ Улучшить» вверху`;
+  if (dd.kitbuy) { send({a: 'kits', buy: dd.kitbuy}); return true; }
+  if (dd.kitslot) { const s = dd.kitslot, n = L.slots[s] || 1;
+    if (!d[s]) { if (n > lv) { toast(need(n), true); return true; } d[s] = JSON.parse(JSON.stringify(s === 'final' ? d.home : d.away)); }
+    KIT_SLOT = s; haptic(); renderPanel(); return true; }
+  if (dd.kitready !== undefined || dd.kittheme !== undefined) {      // готовые и темы — показываем даже закрытые
+    const v = JSON.parse(JSON.stringify((dd.kittheme !== undefined ? KIT_THEMES[+dd.kittheme] : KIT_READY[+dd.kitready])[1])), n = kitNeed({[KIT_SLOT]: v});
+    d[KIT_SLOT] = v; toast(n > lv ? need(n) : 'Готово — можно сохранить или подправить', n > lv); haptic(); renderPanel(); return true;
+  }
+  if (dd.kitlock) { toast(need(+dd.kitlock), true); return true; }
+  if (dd.kitp) { x.p = dd.kitp; if (x.p === 'plain') { delete x.p; delete x.c2; } else if (!x.c2 || x.c2 === x.s) x.c2 = kitAlt(x.s); }
+  else if (dd.kitk) { const k = dd.kitk, v = dd.kitv; if (k === 'gk0' || k === 'gk1') x.gk[+k[2]] = v; else x[k] = v;
+    if (k === 's' && x.p && x.c2 === v) x.c2 = kitAlt(v); }
+  else if (dd.kitx) delete x[dd.kitx];
+  else if (b.hasAttribute('data-kitgk')) { if (x.gk) delete x.gk; else x.gk = ['#16a34a', '#111111']; }
+  else if (b.hasAttribute('data-kitgl')) { if (d.gl) delete d.gl; else d.gl = 1; }
+  else if (b.hasAttribute('data-kitdel')) { delete d[KIT_SLOT]; KIT_SLOT = 'home'; }
+  else if (b.hasAttribute('data-kitundo')) { KIT_DRAFT = null; KIT_SLOT = 'home'; }
+  else if (b.hasAttribute('data-kitsave')) { const e = kitErr(d), n = kitNeed(d);
+    if (e) toast(e, true); else if (n > lv) toast(need(n), true); else send({a: 'kits', design: d}); return true; }
+  else return false;
+  haptic(); renderPanel(); return true;
 }
 function panelTraining(m, P) {
   const t = m.train, pers = t.personal;
@@ -1278,6 +1433,11 @@ function panelAdmin(m, P) {
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
     [2, 3, 4, 5, 'all'].map(k => `<div class="label">${k === 'all' ? '🎁 Набор «Все уровни сразу»' : `Уровень ${k} — «${LN[k]}»`}, ⭐</div><div class="own"><input id="crprice${k}" inputmode="numeric" maxlength="5" value="${CP[k] || ''}"><button type="button" data-crprice="${k}">💾 Сохранить</button></div>`).join('') +
     `<div class="sub">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (CP[k] || 0), 0)} ⭐, набор — ${CP.all || '?'} ⭐.</div></div>`;
+  const KP = A.kit_prices || {}, KN = KIT_EDITOR.level_names;
+  h += `<div class="label">👕 Уровни формы</div><div class="card"><div class="note">${A.kit_editor ? 'Продажа открыта: менеджеры покупают уровни формы за звёзды (по порядку или набором), а меняют форму в пределах уровня бесплатно.' : 'Продажа закрыта: у всех — базовая форма (9 цветов) и уже купленные уровни; купить новый уровень нельзя. У администраторов — все уровни бесплатно.'}</div>` +
+    `<button type="button" class="go${A.kit_editor ? ' danger' : ' main'}" data-kitopen="${A.kit_editor ? 0 : 1}">${A.kit_editor ? '🔒 Закрыть продажу формы' : '🔓 Открыть продажу формы'}</button>` +
+    [2, 3, 4, 5, 'all'].map(k => `<div class="label">${k === 'all' ? '🎁 Набор «Все уровни сразу»' : `Уровень ${k} — «${KN[k]}»`}, ⭐</div><div class="own"><input id="kitprice${k}" inputmode="numeric" maxlength="5" value="${KP[k] || ''}"><button type="button" data-kitprice="${k}">💾 Сохранить</button></div>`).join('') +
+    `<div class="sub">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (KP[k] || 0), 0)} ⭐, набор — ${KP.all || '?'} ⭐.</div></div>`;
   const mg = A.managed || [];     // клубы официальных лиг с менеджером: снять — клуб снова ведёт бот
   h += `<div class="label">👤 Менеджеры официальных клубов</div>` + (mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b>` +
     `<div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div><button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('')
@@ -1611,7 +1771,7 @@ function openSheet(slot) {
   const ob = H().onboarding;     // шаг «Посмотреть состав» ещё не пройден — бот проверит, что игрок из вашего клуба
   if (ob && !PVIEW_SENT && ob.steps.some(s => s.key === 'player' && !s.done)) { PVIEW_SENT = true; send({a: 'pview', slot}); }
 }
-function closeSheet() { CREST_DRAFT = null; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+function closeSheet() { CREST_DRAFT = null; KIT_DRAFT = null; KIT_SLOT = 'home'; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
 /* ---------------- «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) ----------------
    Подсказка подсвечивает настоящую кнопку или поле (остальное затемнено) и пишет, что нажать и что ввести.
@@ -2240,6 +2400,10 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (b.hasAttribute('data-pback')) { panelBack(); return true; }
   if (b.hasAttribute('data-pdone')) { PANEL = {k: P.k, hist: []}; renderPanel(); return true; }
   if (P.k === 'crest' && crestClick(b)) return true;
+  if (P.k === 'kit' && kitClick(b)) return true;
+  if (d.kitprice) { const k = d.kitprice === 'all' ? 'all' : +d.kitprice, v = +val('kitprice' + d.kitprice);
+    if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'kitprice', level: k, price: v}); return true; }
+  if (d.kitopen !== undefined) { const on = d.kitopen === '1'; ask(on ? 'Открыть продажу уровней формы? Менеджеры смогут покупать уровни формы за звёзды.' : 'Закрыть продажу уровней формы? Купленные уровни и формы останутся.', () => send({a: 'kitopen', open: on})); return true; }
   if (d.crprice) { const k = d.crprice === 'all' ? 'all' : +d.crprice, v = +val('crprice' + d.crprice);
     if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'crestprice', level: k, price: v}); return true; }
   if (d.crestopen !== undefined) { const on = d.crestopen === '1'; ask(on ? 'Открыть продажу эмблем? Менеджеры своих клубов смогут собирать эмблему и покупать её уровни за звёзды.' : 'Закрыть продажу эмблем? Купленные уровни и эмблемы останутся.', () => send({a: 'crestopen', open: on})); return true; }
@@ -2382,6 +2546,8 @@ function onAck(m) {
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
+  if (m.ok && act && act.a === 'kits' && m.invoice) kitPay(m.invoice);
+  else if (m.ok && act && act.a === 'kits' && act.design) KIT_DRAFT = null;      // дальше — то, что сохранил сервер
   else if (m.ok && act && act.a === 'crest' && !act.check && !act.buy) CREST_DRAFT = null;      // дальше — то, что сохранил сервер
   if (m.ok && act && act.a === 'newclub') { closeSheet(); showTab('home'); }
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
@@ -2510,7 +2676,9 @@ function demoHub() {
     options: ['Франция', 'Италия', 'Германия', 'Португалия'], streak: 2, streak_text: '🔥 Серия: 2 дня', reward: 10,
     next: {in: 1, fans: 15, text: 'ещё 1 день подряд — +15 болельщиков'}, answered: false};
   const crest_edit = {custom: null, everyone: true, level: 1, prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, auto: DC['Девятка']};      // демо: уровень 1, уровни «покупаются» без оплаты
-  return {club: 'Девятка', unseen: 2, daily, crest_edit,
+  const kit_edit = {design: {home: {s: '#dc2626', sh: '#f8fafc'}, away: {s: '#f8fafc', sh: '#111827'}}, everyone: true, level: 1,
+    prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}};      // демо: уровни формы «покупаются» без оплаты
+  return {club: 'Девятка', unseen: 2, daily, crest_edit, kit_edit,
     home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
@@ -2542,7 +2710,7 @@ function demoHub() {
       leagues: [{key: 'eng', title: '🏴 Англия', clubs: [{key: 'eng1', name: 'Манчестер Сити', stars: '★★★★★', who: 'Боря'}, {key: 'eng2', name: 'Арсенал Лондон', stars: '★★★★★', who: null},
           {key: 'eng3', name: 'Ливерпуль', stars: '★★★★☆', who: null}]},
         {key: 'esp', title: '🇪🇸 Испания', clubs: [{key: 'esp1', name: 'Реал Мадрит', stars: '★★★★★', who: 'Аня'}, {key: 'esp2', name: 'Барселона', stars: '★★★★★', who: null}]}]},
-    admin: {crest_editor: false, crest_prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
+    admin: {crest_editor: false, crest_prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, kit_editor: false, kit_prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, requests: [{rid: 3, text: '📝 Заявка №3: менеджер Вика просит перейти из «Ливорно» в «Ливерпуль» ★★★★☆ · 🏴 Англия.'}],
       seasons: [{key: 'eng', title: '🏴 Англия', name: 'Англия', active: true, done: 12, total: 190, people: 2},
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
@@ -2682,6 +2850,14 @@ function demoClubAct(act) {   // демо: раздел «Клуб» меняе�
     E.custom = act.reset ? null : act.spec; S.hub.home.crest = E.custom || E.auto;
     S.hub.table.rows.forEach(r => { if (r.mine) r.crest = S.hub.home.crest; });
     return {ok: true, note: act.reset ? '↩️ Снова автоэмблема' : '🎨 Эмблема сохранена'};
+  }
+  if (act.a === 'kits') {           // демо: форма и уровни формы — только на этой странице
+    const E = S.hub.kit_edit;
+    if (act.check) return {ok: true, note: ''};
+    if (act.buy) { E.level = act.buy === 'all' ? 5 : Math.min(5, E.level + 1); return {ok: true, note: `Демо: открыт уровень формы ${E.level} (в игре — за звёзды Telegram)`}; }
+    if (kitNeed(act.design) > E.level) return {ok: false, note: `Нужен уровень формы ${kitNeed(act.design)}`};
+    E.design = JSON.parse(JSON.stringify(act.design)); m.home_kit = [E.design.home.s, E.design.home.sh]; m.away = [E.design.away.s, E.design.away.sh];
+    S.hub.home.kit = m.home_kit; m.kit_ok = true; return {ok: true, note: '👕 Форма сохранена'};
   }
   if (act.a === 'rename') { m.name = S.club = S.hub.home.club = act.text; return {ok: true, note: `Готово, клуб теперь называется «${act.text}» ✅`}; }
   if (act.a === 'player') {
