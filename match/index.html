@@ -22,6 +22,8 @@ body{display:flex;flex-direction:column;height:100dvh;height:var(--vh,100dvh)}
 #clockrow #bar{flex:1;margin:0}
 #period{white-space:nowrap}
 #clock{color:var(--text);font-weight:700}
+#derby{flex:none;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(90deg,#b91c1c,#f97316);border-radius:8px;padding:1px 7px;white-space:nowrap}   /* дерби (app/derby.py) */
+#derby[hidden]{display:none}
 #bar{position:relative;height:5px;border-radius:3px;background:#1e293b;margin:5px 0 4px;overflow:hidden}
 #fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#22c55e,var(--gold));transition:width .6s}
 #bar i{position:absolute;left:50%;top:0;bottom:0;width:2px;background:#0b1328}
@@ -210,7 +212,7 @@ body.deciding #feed{display:none}
     <div id="score">0:0</div>
     <div class="tm away"><span class="nm" id="n1">Гости</span><i class="kit" id="k1"></i></div>
   </div>
-  <div id="clockrow"><span id="clock">0'</span><div id="bar"><div id="fill"></div><i></i></div><span id="period">до свистка</span></div>
+  <div id="clockrow"><span id="clock">0'</span><div id="bar"><div id="fill"></div><i></i></div><span id="derby" hidden>🔥 Дерби</span><span id="period">до свистка</span></div>
   <div id="stats"></div>
 </div>
 <div id="pitchwrap"><canvas id="c"></canvas><div id="status"></div><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div><div id="rpl"><em></em><b><i></i>ПОВТОР<small>×0.5</small></b></div><div id="tvg"><i></i><b></b><span></span></div><div id="smap"></div>
@@ -480,7 +482,7 @@ function rushing(t) { return !!(S && S.teams[t] && S.teams[t].rush); }
 function shape(t) { return SHAPE[rushing(t) ? 'rush' : tac(t)] || SHAPE.balance; }
 let possWas = -1, wonAt = [0, 0];      // когда команда отобрала мяч у себя в половине (для контратаки)
 function counterOn(t, now) { return tac(t) === 'counter' && !rushing(t) && poss === t && now - wonAt[t] < 4500 && !step; }
-function teamPlayers(t, field) { return Object.values(players).filter(p => p.t === t && !p.enter && (!field || !p.gk)); }   // выбегающий из тоннеля пока не в игре
+function teamPlayers(t, field) { return Object.values(players).filter(p => p.t === t && !p.enter && !p.hurt && (!field || !p.gk)); }   // выбегающий из тоннеля и унесённый — не в игре
 function P(t, s) { return players[key(t, s)]; }
 
 /* ---------------- табло и лента ---------------- */
@@ -489,6 +491,7 @@ function renderBoard() {
   const sh = shown || S;
   S.teams.forEach((tm, t) => { $('n' + t).textContent = tm.name; $('k' + t).style.background = tm.shirt; });
   $('score').textContent = sh.teams[0].score + ':' + sh.teams[1].score;
+  $('derby').hidden = !S.derby;                                        // дерби: плашка у табло, трибуны громче
   const mnt = sh.minute !== undefined ? sh.minute : S.minute, half = S.half;   // минута того, что сейчас на поле
   const so = S.so, pens = so ? ` (${so.g[0]}:${so.g[1]} пен.)` : '';     // кубок: серия пенальти после ничьей
   $('clock').textContent = S.phase === 'final' ? 'Финал' : so && !so.done ? 'Пен.' : (S.phase === 'pre' || mnt === 0) ? "0'" : mnt + "'";
@@ -1102,7 +1105,7 @@ function build(a) {
       if (a.w === 'start') steps.push({d: 0, max: 7000, poss: null, run: () => {     // судья выносит мяч и ставит его на центр
         focus = {}; crowd = null; restart = {t: a.k || 0, until: performance.now() + 9000, kick: true};
         if (dd(ball, CENTER) > 4 || holderP()) { holder = null; if (ref.job !== 'carry') ref.job = 'fetch'; ref.dest = CENTER; }
-      }, max: 9000, wait: () => !ref.job && Object.values(players).every(p => p.x > M && dd(p, kickoffSpot(p)) < 40)});   // все вышли из подтрибунного и на местах
+      }, max: 9000, wait: () => !ref.job && Object.values(players).every(p => p.hurt || p.x > M && dd(p, kickoffSpot(p)) < 40)});   // все вышли из подтрибунного и на местах
       steps.push({d: 1200, poss: null, run: () => {
         whistle(a.w !== 'start'); label(a.w === 'start' ? '🏟 Стартовый свисток!' : a.w === 'half' ? '⏸ Перерыв' : '⏹ Финальный свисток');
         focus = {}; crowd = null;
@@ -1124,7 +1127,10 @@ function build(a) {
         else if (defl) deflect(1 - a.t, into);
       }));
       let goalAt = 0;
-      steps.push({d: 2900, run: () => {
+      const celOn = !!CELEB[a.celebration];
+      let celD = 2900;                                      // с жестом — дольше (крупный план), сцена отстаёт — как раньше
+      steps.push({d: () => celD, run: () => {
+        if (celOn && speed() <= 1 && !lagging()) celD = 2900 + CEL_HOLD;
         goalAt = performance.now();
         netHit = {x: into.x, y: into.y, t0: performance.now(), t: a.t};
         goalFlash(a.t, `${tag(a.t, a.s)} · ${a.score ? a.score[0] + ':' + a.score[1] : ''}`);
@@ -1132,11 +1138,19 @@ function build(a) {
         lightFlares(a.t, 4 + Math.floor(Math.random() * 3), 5200);
         setTimeout(() => { if (S) startDrums(a.t, true); nextDrums = performance.now() + rnd(20000, 30000); }, 3200);   // после рёва — барабаны
         const r0 = cam.r, tg = performance.now();               // празднование крупно, камера медленно облетает героя
-        camTo(2.1, 2900, () => { const s2 = shooter(a); return s2 || corner; }, undefined, true, n => r0 + (n - tg) / 1000 * .45);
+        if (celOn) camTo(CEL_Z, celD * speed(), () => { const s2 = shooter(a); return s2 ? {x: s2.x, y: s2.y - 14} : corner; }, undefined, true, r0);   // жест — крупным планом, без облёта
+        if (celOn && shotCam) shotCam.fast = true;
+        else camTo(2.1, 2900, () => { const s2 = shooter(a); return s2 || corner; }, undefined, true, n => r0 + (n - tg) / 1000 * .45);
         if (a.score && shown) { shown.teams[0].score = a.score[0]; shown.teams[1].score = a.score[1]; renderBoard(); }
-        const sh = shooter(a), corner = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
-        if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); if (lifeOK()) sh.pose.life = true; }   // «самолётик» к угловому — в lifeTick
-        crowd = {t: a.t, to: corner, kind: 'celebrate', sh: sh ? key(sh.t, sh.s) : null};
+        const sh = shooter(a), cel = CELEB[a.celebration] ? a.celebration : null;      // фирменный жест автора (app/celebrations.py)
+        const far = at(a.t, .88, sh && sh.x < W / 2 ? .1 : .9);
+        // с жестом — пробежка короткая (жест успевает до повтора и виден крупно): к угловому, «к трибунам» — к бровке
+        const corner = !cel || !sh ? far : cel === 'fans' ? {x: sh.x < W / 2 ? M + 6 : W - M - 6, y: clamp(sh.y, M + 40, H - M - 40)}
+          : lerpPt(sh, far, Math.min(1, 60 / Math.max(1, dd(sh, far))));
+        if (cel === 'fans' && sh && Math.abs(corner.x - sh.x) > 120) corner.x = sh.x + Math.sign(corner.x - sh.x) * 120;
+        if (sh) { focus[key(sh.t, sh.s)] = corner; pose(sh, 'cele', 2800); if (lifeOK() || cel) sh.pose.life = true; }   // жест — в lifeTick
+        crowd = {t: a.t, to: corner, kind: 'celebrate', sh: sh ? key(sh.t, sh.s) : null, cel, t0: performance.now()};
+        if (cel) setTimeout(() => { if (crowd && crowd.cel === cel) label(`${CELEB[cel][0]} ${CELEB[cel][1]} · ${tag(a.t, a.s)}`, 3400); }, 900);
         restart = {t: 1 - a.t, until: performance.now() + 12000, kick: true};      // остальные расходятся по своим половинам
         fetchBall(teamPlayers(1 - a.t).find(p => p.gk), true);                      // вратарь достаёт мяч из сетки
       }});
@@ -1460,6 +1474,18 @@ function build(a) {
         }
       }});
       break;
+    case 'injury': {                                       // травма (решил бот): игрок лежит, выбегают врачи; часы стоят
+      const p = P(a.t, a.s), who = a.nm ? `№${a.n} ${a.nm}` : tag(a.t, a.s);
+      const full = a.heavy ? MEDIC_MS.heavy : MEDIC_MS.light;
+      let dur = full;
+      steps.push({d: () => dur, real: true, poss: null, run: () => {
+        dur = speed() > 1 || lagging() ? (a.heavy ? MEDIC_MS.heavyShort : MEDIC_MS.lightShort) / speed() : full;   // сцена отстаёт — короче
+        stopped = true; holder = null; focus = {}; crowd = null; whistle(true); refSig('up', 1600); renderStatus(); haptic('medium');
+        label('🚑 Травма' + (who ? ': ' + who : ''), a.heavy ? 3200 : 2400);
+        if (p) { startMedic(p, !!a.heavy, dur); camTo(1.8, dur * speed(), () => medic ? medic.cam : p, undefined, true, cam.r); }
+      }});
+      break;
+    }
     case 'resume':
       steps.push({d: 1000, run: () => {
         stopped = false; renderStatus(); whistle(); label('▶️ Игра возобновлена'); focus = {}; crowd = null;
@@ -1482,6 +1508,74 @@ function build(a) {
       break;
   }
   return steps;
+}
+
+/* ---------------- травма: игрок лежит, выбегают врачи ----------------
+   Лёгкая (ушиб): медик подбегает от тоннеля, осматривает (наклонился), игрок поднимается, медик уходит. Тяжёлая: двое
+   с носилками, игрока кладут и уносят к тоннелю — там он лежит (hurt), пока не выйдет замена (она приходит следующим
+   событием) или бот не уберёт его из состава. Что случилось и надолго ли — решил бот; сцена только показывает. */
+const MEDIC_MS = {light: 6000, heavy: 9000, lightShort: 3000, heavyShort: 4500};
+const MED = {arrive: .3, up: .72, lift: .55};          // доли эпизода: врачи добежали / ушибленный встал / носилки подняли
+let medic = null;                                      // {p, heavy, t0, dur, spot, park, from, crew: [{x, y, f, v, pz}], cam}
+function startMedic(p, heavy, dur) {
+  if (medic) endMedic();
+  const now = performance.now(), from = {x: TUNNEL.x + 8, y: TUNNEL.y};
+  medic = {p, heavy, t0: now, dur, spot: {x: p.x, y: p.y}, park: {x: TUNNEL.x + 12, y: TUNNEL.y + (p.t ? -20 : 20)}, from, cam: {x: p.x, y: p.y},
+           crew: (heavy ? [0, 1] : [0]).map(i => ({x: from.x, y: from.y + i * 8, v: 0, pz: null, f: {stride: 0, pw: 100, ang: 0, s: i}}))};
+  p.lie = true; p.pose = null; p.face = {a: p.ang || 0, until: now + 600000};    // лежит и не вертится: носилки — вдоль тела
+  const k = key(p.t, p.s);
+  if (holder === k) holder = null;
+  delete focus[k];
+}
+function endMedic() {
+  const m0 = medic; medic = null;
+  if (!m0) return;
+  const p = m0.p; p.lie = false;
+  if (m0.heavy) { p.hurt = {x: m0.park.x, y: m0.park.y}; p.x = m0.park.x; p.y = m0.park.y; }   // лежит у тоннеля до замены
+  else p.face = null;
+}
+function medicTick(now) {
+  for (const k in players) { const q = players[k]; if (q.hurt) { q.x = q.hurt.x; q.y = q.hurt.y; q.ux = q.uy = q.vx = q.vy = 0; } }
+  const m0 = medic; if (!m0) return;
+  const f = (now - m0.t0) / m0.dur, p = m0.p, here = players[key(p.t, p.s)] === p;
+  if (f >= 1 || (!here && !gone.includes(p))) { endMedic(); return; }
+  const u = {x: Math.cos(cam.r), y: -Math.sin(cam.r)};             // «вправо на экране» в координатах поля: носилки — вдоль экрана, как лежит игрок
+  const dir = Math.cos((p.ang || 0) + cam.r) >= 0 ? 1 : -1;         // в какую сторону он лежит головой (как в figure)
+  const body = m0.heavy && f > MED.lift ? lerpPt(m0.spot, m0.park, ease((f - MED.lift) / (1 - MED.lift))) : m0.spot;
+  if (here) { p.x = body.x; p.y = body.y; p.ux = p.uy = p.vx = p.vy = 0; }
+  if (!m0.heavy && f > MED.up) p.lie = false;                       // ушиб: поднялся
+  m0.cam = body;
+  m0.crew.forEach((c, i) => {                                       // у головы и у ног (носилки) или сбоку (медик)
+    const off = (m0.heavy ? (i ? 22 : -31) : 13) * dir * PS;
+    const by = {x: body.x + u.x * off, y: body.y + u.y * off};
+    const tgt = f < MED.arrive ? lerpPt(m0.from, {x: m0.spot.x + u.x * off, y: m0.spot.y + u.y * off}, ease(f / MED.arrive))
+      : !m0.heavy && f > MED.up ? lerpPt(by, m0.from, ease((f - MED.up) / (1 - MED.up))) : by;
+    c.v = Math.hypot(tgt.x - c.x, tgt.y - c.y);
+    if (c.v > .05) c.f.ang = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+    c.f.stride += Math.min(c.v, 4) * .2; c.x = tgt.x; c.y = tgt.y;
+    c.pz = f < MED.arrive || (!m0.heavy && f > MED.up) ? null : m0.heavy && f > MED.lift ? 'carry' : 'knees';
+  });
+}
+function drawMedic(now) {
+  const m0 = medic; if (!m0) return;
+  const f = (now - m0.t0) / m0.dur, p = m0.p, b = m0.cam;
+  if (m0.heavy && f > MED.arrive * .8) {                            // носилки под игроком, с красным крестом
+    const dir = Math.cos((p.ang || 0) + cam.r) >= 0 ? 1 : -1;
+    upright(b.x, b.y, () => {
+      g.save(); g.translate(b.x, b.y); g.scale(PS * dir, PS);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-27, -5, 46, 8);
+      g.fillStyle = '#e2e8f0'; g.fillRect(-28, -10, 46, 8); g.strokeStyle = '#64748b'; g.lineWidth = 1.4; g.strokeRect(-28, -10, 46, 8);
+      g.fillStyle = '#dc2626'; g.fillRect(-7, -6.7, 5, 1.6); g.fillRect(-5.3, -8.4, 1.6, 5);
+      g.restore();
+    });
+  }
+  for (const c of m0.crew) {                                         // врачи: зелёная куртка, белые брюки
+    if (c.x < TUNNEL.x + 6) continue;
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(c.x, c.y, 8 * PS, 5 * PS, 0, 0, 7); g.fill();
+    const L = {skin: c.f.s ? '#c68863' : '#e0ac85', hair: '#1c1917', bald: !!c.f.s};
+    upright(c.x, c.y, () => figure({...c.f, x: c.x, y: c.y}, now, {shorts: '#f8fafc'}, '#16a34a', L, c.v, c.pz, false, {trousers: '#f8fafc'}));
+    if (!m0.heavy && c.pz === 'knees') blob(c.x + 6, c.y - 2, 3.4, 2.4, '#dc2626');   // чемоданчик рядом
+  }
 }
 
 /* ---------------- конфликты на поле: стычка, драка, массовая потасовка, скандал с судьёй ----------------
@@ -1545,7 +1639,7 @@ function atkDir(t) { return goalOf(t).y < H / 2 ? -Math.PI / 2 : Math.PI / 2; } 
 function lifeOK() { return !!S && flair() && !replay && !(pen && pen.open) && !document.body.classList.contains('deciding'); }
 function lifePose(p, k, ms, dir) {                    // свою позу не ставим поверх «настоящей» (удар, подкат, бросок, мяч в руках)
   const now = performance.now();
-  if (!p || (p.pose && now < p.pose.until && !p.pose.life) || (downed && downed.k === key(p.t, p.s) && now < downed.until)) return;
+  if (!p || p.lie || p.hurt || (p.pose && now < p.pose.until && !p.pose.life) || (downed && downed.k === key(p.t, p.s) && now < downed.until)) return;
   p.pose = {k, until: now + ms, dir: dir || 0, life: true};
 }
 function refSig(k, ms, dir) { if (lifeOK()) ref.sig = {k, until: performance.now() + ms, dir: dir || 0}; }
@@ -1564,16 +1658,41 @@ function dissentSpot(k) {                             // куда бежит с�
   const c = dissent && performance.now() < dissent.until && dissent.map[k];
   return c ? {x: ref.x + Math.cos(c.ang) * c.r, y: ref.y + Math.sin(c.ang) * c.r, sp: 'run'} : null;
 }
+// фирменное празднование гола: ключ — как в app/celebrations.py (CELEBRATIONS), значок и название — для подписи
+const CELEB = {plane: ['✈️', 'самолётик'], roll: ['🤸', 'кувырок'], shh: ['🤫', '«тише»'], knees: ['🧎', 'на коленях'],
+               dance: ['💃', 'танец у флажка'], biceps: ['💪', 'бицепс'], heart: ['🫶', 'сердце'], fans: ['🙌', 'к трибунам']};
+const CEL_Z = 3.1, CEL_HOLD = 1300;                  // крупный план жеста: приближение и сколько шаг гола длиннее
+// поза автора: пока бежит (age — мс с гола) — руки вверх, самолётик — крыльями, «к трибунам» — прыжками,
+// на коленях — проезжает; добежал (или прошло 0,7 с) — жест
+function celPose(k, d, age) {
+  if (k === 'plane' || k === 'fans') return k;
+  if (d > 24 && (age || 0) < 700) return k === 'knees' && d < 70 ? 'kneel' : 'cele';
+  return {roll: 'flip', shh: 'shh', knees: 'kneel', dance: 'dance', biceps: 'flex', heart: 'heart'}[k] || 'cele';
+}
+const CEL_FACE = {shh: 1, biceps: 1, dance: 1, heart: 1, knees: 1, roll: 1};   // жест лицом к камере (сверху-сзади его не прочесть)
 function lifeTick(now) {
   if (dissent && (now > dissent.until || brawl)) dissent = null;
   if (now - (lifeTick.at || 0) < 200) return;
   lifeTick.at = now;
+  if (crowd && crowd.kind === 'celebrate' && crowd.cel && crowd.sh && !replay) {     // жест автора — и на слабом телефоне (поза и цель бега)
+    const p = players[crowd.sh], age = now - (crowd.t0 || now);
+    if (p) {
+      const d = dd(p, crowd.to), k = celPose(crowd.cel, d, age);
+      lifePose(p, k, 450);
+      if (k === 'plane' && age > 500) {                // самолётик: «облетает» круг у места празднования, крылья наклонены в вираж
+        const a = age / 650;
+        focus[crowd.sh] = {x: crowd.to.x + Math.cos(a) * 22, y: crowd.to.y + Math.sin(a) * 22, sp: 'run'};
+      } else if (CEL_FACE[crowd.cel] && k !== 'cele' && k !== 'kneel' || crowd.cel === 'knees' && d < 12 || crowd.cel === 'fans' && d < 12) {
+        p.face = {a: Math.PI / 2 - cam.r, until: now + 450};      // повернулся к камере
+      }
+    }
+  }
   if (!lifeOK()) { dissent = null; return; }
   if (crowd && crowd.kind === 'celebrate') {          // гол: автор — «самолётик», у углового — прыгают и обнимаются; соперники — руки на голове / на поясе
     for (const p of teamPlayers(crowd.t, true)) {
       const d = dd(p, crowd.to);
-      if (key(p.t, p.s) === crowd.sh) lifePose(p, d > 34 ? 'plane' : 'cele', 450);
-      else if (d < 40) { lifePose(p, (p.s + Math.floor(now / 900)) % 3 ? 'hug' : 'cele', 450); p.face = {a: Math.atan2(crowd.to.y - p.y, crowd.to.x - p.x), until: now + 300}; }
+      if (key(p.t, p.s) === crowd.sh) { if (!crowd.cel) lifePose(p, d > 34 ? 'plane' : 'cele', 450); }   // с жестом — выше
+      else if (d < (crowd.cel ? 70 : 40)) { lifePose(p, crowd.cel ? 'cele' : (p.s + Math.floor(now / 900)) % 3 ? 'hug' : 'cele', 450); p.face = {a: Math.atan2(crowd.to.y - p.y, crowd.to.x - p.x), until: now + 300}; }
     }
     for (const p of teamPlayers(1 - crowd.t, true)) lifePose(p, (p.s + p.t) % 3 ? 'hips' : 'headh', 450);
     return;
@@ -1958,6 +2077,7 @@ function updatePlay(now) {
   moveRef(dt, now);
   moveARs(dt);
   moveGone(dt, now);
+  medicTick(now);
 }
 function spaceOut(list, tg) {              // партнёры без особой задачи не стоят кучкой: держат дистанцию ~3,5 м
   if (crowd || brawl || !S || S.phase !== 'play') return;
@@ -2247,6 +2367,11 @@ function target0(p, now) {
   if (brawl && brawl.tgt[k]) return {x: brawl.tgt[k].x, y: brawl.tgt[k].y, sp: brawl.tgt[k].sp || 'sprint', bw: true};
   if (dissent && dissent.map[k]) { const ds = dissentSpot(k); if (ds) return ds; }   // спорит с судьёй
   if (crowd && !p.gk) {
+    if (crowd.kind === 'celebrate' && p.t === crowd.t && crowd.cel) {     // жест: партнёры полукругом за автором (по экрану выше), не заслоняют его
+      const i = teamPlayers(p.t, true).filter(q => q.s < p.s && key(q.t, q.s) !== crowd.sh).length;   // место в полукруге — по порядку
+      const a = Math.atan2(-Math.cos(cam.r), -Math.sin(cam.r)) + (i - 2) * .5;
+      return {x: crowd.to.x + Math.cos(a) * 86, y: crowd.to.y + Math.sin(a) * 86, sp: 'sprint'};
+    }
     if (crowd.kind === 'celebrate' && p.t === crowd.t) return {...near2(crowd.to, p, 20), sp: 'sprint'};
     if (crowd.kind === 'box') return {...cornerSpot(p), sp: 'sprint'};
     if (crowd.kind === 'wall' && p.t === crowd.t) return {x: crowd.to.x + ((p.s % 4) - 1.5) * 15, y: crowd.to.y, sp: 'run'};
@@ -2408,6 +2533,7 @@ function onState(m) {                      // полное состояние: �
   queue = []; step = null; focus = {}; crowd = null; stopped = false; fan = pyro = null; holder = null; restart = null;
   fetch = acquire = carry = null; ref.job = ref.dest = null;
   gone = []; subBoard = null; foam = null; endReplay(); REC.buf = [];                 // перезаход — без анимаций ухода и повтора
+  if (medic) { medic.p.lie = false; medic = null; }                                    // и без врачей (унесённый остаётся у тоннеля)
   syncLineup(); feedEl.textContent = ''; addFeed(m.feed || [], false);
   statusUntil = performance.now() + (S.left || 0) * 1000;
   renderBoard(); note('');
@@ -2886,7 +3012,7 @@ function drawPlayer(p, now) {
   // фигурка сверху: четыре тени от прожекторов, ноги в беге, шорты, руки, футболка с объёмом, голова с причёской
   const tm = S.teams[p.t];
   const K = kitOf(p.t), kit = p.gk ? K.gk : K, shirt = kit.c1;
-  const down = downed && downed.k === key(p.t, p.s) && now < downed.until && (downed.roll ? 'roll' : true);   // roll — катается, за лицо
+  const down = p.lie || p.hurt ? true : downed && downed.k === key(p.t, p.s) && now < downed.until && (downed.roll ? 'roll' : true);   // roll — катается, за лицо; lie/hurt — травма
   const active = !!focus[key(p.t, p.s)];
   const v = Math.hypot(p.vx || 0, p.vy || 0);
   const facing = p.face && now < p.face.until;
@@ -2927,7 +3053,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   const side = Math.abs(sx) > .62, back = !side && sy < 0, face = sx >= 0 ? 1 : -1;
   const shorts = kit ? kit.sh : p.gk ? '#1f2937' : tm.shorts, sock = kit ? kit.so : p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : mix(tm.shorts, -.12), boot = '#0b0f19';
   const pw = clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1), run = v > .12;
-  const amp = run ? Math.min(1, v / 2.6) * (.7 + .3 * pw) : 0, ph = p.stride, sw = Math.sin(ph) * amp;
+  const amp = run && pz !== 'kneel' && pz !== 'flip' ? Math.min(1, v / 2.6) * (.7 + .3 * pw) : 0, ph = p.stride, sw = Math.sin(ph) * amp;   // на коленях — едет, не шагает
   const hop = run ? Math.abs(Math.cos(ph)) * 1.4 * amp : 0;              // тело чуть подпрыгивает на шаге
   g.save(); g.translate(p.x, p.y); g.scale(PS, PS); g.lineCap = 'round'; g.lineJoin = 'round';
   if (down || pz === 'slide') {                                         // лежит / подкат: тело вдоль газона
@@ -2957,13 +3083,22 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     shaded(23, -12, 2.8, 2.6, '#e5e7eb'); shaded(23, -4, 2.8, 2.6, '#e5e7eb');
     g.restore(); return;
   }
-  const knees = pz === 'knees';
-  const jumpy = pz === 'cele' || pz === 'hug';                          // празднуют — подпрыгивают (каждый в своём ритме)
-  const lift = pz === 'head' ? 11 : jumpy ? Math.max(0, Math.sin(now / 150 + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : 5) : 0;
+  const knees = pz === 'knees', kneel = pz === 'kneel';
+  if (pz === 'flip') {                                                  // кувырок: оборот вокруг пояса над газоном, потом пауза
+    const k = Math.min(1, (now % 1100) / 800);
+    g.translate(0, -12 - Math.sin(k * Math.PI) * 7); g.rotate(ease(k) * Math.PI * 2 * face); g.translate(0, 12);
+  }
+  const jumpy = pz === 'cele' || pz === 'hug' || pz === 'dance';      // празднуют — подпрыгивают (каждый в своём ритме)
+  const lift = pz === 'head' ? 11 : jumpy ? Math.max(0, Math.sin(now / 150 + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : pz === 'dance' ? 2 : 5) : 0;
   const lean = (side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (pz === 'butt' ? .38 : pz === 'chest' ? .12 : pz === 'grab' ? .1 : 0) + (knees ? .3 : 0)) : 0)
-             + (pz === 'plane' ? Math.sin(now / 260 + (p.s || 0)) * .16 : 0);   // «самолётик» — покачивает крыльями
+             + (pz === 'plane' ? .32 + Math.sin(now / 260 + (p.s || 0)) * .12 : 0)    // «самолётик» — заложил вираж, покачивает крыльями
+             + (pz === 'dance' ? Math.sin(now / 210) * .34 : 0) + (kneel ? (side ? -face * .2 : 0) : 0)   // танец — качается; на коленях — откинулся
+             + (pz === 'shh' ? Math.sin(now / 420) * .06 : 0);
+  if (pz === 'dance') g.translate(Math.sin(now / 210) * 3.5, 0);            // и бёдра в сторону
+  const celLift = pz === 'fans' ? Math.abs(Math.sin(now / 190)) * 10 : pz === 'flex' ? Math.abs(Math.sin(now / 300)) * 2 : 0;   // к трибунам — прыгает
+  if (celLift) g.translate(0, -celLift);
   g.translate(0, -lift); g.rotate(lean);
-  const hip = -15 - hop * .5 + (knees ? 1.5 : 0), shoulder = hip - (knees ? 10 : 13), neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже
+  const hip = -15 - hop * .5 + (knees ? 1.5 : 0) + (kneel ? 6 : 0), shoulder = hip - (knees ? 10 : 13), neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже
   // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса
   for (const i of [-1, 1]) {
     const far = side ? (i === face ? 0 : 1) : 0;                       // дальняя нога в профиль — темнее
@@ -3012,12 +3147,21 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (pz === 'plane') { hx = sh.x + i * 13; hy = shoulder + 1 + i * 2; }                        // «самолётик»
     if (pz === 'hug') { hx = side ? sh.x + face * 9 : i * 2.5; hy = side ? shoulder + 2 : shoulder + (back ? -2 : 4); }   // обнимает партнёров
     if (pz === 'guard') { hx = i * 1.2; hy = hip + 1; }                                           // в стенке: руки перед собой
+    if (kneel) { hx = sh.x + i * 11; hy = shoulder - 12; eo = 2.5; }                              // на коленях: руки широко вверх
+    if (pz === 'flip') { hx = sh.x + i * 3; hy = shoulder - 11; }                                 // кувырок: руки над головой
+    if (pz === 'plane') { hx = sh.x + i * 16; hy = shoulder + 1; eo = 0; }                        // самолётик: руки строго в стороны
+    if (pz === 'fans') { const w = Math.sin(now / 190 + (i > 0 ? 0 : 1.6)); hx = sh.x + i * 3.5; hy = shoulder - 15 - w * 3; eo = .5; }   // к трибунам: качает руками вверх
+    if (pz === 'dance') { const w = Math.sin(now / 210) * i; hx = sh.x + i * (w > 0 ? 4 : 7); hy = w > 0 ? shoulder - 13 : hip - 1; eo = w > 0 ? 1 : 4; }   // танец: рука вверх — другая на поясе, по очереди
+    if (pz === 'flex') { const w = Math.sin(now / 300) * 1.5; hx = sh.x + i * 10; hy = shoulder - 8 - w; eo = 0; }   // бицепс: плечо в сторону, предплечье вверх
+    if (pz === 'heart') { hx = i * 1.6; hy = shoulder - 9; eo = 6; }                              // «сердце» руками над головой
+    if (pz === 'shh') { if (i === 1) { hx = 1.2; hy = head + 2.5; eo = 5; } else { hx = sh.x - 5; hy = hip + 2; } }   // «тише»: палец к губам, другая рука отведена
     if (pz === 'call' && i === 1) { const w = Math.sin(now / 95 + (p.s || 0)); hx = sh.x + 2 + w * 2.5; hy = shoulder - 11 + Math.abs(w); }   // «дай!» — машет поднятой рукой
     if ((pz === 'point' || pz === 'shout') && i === 1) { hx = sh.x + gx * 11; hy = sh.y + gy * 7 - 1; }   // показывает рукой, куда
     if (pz === 'shout' && i === -1) { hx = side ? face * 2.6 : 1.4; hy = head + 2; }              // и кричит, ладонь у рта
     if (pz === 'adv') { hx = sh.x * 1.8 + gx * 12; hy = sh.y + gy * 5 + 2; }                       // «преимущество»: обе руки вперёд по ходу атаки
     if (pz === 'flag' && opt.flag && p.pose && p.pose.dir !== undefined && i === 1) { hx = sh.x + gx * 8; hy = shoulder - 9 + gy * 4; }   // флажок — наискось, в сторону атаки
-    const ex = (sh.x + hx) / 2 + i * eo, ey = (sh.y + hy) / 2;
+    let ex = (sh.x + hx) / 2 + i * eo, ey = (sh.y + hy) / 2;
+    if (pz === 'flex') { ex = sh.x + i * 10.5; ey = sh.y + .5; }                                          // бицепс: локоть на уровне плеча
     const sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
     g.strokeStyle = behind ? mix(sl, -.3) : sl; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
     if (kit) {                                                          // манжета рукава — цветом окантовки
@@ -3025,6 +3169,12 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
       g.strokeStyle = behind ? mix(kit.co, -.3) : kit.co; g.lineWidth = 3.7; g.lineCap = 'butt'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke(); g.lineCap = 'round';
     }
     g.strokeStyle = behind ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(ex, ey); g.lineTo(hx, hy); g.stroke();
+    if (pz === 'flex') { blob(hx, hy - .5, 2.4, 2.4, L.skin); blob(ex - i * 1.2, ey - 2.4, 2.2, 1.8, L.skin); }   // кулак и бицепс
+    if (pz === 'heart' && i === 1 && !behind) {                                                  // сердце между ладонями
+      g.fillStyle = '#ef4444'; blob(-1.3, shoulder - 13, 1.6, 1.5, '#ef4444'); blob(1.3, shoulder - 13, 1.6, 1.5, '#ef4444');
+      g.beginPath(); g.moveTo(-2.9, shoulder - 12.6); g.lineTo(0, shoulder - 9.6); g.lineTo(2.9, shoulder - 12.6); g.fill();
+    }
+    if (pz === 'shh' && i === 1) { g.strokeStyle = L.skin; g.lineWidth = 1.3; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx, hy - 3.5); g.stroke(); }   // палец у губ
     if (gloves) blob(hx, hy, 2.2, 2.2, '#e5e7eb');
     if (i === 1 && !behind && opt.ref && pz === 'card') { g.fillStyle = p.card === 'red' ? '#dc2626' : '#facc15'; g.fillRect(hx - 2.2, hy - 7, 4.4, 6); }
     if (i === 1 && !behind && opt.flag) {                              // флажок: древко и клетчатое полотнище
@@ -3333,7 +3483,12 @@ function drawBanners(now) {
     g.restore();
   }
 }
+let derbyFire = 0;                                 // дерби: когда следующие файеры
 function crowdFlashes(now) {                       // вспышки телефонов и фотоаппаратов на трибуне, которая встала
+  if (S && S.derby && stands && !perf.lite && (S.phase === 'play' || S.phase === 'half') && Math.random() < .35) {   // дерби: вспышки по всему кругу
+    const d = ROWS[Math.floor(Math.random() * ROWS.length)], p = ring(d, Math.random() * ringLen(d));
+    g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(p.x + p.nx, p.y + p.ny, 1.4, 0, 7); g.fill();
+  }
   if (!jump || now > jump.until || !stands) return;
   for (let i = 0; i < 7; i++) {
     const d = ROWS[Math.floor(Math.random() * ROWS.length)], P = ringLen(d), p = ring(d, Math.random() * P);
@@ -3492,9 +3647,10 @@ function camUpdate(now, dt) {
   }
   let dr = t.r - cam.r; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
   [cam.r, cam.vr] = spring(cam.r, cam.vr, cam.r + dr, 1.15, dt);            // поворот — медленнее всего
-  [cam.z, cam.vz] = spring(cam.z, cam.vz, t.drone ? t.z : Math.max(t.z, zMin(cam.r)), 1.5, dt);
-  [cam.x, cam.vx] = spring(cam.x, cam.vx, t.x, 2.1, dt);
-  [cam.y, cam.vy] = spring(cam.y, cam.vy, t.y, 2.1, dt);
+  const fast = shotCam && shotCam.fast && now < shotCam.until ? 2.6 : 1;    // крупный план жеста — наезд быстрее (успеть, пока жест идёт)
+  [cam.z, cam.vz] = spring(cam.z, cam.vz, t.drone ? t.z : Math.max(t.z, zMin(cam.r)), 1.5 * fast, dt);
+  [cam.x, cam.vx] = spring(cam.x, cam.vx, t.x, 2.1 * fast, dt);
+  [cam.y, cam.vy] = spring(cam.y, cam.vy, t.y, 2.1 * fast, dt);
   cam.z = Math.max(cam.z, t.drone || cam.z < .999 ? droneZ() * .9 : 1);    // ниже 1 — только дрон (и пока он спускается обратно)
   [cam.tl, cam.vtl] = spring(cam.tl, cam.vtl, t.tilt || 0, 1.3, dt);     // наклон дрона: 0 — сверху, 1 — сбоку
   if (cam.tl < .002 && !t.tilt) cam.tl = cam.vtl = 0;
@@ -4229,12 +4385,17 @@ function frame(now) {
     drawMonitor(now);
     drawRef(now);
     drawARs(now);
-    if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) startWave(now); nextWave = now + rnd(25000, 50000); }
+    if (!wave && (S.phase === 'play' || S.phase === 'half') && !stopped && now > nextWave) { if (nextWave) startWave(now); nextWave = now + rnd(25000, 50000) * (S.derby ? .55 : 1); }
+    if (S.derby && !perf.lite && S.phase === 'play' && !stopped && now > derbyFire) {   // дерби: файеры то с одной, то с другой трибуны
+      if (derbyFire) lightFlares(Math.random() < .5 ? 0 : 1, 2, 3800);
+      derbyFire = now + rnd(16000, 30000);
+    }
     camIdle(now);
     updateDrums(now);
     ambTick();
     const scr = q => Math.sin(cam.r) * q.x + Math.cos(cam.r) * q.y;          // глубина на экране
     const list = (R ? R.list.slice() : [...Object.values(players), ...gone]).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => scr(a) - scr(b));   // ушедшие в тоннель не видны
+    drawMedic(now);                             // врачи и носилки — под игроками (лежащий — на носилках)
     for (const p of list) drawPlayer(p, now);
     drawFoam(now);                              // пена — поверх ног: у мяча всегда толпятся бьющий, судья и стенка
     drawSubBoard(now);
@@ -4851,10 +5012,11 @@ function demo() {
   (Q.get('shirts') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].shirt = hx(a); if (st.teams[t] && hx(b)) st.teams[t].shorts = hx(b); });
   (Q.get('kit') || '').split(',').forEach((v, t) => { const [p, c2, so, co, gl] = v.split('.'); if (st.teams[t] && p) st.teams[t].kit = {p, c2: hx(c2), so: hx(so), co: hx(co), gl: gl === '1' ? 1 : undefined}; });
   (Q.get('gk') || '').split(',').forEach((v, t) => { const [a, b] = v.split('.'); if (st.teams[t] && hx(a)) st.teams[t].kit = {...(st.teams[t].kit || {}), gk: [hx(a), hx(b)]}; });
+  if (Q.get('derby') === '1') st.derby = true;        // ?derby=1 — дерби: плашка у табло, трибуны громче
   let seq = 0, halfEnd = 0;
   const HALF = Q.get('half') !== null ? Number(Q.get('half')) || 0 : 45;   // в демо перерыв короче настоящего (3 мин) — дрон тот же
   onState({seq: seq++, state: st, feed: [{m: 0, c: 'Демо: соперники и события случайные — так сцена выглядит в матче.'}]});
-  const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'fkduel', 'stop'];
+  const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'fkduel', 'stop', 'injury'];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const field = tm => [...tm.def, ...(tm.mid || []), ...tm.att];
   const BRAWL_Q = ['scuffle', 'fight', 'mass'].includes(Q.get('brawl')) ? Q.get('brawl') : null;   // ?brawl=scuffle|fight|mass — драка этого уровня с 3-й минуты и каждые 5 минут
@@ -4885,11 +5047,11 @@ function demo() {
       if (k === 'goal' || k === 'save' || k === 'miss') {
         tm.shots++; if (k !== 'miss') tm.on++;
         if (k === 'goal') tm.score++;
-        acts.push({a: k, t, s, how: 'удар', score: [st.teams[0].score, st.teams[1].score]});
+        acts.push({a: k, t, s, how: 'удар', score: [st.teams[0].score, st.teams[1].score], ...(k === 'goal' ? demoCel() : {})});
         feed.push({m: st.minute, t: `${st.minute}' ` + (k === 'goal' ? `⚽ ГОЛ! ${nm} — ${st.teams[0].score}:${st.teams[1].score}` : k === 'save' ? `🧤 Вратарь отбивает удар ${nm}` : `💨 ${nm} — мимо`)});
       } else if (k === 'corner' && Math.random() < .5) {     // угловой → удар головой
         tm.corners++; tm.shots++; tm.on++; const g2 = Math.random() < .4; if (g2) tm.score++;
-        acts.push({a: 'corner', t}, {a: g2 ? 'goal' : 'save', t, s, how: 'удар после углового', score: [st.teams[0].score, st.teams[1].score]});
+        acts.push({a: 'corner', t}, {a: g2 ? 'goal' : 'save', t, s, how: 'удар после углового', score: [st.teams[0].score, st.teams[1].score], ...(g2 ? demoCel() : {})});
         feed.push({m: st.minute, t: `${st.minute}' 🚩 Угловой! → ` + (g2 ? `⚽ ГОЛ! ${nm}` : `🧤 вратарь спасает`)});
       } else if (k === 'corner') { tm.corners++; acts.push({a: 'corner', t}, {a: 'clear', t}); feed.push({m: st.minute, t: `${st.minute}' 🚩 Угловой! → 🧱 защита выносит мяч`}); }
       else if (k === 'fk') { acts.push({a: 'foul', t: 1 - t, s: pick(field(st.teams[1 - t])).s, v: s}, {a: 'fk', t}, {a: 'miss', t, s, how: 'штрафной'}); feed.push({m: st.minute, t: `${st.minute}' 🛑 Фол → 🎯 Опасный штрафной! → мимо`}); }
@@ -4900,6 +5062,7 @@ function demo() {
       else if (k === 'fkduel' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t, true); return; }
       else if (k === 'pen') { const scored = Math.random() < .7; if (scored) tm.score++; acts.push({a: 'foul', t: 1 - t, s: pick(field(st.teams[1 - t])).s, v: s}, {a: 'pen', t}, {a: scored ? 'goal' : 'save', t, s, how: 'пенальти', score: [st.teams[0].score, st.teams[1].score]}); feed.push({m: st.minute, t: `${st.minute}' 🥅❗ ПЕНАЛЬТИ!`}); }
       else if (k === 'stop') { acts.push({a: 'stop', what: pick(['fan', 'pyro'])}, {a: 'resume'}); feed.push({m: st.minute, t: `${st.minute}' 🚨 Матч остановлен`}); }
+      else if (k === 'injury' && Q.get('injury') !== '0') demoInjury(st, t, false, acts, feed);   // в случайных — только ушиб (состав не меняется)
       if (Math.random() < .5) feed.push({m: st.minute, c: pick(['Красиво, но бесполезно — как зонтик в метро.', 'Тренер на бровке жуёт жвачку с яростью философа.', 'Мяч круглый, а вот идеи у команды — квадратные.'])});
     }
     if (st.minute === 30) { acts.push({a: 'whistle', w: 'half'}); if (HALF) { st.phase = 'half'; st.left = HALF; halfEnd = performance.now() + HALF * 1000; } }
@@ -4914,14 +5077,19 @@ function demo() {
 function demoScript(st, acts, feed) {
   if (Q.get('script') === '0') return false;
   const m = st.minute, tag = p => `№${p.n} ${p.nm}`;
-  if (m === 4) {                                    // гол с игры — после празднования повтор
+  const inj = Q.get('injury');                      // ?injury=light|heavy — только этот вид травмы, 0 — без травм
+  if (m === 4) {                                    // гол с игры — празднование (?celeb=ключ) и повтор
     const tm = st.teams[0], p = tm.att[0]; tm.shots++; tm.on++; tm.score++;
-    acts.push({a: 'goal', t: 0, s: p.s, how: 'удар', score: [st.teams[0].score, st.teams[1].score]});
+    acts.push({a: 'goal', t: 0, s: p.s, how: 'удар', score: [st.teams[0].score, st.teams[1].score], ...demoCel()});
     feed.push({m, t: `${m}' ⚽ ГОЛ! ${tag(p)} — ${st.teams[0].score}:${st.teams[1].score}`});
   } else if (m === 9) {                             // опасный штрафной без дуэли: стенка, пена, удар дугой с закруткой
     const tm = st.teams[1], p = tm.att[0], f = st.teams[0].def[0]; tm.shots++; tm.on++; tm.score++;
-    acts.push({a: 'foul', t: 0, s: f.s, v: p.s}, {a: 'fk', t: 1}, {a: 'goal', t: 1, s: p.s, how: 'штрафной', score: [st.teams[0].score, st.teams[1].score]});
+    acts.push({a: 'foul', t: 0, s: f.s, v: p.s}, {a: 'fk', t: 1}, {a: 'goal', t: 1, s: p.s, how: 'штрафной', score: [st.teams[0].score, st.teams[1].score], ...demoCel()});
     feed.push({m, t: `${m}' 🛑 Фол → 🎯 Опасный штрафной! ⚽ ГОЛ! ${tag(p)} — ${st.teams[0].score}:${st.teams[1].score}`});
+  } else if (m === 6 && inj !== '0' && inj !== 'heavy') {   // ушиб: медик, игрок встаёт
+    demoInjury(st, 0, false, acts, feed);
+  } else if (m === (inj === 'heavy' ? 6 : 11) && inj !== '0' && inj !== 'light') {  // тяжёлая травма (?injury=heavy — уже на 6-й): носилки, к тоннелю, выходит запасной
+    demoInjury(st, 1, true, acts, feed);
   } else if (m === 13) {                            // замена: уходит полузащитник, выходит запасной
     const tm = st.teams[0], line = tm.mid.length ? tm.mid : tm.def, out = line[0], inn = {s: 8, n: 14, nm: 'Аль Новиков', y: 0, c: false, pw: 100};
     line[0] = inn;
@@ -4935,6 +5103,27 @@ function demoScript(st, acts, feed) {
     feed.push({m, t: `${m}' 🟥 Вторая жёлтая — удаление! ${tag(p)} (${tm.name})`});
   } else return false;
   return true;
+}
+// демо: жест автора гола — ?celeb=plane|roll|shh|knees|dance|biceps|heart|fans (все голы), 0 — без жеста; иначе по очереди все
+function demoCel() {
+  const q = Q.get('celeb');
+  if (q === '0') return {};
+  demoCel.n = (demoCel.n || 0) + 1;
+  return {celebration: CELEB[q] ? q : Object.keys(CELEB)[(demoCel.n - 1) % 8]};
+}
+// демо: травма как от бота — лёгкая (ушиб, «игра возобновлена») или тяжёлая (носилки, замена, «игра возобновлена»)
+function demoInjury(st, t, heavy, acts, feed) {
+  const tm = st.teams[t], line = tm.att.length ? tm.att : tm.def, p = line[0], m = st.minute;
+  if (!p) return;
+  acts.push({a: 'injury', t, s: p.s, heavy, n: p.n, nm: p.nm});
+  feed.push({m, t: `${m}' 🚑 №${p.n} ${p.nm} (${tm.name}) остаётся лежать на газоне — выбегает врач. Игра остановлена`});
+  if (heavy && !tm.def.concat(tm.mid || [], tm.att).some(x => x.s === 9)) {
+    const inn = {s: 9, n: 17, nm: tm.name.slice(0, 3) + ' Титов', y: 0, c: false, pw: 100};
+    line[0] = inn;
+    acts.push({a: 'sub', t, out: p.s, inn: inn.s, no: p.n, ni: inn.n});
+    feed.push({m, t: `${m}' 🚑 Носилки: ${p.nm} уносят с поля`}, {m, t: `${m}' 🔄 Замена в «${tm.name}»: выходит №${inn.n} ${inn.nm}, уходит №${p.n} ${p.nm}`});
+  } else feed.push({m, t: `${m}' 🩹 Ушиб: ${p.nm} поднимается и играет дальше`});
+  acts.push({a: 'resume'});
 }
 // демо мини-игры перерыва: раунды и ответы «как от бота»
 const DEMO_MG = {
