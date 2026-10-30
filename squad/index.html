@@ -252,8 +252,49 @@ tr[data-pedit]{cursor:pointer}
 .kits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
 .kits div{background:var(--card2);border-radius:12px;padding:8px 4px;text-align:center;font-size:13px;color:var(--muted)}
 .colors{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
-.kitprev{display:flex;align-items:flex-end;justify-content:center;gap:14px;margin:8px 0 6px}.kitprev svg.kitbig{width:120px;height:170px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}.kitgk{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--muted)}.kitgk svg.kitmid{width:66px;height:94px}
-.crgrid.kittabs .crt svg,.crgrid.kitready .crt svg{width:40px;height:57px}.crgrid.kittabs .crlet{height:57px;line-height:57px;font-size:20px}.kitx{float:right;background:none;border:0;color:var(--accent);font-size:12px;padding:0}
+/* 👕 витрина формы: карточка kitCard (уровни 1–5), переворот, распаковка, покупка уровней, «перед матчем» */
+.kc-sw{animation:kcsw 4s ease-in-out infinite}@keyframes kcsw{0%{transform:translateX(0)}65%,100%{transform:translateX(300px)}}
+.kc-pl{animation:kcpl 2.6s ease-in-out infinite alternate}@keyframes kcpl{from{opacity:.35}to{opacity:1}}
+.kc-sh{animation:kcsh 3.2s ease-in-out infinite alternate}@keyframes kcsh{from{opacity:.2}to{opacity:1}}
+.kc-tw{animation:kctw 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes kctw{0%,100%{opacity:.2;transform:scale(.5)}50%{opacity:1;transform:scale(1.15)}}
+.kc-run{animation:kcrun 7s linear infinite}@keyframes kcrun{to{stroke-dashoffset:-920}}
+.kflip:not(.bk) .kfb *,.kflip.bk .kff *{animation:none}
+.kflip{display:block;width:100%;padding:0;background:none;perspective:1000px;border-radius:16px}.kfi{position:relative;transition:transform .7s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}.kflip.bk .kfi{transform:rotateY(180deg)}
+.kff,.kfb{backface-visibility:hidden;-webkit-backface-visibility:hidden}.kfb{position:absolute;inset:0;transform:rotateY(180deg)}.kflip svg,.kub svg.kcard,.kgk svg{width:100%;height:auto;display:block;border-radius:16px}
+.kub{display:block;width:100%;padding:0;position:relative;overflow:hidden;border-radius:18px;background:radial-gradient(circle at 50% 55%,#1e293b,#05070c);color:#fff}
+.kub-card{opacity:0;transform:translateY(35%) scale(.55);animation:kubup .9s 1.15s cubic-bezier(.2,.9,.25,1.15) forwards}
+.kub-pk{position:absolute;left:30%;top:32%;width:40%;animation:kubsh .9s ease-in-out}.kub-pk svg{display:block;width:100%}
+.kub-lid{position:relative;z-index:1;margin-bottom:-2px;animation:kublid .8s .95s cubic-bezier(.3,.6,.3,1) forwards}.kub-box{animation:kubgo .35s 1.05s forwards}
+.kub-flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,#fff 0,rgba(255,255,255,.6) 30%,rgba(255,255,255,0) 70%);opacity:0;animation:kubfl .6s .9s forwards}
+.kub-cf{position:absolute;left:50%;top:42%}.kub-cf i{position:absolute;width:6px;height:10px;border-radius:2px;opacity:0;animation:kubcf 1.7s cubic-bezier(.15,.7,.4,1) forwards}
+.kub-t{position:absolute;left:0;right:0;top:12px;text-align:center;font-weight:700;font-size:16px;line-height:1.2;color:#fff;text-shadow:0 2px 10px #000;opacity:0;transform:scale(.6);animation:kubt .5s 1.9s cubic-bezier(.2,.9,.3,1.4) forwards}
+@keyframes kubup{to{opacity:1;transform:none}}@keyframes kubsh{0%,100%{transform:none}15%,55%{transform:rotate(-5deg) translateX(-3%)}35%,75%{transform:rotate(5deg) translateX(3%)}}
+@keyframes kublid{to{transform:translateY(-260%) rotate(-28deg);opacity:0}}@keyframes kubgo{to{opacity:0;transform:scale(1.4)}}@keyframes kubfl{30%{opacity:1}to{opacity:0}}
+@keyframes kubcf{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.3)}80%{opacity:1}to{opacity:0;transform:translate(var(--x),var(--y)) rotate(var(--r))}}@keyframes kubt{to{opacity:1;transform:none}}
+.kub.done .kub-card,.kub.done .kub-t{animation:none;opacity:1;transform:none}.kub.done .kub-pk,.kub.done .kub-cf{display:none}.kub.done .kub-flash{animation:none}.kub.done.rm .kub-flash{animation:kubfl .45s forwards}
+.khero{position:relative;margin:10px 0 2px;min-height:60px}.ktag{position:absolute;left:12px;top:10px;z-index:2;pointer-events:none;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(0,0,0,.45);color:#fff;letter-spacing:.04em}
+.ktag.l4,.klt.l4{background:linear-gradient(135deg,#fff4b8,#e8b923 40%,#9a6b00);color:#2a1c00}.ktag.l5,.klt.l5{background:linear-gradient(90deg,#ff1f8f,#a855f7,#00e5ff);color:#fff}
+.kcap{text-align:center;margin:4px 0 6px}
+.kchips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:2px 0 8px}.kshop .sub{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:6px}.kchips button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border-radius:12px;background:var(--card2);padding:6px 2px;font-size:11px;font-weight:600;line-height:1.15}
+.kchips small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;margin-top:2px}.kchips .on{box-shadow:0 0 0 2px var(--accent) inset}.kchips .own small{color:#4ade80}
+.kacts{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:stretch;margin-top:8px}.kacts.one{grid-template-columns:1fr}
+.ktry{border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:10px 14px;background:rgba(255,255,255,.06);font-weight:700;font-size:14px;box-shadow:0 0 16px rgba(94,181,247,.25)}
+.kbuy{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border-radius:16px;padding:10px 12px;font-weight:800;font-size:14.5px;line-height:1.2;text-align:left;color:#2a1c00;overflow:hidden;
+ background:linear-gradient(135deg,#fff4b8,#f5c542 35%,#e8a90c 70%,#ffe27a);box-shadow:0 6px 22px rgba(245,197,66,.38),inset 0 1px 0 rgba(255,255,255,.7)}
+.kbuy.l5{background:linear-gradient(120deg,#ff5fc8,#a855f7 40%,#22d3ee);color:#fff;box-shadow:0 6px 24px rgba(168,85,247,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+.kbuy.l2,.kbuy.l3{background:linear-gradient(135deg,#7cc4ff,#2f8ff0 55%,#1f6fd1);color:#fff;box-shadow:0 6px 20px rgba(47,143,240,.4),inset 0 1px 0 rgba(255,255,255,.45)}
+.kbuy::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-100%);animation:kbsh 3.2s ease-in-out infinite}@keyframes kbsh{60%,100%{transform:translateX(100%)}}
+.kbuy .pr{background:rgba(0,0,0,.22);color:#fff;border-radius:12px;padding:6px 10px;font-size:16px;white-space:nowrap}.kbuy small{display:block;font-weight:600;font-size:11.5px;opacity:.8}
+.kall{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;border:1px dashed rgba(245,197,66,.55);background:rgba(245,197,66,.08);border-radius:14px;padding:9px 12px;font-weight:600;font-size:13.5px;line-height:1.2;text-align:left}
+.kall b{margin-left:auto;white-space:nowrap}.kbadge{background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;letter-spacing:.04em}
+.kunder{display:grid;grid-template-columns:42% 1fr;gap:8px;align-items:center;margin:6px 0}.kunder.one{grid-template-columns:1fr}.kunder.one .kgk{width:50%;margin:0 auto}
+.kgk{text-align:center;font-size:11px;color:var(--muted)}.kgk span{display:block;margin-top:3px}
+.kpatch{display:flex;gap:8px;align-items:center;background:var(--card2);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}.kpatch b{color:var(--text)}
+.crgrid .crt svg.kmini{width:46px;height:50px}.crgrid.kittabs .crlet{height:50px;line-height:50px;font-size:20px}.kitx{float:right;background:none;border:0;color:var(--accent);font-size:12px;padding:0}
+.kduel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin:10px 0 2px}.kduel svg{width:100%;height:auto;display:block;border-radius:12px}.kvs{font-weight:900;font-size:16px;color:var(--muted)}
+.kdn{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px;font-size:12px;font-weight:700;min-width:0}.kdn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.klt{font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(127,127,127,.25);white-space:nowrap}.klt.l3{background:linear-gradient(135deg,#f1f5f9,#94a3b8);color:#1e293b}.klt.l2{background:#2f8ff0;color:#fff}
+@media (prefers-reduced-motion:reduce){.kc-sw,.kc-pl,.kc-sh,.kc-tw,.kc-run,.kbuy::after{animation:none}.kfi{transition:none}}
 .color{aspect-ratio:1;border-radius:50%;border:2px solid rgba(255,255,255,.35);max-width:36px;justify-self:center;width:100%}
 .color.on{outline:3px solid var(--accent);outline-offset:2px}
 .cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -704,7 +745,7 @@ function matchCard(m, title) {
   const o = m.offer;
   let x = `<div class="card${o || m.status === 'open' ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
     `<div class="row"><div>${crestSvg(crestOf(m))}<b>${esc(m.opp)}</b>${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
-    `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>`;
+    `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>` + kitDuel(m);
   if (o) x += `<div class="sub" style="color:#fde68a">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
     `<div class="mrow"><button type="button" class="ok" data-resp="acc" data-id="${m.id}">✅ Принять</button><button type="button" class="no" data-resp="dec" data-id="${m.id}">❌ Отказаться</button></div>` +
     (m.can_time ? `<button type="button" class="go" data-time="${m.id}">🕐 Предложить другое время</button>` : '');
@@ -781,6 +822,7 @@ function panelHead(title, small) {
 const lockBanner = () => S.locked ? `<div class="banner warn">${esc(S.locked)}</div>` : '';
 let panelSig = '';
 function renderPanel() {
+  if (PANEL && PANEL.k === 'kit' && KIT_UB && KIT_UB.node && !KIT_UB.over && document.contains(KIT_UB.node)) return;      // идёт распаковка — не прерываем
   const m = M(); if (!m && !NO_CLUB_PANELS.includes(PANEL.k)) { closeSheet(); return; }
   const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, P.sec, P.fx, !!P.report].join('|'), keep = {};
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
@@ -790,6 +832,7 @@ function renderPanel() {
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
     crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
   $('sheetin').innerHTML = h;
+  if (P.k === 'kit') kitAfter();
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
   formCheck(false);
 }
@@ -877,7 +920,8 @@ const KIT_LV_TEXT = ['', 'однотонные футболка и шорты, 9
 // готовые формы (общие названия, без настоящих клубов и брендов) и темы; уровень считает kitNeed — так же, как сервер
 const KIT_READY = [["Классика",{"s":"#dc2626","sh":"#f8fafc"}],["Ночной синий",{"s":"#2563eb","sh":"#111827"}],["Снежная",{"s":"#f8fafc","sh":"#111827"}],["Полосы",{"s":"#f8fafc","sh":"#111827","p":"stripes","c2":"#dc2626","so":"#dc2626"}],["Обручи",{"s":"#16a34a","sh":"#f8fafc","p":"hoops","c2":"#ffffff","so":"#16a34a"}],["Половинки",{"s":"#0b2a5b","sh":"#0b2a5b","p":"halves","c2":"#6cabdd","so":"#6cabdd"}],["Реглан",{"s":"#ffffff","sh":"#7a263a","p":"sleeves","c2":"#7a263a","so":"#ffffff"}],["Лента",{"s":"#ffffff","sh":"#111111","p":"sash","c2":"#dc2626","so":"#111111","co":"#dc2626"}],["Четвертинки",{"s":"#0b2a5b","sh":"#f8fafc","p":"quarters","c2":"#e8b923","so":"#0b2a5b","co":"#e8b923"}],["Галочка",{"s":"#111111","sh":"#111111","p":"chevron","c2":"#e8b923","so":"#e8b923","co":"#e8b923","gk":["#16a34a","#111111"]}],["Пастель",{"s":"#bae6fd","sh":"#ddd6fe","p":"hoops","c2":"#fbcfe8","so":"#ddd6fe"}]];
 const KIT_THEMES = [["Ретро 70-х",{"s":"#f97316","sh":"#92400e","p":"fade","c2":"#92400e","so":"#f97316","co":"#fbcfe8"}],["Киберпанк",{"s":"#111111","sh":"#111111","p":"chevron","c2":"#ff1f8f","so":"#a855f7","co":"#00e5ff","gk":["#39ff14","#111111"]}],["Ночь",{"s":"#0b2a5b","sh":"#111111","p":"camo","c2":"#111111","so":"#111111","co":"#00e5ff"}]];
-let KIT_DRAFT = null, KIT_SLOT = 'home', KIT_UID = 0;
+let KIT_DRAFT = null, KIT_SLOT = 'home', KIT_BACK = false;      // черновик, вкладка, карточка перевёрнута (спина)
+let KIT_TRY = 0, KIT_SEL = 0, KIT_PREV_LV = 0, KIT_UB = null, KIT_TILES = null, KIT_PTILES = null;      // примерка (уровень), выбранная плашка, уровень до оплаты, распаковка, плитки готовых
 function kitNeed(d) {      // какой уровень нужен форме — как app/kits.py level_of
   const L = KIT_EDITOR.levels, g = (o, k) => (k !== undefined && o[k]) || 1;
   let n = 1;
@@ -899,79 +943,228 @@ const kitLock = n => n > kitLv() ? ` lock" data-kitlock="${n}` : '';
 const kitLk = n => n > kitLv() ? `<i class="lk">ур. ${n}</i>` : '';
 const kitAlt = s => crestDark(s) ? '#f8fafc' : '#111827';      // второй цвет по умолчанию — контрастный, из базовых
 function kitDraft() { const E = H().kit_edit; if (!KIT_DRAFT) KIT_DRAFT = JSON.parse(JSON.stringify(E.design)); if (!KIT_DRAFT[KIT_SLOT]) KIT_SLOT = 'home'; return KIT_DRAFT; }
-// фигурка игрока в форме (спереди): футболка с узором, номер, воротник и манжеты, шорты, гетры; glow — свечение, gk — перчатки
-function kitFig(x, cls, opt) {
-  opt = opt || {};
-  const id = 'kf' + (++KIT_UID), s = x.s, sh = x.sh, p = x.p || 'plain', c2 = x.c2 || kitAlt(s);
-  const so = x.so || crestMix(sh, -.12), co = x.co || (p === 'plain' ? crestMix(s, -.4) : c2), skin = '#e3b28c', line = 'rgba(0,0,0,.35)';
-  const body = 'M34 32 L18 40 L9 58 L21 64 L28 53 L28 82 L72 82 L72 53 L79 64 L91 58 L82 40 L66 32 Q50 41 34 32Z';
-  let pat = '';
-  if (p === 'stripes') pat = [30, 42, 54, 66].map(v => `<rect x="${v}" y="28" width="6" height="56" fill="${c2}"/>`).join('');
-  else if (p === 'hoops') pat = [38, 50, 62, 74].map(v => `<rect x="0" y="${v}" width="100" height="6" fill="${c2}"/>`).join('');
-  else if (p === 'halves') pat = `<rect x="50" y="28" width="50" height="60" fill="${c2}"/>`;
-  else if (p === 'quarters') pat = `<rect x="50" y="28" width="50" height="27" fill="${c2}"/><rect x="0" y="55" width="50" height="30" fill="${c2}"/>`;
-  else if (p === 'sash') pat = `<path d="M22 28 L38 28 L82 86 L66 86Z" fill="${c2}"/>`;
-  else if (p === 'sleeves') pat = `<path d="M0 28 L35 28 L28 53 L28 72 L0 72Z M100 28 L65 28 L72 53 L72 72 L100 72Z" fill="${c2}"/>`;
-  else if (p === 'chevron') pat = `<path d="M22 40 L50 60 L78 40 L78 49 L50 69 L22 49Z" fill="${c2}"/>`;
-  else if (p === 'fade') pat = `<linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset=".12" stop-color="${c2}" stop-opacity="0"/><stop offset="1" stop-color="${c2}"/></linearGradient><rect x="0" y="30" width="100" height="54" fill="url(#${id}f)"/>`;
-  else if (p === 'camo') pat = [[30, 38, 9, 5, 1], [62, 41, 10, 5, 0], [46, 53, 11, 6, 1], [70, 62, 8, 5, 1], [32, 66, 9, 5, 0], [55, 75, 11, 5, 0], [38, 80, 7, 4, 1], [18, 50, 5, 7, 0], [82, 50, 5, 7, 1]]
-    .map(([cx, cy, rx, ry, c]) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(-25 ${cx} ${cy})" fill="${c ? c2 : crestMix(s, -.35)}"/>`).join('');
-  const num = ink(s), edge = num === '#fff' ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.7)';
-  const glow = opt.glow ? `<filter id="${id}w" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter><path d="${body}" fill="none" stroke="${co}" stroke-width="5" filter="url(#${id}w)" opacity=".95"/>` : '';
-  return `<svg class="${cls || ''}" viewBox="0 0 100 142" aria-hidden="true"><defs><clipPath id="${id}c"><path d="${body}"/></clipPath></defs>${glow}` +
-    `<rect x="45" y="22" width="10" height="12" fill="${crestMix(skin, -.12)}"/><circle cx="50" cy="16" r="10" fill="${skin}"/><path d="M40 15 Q41 4 50 5 Q60 4 60 15 Q55 9 50 10 Q44 9 40 15Z" fill="#3f2a1d"/>` +
-    `<circle cx="14" cy="66" r="4.2" fill="${opt.gk ? '#e5e7eb' : skin}"/><circle cx="86" cy="66" r="4.2" fill="${opt.gk ? '#e5e7eb' : skin}"/>` +
-    `<rect x="32" y="100" width="11" height="10" fill="${skin}"/><rect x="57" y="100" width="11" height="10" fill="${skin}"/>` +
-    `<rect x="32" y="108" width="11" height="26" rx="2" fill="${so}" stroke="${line}"/><rect x="57" y="108" width="11" height="26" rx="2" fill="${so}" stroke="${line}"/>` +
-    `<rect x="32" y="110" width="11" height="2.5" fill="${co}" opacity=".8"/><rect x="57" y="110" width="11" height="2.5" fill="${co}" opacity=".8"/>` +
-    `<ellipse cx="37" cy="137" rx="8" ry="4" fill="#0b0f19"/><ellipse cx="63" cy="137" rx="8" ry="4" fill="#0b0f19"/>` +
-    `<path d="M28 82 H72 L75 103 H53 L50 95 L47 103 H25Z" fill="${sh}" stroke="${line}" stroke-width="1.2"/>` +
-    `<path d="${body}" fill="${s}"/><g clip-path="url(#${id}c)">${pat}<rect x="0" y="79.5" width="100" height="3" fill="${co}"/></g>` +
-    `<path d="${body}" fill="none" stroke="${line}" stroke-width="1.2"/>` +
-    `<path d="M42 33 L50 41 L58 33" stroke="${co}" stroke-width="3" fill="none" stroke-linejoin="round"/><path d="M9.5 58 L21 63.5 M90.5 58 L79 63.5" stroke="${co}" stroke-width="3"/>` +
-    (opt.num ? `<text x="50" y="66" text-anchor="middle" font-size="17" font-weight="900" font-family="Trebuchet MS,sans-serif" fill="${num}" stroke="${edge}" stroke-width="1.6" paint-order="stroke">${opt.num}</text>` : '') + `</svg>`;
+// витрина формы: kitCard(комплект, уровень, opts) → SVG. Уровень (1–5) меняет отделку и подачу, а не цвета.
+// opts: {back — спина, name, num — фамилия и номер на спине, ab — буквы вместо эмблемы, crest — эмблема (разметка crestSvg),
+// patches ['league','cup'] — нашивки за трофеи, tryon — примерка, mini — плитка выбора, duel — малая карточка «перед матчем»}
+let KC_N = 0;
+function kitCard(x, lv, o) {
+  o = o || {}; lv = Math.min(5, Math.max(1, lv || 1));
+  const id = 'kc' + (++KC_N), s = x.s, sh = x.sh || s, p = x.p || 'plain', lt = !crestDark(s), c2 = x.c2 || (lt ? '#111827' : '#f8fafc');
+  const co = x.co || (p === 'plain' ? crestMix(s, lt ? -.55 : -.45) : c2), so = x.so || crestMix(sh, -.08), back = o.back, ik = ink(s);
+  const gold = lv >= 4, live = lv >= 5, G = `url(#${id}g)`, T = gold ? G : co, acc = gold ? co : c2 === co ? crestMix(co, .4) : c2;
+  const anim = live && !o.mini && !o.duel;      // анимации — только у большой карточки (плитки и «перед матчем» — без них)
+  const glw = !!(o.glow || x.gl), gc = crestDark(co) ? crestMix(co, .55) : co;      // свечение вечером: ореол и неон по канту в цвете отделки
+  const R = (a, b, c, d, f, e) => `<rect x="${a}" y="${b}" width="${c}" height="${d}" fill="${f}"${e || ''}/>`;
+  const P = (d, f, e) => `<path d="${d}" fill="${f}"${e || ''}/>`;
+  const L = (d, c, w, e) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"${e || ''}/>`;
+  const st = (c, a) => `stop-color="${c}"${a != null ? ` stop-opacity="${a}"` : ''}`;
+  const lg = (n, a, stops) => `<linearGradient id="${id}${n}" ${a}>` + stops.map(([q, c, w]) => `<stop offset="${q}" ${st(c, w)}/>`).join('') + `</linearGradient>`;
+  const neck = back ? 'C78 26 98 26 106 22' : 'C76 31 100 31 106 22';
+  const S = `M70 22${neck}C116 24 128 27 136 32C146 37 152 46 157 58L167 91C158 98 148 101 140 101L134 79C132 85 131 90 132 96C134 120 134 148 136 178C112 187 64 187 40 178C43 148 46 120 44 96C45 90 44 85 42 78L36 99C28 100 18 98 9 92L20 58C24 46 30 37 40 32C48 27 60 24 70 22Z`;
+  let pat = '', rnd = 7;      // узор повторяет складки (лёгкое смещение шумом)
+  const rn = () => (rnd = rnd * 16807 % 2147483647) / 2147483647;
+  if (p === 'stripes') for (let k = -6; k <= 6; k++) pat += R(84 + k * 16, 0, 8, 200, c2);
+  else if (p === 'hoops') for (let k = 0; k < 7; k++) pat += R(0, 40 + k * 24, 180, 12, c2);
+  else if (p === 'halves') pat = R(88, 0, 90, 200, c2);
+  else if (p === 'quarters') pat = R(88, 0, 90, 104, c2) + R(0, 104, 88, 100, c2);
+  else if (p === 'sash') pat = P(back ? 'M130 22H102L28 190H56Z' : 'M46 22H74L148 190H120Z', c2);
+  else if (p === 'sleeves') pat = P('M74 25C66 40 52 70 43 88L0 120V0ZM102 25C110 40 124 70 133 88L180 120V0Z', c2);
+  else if (p === 'chevron') pat = P('M34 58L88 96L142 58V79L88 117L34 79Z', c2);
+  else if (p === 'fade') pat = lg('f', 'x2="0" y2="1"', [[.25, c2, 0], [.95, c2]]) + R(0, 0, 180, 200, `url(#${id}f)`);
+  else if (p === 'camo') for (let i = 0; i < 34; i++) {      // рваные пятна трёх тонов
+    const cx = rn() * 180, cy = 14 + rn() * 180, r = 7 + rn() * 11, a0 = rn() * 6; let d = '';
+    for (let k = 0; k < 11; k++) { const a = a0 + k / 11 * 6.283, q = r * (.3 + rn()); d += (k ? 'L' : 'M') + (cx + Math.cos(a) * q * 1.6).toFixed(1) + ' ' + (cy + Math.sin(a) * q).toFixed(1); }
+    pat += P(d + 'Z', [c2, crestMix(s, lt ? -.28 : .2), crestMix(c2, lt ? .3 : -.35)][i % 3]);
+  }
+  const tex = lv >= 3 ? 'm' : lv >= 2 ? 'w' : '', warp = !!pat && !o.mini && !o.duel;      // складки узора шумом — только у большой карточки
+  const j = [...s + p].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5 - 2;      // складки чуть разные у разных форм
+  let fin = `<g filter="url(#${id}b)">` + L('M46 92C56 96 62 104 66 114M47 100C54 106 58 116 60 128M130 92C120 96 114 104 110 114M129 100C122 106 118 116 116 128M28 50C30 62 28 76 24 90M148 50C146 62 148 76 152 90', 'rgba(0,0,0,.3)', 3) +
+    L(`M${62 + j} 136C${60 - j} 152 62 166 ${60 + j} 182M${114 - j} 136C116 152 ${114 + j} 166 116 182`, 'rgba(0,0,0,.24)', 5) + L(`M70 58C${75 + j} 80 72 96 ${76 - j} 112M106 62C${101 - j} 82 104 98 ${100 + j} 114M50 177C56 ${172 + j} 62 174 68 179M108 179C114 ${175 - j} 120 174 126 177`, 'rgba(0,0,0,.2)', 2.2) + L('M67 138C65 154 67 168 65 182M109 138C111 154 109 168 111 182M58 98C62 104 64 110 66 118', 'rgba(255,255,255,.13)', 2.5) + `</g>`;
+  fin += R(0, 0, 180, 200, `url(#${id}h)`) + R(0, 0, 180, 200, `url(#${id}o)`) + R(0, 0, 180, 200, `url(#${id}v)`) + (tex ? R(0, 0, 180, 200, `url(#${id}${tex})`) : '');
+  if (lv >= 3) fin += L('M45 104C47 124 46 150 43 174M131 104C129 124 130 150 133 174', `url(#${id}q)`, 7) + L('M43 92C46 120 45 150 41 178M133 92C130 120 131 150 135 178', T, 1.8);
+  fin += L('M9 92C18 98 28 100 36 100M140 101C148 101 158 98 167 91', T, lv >= 2 ? 11 : 8) + (lv >= 3 ? L('M12 84C20 90 30 93 38 93M138 94C147 94 157 91 165 84', acc, 1.6) : '');
+  if (lv >= 3) fin += `<g${anim ? ' class="kc-sw"' : ''}>` + R(anim ? -80 : 52, -30, live ? 50 : 30, 260, `url(#${id}s)`, ' transform="rotate(20 88 100)"') + `</g>`;
+  if (anim) fin += R(0, 0, 180, 200, `url(#${id}o)`, ' class="kc-sh"');
+  const seam = 'M74 25C66 40 52 70 43 88M102 25C110 40 124 70 133 88M42 172C64 180 112 180 134 172M12 86C20 92 29 94 37 94M164 85C156 92 147 94 139 94';
+  let top = L(seam, 'rgba(0,0,0,.35)', 1.1) + L(seam, 'rgba(255,255,255,.32)', .6, ' stroke-dasharray="1.6 1.5"');
+  const inner = crestMix(s, -.62);      // воротник: внутренняя сторона, лента у ворота, бирка
+  if (!back) {
+    top += P('M70 22C76 13 100 13 106 22' + (lv >= 3 ? 'L88 42Z' : 'C100 31 76 31 70 22Z'), inner);
+    if (lv >= 2) top += L('M74 21C80 16 96 16 102 21', acc, 2.2, ` stroke-dasharray="1.4 1"`);
+    if (lv >= 3) top += R(83, 16.5, 10, 6, gold ? G : '#f1f5f9', ' rx="1"') + `<text x="88" y="21.3" text-anchor="middle" font-size="4" font-weight="700" fill="${gold ? '#3b2a05' : '#334155'}">${lv}★</text>`;
+  }
+  if (back) top += L('M70 22C78 26 98 26 106 22', T, 5);
+  else if (lv >= 3) top += P('M67 20L88 46L109 20L102 20L88 37L74 20Z', T) + P('M88 46L74 20L70 21L88 43Z', 'rgba(0,0,0,.25)') + L('M71 21L88 41.5L105 21', acc, .9) + L('M70 22C76 13 100 13 106 22', T, 3);
+  else top += L('M70 22' + neck, T, lv >= 2 ? 6 : 4) + (lv >= 2 ? L('M70 22' + neck, 'rgba(0,0,0,.28)', 6, ' stroke-dasharray=".5 1.2"') : '');
+  // номер и фамилия по дуге на спине; спереди — вышитая эмблема
+  const nf = 'font-family="Arial Black,Impact,Arial,sans-serif" font-weight="900" text-anchor="middle"', num = o.num || 10;
+  const nfill = lv >= 3 ? `url(#${id}n)` : ik, nst = gold ? '#2a1c00' : ik === '#fff' ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.7)';
+  if (glw) {      // неоновая трубка по манжетам, низу и вороту; на спине светится и номер
+    const tr = 'M9 92C18 98 28 100 36 100M140 101C148 101 158 98 167 91M40 178C64 187 112 187 136 178' + (back ? 'M70 22C78 26 98 26 106 22' : 'M70 22C76 13 100 13 106 22');
+    top += L(tr, gc, 4.5, ` filter="url(#${id}G)" opacity=".9"`) + L(tr, crestMix(gc, .6), 1.2);
+    if (back) top += `<text x="88" y="132" font-family="Arial Black,Impact,Arial,sans-serif" font-weight="900" text-anchor="middle" font-size="56" fill="none" stroke="${gc}" stroke-width="5" filter="url(#${id}G)" opacity=".85">${o.num || 10}</text>`;
+  }
+  if (back) top += (o.name ? `<path id="${id}a" d="M50 60Q88 46 126 60" fill="none"/><text ${nf} font-size="10.5" letter-spacing="1.4" fill="${nfill}" stroke="${nst}" stroke-width="1.3" paint-order="stroke"><textPath href="#${id}a" startOffset="50%">${esc(String(o.name).toUpperCase())}</textPath></text>` : '') +
+    (lv >= 3 ? `<text x="88.6" y="133.4" ${nf} font-size="56" fill="rgba(0,0,0,.4)">${num}</text>` : '') +
+    `<text x="88" y="132" ${nf} font-size="56" fill="${nfill}" stroke="${nst}" stroke-width="${lv >= 3 ? 2.6 : 2}" paint-order="stroke">${num}</text>` +
+    (lv >= 3 ? `<text x="88" y="132" ${nf} font-size="56" fill="url(#${id}e)" clip-path="url(#${id}u)">${num}</text>` : '');
+  else {
+    const sd = 'M0 0H20V12C20 19 14 22 10 24C6 22 0 19 0 12Z';
+    top += `<g transform="translate(104 50)">` + (lv >= 2 ? P(sd, '#000', ` opacity=".5" transform="translate(.8 1.3)" filter="url(#${id}b)"`) : '') + P(sd, co) +
+      (o.crest ? o.crest.replace(/^<svg class="[^"]*"/, '<svg width="20" height="24"') : `<text x="10" y="13.5" ${nf} font-size="7.5" fill="${ink(co)}">${o.ab || 'FC'}</text>`) +
+      (lv >= 2 ? P(sd, `url(#${id}w)`) + L('M1.6 1.6H18.4V12C18.4 18 13.4 20.6 10 22.3C6.6 20.6 1.6 18 1.6 12Z', gold ? G : ink(co), gold ? 1.1 : .7, ' stroke-dasharray="1.1 .8" opacity=".85"') : '') + `</g>`;
+    if (gold) top += `<text x="114" y="47" text-anchor="middle" font-size="5" fill="${G}">★★</text>`;
+  }
+  (o.patches || []).forEach((k, i) => { const cup = k === 'cup', sp = cup ? '<circle r="6.5"/>' : '<path d="M-5.5-6.5H5.5V1.5C5.5 4.5 3 6.5 0 7.5C-3 6.5-5.5 4.5-5.5 1.5Z"/>';      // нашивки на рукавах
+    top += `<g transform="translate(${i ? 150 : 26} 62) rotate(${i ? 22 : -22})"><title>${KIT_PATCH[k] || ''} — нашивка за трофей, не продаётся</title><g fill="#000" opacity=".45" transform="translate(.6 1)" filter="url(#${id}b)">${sp}</g>` +
+      `<g fill="${cup ? '#7a263a' : '#0b2a5b'}">${sp}</g><g fill="none" stroke="#f5c542" stroke-width="1" stroke-dasharray="1 .7" transform="scale(.78)">${sp}</g>` +
+      (cup ? P('M-3-3.6H3V-1.4A3 3 0 0 1-3-1.4ZM-.8 1.4H.8V2.8H2.2V4H-2.2V2.8H-.8Z', '#f5c542') : `<text y="3" text-anchor="middle" font-size="8" fill="#f5c542">★</text>`) + `</g>`;
+  });
+  const holo = [[0, '#ff7ad9'], [.3, '#7af0ff'], [.55, '#fff6a8'], [.8, '#b28cff'], [1, '#ff7ad9']];
+  const met = ik === '#fff' ? [[0, '#fff'], [.47, '#e2e8f0'], [.5, '#94a3b8'], [.62, '#f8fafc'], [1, '#cbd5e1']] : [[0, '#4b5563'], [.47, '#1f2937'], [.5, '#000'], [.62, '#374151'], [1, '#111827']];
+  const defs = `<clipPath id="${id}c"><path d="${S}"/></clipPath><clipPath id="${id}u"><rect y="70" width="180" height="40"/></clipPath>` +
+    `<filter id="${id}b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.8"/></filter>` +
+    (warp ? `<filter id="${id}d" filterUnits="userSpaceOnUse" x="-10" y="0" width="200" height="210"><feTurbulence type="fractalNoise" baseFrequency=".012 .035" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="8" xChannelSelector="R" yChannelSelector="G"/></filter>` : '') +
+    (glw ? `<filter id="${id}G" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>` : '') +
+    lg('h', '', [[0, '#000', .38], [.24, '#000', 0], [.76, '#000', 0], [1, '#000', .4]]) + lg('v', 'x2="0" y2="1"', [[0, '#fff', .1], [.45, '#fff', 0], [1, '#000', .26]]) +
+    `<radialGradient id="${id}o" cx=".52" cy=".36" r=".5"><stop offset="0" ${st('#fff', .17)}/><stop offset="1" ${st('#fff', 0)}/></radialGradient>` +
+    `<pattern id="${id}w" width="2" height="2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">${R(0, 0, 2, .7, '#000', ' fill-opacity=".12"')}</pattern>` +
+    `<pattern id="${id}m" width="3" height="2.6" patternUnits="userSpaceOnUse"><circle cx=".75" cy=".65" r=".6" fill="#000" fill-opacity=".22"/><circle cx="2.25" cy="1.95" r=".6" fill="#000" fill-opacity=".22"/></pattern>` +
+    `<pattern id="${id}q" width="3.2" height="3.2" patternUnits="userSpaceOnUse"><circle cx="1.6" cy="1.6" r=".6" fill="${crestMix(s, -.5)}" fill-opacity=".6"/></pattern>` +
+    lg('s', '', live ? [[0, '#fff', 0], [.35, '#e0f2fe', .22], [.5, '#fff', .5], [.65, '#fef9c3', .22], [1, '#fff', 0]] : [[0, '#fff', 0], [.5, '#fff', .22], [1, '#fff', 0]]) +
+    lg('n', 'x2="0" y2="1"', live ? holo : gold ? [[0, '#fff4b8'], [.45, '#e8b923'], [.5, '#8a5a00'], [.62, '#ffe27a'], [1, '#c9940a']] : met) +
+    lg('e', 'x2="0" y2="1"', [[0, '#fff', .55], [1, '#fff', 0]]) +
+    lg('g', 'x2="1" y2="1"', [[0, '#fff4b8'], [.35, '#e8b923'], [.6, '#9a6b00'], [1, '#f7d774']]);
+  const halo = glw ? L(S, gc, 8, ` filter="url(#${id}G)" opacity=".95"${anim ? ' class="kc-pl"' : ''}`) : '';
+  const shirt = `<g id="${id}S">` + halo + P(S, s) + `<g clip-path="url(#${id}c)">${warp ? `<g filter="url(#${id}d)">${pat}</g>` : pat}${fin}</g>` + top + L(S, 'rgba(0,0,0,.5)', 1) + `</g>`;
+  if (o.mini) return `<svg class="kcard kmini" viewBox="4 10 168 182" aria-hidden="true"><defs>${defs}</defs>${shirt}</svg>`;
+  // шорты с объёмом
+  const SH = 'M184 42C204 45 224 45 244 42C248 60 252 80 255 100C244 104 230 105 218 103L214 76L210 103C198 105 184 104 173 100C176 80 180 60 184 42Z', side = gold ? G : p !== 'plain' ? c2 : co;
+  const shorts = P(SH, sh) + `<g clip-path="url(#${id}p)">` + R(170, 42, 90, 8, crestMix(sh, -.3)) + (lv >= 2 ? L('M186 46H242', 'rgba(0,0,0,.3)', 7, ' stroke-dasharray=".6 2"') + L('M185 50C182 66 178 84 175 100M243 50C246 66 250 84 253 100', side, 3.5) : '') +
+    `<g filter="url(#${id}b)">` + L('M214 76V56M196 60C194 74 192 88 190 100', 'rgba(0,0,0,.3)', 2.5) + `<ellipse cx="194" cy="74" rx="7" ry="18" fill="#fff" opacity=".14"/><ellipse cx="236" cy="74" rx="7" ry="18" fill="#fff" opacity=".1"/></g>` +
+    R(170, 40, 90, 66, `url(#${id}h)`) + R(170, 40, 90, 66, `url(#${id}v)`) + (tex ? R(170, 40, 90, 66, `url(#${id}${tex})`) : '') + `</g>` +
+    L('M212 50C211 56 210 58 208 61M216 50C217 56 219 58 221 61', ink(sh), .9) + (lv >= 3 ? `<text x="192" y="96" ${nf} font-size="10" fill="${lv >= 4 ? `url(#${id}n)` : ink(sh)}">${num}</text>` : '') + L(SH, 'rgba(0,0,0,.5)', 1);
+  // гетры парой в ракурсе
+  const K = 'M0 4C-1 22 2 34 1 52L2 74C2 84 6 88 14 88H36C44 88 44 78 36 76L24 72C22 64 22 56 22 50C22 34 24 22 22 4Z';
+  const sock = (tx, ty, dk) => `<g transform="translate(${tx} ${ty})">` + P(K, so) + `<g clip-path="url(#${id}k)">` + R(-2, 8, 26, lv >= 2 ? 6 : 4, T) + (lv >= 3 ? R(-2, 16, 26, 2, acc) : '') +
+    (lv >= 2 ? L('M0 3H24', 'rgba(0,0,0,.25)', 6, ' stroke-dasharray=".6 1.6"') : '') + `<ellipse cx="7" cy="40" rx="3" ry="16" fill="#fff" opacity=".15" filter="url(#${id}b)"/>` +
+    R(-4, 0, 50, 90, `url(#${id}h)`) + R(-4, 0, 50, 90, `url(#${id}v)`) + (dk ? R(-4, 0, 50, 90, '#000', ' opacity=".28"') : '') + `</g>` +
+    `<ellipse cx="11" cy="4" rx="11" ry="2.6" fill="${crestMix(so, -.6)}"/>` + L(K, 'rgba(0,0,0,.5)', 1) + `</g>`;
+  // студия: свет, подиум, отражение, искры, рамка
+  const bgc = [0, ['#273444', '#11171f'], ['#253a52', '#0c1520'], ['#2e4260', '#0a111c'], ['#43341a', '#0d0a04'], [crestMix(co, -.45), '#07090f']][lv];
+  const fr = 'x="1" y="1" width="258" height="218" rx="18"';
+  const bg = `<radialGradient id="${id}r" cx=".38" cy=".3" r=".85"><stop offset="0" ${st(bgc[0])}/><stop offset="1" ${st(bgc[1])}/></radialGradient>` +
+    lg('l', 'x2="0" y2="1"', [[0, '#fff', .16], [1, '#fff', 0]]) + lg('t', 'x2="0" y2="1"', [[0, '#fff', .9], [1, '#fff', 0]]) +
+    lg('x', 'x2="1" y2="1"', lv >= 5 ? holo : [[0, '#fff', .7], [.5, '#8b98a8', .5], [1, '#fff', .6]]) +
+    `<radialGradient id="${id}y"><stop offset="0" ${st(live ? co : '#f5c542', .55)}/><stop offset="1" ${st(co, 0)}/></radialGradient>` +
+    `<mask id="${id}z"><rect y="190" width="260" height="30" fill="url(#${id}t)"/></mask><clipPath id="${id}F"><rect ${fr}/></clipPath>`;
+  let stage = `<rect ${fr} fill="url(#${id}r)"/>`;
+  if (lv >= 2) stage += P('M66 0H114L210 210H-30Z', `url(#${id}l)`, ` filter="url(#${id}b)"`) + P('M8 194V203A122 9 0 0 0 252 203V194Z', crestMix(bgc[0], -.35)) +
+    `<ellipse cx="130" cy="194" rx="122" ry="9" fill="${crestMix(bgc[0], .12)}"/>`;
+  if (lv >= 4) stage += `<ellipse cx="92" cy="96" rx="96" ry="90" fill="url(#${id}y)"${anim ? ' class="kc-pl"' : ''}/>`;
+  stage += `<g filter="url(#${id}b)" fill="#000" opacity=".5"><ellipse cx="92" cy="196" rx="58" ry="4"/><ellipse cx="226" cy="201" rx="26" ry="3"/></g>`;
+  if (lv >= 3) stage += `<use href="#${id}S" transform="translate(4 380) scale(1 -1)" opacity=".24" mask="url(#${id}z)"/>`;
+  const spk = (a, b, r, i) => P(`M${a} ${b - r * 2}Q${a} ${b} ${a + r * 2} ${b}Q${a} ${b} ${a} ${b + r * 2}Q${a} ${b} ${a - r * 2} ${b}Q${a} ${b} ${a} ${b - r * 2}Z`, live ? (i % 2 ? '#fff' : co) : '#ffe9a3', anim ? ` class="kc-tw" style="animation-delay:${i * .37}s"` : ' opacity=".85"');
+  if (o.duel) return `<svg class="kcard kduelc lv${lv}" viewBox="0 0 160 120" aria-hidden="true"><defs>${defs}${bg}<clipPath id="${id}p"><path d="${SH}"/></clipPath></defs><rect x=".5" y=".5" width="159" height="119" rx="12" fill="url(#${id}r)"/>` +
+    (lv >= 4 ? `<ellipse cx="60" cy="62" rx="62" ry="58" fill="url(#${id}y)"/>` : '') + `<g transform="translate(8 6) scale(.6)">${shirt}</g><g transform="translate(40 30) scale(.46)">${shorts}</g>` +
+    (lv >= 4 ? [[14, 16, 1.6], [112, 12, 1.4], [148, 100, 1.5], [104, 108, 1.2]].map(([a, b, r], i) => spk(a, b, r, i)).join('') : '') +
+    (lv >= 2 ? `<rect x=".5" y=".5" width="159" height="119" rx="12" fill="none" stroke="${lv === 4 ? G : lv >= 3 ? `url(#${id}x)` : 'rgba(255,255,255,.14)'}" stroke-width="${gold ? 2 : 1.2}"/>` : '') + `</svg>`;
+  let fx = '';
+  if (lv >= 4) [[22, 30, 3], [160, 22, 2.4], [180, 128, 2], [12, 150, 2.2], [150, 186, 1.8], [246, 30, 2.6], [36, 196, 1.6], [128, 12, 1.7], [244, 150, 1.9]]
+    .forEach(([a, b, r], i) => fx += spk(a, b, r, i));
+  if (o.tryon) fx += `<g fill="#fff" opacity=".13" font-size="14" font-weight="900" transform="rotate(-18 130 110)">${[30, 80, 130, 180, 230].map(y => `<text x="-40" y="${y}">ПРИМЕРКА · ПРИМЕРКА · ПРИМЕРКА</text>`).join('')}</g>` +
+    `<g transform="translate(240 190)" opacity=".6"><rect x="-9" y="-2" width="18" height="14" rx="3" fill="#fff"/><path d="M-5-2V-6A5 5 0 0 1 5-6V-2" fill="none" stroke="#fff" stroke-width="2.6"/></g>` +
+    `<rect x="174" y="8" width="78" height="17" rx="8.5" fill="rgba(0,0,0,.6)" stroke="#fff" stroke-opacity=".35"/><text x="213" y="20" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" letter-spacing=".8">👁 ПРИМЕРКА</text>`;
+  const frame = lv >= 4 ? `<rect ${fr} fill="none" stroke="${live ? `url(#${id}x)` : G}" stroke-width="2.6"/><rect x="5" y="5" width="250" height="210" rx="15" fill="none" stroke="${live ? `url(#${id}x)` : G}" stroke-width=".6" opacity=".6"/>` :
+    lv >= 2 ? `<rect ${fr} fill="none" stroke="${lv >= 3 ? `url(#${id}x)` : 'rgba(255,255,255,.12)'}" stroke-width="${lv >= 3 ? 1.4 : 1}"/>` : '';
+  return `<svg class="kcard lv${lv}" viewBox="0 0 260 220" aria-hidden="true"><defs>${defs}${bg}<clipPath id="${id}p"><path d="${SH}"/></clipPath><clipPath id="${id}k"><path d="${K}"/></clipPath></defs>` +
+    `<g clip-path="url(#${id}F)">${stage}${shorts}${sock(194, 110, 1)}${sock(212, 116)}<g transform="translate(4 6)">${shirt}</g>${fx}</g>` + frame +
+    (anim ? `<rect ${fr} fill="none" stroke="#fff" stroke-width="2.6" stroke-dasharray="60 860" class="kc-run"/>` : '') + `</svg>`;
+}
+const KIT_PATCH = {league: 'Чемпион лиги', cup: 'Обладатель кубка'};
+// перед и спина касанием (общий обработчик кликов: data-kitflip); перевёрнута ли — помнит KIT_BACK
+const kitFlip = (x, lv, o) => `<button type="button" class="kflip${KIT_BACK ? ' bk' : ''}" data-kitflip aria-label="Перевернуть форму"><div class="kfi"><div class="kff">${kitCard(x, lv, {...o, back: 0})}</div><div class="kfb">${kitCard(x, lv, {...o, back: 1})}</div></div></button>`;
+// распаковка после оплаты: пак трясётся, вспышка, крышка улетает, форма выезжает, конфетти в цветах клуба; тап — пропустить (data-kitub)
+function kitUnbox(el, x, lv, o) {
+  o = o || {};
+  const c = [0, ['#94a3b8', '#334155'], ['#7cc4ff', '#1d4ed8'], ['#f1f5f9', '#64748b'], ['#fde68a', '#b7791f'], ['#f0abfc', '#22d3ee']][lv], cols = [x.s, x.c2 || x.sh, x.co || '#fff', '#ffe27a'];
+  let cf = '';
+  for (let i = 0; i < 44; i++) { const a = i * 2.4, d = 70 + i * 37 % 90;
+    cf += `<i style="--x:${Math.round(Math.cos(a) * d * 1.3)}px;--y:${Math.round(Math.sin(a) * d * .8 + 50)}px;--r:${i * 47 % 540}deg;background:${cols[i % 4]};animation-delay:${1 + i % 6 * .05}s"></i>`; }
+  el.innerHTML = `<button type="button" class="kub" data-kitub aria-label="Пропустить"><div class="kub-card">${kitCard(x, lv, o)}</div><div class="kub-pk">` +
+    `<svg class="kub-lid" viewBox="0 0 120 30"><defs><linearGradient id="kub${lv}" x2="1" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient></defs>` +
+    `<rect x="2" y="4" width="116" height="24" rx="6" fill="url(#kub${lv})"/><rect x="52" y="4" width="16" height="24" fill="#fff" opacity=".4"/><rect x="2" y="4" width="116" height="6" rx="3" fill="#fff" opacity=".25"/></svg>` +
+    `<svg class="kub-box" viewBox="0 0 120 80"><rect x="6" width="108" height="78" rx="7" fill="url(#kub${lv})"/><rect x="6" width="108" height="78" rx="7" opacity=".18"/><rect x="52" width="16" height="78" fill="#fff" opacity=".35"/>` +
+    `<text x="60" y="52" text-anchor="middle" font-size="26" fill="#fff">★</text></svg></div><div class="kub-flash"></div><div class="kub-cf">${cf}</div>` +
+    `<div class="kub-t">✨ Новый уровень: <b>${KIT_EDITOR.level_names[lv]}</b></div></button>`;
+  const k = el.firstChild; let over = false;
+  const fin = () => { if (over) return; over = true; k.classList.add('done'); o.onDone && o.onDone(); };
+  if (CREST_CALM) k.classList.add('done', 'rm');      // без анимации — сразу итог и короткая вспышка
+  setTimeout(fin, CREST_CALM ? 700 : 3000);
+  return {node: k, fin};
 }
 function kitGk(x) { return {s: x.gk[0], sh: x.gk[1], so: x.gk[0], co: crestMix(x.gk[0], -.45)}; }
 function kitColors(cur, key, need) {      // палитра: замок — по уровню цвета и по уровню самой части формы (гетры, окантовка…)
   const L = KIT_EDITOR.levels.colors;
   return `<div class="colors">` + KIT_EDITOR.colors.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}${kitLock(Math.max(need || 1, L[c] || 1))}" style="background:${c}" aria-label="${c}" data-kitk="${key}" data-kitv="${c}"></button>`).join('') + `</div>`;
 }
-function kitLevelCard(E) {      // «Уровень N — название», лесенка уровней, кнопки «Улучшить» и набор «Все уровни сразу»
-  const lv = E.level || 1, N = KIT_EDITOR.level_names, P = E.prices;
-  let h = `<div class="crlv"><b>👕 Уровень формы ${lv} — «${N[lv]}»</b>` +
-    `<div class="crlad">${N.slice(1).map((t, i) => `<i class="${i + 1 <= lv ? 'on' : ''}">${i + 1 <= lv ? '✅' : '🔒'} ${i + 1}</i>`).join('')}</div>`;
-  if (!P) h += `<div class="sub">У администратора открыты все уровни формы — бесплатно.</div>`;
-  else if (!Object.keys(P).length) h += `<div class="sub">${lv > 1 ? 'Продажа уровней формы сейчас закрыта — меняйте форму в пределах купленного уровня бесплатно.' : 'Улучшения формы откроются позже — пока доступна базовая форма: однотонные футболка и шорты, 9 цветов.'}</div>`;
-  else if (lv >= 5) h += `<div class="sub">Открыты все уровни формы. Меняйте форму сколько угодно — бесплатно.</div>`;
-  else {
-    h += `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${KIT_LV_TEXT[lv + 1]}. Менять форму в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда. Уровень эмблемы покупается отдельно.</div>` +
-      `<button type="button" class="go main" data-kitbuy="next">⬆️ Улучшить до уровня ${lv + 1} за ${P[lv + 1]} ⭐</button>`;
-    if (lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
-      h += `<button type="button" class="go" data-kitbuy="all">🎁 Все уровни сразу — ${P.all} ⭐${gain > 0 ? ` (выгода ${gain} ⭐)` : ''}</button>`; }
-  }
-  return h + `</div>`;
+function kitMe() {      // своя форма: эмблема на груди, на спине фамилия и номер капитана (нет капитана — без фамилии, №10), нашивки
+  const hb = H(), c = ((hb.manage || {}).players || []).find(p => p.slot === S.captain), cr = (hb.home || {}).crest;
+  return {name: c && c.last ? c.last : '', num: c ? c.number : 10, crest: cr ? crestSvg(cr) : '', ab: esc(initials(hb.club || 'FC')),
+    patches: (hb.kit_edit || {}).patches || []};
 }
+function kitShop(E) {      // плашки уровней с ценой (замок/открыт), примерка закрытого, «Открыть «X» · N ⭐», набор «все уровни сразу»
+  const lv = E.level || 1, N = KIT_EDITOR.level_names, P = E.prices, sale = !!P && Object.keys(P).length > 0, sel = KIT_SEL || Math.min(5, lv + 1), nx = lv + 1;
+  let h = `<div class="kchips">` + N.slice(1).map((t, i) => { const n = i + 1, own = n <= lv;
+    return `<button type="button" class="${n === sel ? 'on' : ''}${own ? ' own' : ''}" data-kitsel="${n}">${own ? '✅' : '🔒'} ${t}<small>${own ? 'открыт' : sale && P[n] ? P[n] + ' ⭐' : 'закрыт'}</small></button>`; }).join('') + `</div>`;
+  if (sel > lv) {
+    h += `<div class="sub">Уровень ${sel} «${N[sel]}»: ${KIT_LV_TEXT[sel]}.</div><div class="kacts${sale ? '' : ' one'}">` +
+      `<button type="button" class="ktry" data-kittry="${sel}">${KIT_TRY === sel ? '✕ Закрыть' : '👁 Примерить'}</button>` +
+      (sale ? `<button type="button" class="kbuy l${nx}" data-kitbuy="next"><span>⬆️ Открыть «${N[nx]}»<small>навсегда у клуба</small></span><span class="pr">${P[nx]} ⭐</span></button>` : '') + `</div>`;
+    if (sale && sel > nx) h += `<div class="hint">Уровни открываются по порядку — сначала «${N[nx]}».</div>`;
+    if (sale && lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
+      h += `<button type="button" class="kall" data-kitbuy="all"><span class="kbadge">ВЫГОДНО</span>🎁 Все уровни сразу<b>${P.all} ⭐${gain > 0 ? ` · −${gain} ⭐` : ''}</b></button>`; }
+  }
+  if (!P) h += `<div class="sub">У администратора открыты все уровни формы — бесплатно.</div>`;
+  else if (!sale) h += `<div class="sub">${lv > 1 ? 'Продажа уровней формы сейчас закрыта — меняйте форму в пределах купленного уровня бесплатно.' : 'Улучшения формы откроются позже — пока доступна базовая форма: однотонные футболка и шорты, 9 цветов.'} Примерить закрытый уровень можно.</div>`;
+  else if (lv >= 5) h += `<div class="sub">Открыты все уровни формы. Меняйте форму сколько угодно — бесплатно.</div>`;
+  else h += `<div class="sub">Менять форму в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда. Уровень эмблемы покупается отдельно.</div>`;
+  return `<div class="kshop">${h}</div>`;
+}
+function kitTile(v, lv) { return kitCard(v, Math.max(lv, kitNeed({home: v})), {mini: 1}); }      // плитка выбора — в отделке своего уровня
 function panelKit(m) {
   const E = H().kit_edit;
   if (!E) return panelHead('👕 Форма клуба') + `<div class="card note">Сначала создайте клуб</div>`;
-  const lv = kitLv(), L = KIT_EDITOR.levels, d = kitDraft(), x = d[KIT_SLOT], err = kitErr(d), need = kitNeed(d);
+  const lv = kitLv(), L = KIT_EDITOR.levels, N = KIT_EDITOR.level_names, d = kitDraft(), x = d[KIT_SLOT], err = kitErr(d), need = kitNeed(d);
+  if (KIT_UB && KIT_UB.node && (KIT_UB.over || !document.contains(KIT_UB.node))) KIT_UB = null;      // распаковку прервал уход с экрана — сразу карточка
+  if (KIT_PREV_LV && lv > KIT_PREV_LV && !KIT_UB) { KIT_UB = {lv}; KIT_PREV_LV = 0; KIT_TRY = 0; KIT_SEL = 0; }      // пришёл купленный уровень — распаковка, один раз
+  if (KIT_SEL && KIT_SEL <= lv) KIT_SEL = 0;
+  if (KIT_TRY && KIT_TRY <= lv) KIT_TRY = 0;
+  const show = Math.min(5, Math.max(lv, KIT_TRY, need)), tryon = show > lv, me = kitMe();
   let h = panelHead('👕 Форма клуба', 'Хозяева — в домашней, гости — в выездной. Совпали цвета — гости надевают домашнюю, потом третью, иначе нейтральную.') + lockBanner();
   if (!m.kit_ok) h += `<div class="banner warn">⚠️ Сохраните форму — без всех четырёх цветов нельзя начать сезон.</div>`;
   if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа уровней формы закрыта — вы видите все уровни как администратор (бесплатно).</div>`;
-  h += kitLevelCard(E);
-  h += `<div class="kitprev">${kitFig(x, 'kitbig', {num: 10, glow: d.gl && KIT_SLOT !== 'final' ? 1 : 0})}` +
-    (x.gk ? `<div class="kitgk">${kitFig(kitGk(x), 'kitmid', {num: 1, gk: 1})}<span>вратарь</span></div>` : '') + `</div>`;
+  h += kitShop(E);
+  h += `<div class="khero" id="kithero">` + (KIT_UB ? '' : `<span class="ktag l${show}">${tryon ? '👁 ' : ''}УР. ${show} · ${N[show].toUpperCase()}</span>` + kitFlip(x, show, {...me, tryon, glow: d.gl && KIT_SLOT !== 'final' ? 1 : 0})) + `</div>` +
+    `<div class="hint kcap">${tryon ? `👁 Примерка: так ваша форма выглядит на уровне «${N[show]}». Сохранить её можно, когда уровень открыт.` : 'Коснитесь карточки — перед и спина'}</div>`;
+  const pt = me.patches.filter(k => KIT_PATCH[k]);
+  if (x.gk || pt.length) h += `<div class="kunder${x.gk && pt.length ? '' : ' one'}">` +
+    (x.gk ? `<div class="kgk">${kitCard(kitGk(x), show, {num: 1, crest: me.crest, ab: me.ab, patches: pt})}<span>🧤 вратарь</span></div>` : '') +
+    (pt.length ? `<div class="kpatch">🏆 <span>Нашивки на рукаве — ${pt.map(k => `«${KIT_PATCH[k]}»`).join(' и ')}: <b>нашивка за трофей — не продаётся</b>.</span></div>` : '') + `</div>`;
   h += `<div class="crgrid kittabs">` + KIT_SLOTS.map(s => { const n = L.slots[s] || 1, has = !!d[s];
-    return `<button type="button" class="crt${s === KIT_SLOT ? ' on' : ''}${has ? '' : kitLock(n)}" data-kitslot="${s}">${has ? kitFig(d[s], 'kmini') : `<b class="crlet">${n > lv ? '🔒' : '➕'}</b>`}<span>${KIT_SLOT_T[s]}</span>${has ? '' : kitLk(n)}</button>`; }).join('') + `</div>`;
+    return `<button type="button" class="crt${s === KIT_SLOT ? ' on' : ''}${has ? '' : kitLock(n)}" data-kitslot="${s}">${has ? kitTile(d[s], lv) : `<b class="crlet">${n > lv ? '🔒' : '➕'}</b>`}<span>${KIT_SLOT_T[s]}</span>${has ? '' : kitLk(n)}</button>`; }).join('') + `</div>`;
   if (KIT_SLOT === 'third' || KIT_SLOT === 'final') h += `<div class="hint">${KIT_SLOT === 'third' ? 'Третья форма — если обе ваши формы совпали по цвету с соперником (вместо нейтральной).' : 'Особая форма на финал кубка: в финале клуб выходит в ней.'}</div>` +
     `<button type="button" class="go" data-kitdel>🗑 Убрать ${KIT_SLOT === 'third' ? 'третью' : 'финальную'} форму</button>`;
   const grid = (list, attr) => list.map(([t, v], i) => { const n = kitNeed({[KIT_SLOT]: v});
-    return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${kitFig(v, 'kmini')}<span>${t}</span>${kitLk(n)}</button>`; }).join('');
-  h += `<div class="label">⭐ Готовые формы — одним нажатием</div><div class="crgrid kitready">` + grid(KIT_READY, 'data-kitready') + `</div>`;
-  h += `<div class="label">🌈 Темы (уровень ${L.patterns.fade})</div><div class="crgrid kitready">` + grid(KIT_THEMES, 'data-kittheme') + `</div>`;
-  h += `<div class="label">Узор футболки</div><div class="crgrid kitready">` + KIT_EDITOR.patterns.map(k => { const n = L.patterns[k] || 1, v = {...x, p: k};
+    return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${kitTile(v, lv)}<span>${t}</span>${kitLk(n)}</button>`; }).join('');
+  if (!KIT_TILES || KIT_TILES[0] !== lv + KIT_SLOT) KIT_TILES = [lv + KIT_SLOT, grid(KIT_READY, 'data-kitready'), grid(KIT_THEMES, 'data-kittheme')];      // готовые не зависят от черновика
+  h += `<div class="label">⭐ Готовые формы — одним нажатием</div><div class="crgrid kitready">` + KIT_TILES[1] + `</div>`;
+  h += `<div class="label">🌈 Темы (уровень ${L.patterns.fade})</div><div class="crgrid kitready">` + KIT_TILES[2] + `</div>`;
+  const pk = lv + JSON.stringify(x);      // плитки узоров зависят только от текущей формы и уровня — кешируем, как готовые
+  if (!KIT_PTILES || KIT_PTILES[0] !== pk) KIT_PTILES = [pk, KIT_EDITOR.patterns.map(k => { const n = L.patterns[k] || 1, v = {...x, p: k};
     if (k === 'plain') delete v.c2; else if (!v.c2 || v.c2 === v.s) v.c2 = kitAlt(v.s);
-    return `<button type="button" class="crt${(x.p || 'plain') === k ? ' on' : ''}${kitLock(n)}" data-kitp="${k}">${kitFig(v, 'kmini')}<span>${KIT_P_NAMES[k] || k}</span>${kitLk(n)}</button>`; }).join('') + `</div>`;
+    return `<button type="button" class="crt${(x.p || 'plain') === k ? ' on' : ''}${kitLock(n)}" data-kitp="${k}">${kitTile(v, lv)}<span>${KIT_P_NAMES[k] || k}</span>${kitLk(n)}</button>`; }).join('')];
+  h += `<div class="label">Узор футболки</div><div class="crgrid kitready">` + KIT_PTILES[1] + `</div>`;
   const sect = (t, key, n, opt) => `<div class="label">${t}${n > lv ? ` · 🔒 ур. ${n}` : ''}${opt && x[key] ? ` <button type="button" class="kitx" data-kitx="${key}">✕ ${opt}</button>` : ''}</div>` + kitColors(x[key], key, n);
   h += sect('Футболка', 's', 1) + sect('Шорты', 'sh', 1);
   if (x.p && x.p !== 'plain') h += sect('Второй цвет узора', 'c2', L.keys.c2);
@@ -983,16 +1176,30 @@ function panelKit(m) {
     `<button type="button" class="go${d.gl ? '' : kitLock(L.glow)}" data-kitgl>${d.gl ? '🌟 Убрать свечение формы' : '🌟 Свечение формы в вечерних матчах'}${!d.gl && L.glow > lv ? ` 🔒 ур. ${L.glow}` : ''}</button>` +
     `<div class="hint">Вечерний матч — начало с 18:00 до 06:00 по Москве: окантовка и номер светятся в свете прожекторов.</div>`;
   if (err) h += `<div class="banner warn">⚠️ ${esc(err)}</div>`;
-  else if (need > lv) h += `<div class="banner warn">🔒 В форме есть то, что открывается с уровня ${need} — «${KIT_EDITOR.level_names[need]}». Улучшите форму или уберите отмеченное замком.</div>`;
+  else if (need > lv) h += `<div class="banner warn">🔒 В форме есть то, что открывается с уровня ${need} — «${N[need]}». Улучшите форму или уберите отмеченное замком.</div>`;
   h += `<div class="mrow2"><button type="button" class="go" data-kitundo>↩️ Как было</button></div>` +
-    `<button type="button" class="go main" data-kitsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : '💾 Сохранить форму — бесплатно'}</button>`;
+    `<button type="button" class="go main" data-kitsave>${need > lv ? `🔒 Сохранить — нужен уровень ${need}` : KIT_TRY ? '👁 Идёт примерка — сохранить нельзя' : '💾 Сохранить форму — бесплатно'}</button>`;
   return h;
+}
+function kitAfter() {      // после отрисовки экрана «Форма»: распаковка купленного уровня на месте карточки
+  const host = $('kithero'), u = KIT_UB;
+  if (!host || !u || u.node) return;
+  Object.assign(u, kitUnbox(host, kitDraft()[KIT_SLOT], u.lv, {...kitMe(), onDone: () => { u.over = true;
+    setTimeout(() => { if (KIT_UB === u) { KIT_UB = null; if (PANEL && PANEL.k === 'kit') renderPanel(); } }, 900); }}));
+}
+function kitDuel(m) {      // перед матчем: в какой форме реально выйдут обе команды, уровни и нашивки (сервер: app/hub.py match_kits_view)
+  const K = m.kits, N = KIT_EDITOR.level_names, me = H().home || {};
+  if (!K || !K.h || !K.a) return '';
+  const side = (i, x) => { const mine = (i === 0) === !!m.home, lv = Math.min(5, Math.max(1, (K.lv || [])[i] || 1)), cr = mine ? me.crest : crestOf(m), nm = (mine ? me.club : m.opp) || '?';
+    return `<div>${kitCard(x, lv, {duel: 1, crest: cr ? crestSvg(cr) : '', ab: esc(initials(nm)), patches: (K.pt || [])[i] || []})}` +
+      `<div class="kdn"><span>${i ? '✈️' : '🏠'} ${esc(nm)}</span><span class="klt l${lv}">${N[lv]}</span></div></div>`; };
+  return `<div class="kduel">${side(0, K.h)}<div class="kvs">VS</div>${side(1, K.a)}</div>`;
 }
 function kitPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
   if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
     if (st === 'paid') { haptic('ok'); toast('⭐ Оплачено — открываем уровень формы'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'kits', check: true}), ms)); }
-    else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+    else { KIT_PREV_LV = 0; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
 }
 function kitClick(b) {      // нажатия на экране «Форма»; true — обработано
@@ -1000,7 +1207,11 @@ function kitClick(b) {      // нажатия на экране «Форма»; 
   if (!E) return false;
   const d = kitDraft(), x = d[KIT_SLOT], N = KIT_EDITOR.level_names, L = KIT_EDITOR.levels, lv = kitLv();
   const need = n => `🔒 Это с уровня формы ${n} — «${N[n]}». Нажмите «⬆️ Улучшить» вверху`;
-  if (dd.kitbuy) { send({a: 'kits', buy: dd.kitbuy}); return true; }
+  if (b.hasAttribute('data-kitflip')) { KIT_BACK = !KIT_BACK; b.classList.toggle('bk', KIT_BACK); haptic(); return true; }      // перед/спина — без перерисовки
+  if (b.hasAttribute('data-kitub')) { if (KIT_UB && KIT_UB.fin) KIT_UB.fin(); return true; }      // тап — пропустить распаковку
+  if (dd.kitsel) { const n = +dd.kitsel; KIT_SEL = n > lv ? n : 0; KIT_TRY = KIT_TRY && n > lv ? n : 0; haptic(); renderPanel(); return true; }
+  if (dd.kittry) { const n = +dd.kittry; KIT_TRY = KIT_TRY === n ? 0 : n; haptic(); renderPanel(); return true; }      // примерка закрытого уровня
+  if (dd.kitbuy) { KIT_PREV_LV = lv; send({a: 'kits', buy: dd.kitbuy}); return true; }      // уровень до оплаты — для распаковки
   if (dd.kitslot) { const s = dd.kitslot, n = L.slots[s] || 1;
     if (!d[s]) { if (n > lv) { toast(need(n), true); return true; } d[s] = JSON.parse(JSON.stringify(s === 'final' ? d.home : d.away)); }
     KIT_SLOT = s; haptic(); renderPanel(); return true; }
@@ -1018,7 +1229,7 @@ function kitClick(b) {      // нажатия на экране «Форма»; 
   else if (b.hasAttribute('data-kitdel')) { delete d[KIT_SLOT]; KIT_SLOT = 'home'; }
   else if (b.hasAttribute('data-kitundo')) { KIT_DRAFT = null; KIT_SLOT = 'home'; }
   else if (b.hasAttribute('data-kitsave')) { const e = kitErr(d), n = kitNeed(d);
-    if (e) toast(e, true); else if (n > lv) toast(need(n), true); else send({a: 'kits', design: d}); return true; }
+    if (e) toast(e, true); else if (n > lv) toast(need(n), true); else if (KIT_TRY) toast('👁 Это примерка — нажмите «✕ Закрыть», чтобы сохранить форму', true); else send({a: 'kits', design: d}); return true; }
   else return false;
   haptic(); renderPanel(); return true;
 }
@@ -1831,7 +2042,7 @@ function openSheet(slot) {
   const ob = H().onboarding;     // шаг «Посмотреть состав» ещё не пройден — бот проверит, что игрок из вашего клуба
   if (ob && !PVIEW_SENT && ob.steps.some(s => s.key === 'player' && !s.done)) { PVIEW_SENT = true; send({a: 'pview', slot}); }
 }
-function closeSheet() { CREST_DRAFT = null; KIT_DRAFT = null; KIT_SLOT = 'home'; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+function closeSheet() { CREST_DRAFT = null; KIT_DRAFT = null; KIT_SLOT = 'home'; KIT_TRY = KIT_SEL = KIT_PREV_LV = 0; KIT_UB = null; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
 /* ---------------- «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) ----------------
    Подсказка подсвечивает настоящую кнопку или поле (остальное затемнено) и пишет, что нажать и что ввести.
@@ -2728,7 +2939,8 @@ function demoHub() {
   const matches = [
     {id: 11, label: 'тур 5', opp: 'Северный Ветер', crest: DC['Северный Ветер'], home: true, status: 'proposed', when: 'до 24.10 23:00', need: 'предлагают время: 23.10 20:30',
       manager: 'Боря', opp_ready: true, deadline: '24.10 23:00', offer: {when: '23.10 20:30', move: false, from: null, who: 'Северный Ветер'},
-      can_time: true, move: false, now: true, slots: [[1, '22.10 20:00'], [2, '22.10 21:00'], [3, '23.10 19:00'], [4, '23.10 20:00']], can_cancel: false, scout: true, plan: false},
+      can_time: true, move: false, now: true, slots: [[1, '22.10 20:00'], [2, '22.10 21:00'], [3, '23.10 19:00'], [4, '23.10 20:00']], can_cancel: false, scout: true, plan: false,
+      kits: {h: {s: '#dc2626', sh: '#f8fafc'}, a: {s: '#2563eb', sh: '#f8fafc', p: 'stripes', c2: '#ffffff', so: '#2563eb'}, lv: [1, 4], pt: [['league'], ['cup']]}},
     {id: 12, label: 'тур 6', opp: 'Торпедо Пресни', crest: DC['Торпедо Пресни'], home: false, status: 'open', when: 'до 26.10 23:00', need: 'время не назначено',
       manager: 'Вика', opp_ready: false, deadline: '26.10 23:00', can_time: true, move: false, now: true, slots: [[5, '22.10 20:00'], [6, '22.10 21:00']], can_cancel: false, scout: true, plan: true},
     {id: 9, label: 'тур 4', opp: 'Дворовые Львы', crest: DC['Дворовые Львы'], home: false, status: 'played', when: '20.10 20:00', score: '4:1', res: 'В'},
@@ -2738,7 +2950,7 @@ function demoHub() {
     next: {in: 1, fans: 15, text: 'ещё 1 день подряд — +15 болельщиков'}, answered: false};
   const crest_edit = {custom: null, everyone: true, level: 1, prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, auto: DC['Девятка']};      // демо: уровень 1, уровни «покупаются» без оплаты
   const kit_edit = {design: {home: {s: '#dc2626', sh: '#f8fafc'}, away: {s: '#f8fafc', sh: '#111827'}}, everyone: true, level: 1,
-    prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}};      // демо: уровни формы «покупаются» без оплаты
+    prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, patches: ['league']};      // демо: уровни формы «покупаются» без оплаты
   return {club: 'Девятка', unseen: 2, daily, crest_edit, kit_edit,
     home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
