@@ -4382,7 +4382,9 @@ function penOpen() {
   clearTimeout(penClose);
   if (!penFrame) {
     penReady = false;
-    penFrame = document.createElement('iframe'); penFrame.src = penUrl(); penFrame.title = 'Пенальти';
+    const fk = pen && pen.kind === 'fk', w = penEl.querySelector('.wait');
+    w.textContent = fk ? '🎯 Штрафной…' : '🥅 Пенальти…'; w.style.display = '';   // пока сцена грузится — что именно бьют
+    penFrame = document.createElement('iframe'); penFrame.src = penUrl(); penFrame.title = fk ? 'Штрафной' : 'Пенальти';
     penEl.appendChild(penFrame);
   }
   penEl.style.top = $('top').offsetHeight + 'px';
