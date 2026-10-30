@@ -408,6 +408,10 @@ let SEG = 'table';           // вкладка «Лига»: таблица ил
 const TABS = ['home', 'squad', 'league', 'learn', 'more'];
 if (!TABS.includes(TAB)) TAB = 'home';
 const H = () => (S && S.hub) || {};   // до первого состояния от бота S ещё нет (секундомер поиска спрашивает каждую секунду)
+// повторы состояния — один раз (app/hub.py crest_in, slots_in): эмблема клуба — по ключу cr из H().crests, варианты
+// времени матча — по номеру sl из H().slot_lists; прежний вид (целая эмблема crest, slots в матче) тоже понимаем
+const crestOf = x => (x && (x.crest || (x.cr != null && (H().crests || {})[x.cr]))) || null;
+const slotsOf = m => m.slots || (Number.isInteger(m.sl) && (H().slot_lists || [])[m.sl]) || [];
 let SEEK_HB = null, SEEK_AT = 0;      // поиск соперника: с какого момента (по часам телефона) идёт — для секундомера
 function seekBlock() {
   const hb = H();
@@ -699,7 +703,7 @@ function matchCard(m, title) {
   const score = m.score ? `<span class="score${m.res ? ' res-' + m.res : ''}">${esc(m.score)}</span>` : '';
   const o = m.offer;
   let x = `<div class="card${o || m.status === 'open' ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
-    `<div class="row"><div>${crestSvg(m.crest)}<b>${esc(m.opp)}</b>${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
+    `<div class="row"><div>${crestSvg(crestOf(m))}<b>${esc(m.opp)}</b>${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
     `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>`;
   if (o) x += `<div class="sub" style="color:#fde68a">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
     `<div class="mrow"><button type="button" class="ok" data-resp="acc" data-id="${m.id}">✅ Принять</button><button type="button" class="no" data-resp="dec" data-id="${m.id}">❌ Отказаться</button></div>` +
@@ -732,7 +736,7 @@ function renderMatchSheet() {
     if (!m || !m.can_time) { closeSheet(); return; }
     h = `<div class="sh-top"><h2>${m.move ? '🔄 Перенос матча' : '🕐 Время матча'}<small>${esc(m.label)} · против «${esc(m.opp)}»${m.deadline ? ' · дедлайн ' + esc(m.deadline) : ''}<br>Время по Батуми/Баку. ${m.move ? 'Пока соперник не согласится, матч остаётся как есть.' : 'Соперник получит предложение и ответит.'}</small></h2><button type="button" class="x" data-close>✕</button></div>` +
       `<div class="slots">${m.now ? `<button type="button" class="now" data-slotnow="${m.id}">⚡ Сыграть сейчас (через 5 мин после согласия)</button>` : ''}` +
-      (m.slots || []).map(([ts, t]) => `<button type="button" data-ts="${ts}" data-id="${m.id}">🕐 ${esc(t)}</button>`).join('') + `</div>` +
+      slotsOf(m).map(([ts, t]) => `<button type="button" data-ts="${ts}" data-id="${m.id}">🕐 ${esc(t)}</button>`).join('') + `</div>` +
       `<div class="label">Своё время</div><div class="own"><input id="owntime" type="text" inputmode="numeric" placeholder="20:30 или 24.10 20:30" maxlength="11">` +
       `<button type="button" data-own="${m.id}">OK</button></div>`;
   }
@@ -1657,7 +1661,7 @@ function renderLeague() {
   else if (SEG === 'table') {
     if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
     if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
-      t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${crestSvg(r.crest)}${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
+      t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${crestSvg(crestOf(r))}${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
       `</table></div>`;
     if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
     x += `<button type="button" class="go" data-panel="top">🌍 Лучшие менеджеры всех лиг</button>`;
