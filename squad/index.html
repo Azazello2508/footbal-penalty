@@ -375,6 +375,15 @@ body.touring #sheet .in{padding-bottom:42vh}
 body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся видимая область (не 100vh: на iPhone vh больше экрана) */
 .qbtn{flex:none;width:30px;height:30px;border-radius:50%;background:var(--card2);color:var(--accent);font-weight:800;font-size:15px;border:1px solid var(--line)}
 .lrow{display:flex;align-items:center;justify-content:space-between;gap:8px}.lrow .label{flex:1;min-width:0}
+/* 🎤 пресс-конференция, 🏅 награды сезона, 🔮 прогнозы */
+.big:disabled{opacity:.45}
+.pdr{background:var(--card2);border-radius:12px;padding:9px 10px;margin-top:8px}
+.pdr .tm{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:600}.pdr .tm span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pdr .tm span:last-child{text-align:right}
+.pdc{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px}
+.pdc .st{width:34px;height:34px;border-radius:10px;background:var(--card);font-size:18px;font-weight:700;line-height:1}
+.pdc b{min-width:20px;text-align:center;font-size:18px}
+.pdc .sv{padding:8px 10px;border-radius:10px;background:var(--accent);color:#111;font-weight:700;font-size:13px;margin-left:4px}.pdc .sv:disabled{opacity:.45}
+.tb.pd td.n small{display:block;color:var(--muted);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-top:7px}
 .lrn .ic{font-size:24px;flex:none;width:30px;text-align:center}
 .lrn .tt{flex:1;min-width:0}.lrn .tt b{display:block;font-size:15px}.lrn .tt span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
@@ -844,7 +853,9 @@ function ask(text, yes) {     // подтверждение: окно Telegram, 
   if (confirm(text)) yes();
 }
 function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel();
-  if (k === 'trophies' || k === 'top') { if (k === 'trophies') { TROPHIES = null; renderPanel(); } send({a: k}); } }
+  if (k === 'trophies' || k === 'top') { if (k === 'trophies') { TROPHIES = null; renderPanel(); } send({a: k}); }
+  if (k === 'press' || k === 'awards' || k === 'pred') { if (k === 'press') { PRESS = null; PRESS_PICK = []; } else if (k === 'awards') AWARDS = null; else PRED = null;
+    renderPanel(); send({a: k}); } }
 // имена с приставкой panel: в Telegram на iPhone глобальное head занято (HTMLHeadElement) — «head is not a function»
 function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
 function panelBack() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
@@ -864,7 +875,7 @@ function renderPanel() {
   let h;
   if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
-    crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
+    crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop, press: panelPress, awards: panelAwards, pred: panelPred}[P.k](m, P);
   $('sheetin').innerHTML = h;
   if (P.k === 'kit') kitAfter();
   if (P.k === 'crest') crestAfter();
@@ -1388,6 +1399,8 @@ function panelTrophies(m, P) {   // полка трофеев клуба — с�
   h += `<div class="label">Места по сезонам</div>` + (d.places.length ? `<div class="card" style="padding:4px 10px">` + d.places.map(p =>
     `<div class="row" style="padding:6px 0"><div><b>${esc(p.title)}</b><div class="sub">${esc(p.when)} · ${p.pts} очк. · ${esc(p.wdl)} · мячи ${esc(p.goals)}</div></div><b style="white-space:nowrap">${p.place === 1 ? '🏆 ' : ''}${p.place}/${p.of}</b></div>`).join('') + `</div>` :
     `<div class="card note">Завершённых сезонов пока нет.</div>`);
+  if (d.awards && d.awards.length) h += `<div class="label">Награды сезона</div>` + d.awards.map(a =>
+    `<div class="card trophy"><span class="ic">${a.icon}</span><div><b>${esc(a.title)}</b><div>${esc(a.who)}</div><div class="sub">${esc(a.value)} · ${esc(a.when)}</div></div></div>`).join('');
   h += `<div class="label">Рекорды клуба</div><div class="recs">` + d.records.map(r =>
     `<div class="card"><div class="sub">${r.icon} ${esc(r.title)}</div><b>${esc(r.value)}</b><div class="sub">${esc(r.sub)}</div></div>`).join('') + `</div>`;
   return h + `<div class="hint">${esc(d.note)}</div>`;
@@ -1403,6 +1416,68 @@ function panelTop(m, P) {        // лучшие менеджеры всех л�
     `<div class="card note">Пока никого нет.</div>`;
   h += d.my_place ? `<div class="banner">Ваше место: ${d.my_place} из ${d.total}</div>` : '';
   return h + `<div class="hint">${esc(d.rule)} %П — процент побед, 📣 — болельщики.</div>`;
+}
+/* 🎤 пресс-конференция, 🏅 награды сезона, 🔮 прогнозы — данные по запросу (app/press.py, app/awards.py, app/predict.py) */
+let PRESS = null, PRESS_PICK = [], AWARDS = null, PRED = null;
+const PRED_DRAFT = {};      // счёт, набранный кнопками, пока не сохранён: fx → [хозяева, гости]
+function pressCard(p) {     // «Главная»: журналисты ждут — вопросы приходят по запросу
+  return `<div class="card ask"><div class="wtag">🎤 Пресс-конференция</div><h3>${esc(p.title)}<small>Журналисты ждут: ${p.n} ${p.n === 1 ? 'вопрос' : 'вопроса'}. Ответы меняют настрой игроков.</small></h3>` +
+    `<button type="button" class="go main" data-panel="press">🎤 Ответить журналистам</button></div>`;
+}
+function panelPress(m, P) {
+  const d = PRESS;
+  if (!d) return panelHead('🎤 Пресс-конференция') + `<div class="note">${PRESS === false ? 'Пресс-конференции сейчас нет.' : 'Загружаю…'}</div>`;
+  let h = panelHead('🎤 Пресс-конференция', esc(d.title));
+  if (d.locked) h += `<div class="banner warn">${esc(d.locked)}</div>`;
+  h += d.questions.map((q, i) => `<div class="label">Вопрос ${i + 1} из ${d.questions.length}</div><div class="card"><b>${esc(q.text)}</b>` +
+    q.answers.map(([t, quote, eff], j) => `<button type="button" class="kind${PRESS_PICK[i] === j ? ' on' : ''}" data-prq="${i}:${j}">${esc(t)}: «${esc(quote)}»<span>${esc(eff)}</span></button>`).join('') + `</div>`).join('');
+  const all = d.questions.every((q, i) => PRESS_PICK[i] != null);
+  h += `<button type="button" class="big" data-prsend${all && !d.locked ? '' : ' disabled'}>📣 Ответить журналистам</button>`;
+  return h + `<div class="hint">${esc(d.until)}</div><div class="hint">${esc(d.rule)}</div>`;
+}
+function panelAwards(m, P) {     // награды последнего завершённого сезона лиги — считает бот
+  const d = AWARDS;
+  if (!d) return panelHead('🏅 Награды сезона') + `<div class="note">Загружаю…</div>`;
+  let h = panelHead('🏅 Награды сезона', esc(d.title));
+  if (d.note) h += `<div class="card note">${esc(d.note)}</div>`;
+  const one = d.items.filter(a => a.kind !== 'team'), team = d.items.filter(a => a.kind === 'team');
+  h += one.map(a => `<div class="card trophy"><span class="ic">${a.icon}</span><div><b>${esc(a.title)}</b><div>${esc(a.who)} · «${esc(a.club)}»${a.mine ? ' · ваш клуб' : ''}</div><div class="sub">${esc(a.value)}</div></div></div>`).join('');
+  if (team.length) h += `<div class="label">⭐ Символическая сборная</div><div class="card" style="padding:4px 10px">` + team.map(a =>
+    `<div class="row" style="padding:6px 0"><div><b>${esc(a.who)}</b><div class="sub">${esc(a.line)} · «${esc(a.club)}» · ${esc(a.value)}</div></div></div>`).join('') + `</div>`;
+  return h + `<div class="report">${esc(d.rule)}</div>`;
+}
+function panelPred(m, P) {       // прогнозы на чужие матчи своей лиги: счёт кнопками, сохраняет и проверяет бот
+  const d = PRED;
+  if (!d) return panelHead('🔮 Прогнозы') + `<div class="note">Загружаю…</div>`;
+  let h = panelHead('🔮 Прогнозы', esc(d.title));
+  if (d.note) h += `<div class="card note">${esc(d.note)}</div>`;
+  const val = x => x == null ? '–' : x;
+  if (d.open.length) h += `<div class="label">Ближайшие матчи</div>` + d.open.map(o => {
+    const v = PRED_DRAFT[o.fx] || o.mine || [null, null];
+    const ctl = o.locked ? `<div class="sub" style="text-align:center;margin-top:6px">🔒 Матч начался${o.mine ? ` · ваш прогноз ${o.mine[0]}:${o.mine[1]}` : ' — прогноза нет'}</div>` :
+      `<div class="pdc"><button type="button" class="st" data-pd="${o.fx}:0:-1" aria-label="меньше хозяевам">−</button><b>${val(v[0])}</b><button type="button" class="st" data-pd="${o.fx}:0:1" aria-label="больше хозяевам">+</button><b>:</b>` +
+      `<button type="button" class="st" data-pd="${o.fx}:1:-1" aria-label="меньше гостям">−</button><b>${val(v[1])}</b><button type="button" class="st" data-pd="${o.fx}:1:1" aria-label="больше гостям">+</button>` +
+      `<button type="button" class="sv" data-pdsave="${o.fx}"${PRED_DRAFT[o.fx] ? '' : ' disabled'}>${o.mine ? 'Изменить' : 'Сохранить'}</button></div>`;
+    return `<div class="pdr"><div class="tm"><span>${esc(o.home)}</span><span>${esc(o.away)}</span></div><div class="sub" style="text-align:center">тур ${o.tour}${o.when ? ' · ' + esc(o.when) : ''}${o.mine ? ` · ваш прогноз ${o.mine[0]}:${o.mine[1]} ✅` : ''}</div>${ctl}</div>`;
+  }).join('');
+  else if (!d.note) h += `<div class="card note">Матчей для прогноза сейчас нет: в ближайших турах играет только ваш клуб.</div>`;
+  h += `<div class="label">Прогнозисты</div>` + (d.table.length ? `<div class="card" style="padding:6px 8px"><table class="tb pd"><tr><th>#</th><th style="text-align:left">Клуб</th><th>🎯</th><th>✔️</th><th>О</th></tr>` +
+    d.table.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.club)}<small>${esc(r.manager)}</small></td><td>${r.exact}</td><td>${r.outcome}</td><td class="pts">${r.pts}</td></tr>`).join('') + `</table></div>` :
+    `<div class="card note">Пока никто не делал прогнозов.</div>`);
+  if (d.done.length) h += `<div class="label">Ваши прогнозы</div><div class="card" style="padding:4px 10px">` + d.done.map(x =>
+    `<div class="row" style="padding:6px 0"><div>${esc(x.home)} — ${esc(x.away)}<div class="sub">тур ${x.tour} · счёт ${esc(x.score)} · ваш ${esc(x.mine)}</div></div><b>${x.pts == null ? '—' : '+' + x.pts}</b></div>`).join('') + `</div>`;
+  return h + `<div class="hint">${esc(d.rule)} 🎯 — точных, ✔️ — исходов, О — очки.</div>`;
+}
+function betweenClick(b) {       // нажатия в окнах пресс-конференции и прогнозов; true — обработано
+  const d = b.dataset;
+  if (d.prq) { const [i, j] = d.prq.split(':').map(Number); PRESS_PICK[i] = j; haptic(); renderPanel(); return true; }
+  if (b.hasAttribute('data-prsend')) { if (!PRESS || PRESS_PICK.length !== PRESS.questions.length || PRESS_PICK.some(x => x == null)) return true;
+    haptic(); send({a: 'press', fx: PRESS.fx, picks: PRESS_PICK.slice()}); return true; }
+  if (d.pd) { const [fx, side, step] = d.pd.split(':').map(Number), o = PRED && PRED.open.find(x => x.fx === fx); if (!o) return true;
+    const v = (PRED_DRAFT[fx] || o.mine || [0, 0]).map(x => x == null ? 0 : x).slice();
+    v[side] = Math.max(0, Math.min(15, v[side] + step)); PRED_DRAFT[fx] = v; haptic(); renderPanel(); return true; }
+  if (d.pdsave) { const fx = +d.pdsave, v = PRED_DRAFT[fx]; if (!v) return true; haptic(); send({a: 'pred', fx, hg: v[0], ag: v[1]}); return true; }
+  return false;
 }
 function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
   const r = P.which === 'cup' ? (H().cup || {}).rules : (H().table || {}).rules;
@@ -2159,6 +2234,7 @@ function renderHome() {
   const dd = DAILY_SHOW && Date.now() < DAILY_SHOW.until ? DAILY_SHOW.d : hb.daily;
   if (dd) x += dailyBlock(dd);
   if (h.ask) x += askBlock(h.ask);
+  if (h.press) x += pressCard(h.press);
   const wn = hb.whatsnew || [];      // «Что нового»: по одной карточке, пока менеджер не нажмёт «Понятно»
   if (wn.length) x += `<div class="card wnew"><div class="wtag">🆕 Новое в игре${wn.length > 1 ? ` · ещё ${wn.length - 1}` : ''}</div>` +
     `<h3>${esc(wn[0].title)}</h3><div class="note">${esc(wn[0].text)}</div><div class="mrow2">` +
@@ -2175,7 +2251,8 @@ function renderHome() {
     : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — найдите соперника или позовите друга из лиги.</div>${seekBlock()}<button type="button" class="go" data-fr>🤝 Товарищеский с другом</button></div>`;
   x += communityCard(hb);
   if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
-    `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div></div>`;
+    `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div>` +
+    (h.press ? `<button type="button" class="go" data-panel="press">🎤 Пресс-конференция</button>` : '') + `</div>`;
   const ready = !h.problems.length;
   x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` +
     (h.tired || h.hurt ? `<div class="sub">${h.tired ? 'устали: ' + h.tired : ''}${h.tired && h.hurt ? ' · ' : ''}${h.hurt ? 'травмы: ' + h.hurt : ''}</div>` : '') +
@@ -2212,6 +2289,7 @@ function renderLeague() {
       t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"><td>${r.place}</td><td class="n">${crestSvg(crestOf(r))}${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
       `</table></div>`;
     if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
+    if (hb.home && hb.home.league) x += `<div class="mrow2"><button type="button" class="go" data-panel="pred">🔮 Прогнозы</button><button type="button" class="go" data-panel="awards">🏅 Награды сезона</button></div>`;
     x += `<button type="button" class="go" data-panel="top">🌍 Лучшие менеджеры всех лиг</button>`;
     if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-panel="friends">👥 Лига друзей: создать, вступить, позвать</button>`;
     else x += `<button type="button" class="go" data-panel="official">⭐ Официальные лиги</button>`;
@@ -2976,6 +3054,7 @@ document.addEventListener('click', e => {
   if (b.dataset.time) { haptic(); openMatchSheet({id: +b.dataset.time}); return; }
   if (b.dataset.resp) { send({a: 'respond', fx: +b.dataset.id, r: b.dataset.resp}); return; }
   if (b.dataset.cancel) { const fx = +b.dataset.cancel; ask('Отменить этот товарищеский матч?', () => send({a: 'cancel', fx})); return; }
+  if (betweenClick(b)) return;
   if (b.dataset.panel) { haptic(); openPanel(b.dataset.panel); return; }
   if (b.dataset.rules) { haptic(); openPanel('rules'); PANEL.which = b.dataset.rules; renderPanel(); return; }
   if (PANEL && panelClick(b)) return;
@@ -3169,6 +3248,10 @@ function onAck(m) {
   if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
   if (m.ok && m.trophies) { TROPHIES = m.trophies; if (PANEL && PANEL.k === 'trophies') renderPanel(); }
   if (m.ok && m.top) { TOPM = m.top; if (PANEL && PANEL.k === 'top') renderPanel(); }
+  if (act && act.a === 'press') { if (act.picks && m.ok) { PRESS = null; if (PANEL && PANEL.k === 'press') closeSheet(); if (S && S.hub && S.hub.home) { delete S.hub.home.press; renderHome(); } }
+    else if (!act.picks) { PRESS = m.press || false; if (PANEL && PANEL.k === 'press') renderPanel(); } }
+  if (m.awards) { AWARDS = m.awards; if (PANEL && PANEL.k === 'awards') renderPanel(); }
+  if (m.pred) { PRED = m.pred; if (m.ok && act && act.fx) delete PRED_DRAFT[act.fx]; if (PANEL && PANEL.k === 'pred') renderPanel(); }
   if (act && act.a === 'daily') {
     DAILY_WAIT = false;
     if (m.daily && m.daily.answered) {           // итог виден ~3 секунды, потом блок исчезает (бот его больше не пришлёт)
@@ -3297,6 +3380,7 @@ function demoHub() {
     home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
       other: 'Реал Мадрит', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
+      press: {fx: 501, title: 'Девятка 3:2 Тройка', n: 3},
       ask: {slot: 8, kind: 'conflict', token: 4242, deal: true, who: '№12 Илья Носов', trait: '😰 Ранимый', title: '⚔️ Поссорился с партнёром',
         story: 'повздорил с №7 Титов: сыгранность всего 42', until: 'Ответьте до 28.10 18:40 (UTC+4) — иначе он решит, что вам всё равно',
         answers: [['both', '🤝 Помирить обоих', 'обоим +4 к настрою, сыгранность +2'], ['side', '👉 Встать на его сторону', 'ему +8, партнёру −10'],
@@ -3559,6 +3643,45 @@ function demoTrophies() {       // демо: полка трофеев — те 
       {icon: '⚽', title: 'Лучший бомбардир', value: '14', sub: '№9 Константин Константинопольский, передач 5'},
       {icon: '📣', title: 'Рекорд болельщиков', value: '1240', sub: 'сейчас 1180'}]};
 }
+function demoPress() {           // демо: пресс-конференция — поля как у бота (app/press.py view)
+  const A = (q, a, b, c) => ({text: q, answers: [['😌 Спокойно', a[0], a[1]], ['👏 Похвалить', b[0], b[1]], ['😠 Жёстко', c[0], c[1]]]});
+  return {fx: 501, title: 'Девятка 3:2 Тройка', locked: null, until: 'Ответить — до следующего матча клуба, не позже 31.10 21:40 (UTC+4)',
+    rule: 'Демо: в Telegram — полный текст правил пресс-конференции.',
+    questions: [A('Вы проигрывали, но отыгрались — 3:2. Что сказали игрокам?', ['Попросил не паниковать и играть своё.', 'Настрой: всем +1'],
+      ['Эта команда не сдаётся — вот что я им сказал.', 'Настрой: всем +4'], ['Сказал, что так начинать матчи нельзя.', 'Настрой: уверенным +3, остальным −1']),
+    A('№9 Беркут — лучший у вас сегодня. Ждёте от него большего?', ['Он молодец, но футбол — командная игра.', 'Настрой: всем +1'],
+      ['Это игрок высочайшего уровня.', 'Настрой: №9 Беркут +4'], ['Ему ещё многому нужно учиться.', 'Настрой: №9 Беркут −2, остальным +1']),
+    A('Что скажете болельщикам?', ['Спасибо за поддержку — работаем дальше.', 'Настрой: всем +1'], ['Это команда для вас — гордитесь ею!', 'Настрой: всем +2'],
+      ['Пусть требуют больше — мы обязаны соответствовать.', 'Настрой: уверенным +2, остальным −2'])]};
+}
+function demoAwards() {          // демо: награды сезона — поля как у бота (app/awards.py league_view)
+  const T = (who, club, line, v) => ({icon: '⭐', title: 'Символическая сборная сезона', kind: 'team', who, club, line, value: v, mine: club === 'Девятка'});
+  return {title: 'Сезон 1 — лига «Лига друзей»', note: null, rule: '🏅 НАГРАДЫ СЕЗОНА — демо: в Telegram — полный текст правил.',
+    items: [{icon: '⚽', title: 'Бомбардир сезона', kind: 'scorer', who: '№9 Олег Беркут', club: 'Девятка', value: '11 голов, передач 4', mine: true},
+      {icon: '🧤', title: 'Лучший вратарь сезона', kind: 'keeper', who: '№1 Пётр Стенин', club: 'Тройка', value: 'пропускал 0,8 за матч, «сухих» 3 из 6', mine: false},
+      {icon: '🧠', title: 'Тренер сезона', kind: 'coach', who: 'Константинополь', club: 'Клуб с очень длинным названием', value: '2-е место при 5-й силе состава (+3 к ожиданию)', mine: false},
+      T('№1 Пётр Стенин', 'Тройка', 'вратарь', 'оценка 7,2, матчей 6'), T('№4 Иван Стоппер', 'Девятка', 'защита', 'оценка 6,9, матчей 6'),
+      T('№5 Глеб Щит', 'Тройка', 'защита', 'оценка 6,8, матчей 5'), T('№8 Лев Пас', 'Девятка', 'центр', 'оценка 7,1, матчей 6'),
+      T('№10 Марк Дирижёр', 'Клуб с очень длинным названием', 'центр', 'оценка 7,0, матчей 6'), T('№9 Олег Беркут', 'Девятка', 'атака', 'оценка 7,8, матчей 6'),
+      T('№11 Яков Молния', 'Тройка', 'атака', 'оценка 7,3, матчей 4')]};
+}
+let DEMO_PRED = null;
+function demoPred(act) {         // демо: прогнозы — поля как у бота (app/predict.py state); сохраняются только на этой странице
+  if (!DEMO_PRED) DEMO_PRED = {title: 'Лига «Лига друзей»', note: null, rule: 'Демо: точный счёт — 3 очка, исход — 1; менять можно до начала матча.',
+    open: [{fx: 601, tour: 3, home: 'Тройка', away: 'Клуб с очень длинным названием', when: '01.11 19:00', mine: null, locked: false},
+      {fx: 602, tour: 3, home: 'Пятёрка', away: 'Семёрка', when: 'до 02.11 23:59', mine: [2, 1], locked: false},
+      {fx: 603, tour: 2, home: 'Семёрка', away: 'Тройка', when: 'идёт', mine: [1, 1], locked: true}],
+    done: [{tour: 1, home: 'Тройка', away: 'Пятёрка', score: '2:0', mine: '2:0', pts: 3}, {tour: 1, home: 'Семёрка', away: 'Клуб с очень длинным названием', score: '1:3', mine: '0:1', pts: 1}],
+    table: [{place: 1, club: 'Девятка', manager: 'Вы', pts: 4, exact: 1, outcome: 1, n: 2, mine: true},
+      {place: 2, club: 'Клуб с очень длинным названием', manager: 'Константинополь Очень-Длинная-Фамилия', pts: 3, exact: 1, outcome: 0, n: 2, mine: false},
+      {place: 3, club: 'Тройка', manager: 'R X', pts: 1, exact: 0, outcome: 1, n: 1, mine: false}]};
+  const r = {ok: true, note: ''};
+  if (act.fx) { const o = DEMO_PRED.open.find(x => x.fx === act.fx);
+    if (!o || o.locked) Object.assign(r, {ok: false, note: 'Матч уже начался — прогноз закрыт'});
+    else { o.mine = [act.hg, act.ag]; r.note = `🔮 Прогноз сохранён: «${o.home}» ${act.hg}:${act.ag} «${o.away}»`; } }
+  r.pred = JSON.parse(JSON.stringify(DEMO_PRED));
+  return r;
+}
 function demoTop() {             // демо: лучшие менеджеры — поля как у бота (app/trophies.py top)
   const names = ['Аня', 'Боря', 'Вика', 'Гена', 'Даша', 'Егор', 'Жанна', 'Зоя', 'Илья', 'Костя', 'Лена', 'Миша', 'Надя', 'Олег', 'Петя', 'Рита', 'Саша', 'Таня', 'Уля', 'Фёдор'];
   const rows = names.map((n, i) => ({place: i + 1, name: n + (i === 3 ? ' Очень-Длинная-Фамилия-Менеджера' : ''), clubs: i % 3 ? 'Клуб ' + n : 'Ливерпуль · Клуб с очень длинным названием', trophies: Math.max(0, 3 - (i >> 2)),
@@ -3594,6 +3717,10 @@ function demoAct(act) {
     else if (o) { o.steps.find(s => s.key === 'player').done = true; o.done = o.steps.filter(s => s.done).length; r.note = `+${o.reward} болельщиков за шаг`; }
   }
   else if (act.a === 'trophies') r.trophies = demoTrophies();
+  else if (act.a === 'press') { if (act.picks) { delete S.hub.home.press; r.note = '🎤 Пресс-конференция окончена (демо): в игре настрой игроков изменится, цитата уйдёт в новости лиги.'; r.press = null; }
+    else if (S.hub.home.press) r.press = demoPress(); else r = {ok: false, note: 'Пресс-конференции сейчас нет', press: null}; }
+  else if (act.a === 'awards') r.awards = demoAwards();
+  else if (act.a === 'pred') r = demoPred(act);
   else if (act.a === 'top') r.top = demoTop();
   else if (act.a === 'nudges') r = {ok: true, nudges: act.on, note: act.on ? '🔔 Напоминания включены' : '🔕 Напоминания выключены (о матчах — по-прежнему приходят)'};
   else if (act.a === 'daily') {
