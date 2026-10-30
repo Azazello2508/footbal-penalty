@@ -100,13 +100,42 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 #toast.bad{border-color:#b91c1c;color:#fecaca}
 #conn{text-align:center;color:var(--muted);font-size:14px;margin:40px 0}
 /* вкладки игры */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(5,1fr);background:#0f172a;
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(6,1fr);background:#0f172a;
   border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-#nav button{background:transparent;padding:4px 0;border-radius:10px;color:var(--muted);font-size:11px;position:relative}
+#nav button{background:transparent;padding:4px 0;border-radius:10px;color:var(--muted);font-size:10.5px;position:relative;white-space:nowrap;min-width:0}
+#nav .nl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 1px}      /* узкий экран: подпись не налезает на соседнюю */
 #nav button i{display:block;font-style:normal;font-size:21px;line-height:1.2}
 #nav button.on{color:var(--accent);background:rgba(250,204,21,.08)}
 #nav .dot{position:absolute;top:0;left:calc(50% + 8px);min-width:17px;height:17px;border-radius:9px;background:#dc2626;color:#fff;
   font-size:11px;line-height:17px;padding:0 4px}
+/* 🛍 магазин и пометка NEW */
+#nav .nw{position:absolute;top:-2px;left:calc(50% + 1px);background:#ef4444;color:#fff;font-size:8.5px;font-weight:800;border-radius:6px;padding:1px 4px;line-height:1.3;letter-spacing:.03em}
+.shtop{display:flex;align-items:center;gap:10px;margin:2px 0 4px}.shtop h1{font-size:21px;margin:0;flex:1}.shnew{font-size:10px;font-weight:800;background:#ef4444;color:#fff;border-radius:6px;padding:2px 6px}
+.shsub{color:var(--muted);font-size:12.5px;line-height:1.4}
+.shjump{display:flex;gap:6px;overflow-x:auto;margin:10px -16px 4px;padding:0 16px 4px;scrollbar-width:none}.shjump::-webkit-scrollbar{display:none}
+.shjump button{flex:none;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:6px 11px;font-size:12.5px}
+.shclosed{background:linear-gradient(135deg,#1e293b,#312e81);border:1px solid #4338ca;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;margin:8px 0}
+.shsec{margin:18px 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);scroll-margin-top:10px}
+.shit{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;margin:8px 0;position:relative}
+.shit.off{border-color:#a16207;background:linear-gradient(180deg,rgba(234,179,8,.08),var(--card) 40%)}
+.shotag{display:inline-block;font-size:10.5px;font-weight:800;color:#2a1c00;background:linear-gradient(135deg,#fff4b8,#e8b923);border-radius:8px;padding:2px 7px;margin-bottom:4px}
+.shhd{display:flex;justify-content:space-between;align-items:center;gap:8px}.shhd>div{min-width:0}.shhd b{font-size:15px;overflow-wrap:anywhere}.shhd small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
+.shlad{display:flex;gap:3px;flex:none}.shlad i{width:14px;height:6px;border-radius:3px;background:#334155}.shlad i.on{background:var(--accent)}
+.shpair{display:grid;grid-template-columns:1fr 18px 1fr;gap:4px;align-items:center;width:100%;margin-top:8px;padding:0;background:none;text-align:left;color:var(--text)}.shpair>span{min-width:0}
+.shpair svg,.shnf svg,.shpromo svg{width:100%;height:auto;display:block;border-radius:10px}.shpair .ar{text-align:center;color:var(--muted)}
+.shcap{display:flex;justify-content:space-between;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-top:3px}
+.shwhat{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.4}.shwhat b{color:var(--text);font-weight:600}
+.shbig{margin-top:8px}.shmax{font-size:12.5px;color:#4ade80;margin-top:8px}
+.shsoon,.shsw{display:flex;align-items:center;justify-content:center;border-radius:16px;padding:10px;background:var(--card2);color:var(--muted);font-weight:700;font-size:13.5px;border:1px dashed var(--line);text-align:center}
+.shsw{color:var(--text);border-style:solid}.shwarn{font-size:12.5px;margin:0 0 4px}
+.shpack{display:flex;align-items:center;gap:10px}.shpack .ic{font-size:26px}.shpack .tx{flex:1;min-width:0;font-size:13px}.shpack .tx small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35}.shpack .tx b{white-space:nowrap}
+.shbadge{position:absolute;right:10px;top:-8px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 7px;letter-spacing:.04em}
+.kbuy.shpk{width:auto;flex:none;padding:7px 9px}
+.shnf{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center}.shnf.one{grid-template-columns:1fr}.shnfl{font-size:12.5px;line-height:1.45}.shnfl div{margin:3px 0}.shnfl .lk{color:var(--muted)}
+.shpromo{display:grid;grid-template-columns:1fr 80px 66px;gap:8px;align-items:center;width:100%;margin:6px 0 8px;padding:10px;border-radius:16px;text-align:left;color:var(--text);
+  border:1px solid #a16207;background:linear-gradient(135deg,#2a1d05,#1b2742 60%,#2a1645);box-shadow:0 4px 18px rgba(245,197,66,.15)}
+.shpromo b{font-size:15px;white-space:nowrap}@media (max-width:370px){.shpromo{grid-template-columns:1fr 70px 58px;gap:6px}}.shpromo b i{font-style:normal;font-size:10px;font-weight:800;background:#ef4444;color:#fff;border-radius:6px;padding:2px 5px;vertical-align:2px}
+.shpromo small{display:block;color:#fde68a;font-size:12px;margin-top:4px;line-height:1.3}.shpt{min-width:0}.shpm{min-width:0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
 .card h3{margin:0 0 6px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .card .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -129,6 +158,8 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .crrow{background:var(--card2);padding:8px 10px;border-radius:10px;font-size:14px}.crrow .sub{margin-top:2px}
 .crgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.crgrid.mot{grid-template-columns:repeat(2,1fr)}.crlet{display:block;font-size:22px;font-weight:900;line-height:1.1}.crgrid.mot .crt{font-size:12px;font-weight:700;color:var(--text);min-height:34px}.crgrid.ready .crt svg{width:96px;height:100px}.crgrid.ready .crt span{font-size:12px;font-weight:700;color:var(--text)}.crgrid.ready{grid-template-columns:repeat(3,1fr)}.crgrid.sym{grid-template-columns:repeat(6,1fr)}
 .crt{background:var(--card2);border-radius:10px;padding:6px 2px;font-size:11px;color:var(--muted);text-align:center;min-height:40px}.crt.on{outline:2px solid var(--accent)}
+/* узкий экран (320–360): плитки, кнопка покупки и цена сжимаются, а не раздвигают лист вбок */
+.crgrid>.crt{min-width:0;overflow-wrap:anywhere;hyphens:auto}.crgrid.ready .crt svg{max-width:100%;height:auto}.kbuy>span:first-child{min-width:0}
 .crt svg{display:block;margin:0 auto 2px;width:36px;height:43px}.crgrid.sym .crt svg{width:30px;height:30px;margin:0 auto}
 .crt.lock,.go.lock{position:relative}.crt.lock>svg,.crt.lock>b,.color.lock,.crgrid.mot .crt.lock span{opacity:.4}.crt.lock::after,.color.lock::after{content:'🔒';position:absolute;top:2px;right:3px;font-size:10px;line-height:1}
 .crt .lk{display:block;font-size:10px;font-style:normal;color:var(--muted);font-weight:600}.color.lock{position:relative}.color.lock::after{top:50%;left:50%;right:auto;transform:translate(-50%,-50%)}
@@ -276,7 +307,7 @@ tr[data-pedit]{cursor:pointer}
 .kcap{text-align:center;margin:4px 0 6px}
 .kchips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:2px 0 8px}.kshop .sub{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:6px}.kchips button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border-radius:12px;background:var(--card2);padding:6px 2px;font-size:11px;font-weight:600;line-height:1.15}
 .kchips small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;margin-top:2px}.kchips .on{box-shadow:0 0 0 2px var(--accent) inset}.kchips .own small{color:#4ade80}
-.kacts{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:stretch;margin-top:8px}.kacts.one{grid-template-columns:1fr}
+.kacts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:stretch;margin-top:8px}.kacts.one{grid-template-columns:1fr}@media (max-width:370px){.kacts{grid-template-columns:1fr}.ktry{padding:8px 14px}}      /* узкий экран: «Примерить» над кнопкой покупки */
 .ktry{border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:10px 14px;background:rgba(255,255,255,.06);font-weight:700;font-size:14px;box-shadow:0 0 16px rgba(94,181,247,.25)}
 .kbuy{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border-radius:16px;padding:10px 12px;font-weight:800;font-size:14.5px;line-height:1.2;text-align:left;color:#2a1c00;overflow:hidden;
  background:linear-gradient(135deg,#fff4b8,#f5c542 35%,#e8a90c 70%,#ffe27a);box-shadow:0 6px 22px rgba(245,197,66,.38),inset 0 1px 0 rgba(255,255,255,.7)}
@@ -284,8 +315,8 @@ tr[data-pedit]{cursor:pointer}
 .kbuy.l2,.kbuy.l3{background:linear-gradient(135deg,#7cc4ff,#2f8ff0 55%,#1f6fd1);color:#fff;box-shadow:0 6px 20px rgba(47,143,240,.4),inset 0 1px 0 rgba(255,255,255,.45)}
 .kbuy::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-100%);animation:kbsh 3.2s ease-in-out infinite}@keyframes kbsh{60%,100%{transform:translateX(100%)}}
 .kbuy .pr{background:rgba(0,0,0,.22);color:#fff;border-radius:12px;padding:6px 10px;font-size:16px;white-space:nowrap}.kbuy small{display:block;font-weight:600;font-size:11.5px;opacity:.8}
-.kall{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;border:1px dashed rgba(245,197,66,.55);background:rgba(245,197,66,.08);border-radius:14px;padding:9px 12px;font-weight:600;font-size:13.5px;line-height:1.2;text-align:left}
-.kall b{margin-left:auto;white-space:nowrap}.kbadge{background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;letter-spacing:.04em}
+.kall{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;width:100%;min-width:0;margin-top:8px;border:1px dashed rgba(245,197,66,.55);background:rgba(245,197,66,.08);border-radius:14px;padding:9px 12px;font-weight:600;font-size:13.5px;line-height:1.2;text-align:left}
+.kall b{margin-left:auto;white-space:nowrap;max-width:100%}      /* узкий экран: цена переносится строкой ниже, лист не прокручивается вбок */.kbadge{background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;letter-spacing:.04em}
 .kduel>div{min-width:0}
 .kunder{display:grid;grid-template-columns:42% 1fr;gap:8px;align-items:center;margin:6px 0}.kunder.one{grid-template-columns:1fr}.kunder.one .kgk{width:50%;margin:0 auto}
 .kgk{text-align:center;font-size:11px;color:var(--muted)}.kgk span{display:block;margin-top:3px}
@@ -362,6 +393,7 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
   <div id="app" class="hidden">
    <section id="t-home"></section>
    <section id="t-league" class="hidden"></section>
+   <section id="t-shop" class="hidden"></section>
    <section id="t-learn" class="hidden"></section>
    <section id="t-more" class="hidden"></section>
    <section id="t-squad" class="hidden">
@@ -383,11 +415,12 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
   </div>
 </main>
 <nav id="nav" class="hidden">
-  <button type="button" data-tab="home"><i>🏠</i>Главная</button>
-  <button type="button" data-tab="squad"><i>📋</i>Состав</button>
-  <button type="button" data-tab="league"><i>🏆</i>Лига</button>
-  <button type="button" data-tab="learn"><i>📖</i>Обучение</button>
-  <button type="button" data-tab="more"><i>☰</i>Ещё<span id="unseen" class="dot hidden"></span></button>
+  <button type="button" data-tab="home"><i>🏠</i><span class="nl">Главная</span></button>
+  <button type="button" data-tab="squad"><i>📋</i><span class="nl">Состав</span></button>
+  <button type="button" data-tab="league"><i>🏆</i><span class="nl">Лига</span></button>
+  <button type="button" data-tab="shop"><i>🛍</i><span class="nl">Магазин</span><span id="shopnew" class="nw">NEW</span></button>
+  <button type="button" data-tab="learn"><i>📖</i><span class="nl">Обучение</span></button>
+  <button type="button" data-tab="more"><i>☰</i><span class="nl">Ещё</span><span id="unseen" class="dot hidden"></span></button>
 </nav>
 <div id="veil" class="hidden"></div>
 <div id="sheet" class="hidden"><div class="in" id="sheetin"></div></div>
@@ -446,7 +479,7 @@ function roleIcon(p) { const r = p.role && roleOf(p.role); return r ? r[2].split
 /* ---------------- вкладки игры: главная, лига, ещё ---------------- */
 let TAB = new URLSearchParams(location.search).get('tab') || 'home';
 let SEG = 'table';           // вкладка «Лига»: таблица или матчи
-const TABS = ['home', 'squad', 'league', 'learn', 'more'];
+const TABS = ['home', 'squad', 'league', 'shop', 'learn', 'more'];
 if (!TABS.includes(TAB)) TAB = 'home';
 const H = () => (S && S.hub) || {};   // до первого состояния от бота S ещё нет (секундомер поиска спрашивает каждую секунду)
 // повторы состояния — один раз (app/hub.py crest_in, slots_in): эмблема клуба — по ключу cr из H().crests, варианты
@@ -1153,6 +1186,12 @@ function kitShop(E) {      // плашки уровней с ценой (зам�
   else h += `<div class="sub">Менять форму в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда. Уровень эмблемы покупается отдельно.</div>`;
   return `<div class="kshop">${h}</div>`;
 }
+// готовая форма или эмблема, совпадающая с черновиком, — с отметкой «выбрано» (сетки кешируются без неё: отметка ставится поверх)
+const sameSpec = (a, b) => { const k = o => JSON.stringify(o, Object.keys(o || {}).sort()); return !!a && !!b && k(a) === k(b); };
+function tileOn(html, attr, list, cur, f) {
+  const i = list.findIndex(([, v]) => sameSpec(f ? f(v) : v, cur));
+  return i < 0 ? html : html.replace(`class="crt" ${attr}="${i}"`, `class="crt on" ${attr}="${i}"`).replace(`class="crt lock" ${attr}="${i}"`, `class="crt on lock" ${attr}="${i}"`);
+}
 function kitTile(v, lv) { return kitCard(v, Math.max(lv, kitNeed({home: v})), {mini: 1}); }      // плитка выбора — в отделке своего уровня
 function panelKit(m) {
   const E = H().kit_edit;
@@ -1180,8 +1219,8 @@ function panelKit(m) {
   const grid = (list, attr) => list.map(([t, v], i) => { const n = kitNeed({[KIT_SLOT]: v});
     return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${kitTile(v, lv)}<span>${t}</span>${kitLk(n)}</button>`; }).join('');
   if (!KIT_TILES || KIT_TILES[0] !== lv + KIT_SLOT) KIT_TILES = [lv + KIT_SLOT, grid(KIT_READY, 'data-kitready'), grid(KIT_THEMES, 'data-kittheme')];      // готовые не зависят от черновика
-  h += `<div class="label">⭐ Готовые формы — одним нажатием</div><div class="crgrid kitready">` + KIT_TILES[1] + `</div>`;
-  h += `<div class="label">🌈 Темы (уровень ${L.patterns.fade})</div><div class="crgrid kitready">` + KIT_TILES[2] + `</div>`;
+  h += `<div class="label">⭐ Готовые формы — одним нажатием</div><div class="crgrid kitready">` + tileOn(KIT_TILES[1], 'data-kitready', KIT_READY, x) + `</div>`;
+  h += `<div class="label">🌈 Темы (уровень ${L.patterns.fade})</div><div class="crgrid kitready">` + tileOn(KIT_TILES[2], 'data-kittheme', KIT_THEMES, x) + `</div>`;
   const pk = lv + JSON.stringify(x);      // плитки узоров зависят только от текущей формы и уровня — кешируем, как готовые
   if (!KIT_PTILES || KIT_PTILES[0] !== pk) KIT_PTILES = [pk, KIT_EDITOR.patterns.map(k => { const n = L.patterns[k] || 1, v = {...x, p: k};
     if (k === 'plain') delete v.c2; else if (!v.c2 || v.c2 === v.s) v.c2 = kitAlt(v.s);
@@ -1219,10 +1258,10 @@ function kitDuel(m) {      // перед матчем: в какой форме 
   return `<div class="kduel">${side(0, K.h)}<div class="kvs">VS</div>${side(1, K.a)}</div>`;
 }
 function kitPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
-  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  if (!TG || !TG.openInvoice) { SHOP_PREV = null; toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
     if (st === 'paid') { haptic('ok'); toast('⭐ Оплачено — открываем уровень формы'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'kits', check: true}), ms)); }
-    else { KIT_PREV_LV = 0; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
+    else { SHOP_PREV = null; KIT_PREV_LV = 0; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
 }
 function kitClick(b) {      // нажатия на экране «Форма»; true — обработано
@@ -1698,9 +1737,9 @@ function panelCrest(m) {
     return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${crestSvg(named(r), 'crmini')}<span>${t}</span>${crestLk(n)}</button>`; }).join('');
   const rk = JSON.stringify(E.auto) + m.name + lv;
   if (!CREST_READY_HTML || CREST_READY_HTML[0] !== rk) CREST_READY_HTML = [rk, grid(CREST_READY, 'data-crready'), grid(CREST_THEMES, 'data-crtheme')];
-  h += `<div class="label">⭐ Готовые эмблемы — в цветах вашего клуба</div><div class="crgrid ready">` + CREST_READY_HTML[1] +
+  h += `<div class="label">⭐ Готовые эмблемы — в цветах вашего клуба</div><div class="crgrid ready">` + tileOn(CREST_READY_HTML[1], 'data-crready', CREST_READY, x, v => crestReady(v, E)) +
     `</div><div class="hint">Нажмите — эмблема станет такой; можно сохранить как есть или подправить ниже.</div>`;
-  h += `<div class="label">🌈 Темы — одним нажатием (уровень ${L.keys.w})</div><div class="crgrid ready">` + CREST_READY_HTML[2] + `</div>`;
+  h += `<div class="label">🌈 Темы — одним нажатием (уровень ${L.keys.w})</div><div class="crgrid ready">` + tileOn(CREST_READY_HTML[2], 'data-crtheme', CREST_THEMES, x, v => crestReady(v, E)) + `</div>`;
   h += `<div class="label">Форма</div><div class="crgrid">` + Object.keys(CREST_SHAPES).map(k => `<button type="button" class="crt${x.s === k ? ' on' : ''}${crestLock(L.shapes[k] || 1)}" data-crs="${k}">${plain({s: k})}<span>${CREST_NAMES[k] || k}</span>${crestLk(L.shapes[k] || 1)}</button>`).join('') + `</div>`;
   h += `<div class="label">Фон</div><div class="crgrid">` + CREST_EDITOR.divs.map(k => `<button type="button" class="crt${x.d === k ? ' on' : ''}${crestLock(L.divs[k] || 1)}" data-crd="${k}">${plain({d: k})}<span>${CREST_NAMES[k] || k}</span>${crestLk(L.divs[k] || 1)}</button>`).join('') + `</div>`;
   h += CREST_COLORS.map(([i, t]) => `<div class="label">${t}</div>` + crestColors(x.c[i], `data-crc="${i}" data-crv`)).join('');
@@ -1754,12 +1793,12 @@ function crestDecoHtml(x, alt) {      // рамка, верх, кайма, ле�
   return h;
 }
 function crestPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
-  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  if (!TG || !TG.openInvoice) { SHOP_PREV = null; toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
     if (st === 'paid') {
       haptic('ok'); toast('⭐ Оплачено — открываем уровень');
       [1500, 4000].forEach(ms => setTimeout(() => { CREST_READY_HTML = null; send({a: 'crest', check: true}); }, ms));
-    } else { CREST_PREV = null; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
+    } else { CREST_PREV = null; SHOP_PREV = null; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
 }
 function crestClick(b) {      // нажатия в конструкторе эмблем; true — обработано
@@ -1954,6 +1993,152 @@ function communityCard(hb) {
     (c && c.news ? `<span class="cnews">📰 ${esc(c.news)}</span>` : '') +
     `<span class="cs">Общение, соперники на товарищеский, новости лиг, вопросы админу</span></button>`;
 }
+/* 🛍 магазин: вкладка «Магазин» — форма и эмблемы одним списком (только внешний вид). Данные — те же, что у экранов
+   «Форма» и «Эмблема» (kit_edit, crest_edit, official.mine); покупка — те же запросы {a: 'kits'|'crest', buy: 'next'|'all'}
+   с пометкой official: какой клуб активен по мнению страницы (сервер откажет, если активен другой). Полная витрина
+   с анимацией — только у раскрытой позиции, в списке — лёгкие карточки без фильтров и анимаций. */
+const SHOP_PROMO = true;           // временная кнопка-баннер «Магазин · НОВИНКА» на «Главной»: false — убрать совсем
+const SHOP_PROMO_DAYS = 7;         // баннер скрывается после первого захода в магазин или через столько дней от первого показа
+const shopLs = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { /* без хранилища — просто показываем */ } return null; };
+let SHOP_SEEN = shopLs('shop_seen') === '1';      // заходил ли в магазин (пометка NEW и баннер); без хранилища — до конца сессии
+let SHOP_OPEN = 'kit', SHOP_TRY = false, SHOP_BACK = false, SHOP_PREV = null, SHOP_UB = null, SHOP_SIG = '', SHOP_PROMO_HTML = null;
+function shopVisit() {      // первый заход в магазин: снять NEW и баннер
+  if (SHOP_SEEN) return;
+  SHOP_SEEN = true; shopLs('shop_seen', '1'); renderNav(); renderHome();
+}
+function shopPromoOn() {
+  if (!SHOP_PROMO || SHOP_SEEN) return false;
+  let first = +shopLs('shop_first') || 0;
+  if (!first) { first = Date.now(); shopLs('shop_first', String(first)); }
+  return Date.now() - first < SHOP_PROMO_DAYS * 864e5;
+}
+// лёгкая карточка для списка и баннера: без размытий, анимаций и SMIL (дорогое — только у раскрытой позиции)
+const shopLite = s => (s || '').replace(/ filter="url\(#[^)]+\)"/g, '').replace(/ class="kc-[a-z]+"/g, '').replace(/<filter [\s\S]*?<\/filter>/g, '')
+  .replace(/<animate(Transform)? [^>]*\/>/g, '').replace(/ style="animation-delay:[^"]*"/g, '').replace(/<use [^>]*\/>/g, '');      // отражение формы — копия <use>, в мини не нужно
+const shopLad = lv => `<span class="shlad" aria-label="уровень ${lv} из 5">${[1, 2, 3, 4, 5].map(i => `<i${i <= lv ? ' class="on"' : ''}></i>`).join('')}</span>`;
+const shopLt = (lv, N) => `<span class="klt l${lv}">${lv} · ${N[lv]}</span>`;
+function shopItems() {      // позиции магазина — только данные (рисует shopCard); away — купить можно, лишь переключившись на тот клуб
+  const hb = H(), h = hb.home || {}, K = hb.kit_edit, C = hb.crest_edit, mine = (hb.official || {}).mine, star = !!h.star, out = {};
+  const lvOf = v => Math.min(5, Math.max(1, +v || 1)), onSale = P => !!P && Object.keys(P).length > 0;
+  const crestOn = C && !C.why ? C : null, nm = h.club || '';
+  if (K && h.club) out.kit = {k: 'kit', t: `👕 Форма «${nm}»`, sub: 'домашняя, выездная, третья и финальная', lv: lvOf(K.level), P: K.prices === undefined ? {} : K.prices,
+    x: (K.design || {}).home || {s: (h.kit || [])[0] || '#dc2626', sh: (h.kit || [])[1] || '#f8fafc'}, req: {a: 'kits', official: star}};
+  if (!star && h.club) out.crest = {k: 'crest', t: `🛡 Эмблема «${nm}»`, sub: 'свой клуб — меняется всё', lv: crestOn ? lvOf(crestOn.level) : 1,
+    P: crestOn ? (crestOn.prices === undefined ? {} : crestOn.prices) : {}, c: h.crest ? {...h.crest, nm} : null, req: {a: 'crest', official: false}};
+  else if (star && h.other && !h.other_star) out.crest = {k: 'crest', t: `🛡 Эмблема «${h.other}»`, sub: 'свой клуб — меняется всё', lv: 1, P: {}, c: null, away: h.other};
+  if (mine && star) out.off = {k: 'off', official: 1, t: `⭐ Эмблема «${nm}»`, sub: 'официальный клуб: основа у клуба, отделка ваша', lv: crestOn ? lvOf(crestOn.level) : lvOf(mine.crest_level),
+    P: crestOn ? (crestOn.prices === undefined ? {} : crestOn.prices) : {}, c: h.crest ? {...h.crest, nm} : null, req: {a: 'crest', official: true}};
+  else if (mine) out.off = {k: 'off', official: 1, t: `⭐ Эмблема «${mine.name}»`, sub: 'официальный клуб: основа у клуба, отделка ваша', lv: lvOf(mine.crest_level), P: {},
+    c: CREST_OFFICIAL[mine.key] ? {...CREST_OFFICIAL[mine.key], nm: mine.name} : null, away: mine.name};
+  const awaySale = onSale(crestOn && crestOn.prices), awayAdmin = !!crestOn && crestOn.prices === null;      // цены и продажа своей и официальной эмблемы — одни и те же
+  Object.values(out).forEach(it => { it.admin = it.P === null || !!(it.away && awayAdmin); if (it.admin) it.lv = 5;
+    it.sale = !it.away && onSale(it.P) && it.lv < 5 && Number.isInteger((it.P || {})[it.lv + 1]); if (it.away) it.awaySale = awaySale; });
+  return out;
+}
+function shopCard(it, lv, o) {      // карточка позиции на уровне lv: o.duel — малая (список), o.back — оборот, o.tryon — примерка
+  o = o || {};
+  if (it.k === 'kit') { const me = kitMe(); return kitCard(it.x, lv, {...me, ...o, patches: o.patches || me.patches}); }
+  if (!it.c) return '';
+  return crestCard(it.c, lv, {back: o.back, tryon: o.tryon});
+}
+const shopFlip = (it, lv, o) => fxFlip(shopCard(it, lv, {...o, back: 0}), shopCard(it, lv, {...o, back: 1}), 'data-shflip', SHOP_BACK, it.k === 'kit' ? 'Перевернуть форму' : 'Перевернуть эмблему');
+function shopItem(it) {
+  const lv = it.lv, N = it.k === 'kit' ? KIT_EDITOR.level_names : CREST_EDITOR.level_names, T = it.k === 'kit' ? KIT_LV_TEXT : it.official ? CREST_OFF_TEXT : CREST_LV_TEXT;
+  const nx = Math.min(lv + 1, 5), open = SHOP_OPEN === it.k, tl = open && SHOP_TRY && lv < 5 ? nx : 0, show = tl || lv;
+  let h = `<div class="shit${it.official ? ' off' : ''}" id="shi-${it.k}">` + (it.official ? `<span class="shotag">ОФИЦИАЛЬНЫЙ КЛУБ · уровень у менеджера</span>` : '') +
+    `<div class="shhd"><div><b>${esc(it.t)}</b><small>${esc(it.sub)}</small></div>${it.away && !it.c ? '' : shopLad(lv)}</div>`;      // уровень своего неактивного клуба неизвестен — без шкалы
+  if (it.away && !it.c) return h + `<div class="shwhat">Эмблему своего клуба покупают, когда он активен.</div>` +
+    `<button type="button" class="go" data-switch>🔁 Перейти к «${esc(it.away)}»</button></div>`;
+  if (open) h += `<div class="khero shbig" id="shbig-${it.k}">` + (SHOP_UB && SHOP_UB.k === it.k ? '' :
+    `<span class="ktag l${show}">${tl ? '👁 ' : ''}УР. ${show} · ${esc(N[show].toUpperCase())}</span>` + shopFlip(it, show, {tryon: !!tl})) + `</div>` +
+    `<div class="hint kcap">${tl ? `👁 Примерка: так выглядит уровень «${esc(N[show])}»` : it.k === 'kit' ? 'Коснитесь карточки — перед и спина' : 'Коснитесь медали — лицо и оборот'}</div>`;
+  else h += `<button type="button" class="shpair" data-shopen="${it.k}" aria-label="Открыть витрину"><span>${shopLite(shopCard(it, lv, {duel: 1}))}<span class="shcap">Сейчас ${shopLt(lv, N)}</span></span>` +
+    (lv < 5 ? `<span class="ar">→</span><span>${shopLite(shopCard(it, nx, {duel: 1}))}<span class="shcap">Дальше ${shopLt(nx, N)}</span></span>` : '<span></span><span></span>') + `</button>`;
+  if (lv >= 5) return h + `<div class="shmax">✅ ${it.admin ? 'У администратора открыты все уровни — бесплатно' : 'Открыты все уровни — меняйте бесплатно'}</div></div>`;
+  h += `<div class="shwhat">Уровень ${nx} «${esc(N[nx])}»: <b>${esc(T[nx])}</b>${it.official ? '. Основа эмблемы неизменна — меняются только материал и отделка.' : ''}</div>`;
+  const pay = it.away && it.awaySale ? `<button type="button" class="shsw" data-switch>🔁 Купить — перейти к «${esc(it.away)}»</button>` :
+    it.sale ? `<button type="button" class="kbuy l${nx}" data-shbuy="${it.k}"><span>⬆️ Купить «${esc(N[nx])}»<small>${it.official ? 'уровень — ваш' : 'навсегда'}</small></span><span class="pr">${it.P[nx]} ⭐</span></button>` :
+    `<div class="shsoon">🔜 Скоро в продаже</div>`;
+  return h + `<div class="kacts"><button type="button" class="ktry" data-shtry="${it.k}">${tl ? '✕ Закрыть' : '👁 Примерить'}</button>${pay}</div></div>`;
+}
+function shopPack(it, title) {      // набор «все уровни сразу» — как на сервере: только пока открыт лишь первый уровень
+  const ic = it.official ? '⭐' : it.k === 'kit' ? '👕' : '🛡', P = it.P || {}, row = (i, s, x) => `<div class="shit shpack">${x || ''}<span class="ic">${i}</span><div class="tx">${esc(title)}<small>${s}</small></div>`;
+  if (it.admin) return row(ic, 'у администратора открыто всё — бесплатно') + `</div>`;
+  if (it.away) return row(ic, it.awaySale ? `купить можно, когда активен «${esc(it.away)}»` : 'скоро в продаже') + `</div>`;
+  if (it.lv >= 5) return row(ic, 'все уровни уже открыты') + `</div>`;
+  if (it.lv > 1) return row(ic, `набор — только пока открыт лишь первый уровень; ${it.sale ? `следующий уровень — ${P[it.lv + 1]} ⭐` : 'улучшайте по одному'}`) + `</div>`;
+  const sum = [2, 3, 4, 5].reduce((a, k) => a + (+P[k] || 0), 0), all = +P.all || 0, gain = sum - all;
+  if (!it.sale || !all) return row('🎁', 'уровни 2–5 сразу — скоро в продаже') + `</div>`;
+  return row('🎁', `уровни 2–5 сразу: ${sum} ⭐ → <b>${all} ⭐</b>`, gain > 0 ? `<span class="shbadge">ВЫГОДНО · −${gain} ⭐</span>` : '') +
+    `<button type="button" class="kbuy l5 shpk" data-shpack="${it.k}"><span class="pr">${all} ⭐</span></button></div>`;
+}
+function shopHtml(its) {
+  const hb = H(), h = hb.home || {}, list = Object.values(its), act = list.filter(it => !it.away);
+  const closed = act.length && act.every(it => it.P && !Object.keys(it.P).length) && act.some(it => it.lv < 5);      // продажа закрыта — только примерка
+  const off = its.off, secs = [['kit', 'Форма'], ['crest', 'Эмблема'], ...(off ? [['off', 'Официальная эмблема']] : []), ['packs', 'Наборы'], ['free', 'Не продаётся']].filter(([k]) => its[k] || k === 'packs' || k === 'free');
+  let x = `<div class="shtop"><h1>🛍 Магазин</h1><span class="shnew">НОВИНКА</span></div>` +
+    `<div class="shsub">Внешний вид клуба: форма и эмблемы. Купленный уровень остаётся навсегда, менять в его пределах — бесплатно. Оплата — звёздами Telegram.</div>`;
+  if (!list.length) return x + `<div class="card note">Сначала создайте клуб — тогда здесь появятся его форма и эмблема.</div>`;
+  if (closed) x += `<div class="shclosed">🔜 <b>Магазин скоро откроется — уже можно примерить.</b> Нажмите «👁 Примерить» — посмотрите, как будет выглядеть ваш клуб на любом уровне.</div>`;
+  x += `<div class="shjump">` + secs.map(([k, t]) => `<button type="button" data-shjump="s-${k}">${t}</button>`).join('') + `</div>`;
+  if (its.kit) x += `<div class="shsec" id="s-kit">Форма</div>` + shopItem(its.kit);
+  if (its.crest) x += `<div class="shsec" id="s-crest">Эмблема своего клуба</div>` + shopItem(its.crest);
+  if (off) x += `<div class="shsec" id="s-off">Эмблема официального клуба</div>` +
+    `<div class="banner warn shwarn">⚠️ Уровень отделки — ваш, у менеджера: основа эмблемы не меняется. При смене официального клуба по заявке уровень снизится на один.</div>` + shopItem(off);
+  x += `<div class="shsec" id="s-packs">Наборы — всё сразу</div>` + (its.kit ? shopPack(its.kit, 'Форма: все уровни') : '') +
+    (its.crest ? shopPack(its.crest, 'Эмблема своего клуба: все уровни') : '') + (off ? shopPack(off, 'Официальная эмблема: вся отделка') : '');
+  const pt = ((hb.kit_edit || {}).patches || []).filter(k => KIT_PATCH[k]), tr = Math.min(5, +((h.crest || {}).t) || 0);
+  x += `<div class="shsec" id="s-free">🏆 Не продаётся</div><div class="shit"><div class="shnf${its.kit ? '' : ' one'}">` +
+    (its.kit ? `<div>${shopLite(shopCard(its.kit, its.kit.lv, {patches: ['league', 'cup']}))}</div>` : '') +
+    `<div class="shnfl"><b>Только за трофеи</b><div>🏅 Нашивка «${KIT_PATCH.league}» — выиграйте сезон своей лиги</div><div>🏆 Нашивка «${KIT_PATCH.cup}» — выиграйте кубок страны</div>` +
+    `<div>💎 Звёзды над эмблемой — за трофеи клуба, до 5 (видны с уровня 4)</div><div class="lk">У вас: нашивок ${pt.length} из 2 · трофеев ${tr}</div></div></div></div>`;
+  return x;
+}
+function renderShop(force) {
+  const el = $('t-shop');
+  if (!el || TAB !== 'shop') return;
+  if (SHOP_UB && SHOP_UB.node && !SHOP_UB.over && document.contains(SHOP_UB.node)) return;      // идёт распаковка — не прерываем
+  if (SHOP_UB && SHOP_UB.node) SHOP_UB = null;      // прервана уходом с экрана — сразу карточка
+  const its = shopItems();
+  if (SHOP_PREV) { const it = its[SHOP_PREV.k];      // пришёл купленный уровень — распаковка, один раз
+    if (it && !it.away && it.lv > SHOP_PREV.lv) { SHOP_UB = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; SHOP_PREV = null; } }
+  if (!its[SHOP_OPEN]) SHOP_OPEN = its.kit ? 'kit' : Object.keys(its)[0] || '';
+  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN]);
+  if (sig === SHOP_SIG && !force) return;
+  SHOP_SIG = sig; el.innerHTML = shopHtml(its); shopAfter(its);
+}
+function shopPause(f) {      // SMIL-анимации эмблемы на невидимой стороне — на паузе
+  if (f) f.querySelectorAll('.kff svg,.kfb svg').forEach(s => { if (!s.pauseAnimations) return; if (!!s.closest('.kff') === SHOP_BACK) s.pauseAnimations(); else s.unpauseAnimations(); });
+}
+function shopAfter(its) {      // после отрисовки: распаковка купленного уровня на месте большой витрины
+  const u = SHOP_UB, host = u ? $('shbig-' + u.k) : $('shbig-' + SHOP_OPEN);
+  if (host && !u) shopPause(host.querySelector('.kflip'));
+  if (!host || !u || u.node) return;
+  const it = its[u.k], onDone = () => { u.over = true; setTimeout(() => { if (SHOP_UB === u) { SHOP_UB = null; SHOP_SIG = ''; renderShop(); } }, 900); };
+  Object.assign(u, it.k === 'kit' ? kitUnbox(host, it.x, u.lv, {...kitMe(), onDone}) : crestUnbox(host, it.c, u.lv, {onDone}));
+}
+function shopClick(b) {      // нажатия во вкладке «Магазин»; true — обработано
+  const d = b.dataset;
+  if (b.hasAttribute('data-shflip')) { SHOP_BACK = !SHOP_BACK; b.classList.toggle('bk', SHOP_BACK); shopPause(b); haptic(); return true; }
+  if (b.hasAttribute('data-kitub') || b.hasAttribute('data-crub')) { if (SHOP_UB && SHOP_UB.fin) SHOP_UB.fin(); return true; }      // тап — пропустить
+  if (d.shjump) { const t = $(d.shjump); if (t && t.scrollIntoView) t.scrollIntoView({behavior: 'smooth', block: 'start'}); return true; }
+  if (d.shopen) { SHOP_OPEN = d.shopen; SHOP_TRY = false; SHOP_BACK = false; haptic(); renderShop(true); return true; }
+  if (d.shtry) { const k = d.shtry; SHOP_TRY = !(SHOP_OPEN === k && SHOP_TRY); if (SHOP_OPEN !== k) SHOP_BACK = false; SHOP_OPEN = k; haptic(); renderShop(true);
+    const t = $('shi-' + k); if (t && t.scrollIntoView) t.scrollIntoView({block: 'nearest'}); return true; }
+  if (d.shbuy || d.shpack) { const it = shopItems()[d.shbuy || d.shpack];
+    if (!it || it.away || !it.sale || !it.req || (d.shpack && it.lv !== 1)) return true;      // продажа закрыта, чужой клуб, набор не с 1-го уровня — оплаты нет
+    SHOP_PREV = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; haptic(); send({...it.req, buy: d.shbuy ? 'next' : 'all'}); return true; }      // уровень до оплаты — для распаковки
+  return false;
+}
+function shopPromo(hb) {      // временная кнопка-баннер на «Главной»: две мини-витрины, ведёт во вкладку
+  if (!shopPromoOn()) return '';
+  const its = shopItems(), k = its.kit, c = [its.off, its.crest].find(i => i && !i.away && i.c) || [its.off, its.crest].find(i => i && i.c);
+  const key = JSON.stringify([k && [k.x, k.lv], c && [c.c, c.lv], (hb.home || {}).crest]);
+  if (!SHOP_PROMO_HTML || SHOP_PROMO_HTML[0] !== key) SHOP_PROMO_HTML = [key, (k ? `<span class="shpm">${shopLite(shopCard(k, Math.max(3, k.lv), {duel: 1}))}</span>` : '') +
+    (c && c.c ? `<span class="shpm">${shopLite(shopCard(c, Math.max(4, c.lv)))}</span>` : '')];
+  return `<button type="button" class="shpromo" data-tab="shop"><span class="shpt"><b>🛍 Магазин · <i>НОВИНКА</i></b><small>Форма и эмблема: 5 уровней, примерка бесплатно</small></span>${SHOP_PROMO_HTML[1]}</button>`;
+}
+/* 🛍 конец магазина */
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -1968,6 +2153,7 @@ function renderHome() {
   }
   let x = `<div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  x += shopPromo(hb);      // временный баннер «Магазин · НОВИНКА» (SHOP_PROMO)
   x += writeBlock(hb.write);
   if (hb.onboarding) x += stepsBlock(hb.onboarding);
   const dd = DAILY_SHOW && Date.now() < DAILY_SHOW.until ? DAILY_SHOW.d : hb.daily;
@@ -2064,17 +2250,20 @@ function showTab(t) {
   TAB = t;
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== t));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  if (t === 'shop') { shopVisit(); renderShop(); }
   if (t === 'more' && H().unseen) { send({a: 'seen'}); S.hub.unseen = 0; S.hub.notices.forEach(n => { n.new = false; }); renderNav(); }
   window.scrollTo(0, 0);
 }
 function renderNav() {
   const n = H().unseen || 0;
   $('unseen').textContent = n; $('unseen').classList.toggle('hidden', !n);
+  $('shopnew').classList.toggle('hidden', SHOP_SEEN);      // пометка NEW у «Магазина» — до первого захода
 }
 function render() {
   if (!S) return;
   $('conn').classList.add('hidden'); $('app').classList.remove('hidden'); $('nav').classList.remove('hidden');
-  renderHome(); renderLeague(); renderLearn(); renderMore(); renderNav();
+  if (TAB === 'shop') shopVisit();
+  renderHome(); renderLeague(); renderShop(); renderLearn(); renderMore(); renderNav();
   if (S.players && S.players.length) renderSquad();
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== TAB));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
@@ -2756,6 +2945,7 @@ document.addEventListener('click', e => {
   if (b.dataset.tourq) { haptic(); tourStart(b.dataset.tourq); return; }
   if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
+  if (TAB === 'shop' && !PANEL && !MS && shopClick(b)) return;      // вкладка «Магазин»
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
   if (b.dataset.nudges) { haptic(); send({a: 'nudges', on: b.dataset.nudges === '1'}); return; }
@@ -2968,6 +3158,7 @@ function onAck(m) {
   if (m.ok && m.report && PANEL) { PANEL.report = m.report; renderPanel(); }
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
+  if (!m.ok && act && act.buy) SHOP_PREV = null;      // счёт не выставлен — распаковки в магазине не будет
   if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
   if (m.ok && act && act.a === 'kits' && m.invoice) kitPay(m.invoice);
   else if (m.ok && act && act.a === 'kits' && act.design) KIT_DRAFT = null;      // дальше — то, что сохранил сервер
