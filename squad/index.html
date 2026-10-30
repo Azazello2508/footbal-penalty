@@ -2444,6 +2444,7 @@ function renderMore() {
   if (hb.help && hb.help.length) x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button></div>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
     x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button></div>`; }
+  x += `<div class="label">Конфиденциальность</div><div class="menu app"><button type="button" data-wnhelp="privacy">🔐 Какие данные мы храним<span>политика конфиденциальности: что, зачем и кто видит</span></button><button type="button" data-erase>🗑 Удалить мои данные<span>имя, личные записи и свой клуб; официальный клуб вернётся боту</span></button></div>`;
   if (hb.sections && hb.sections.length) x += `<div class="label">В чате</div><div class="menu">` + hb.sections.map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
   const ns = hb.notices || [], shown = NOTICES_ALL ? ns : ns.slice(0, NOTICES_SHOWN);
   x += `<div class="label">🔔 Уведомления</div><div class="card">` + (ns.length ? shown.map(n => n.go ?
@@ -3158,6 +3159,7 @@ document.addEventListener('click', e => {
   if (TAB === 'shop' && !PANEL && !MS && shopClick(b)) return;      // вкладка «Магазин»
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
+  if (b.hasAttribute('data-erase')) { haptic(); ask('Удалить ваше имя, личные записи и свой клуб? Официальный клуб вернётся боту. Это нельзя отменить.', () => send({a: 'erase', sure: true})); return; }
   if (b.dataset.nudges) { haptic(); send({a: 'nudges', on: b.dataset.nudges === '1'}); return; }
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
   if (b.dataset.watch) {       // трансляция матча — та же страница и комната, что у кнопки в чате (пускает бот по подписи)
