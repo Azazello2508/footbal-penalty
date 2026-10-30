@@ -2641,7 +2641,7 @@ function buildShade() {
 }
 function sectorSprites() {
   // каждый сектор — две готовые картинки (сидят / встали с шарфами): в анимации их только сдвигаем, не перерисовываем
-  const k = cv.width * 2.6 / TW;                    // плотнее, чем остальной стадион: приближение не «мылит» болельщиков
+  const k = K0 * 2.6;                               // плотнее, чем остальной стадион: приближение не «мылит» болельщиков
   if (stands.k === k) return;
   stands.k = k;
   for (const sec of stands.sectors) {
@@ -2746,20 +2746,24 @@ function drawStadium(x) {
 
 let scale = 1, pitchImg = null;
 let HQ = 1.6;                                     // стадион рисуется крупнее экрана: при приближении камеры не мылится
-const HQW = () => Math.round(cv.width * HQ), HQH = () => Math.round(cv.height * HQ);
+let K0 = 1, HW1 = TW / 2, HH1 = TH / 2, wideFrame = false;   // кадр при z=1: точек холста на единицу поля и полуразмеры в координатах поля; wideFrame — кадр шире стадиона
+const HQW = () => Math.round(TW * K0 * HQ), HQH = () => Math.round(TH * K0 * HQ);   // картинки стадиона — в пропорции TW:TH, как бы ни был вытянут холст
 function fit() {
   const wrap = $('pitchwrap'), top = $('top').offsetHeight;
   const vh = (TG && TG.viewportStableHeight) || innerHeight;
   document.body.style.setProperty('--vh', vh + 'px');
   const deciding = document.body.classList.contains('deciding');      // панель решений — поле поменьше
   const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .7, vh - top - 120));   // поле — во всю ширину, ленте остаётся место
-  const cw = Math.min(innerWidth, maxH * TW / TH);
+  const cw = deciding ? innerWidth : Math.min(innerWidth, maxH * TW / TH), ch = deciding ? Math.round(maxH) : cw * TH / TW;   // с панелью (перерыв, дрон) — во всю ширину, по бокам — округа стадиона
   scale = cw / TW;
   const dpr = Math.min(perf.lite ? 1.25 : 2, window.devicePixelRatio || 1);
-  cv.style.width = cw + 'px'; cv.style.height = (cw * TH / TW) + 'px';
-  cv.width = Math.round(cw * dpr); cv.height = Math.round(cw * TH / TW * dpr);
-  g.setTransform(cv.width / TW, 0, 0, cv.height / TH, ST * cv.width / TW, ST * cv.height / TH);   // дальше — координаты поля
-  wrap.style.height = (cw * TH / TW) + 'px';
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  K0 = Math.min(cv.width / TW, cv.height / TH);                      // стадион целиком; лишнее по бокам — округа (drawOutside)
+  HW1 = cv.width / 2 / K0; HH1 = cv.height / 2 / K0;
+  wideFrame = HW1 > TW / 2 + 1 || HH1 > TH / 2 + 1;
+  g.setTransform(K0, 0, 0, K0, cv.width / 2 - K0 * W / 2, cv.height / 2 - K0 * H / 2);   // дальше — координаты поля (масштаб одинаковый по осям)
+  wrap.style.height = ch + 'px';
   pitchImg = drawPitch(HQW(), HQH());
   if (stands) stands.cache = null;
   const pen = $('pen'); pen.style.top = top + 'px';
@@ -3427,12 +3431,14 @@ function secCenter(i) {
 }
 function fitZ(a, b, zmax) {                         // насколько можно приблизить, чтобы a и b оба были в кадре с запасом
   const dx = Math.abs(a.x - b.x) + 170, dy = Math.abs(a.y - b.y) + 170;
-  return clamp(Math.min(TW / dx, TH / dy), 1, zmax);
+  return clamp(Math.min(2 * HW1 / dx, 2 * HH1 / dy), 1, zmax);
 }
 function zMin(r) {                                  // повёрнутый кадр должен лечь на стадион — минимальное приближение (с запасом на ночь за крышей)
   const c = Math.abs(Math.cos(r)), s2 = Math.abs(Math.sin(r));
-  return 1 + (Math.max(1, c + s2 * TH / TW, s2 * TW / TH + c) - 1) * .8;
+  const need = (c, s) => Math.max((c * HW1 + s * HH1) / (TW / 2), (s * HW1 + c * HH1) / (TH / 2));   // во сколько кадр под углом больше стадиона
+  return 1 + Math.max(0, need(c, s2) - Math.max(1, need(1, 0))) * .8;   // кадр шире стадиона и без поворота — за краем округа, приближать не нужно
 }
+function droneZ() { return DRONE_Z * Math.max(HW1 / (TW / 2), HH1 / (TH / 2)); }   // высота дрона — от размера кадра: сверху в кадре стадион и округа, за край округи не выходим
 function nextBase(now) {                            // фоновый план: держится 14–24 сек, ракурс бровки — один на весь отрезок
   const v = Math.random(), side = baseShot && baseShot.side || (Math.random() < .5 ? 1 : -1);
   const kind = camMode === 'follow' ? 'high' : v < .3 ? 'wide' : v < .75 ? 'tv' : 'high';
@@ -3489,12 +3495,12 @@ function camUpdate(now, dt) {
   [cam.z, cam.vz] = spring(cam.z, cam.vz, t.drone ? t.z : Math.max(t.z, zMin(cam.r)), 1.5, dt);
   [cam.x, cam.vx] = spring(cam.x, cam.vx, t.x, 2.1, dt);
   [cam.y, cam.vy] = spring(cam.y, cam.vy, t.y, 2.1, dt);
-  cam.z = Math.max(cam.z, t.drone || cam.z < .999 ? DRONE_Z * .9 : 1);    // ниже 1 — только дрон (и пока он спускается обратно)
+  cam.z = Math.max(cam.z, t.drone || cam.z < .999 ? droneZ() * .9 : 1);    // ниже 1 — только дрон (и пока он спускается обратно)
   [cam.tl, cam.vtl] = spring(cam.tl, cam.vtl, t.tilt || 0, 1.3, dt);     // наклон дрона: 0 — сверху, 1 — сбоку
   if (cam.tl < .002 && !t.tilt) cam.tl = cam.vtl = 0;
   const co = Math.cos(cam.r), si = Math.sin(cam.r);
   if (cam.z > 1.02 && !(wave && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: камера мягко подтягивается
-    const mx = TW / 2 / cam.z * .8, my = TH / 2 / cam.z * .8, by = ball.y - ball.h;
+    const mx = HW1 / cam.z * .8, my = HH1 / cam.z * .8, by = ball.y - ball.h;
     const dx = ball.x - cam.x, dy = by - cam.y, sx = co * dx - si * dy, sy = si * dx + co * dy;
     const ex = sx - clamp(sx, -mx, mx), ey = sy - clamp(sy, -my, my);
     if (ex || ey) {
@@ -3503,7 +3509,7 @@ function camUpdate(now, dt) {
       cam.x += wx; cam.y += wy; cam.vx += wx / Math.max(dt, .001) * .3; cam.vy += wy / Math.max(dt, .001) * .3;
     }
   }
-  const ex = (Math.abs(co) * TW + Math.abs(si) * TH) / 2 / cam.z, ey = (Math.abs(si) * TW + Math.abs(co) * TH) / 2 / cam.z;
+  const ex = (Math.abs(co) * HW1 + Math.abs(si) * HH1) / cam.z, ey = (Math.abs(si) * HW1 + Math.abs(co) * HH1) / cam.z;
   const lx = -ST + ex - 30, hx = W + ST - ex + 30, ly = -ST + ey - 30, hy = H + ST - ey + 30;   // за крышу — не дальше 30
   if (t.drone) cam.post = true;                                           // после дрона центр возвращается плавно, а не рывком
   const back = v => !cam.post || Math.abs(v) < 2 ? 0 : v * Math.exp(-dt * 5);
@@ -3512,7 +3518,7 @@ function camUpdate(now, dt) {
     if (ly > hy) cam.y = H / 2 + back(cam.y - H / 2); else if (cam.y < ly || cam.y > hy) { cam.y = clamp(cam.y, ly, hy); cam.vy = 0; }
     if (!t.drone && cam.tl === 0) cam.post = false;
   }
-  const k = cv.width / TW * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
+  const k = K0 * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
   const sq = 1 - TILT_SQ * cam.tl;                                       // наклон: вид сбоку — кадр сжат по вертикали
   g.setTransform(a, b * sq, c, d * sq, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y) * sq);
 }
@@ -3547,7 +3553,7 @@ function droneAim(now) {
   const end = S.left !== undefined ? statusUntil : drone.t0 + 180000, D = Math.max(15000, end - drone.t0), t = now - drone.t0;
   const RISE = clamp(D * .18, 5000, 12000), BACK = clamp(D * .12, 4000, 9000);
   const back = ease(1 - (end - now) / BACK), hold = ease((t - 1800) / RISE) * (1 - back);   // 1800 — команды уходят с поля
-  const z = Math.exp(Math.log(DRONE_Z) * hold);    // подъём по «высоте», а не по масштабу: плавно на всём пути
+  const z = Math.exp(Math.log(droneZ()) * hold);   // подъём по «высоте», а не по масштабу: плавно на всём пути
   if (calm()) return {x: W / 2, y: H / 2, z, r: 0, drone: true};
   if (back <= 0) drone.a += 2 * Math.PI / 75000 * dt * hold;      // круг за 75 сек; разгон и торможение — вместе с высотой
   else if (drone.aB === null) drone.aB = drone.a;
@@ -3626,6 +3632,7 @@ function buildOutside() {
   for (let s = 0, P = ringLen(ST + 14); s < P; s += 16) { const a = ring(ST, s * ringLen(ST) / P), b = ring(ST + 14, s); o.ribs.moveTo(a.x, a.y); o.ribs.lineTo(b.x, b.y); }
   rr(o.roofIn, 44); rr(o.roofIn, 30);              // крыша: у проёма — прозрачная, дальше — сплошная
   rr(o.roofOut, ST + 22); rr(o.roofOut, 44);                                              // козырёк крыши выступает над фасадом
+  o.rim = new Path2D(); rr(o.rim, ST + 22); rr(o.rim, ST + 13);                           // край козырька над фасадом — виден и с поля
   for (let s = 0, P = ringLen(30); s < P; s += 22) { const a = ring(30, s), b = ring(ST + 22, s * ringLen(ST + 22) / P); o.truss.moveTo(a.x, a.y); o.truss.lineTo(b.x, b.y); }
   for (const f of [0, .125, .25, .375, .5, .625, .75, .875]) o.gates.push(ring(ST + 14, f * ringLen(ST + 14)));   // входы: посередине сторон и в углах
   o.beds = []; o.tents = [];                         // клумбы на площади между входами, шатры фан-зоны у главных входов
@@ -3796,10 +3803,10 @@ function drawPosters(up, k) {                       // на прямых сто�
     });
   }
 }
-function drawRoof(a) {                              // поверх трибун: стена со входами, крыша-кольцо, прожекторы на мачтах
-  const o = outside, sq = 1 - TILT_SQ * cam.tl, k = Math.sqrt(1 - sq * sq) / sq, up = upVec();
+function drawRoof(a, rim) {                         // поверх трибун: стена со входами, крыша-кольцо, прожекторы на мачтах; rim — только кромка снаружи (кадр шире стадиона)
+  const o = outside, sq = 1 - TILT_SQ * cam.tl, k = Math.sqrt(1 - sq * sq) / sq, up = upVec(), ga = Math.max(a, rim || 0);
   const lift = (h, fn) => { if (!k) { fn(); return; } g.save(); g.translate(up.x * h * k, up.y * h * k); fn(); g.restore(); };   // высота: сбоку — выше на экране
-  g.globalAlpha = a;
+  g.globalAlpha = ga;                               // стена и входы снаружи трибун — видны и с поля
   ringPath(g, ST + 20); g.lineWidth = 14; g.strokeStyle = 'rgba(0,0,0,.4)'; g.stroke();                 // тень стадиона на площадь
   g.fillStyle = S ? mix(S.teams[0].shirt, -.45) : '#323c50'; g.fill(o.wall, 'evenodd');
   g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1.4; g.stroke(o.ribs);
@@ -3808,6 +3815,7 @@ function drawRoof(a) {                              // поверх трибун
     g.fillStyle = '#020617'; g.fillRect(-15, -16, 16, 32); g.fillStyle = 'rgba(253,230,138,.85)'; g.fillRect(-2, -18, 4, 36);
     g.restore();
   }
+  g.globalAlpha = a;
   if (cam.tl > .03) {                               // сбоку: стена фасада и чаша трибун — объёмом, слоями снизу вверх
     const home = S ? S.teams[0].shirt : '#dc2626', lite = perf.lite || (drone && drone.slow), hh = ROOF_H * k, st = hh / (lite ? 9 : 15);   // слоёв немного — объём без лишней работы на слабом телефоне
     const facade = () => {
@@ -3846,10 +3854,11 @@ function drawRoof(a) {                              // поверх трибун
     g.fillStyle = `rgba(203,213,225,${(.5 + .4 * cam.tl).toFixed(3)})`; g.fill(o.roofIn, 'evenodd');   // сбоку край крыши плотный — сквозь крышу ничего не видно
     g.fillStyle = '#dbe3ec'; g.fill(o.roofOut, 'evenodd');                                         // крыша — белая мембрана
     g.strokeStyle = 'rgba(100,116,139,.55)'; g.lineWidth = 2; g.stroke(o.truss);
+    ringPath(g, 30); g.lineWidth = 2.4; g.strokeStyle = 'rgba(255,251,235,.75)'; g.stroke();           // светильники по кромке проёма
+    g.globalAlpha = ga; g.fillStyle = '#dbe3ec'; g.fill(o.rim, 'evenodd');                             // край козырька над фасадом
     ringPath(g, ST + 22); g.lineWidth = 3; g.strokeStyle = '#1e293b'; g.stroke();                       // край козырька
     ringPath(g, ST + 18); g.lineWidth = 6; g.strokeStyle = S ? S.teams[0].shirt : '#dc2626'; g.stroke();   // кромка крыши светится в цвет хозяев
     ringPath(g, ST + 12); g.lineWidth = 2.5; g.strokeStyle = S ? S.teams[1].shirt : '#2563eb'; g.stroke();   // и тонкая — в цвет гостей
-    ringPath(g, 30); g.lineWidth = 2.4; g.strokeStyle = 'rgba(255,251,235,.75)'; g.stroke();           // светильники по кромке проёма
   });
   for (const [cx, cy] of [[-ST + 9, -ST + 9], [W + ST - 9, -ST + 9], [W + ST - 9, H + ST - 9], [-ST + 9, H + ST - 9]]) {
     if (k) { g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + up.x * MAST_H * k, cy + up.y * MAST_H * k); g.lineWidth = 3.5; g.strokeStyle = '#94a3b8'; g.stroke(); }   // мачта
@@ -4205,7 +4214,7 @@ function frame(now) {
   if (R) { ball.x = R.bx; ball.y = R.by; ball.h = R.bh; ref.x = R.rx; ref.y = R.ry; }   // повтор: рисуем записанное, игра идёт своим чередом
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#060b16'; g.fillRect(0, 0, cv.width, cv.height);
   camUpdate(now, clamp((now - (camUpdate.last || now)) / 1000, 0, .05)); camUpdate.last = now;
-  const out = cam.z < .995 || cam.tl > .02;   // дрон поднялся (или ещё наклонён): виден стадион снаружи
+  const out = cam.z < .995 || cam.tl > .02 || wideFrame;   // дрон поднялся (или ещё наклонён) или кадр шире стадиона: виден стадион снаружи
   if (out) { drawOutside(now); g.save(); ringPath(g, ST); g.clip(); g.drawImage(pitchImg, -ST, -ST, TW, TH); g.restore(); }
   else { g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4); g.drawImage(pitchImg, -ST, -ST, TW, TH); }
   if (S) {
@@ -4258,7 +4267,7 @@ function frame(now) {
       smoke(x, y, f.r * (1 + k * (f.k === 'smoke' ? 2 : 1.2)), col, (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .5 : .55)); }
   }
   if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
-  if (out) drawRoof(Math.max(smooth((1 - cam.z) / .45), cam.tl));   // крыша проявляется по мере подъёма
+  if (out) drawRoof(Math.max(smooth((1 - cam.z) / .45), cam.tl), wideFrame ? 1 : 0);   // крыша проявляется по мере подъёма; кромка — сразу, если кадр шире стадиона
   else if (outside && outside.img && (!S || S.phase !== 'half')) { outside.img.width = outside.img.height = 0; outside.img = null; }   // перерыв кончился — картинку округи из памяти
   drawWeather(now);
   if (live) { ball.x = live.bx; ball.y = live.by; ball.h = live.bh; ref.x = live.rx; ref.y = live.ry; }
