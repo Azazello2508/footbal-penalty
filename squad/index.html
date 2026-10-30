@@ -136,7 +136,6 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .crhead{border-radius:12px;padding:9px 12px;margin:6px 0;font-size:14px;font-weight:700;background:var(--card2);border:1px solid var(--line)}
 .crhead.off{background:linear-gradient(135deg,#3b2a05,#6b4e0a);border-color:#e8b923;color:#fde68a}
 .crbase{display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--muted)}.crbase svg{width:44px;height:53px;flex:none}.crbase b{color:var(--text)}
-.crlad{display:flex;gap:4px;margin:8px 0 2px}.crlad i{flex:1;font-style:normal;text-align:center;font-size:11px;padding:4px 0;border-radius:8px;background:var(--card);color:var(--muted)}.crlad i.on{background:var(--accent);color:#fff;font-weight:700}
 .stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .stats3 div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 4px;text-align:center}
 .stats3 b{display:block;font-size:19px}
@@ -287,6 +286,7 @@ tr[data-pedit]{cursor:pointer}
 .kbuy .pr{background:rgba(0,0,0,.22);color:#fff;border-radius:12px;padding:6px 10px;font-size:16px;white-space:nowrap}.kbuy small{display:block;font-weight:600;font-size:11.5px;opacity:.8}
 .kall{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;border:1px dashed rgba(245,197,66,.55);background:rgba(245,197,66,.08);border-radius:14px;padding:9px 12px;font-weight:600;font-size:13.5px;line-height:1.2;text-align:left}
 .kall b{margin-left:auto;white-space:nowrap}.kbadge{background:#ef4444;color:#fff;font-size:10px;font-weight:800;border-radius:6px;padding:2px 6px;letter-spacing:.04em}
+.kduel>div{min-width:0}
 .kunder{display:grid;grid-template-columns:42% 1fr;gap:8px;align-items:center;margin:6px 0}.kunder.one{grid-template-columns:1fr}.kunder.one .kgk{width:50%;margin:0 auto}
 .kgk{text-align:center;font-size:11px;color:var(--muted)}.kgk span{display:block;margin-top:3px}
 .kpatch{display:flex;gap:8px;align-items:center;background:var(--card2);border-radius:12px;padding:8px 10px;font-size:12px;color:var(--muted)}.kpatch b{color:var(--text)}
@@ -823,6 +823,7 @@ const lockBanner = () => S.locked ? `<div class="banner warn">${esc(S.locked)}</
 let panelSig = '';
 function renderPanel() {
   if (PANEL && PANEL.k === 'kit' && KIT_UB && KIT_UB.node && !KIT_UB.over && document.contains(KIT_UB.node)) return;      // идёт распаковка — не прерываем
+  if (PANEL && PANEL.k === 'crest' && CREST_UB && CREST_UB.node && !CREST_UB.over && document.contains(CREST_UB.node)) return;
   const m = M(); if (!m && !NO_CLUB_PANELS.includes(PANEL.k)) { closeSheet(); return; }
   const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, P.sec, P.fx, !!P.report].join('|'), keep = {};
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
@@ -833,6 +834,7 @@ function renderPanel() {
     crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop}[P.k](m, P);
   $('sheetin').innerHTML = h;
   if (P.k === 'kit') kitAfter();
+  if (P.k === 'crest') crestAfter();
   Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
   formCheck(false);
 }
@@ -943,9 +945,64 @@ const kitLock = n => n > kitLv() ? ` lock" data-kitlock="${n}` : '';
 const kitLk = n => n > kitLv() ? `<i class="lk">ур. ${n}</i>` : '';
 const kitAlt = s => crestDark(s) ? '#f8fafc' : '#111827';      // второй цвет по умолчанию — контрастный, из базовых
 function kitDraft() { const E = H().kit_edit; if (!KIT_DRAFT) KIT_DRAFT = JSON.parse(JSON.stringify(E.design)); if (!KIT_DRAFT[KIT_SLOT]) KIT_SLOT = 'home'; return KIT_DRAFT; }
+/* ✨ общая витрина формы и эмблемы: студия (фон, свет, подиум, сияние, искры, рамка по уровню), примерка, переворот, распаковка */
+const fxStar4 = (a, b, r, f, e) => `<path d="M${a} ${b - r * 2}Q${a} ${b} ${a + r * 2} ${b}Q${a} ${b} ${a} ${b + r * 2}Q${a} ${b} ${a - r * 2} ${b}Q${a} ${b} ${a} ${b - r * 2}Z" fill="${f}"${e || ''}/>`;
+const fxSpark = (a, b, r, i, live, acc, still) => fxStar4(a, b, r, live ? (i % 2 ? '#fff' : acc) : '#ffe9a3', live && !still ? ` class="kc-tw" style="animation-delay:${i * .37}s"` : ' opacity=".85"');
+const fxStops = a => a.map(([q, c, w]) => `<stop offset="${q}" stop-color="${c}"${w != null ? ` stop-opacity="${w}"` : ''}/>`).join('');
+const FX_HOLO = [[0, '#ff7ad9'], [.3, '#7af0ff'], [.55, '#fff6a8'], [.8, '#b28cff'], [1, '#ff7ad9']];
+const FX_SPARKS = [[22, 30, 3], [160, 22, 2.4], [180, 128, 2], [12, 150, 2.2], [150, 186, 1.8], [246, 30, 2.6], [36, 196, 1.6], [128, 12, 1.7], [244, 150, 1.9]];      // в долях карточки 260×220
+function fxStage(id, lv, acc, W, H, cx) {      // студия карточки W×H; cx — центр света и сияния (у формы — над футболкой)
+  cx = cx || W / 2;
+  const live = lv >= 5, R = Math.round(H * .082), py = Math.round(H * .882), rx = Math.round(W * .47), ry = Math.round(H * .041), f1 = v => +v.toFixed(1);
+  const fr = `x="1" y="1" width="${W - 2}" height="${H - 2}" rx="${R}"`, G = `url(#${id}${live ? 'x' : 'Au'})`;
+  const bgc = [0, ['#273444', '#11171f'], ['#253a52', '#0c1520'], ['#2e4260', '#0a111c'], ['#43341a', '#0d0a04'], [crestMix(acc, -.45), '#07090f']][lv];
+  const defs = `<radialGradient id="${id}r" cx=".38" cy=".3" r=".85">${fxStops([[0, bgc[0]], [1, bgc[1]]])}</radialGradient>` +
+    `<linearGradient id="${id}l" x2="0" y2="1">${fxStops([[0, '#fff', .16], [1, '#fff', 0]])}</linearGradient>` +
+    `<linearGradient id="${id}x" x2="1" y2="1">${fxStops(live ? FX_HOLO : [[0, '#fff', .7], [.5, '#8b98a8', .5], [1, '#fff', .6]])}</linearGradient>` +
+    `<linearGradient id="${id}Au" x2="1" y2="1">${fxStops([[0, '#fff4b8'], [.35, '#e8b923'], [.6, '#9a6b00'], [1, '#f7d774']])}</linearGradient>` +
+    `<radialGradient id="${id}y">${fxStops([[0, live ? acc : '#f5c542', .55], [1, acc, 0]])}</radialGradient>` +
+    `<filter id="${id}B" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${f1(H * .0082)}"/></filter>` +
+    `<linearGradient id="${id}t" x2="0" y2="1">${fxStops([[0, '#fff', .9], [1, '#fff', 0]])}</linearGradient>` +
+    `<mask id="${id}z"><rect y="${py - 4}" width="${W}" height="${H - py + 4}" fill="url(#${id}t)"/></mask><clipPath id="${id}F"><rect ${fr}/></clipPath>`;
+  let back = `<rect ${fr} fill="url(#${id}r)"/>`;
+  if (lv >= 2) back += `<path d="M${f1(cx - W * .092)} 0H${f1(cx + W * .092)}L${f1(cx + W * .46)} ${f1(H * .955)}H${f1(cx - W * .46)}Z" fill="url(#${id}l)" filter="url(#${id}B)"/>` +
+    `<path d="M${W / 2 - rx} ${py}v${ry}A${rx} ${ry} 0 0 0 ${W / 2 + rx} ${py + ry}V${py}Z" fill="${crestMix(bgc[0], -.35)}"/><ellipse cx="${W / 2}" cy="${py}" rx="${rx}" ry="${ry}" fill="${crestMix(bgc[0], .12)}"/>`;
+  if (lv >= 4) back += `<ellipse cx="${cx}" cy="${f1(H * .436)}" rx="${f1(W * .37)}" ry="${f1(H * .41)}" fill="url(#${id}y)"${live ? ' class="kc-pl"' : ''}/>`;
+  const sparks = lv >= 4 ? FX_SPARKS.map(([a, b, r], i) => fxSpark(f1(a * W / 260), f1(b * H / 220), f1(r * H / 220), i, live, acc)).join('') : '';
+  const frame = (lv >= 4 ? `<rect ${fr} fill="none" stroke="${G}" stroke-width="2.6"/><rect x="5" y="5" width="${W - 10}" height="${H - 10}" rx="${R - 3}" fill="none" stroke="${G}" stroke-width=".6" opacity=".6"/>` :
+    lv >= 2 ? `<rect ${fr} fill="none" stroke="${lv >= 3 ? `url(#${id}x)` : 'rgba(255,255,255,.12)'}" stroke-width="${lv >= 3 ? 1.4 : 1}"/>` : '') +
+    (live ? `<rect ${fr} fill="none" stroke="#fff" stroke-width="2.6" stroke-dasharray="60 860" class="kc-run"/>` : '');
+  return {defs, back, sparks, frame, py};
+}
+// примерка закрытого уровня: водяной знак, замок, ярлык (не сохраняется — сервер всё равно проверит уровень)
+const fxTry = (W, H) => `<g fill="#fff" opacity=".13" font-size="14" font-weight="900" transform="rotate(-18 ${W / 2} ${H / 2})">${[30, 80, 130, 180, 230].map(y => `<text x="-40" y="${y}">ПРИМЕРКА · ПРИМЕРКА · ПРИМЕРКА</text>`).join('')}</g>` +
+  `<g transform="translate(${W - 20} ${H - 30})" opacity=".6"><rect x="-9" y="-2" width="18" height="14" rx="3" fill="#fff"/><path d="M-5-2V-6A5 5 0 0 1 5-6V-2" fill="none" stroke="#fff" stroke-width="2.6"/></g>` +
+  `<rect x="${W - 86}" y="8" width="78" height="17" rx="8.5" fill="rgba(0,0,0,.6)" stroke="#fff" stroke-opacity=".35"/><text x="${W - 47}" y="20" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" letter-spacing=".8">👁 ПРИМЕРКА</text>`;
+// две стороны касанием (общий обработчик кликов по атрибуту attr); on — сейчас обратная сторона
+const fxFlip = (front, back, attr, on, label) => `<button type="button" class="kflip${on ? ' bk' : ''}" ${attr} aria-label="${label}"><div class="kfi"><div class="kff">${front}</div><div class="kfb">${back}</div></div></button>`;
+// распаковка после оплаты: пак цвета уровня трясётся, вспышка, крышка улетает, предмет выезжает, конфетти цветов cols; тап — пропустить (attr)
+function fxUnbox(el, html, lv, cols, title, attr, o) {
+  o = o || {};
+  const c = [0, ['#94a3b8', '#334155'], ['#7cc4ff', '#1d4ed8'], ['#f1f5f9', '#64748b'], ['#fde68a', '#b7791f'], ['#f0abfc', '#22d3ee']][lv];
+  let cf = '';
+  for (let i = 0; i < 44; i++) { const a = i * 2.4, d = 70 + i * 37 % 90;
+    cf += `<i style="--x:${Math.round(Math.cos(a) * d * 1.3)}px;--y:${Math.round(Math.sin(a) * d * .8 + 50)}px;--r:${i * 47 % 540}deg;background:${cols[i % cols.length]};animation-delay:${1 + i % 6 * .05}s"></i>`; }
+  el.innerHTML = `<button type="button" class="kub" ${attr} aria-label="Пропустить"><div class="kub-card">${html}</div><div class="kub-pk">` +
+    `<svg class="kub-lid" viewBox="0 0 120 30"><defs><linearGradient id="kub${lv}" x2="1" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient></defs>` +
+    `<rect x="2" y="4" width="116" height="24" rx="6" fill="url(#kub${lv})"/><rect x="52" y="4" width="16" height="24" fill="#fff" opacity=".4"/><rect x="2" y="4" width="116" height="6" rx="3" fill="#fff" opacity=".25"/></svg>` +
+    `<svg class="kub-box" viewBox="0 0 120 80"><rect x="6" width="108" height="78" rx="7" fill="url(#kub${lv})"/><rect x="6" width="108" height="78" rx="7" opacity=".18"/><rect x="52" width="16" height="78" fill="#fff" opacity=".35"/>` +
+    `<text x="60" y="52" text-anchor="middle" font-size="26" fill="#fff">★</text></svg></div><div class="kub-flash"></div><div class="kub-cf">${cf}</div>` +
+    `<div class="kub-t">✨ ${title}</div></button>`;
+  const k = el.firstChild; let over = false;
+  const fin = () => { if (over) return; over = true; k.classList.add('done'); o.onDone && o.onDone(); };
+  if (CREST_CALM) k.classList.add('done', 'rm');      // без анимации — сразу итог и короткая вспышка
+  setTimeout(fin, CREST_CALM ? 700 : 3000);
+  return {node: k, fin};
+}
 // витрина формы: kitCard(комплект, уровень, opts) → SVG. Уровень (1–5) меняет отделку и подачу, а не цвета.
 // opts: {back — спина, name, num — фамилия и номер на спине, ab — буквы вместо эмблемы, crest — эмблема (разметка crestSvg),
-// patches ['league','cup'] — нашивки за трофеи, tryon — примерка, mini — плитка выбора, duel — малая карточка «перед матчем»}
+// patches ['league','cup'] — нашивки за трофеи, tryon — примерка, mini — плитка выбора, duel — малая карточка «перед матчем»,
+// badge — эмблема на груди в отделке своего уровня (crestBadge) вместо crest}
 let KC_N = 0;
 function kitCard(x, lv, o) {
   o = o || {}; lv = Math.min(5, Math.max(1, lv || 1));
@@ -1008,6 +1065,7 @@ function kitCard(x, lv, o) {
     (lv >= 3 ? `<text x="88.6" y="133.4" ${nf} font-size="56" fill="rgba(0,0,0,.4)">${num}</text>` : '') +
     `<text x="88" y="132" ${nf} font-size="56" fill="${nfill}" stroke="${nst}" stroke-width="${lv >= 3 ? 2.6 : 2}" paint-order="stroke">${num}</text>` +
     (lv >= 3 ? `<text x="88" y="132" ${nf} font-size="56" fill="url(#${id}e)" clip-path="url(#${id}u)">${num}</text>` : '');
+  else if (o.badge) top += `<svg x="92" y="40" width="36" height="43" viewBox="0 0 100 120" overflow="visible">${o.badge}</svg>`;
   else {
     const sd = 'M0 0H20V12C20 19 14 22 10 24C6 22 0 19 0 12Z';
     top += `<g transform="translate(104 50)">` + (lv >= 2 ? P(sd, '#000', ` opacity=".5" transform="translate(.8 1.3)" filter="url(#${id}b)"`) : '') + P(sd, co) +
@@ -1050,59 +1108,23 @@ function kitCard(x, lv, o) {
     (lv >= 2 ? L('M0 3H24', 'rgba(0,0,0,.25)', 6, ' stroke-dasharray=".6 1.6"') : '') + `<ellipse cx="7" cy="40" rx="3" ry="16" fill="#fff" opacity=".15" filter="url(#${id}b)"/>` +
     R(-4, 0, 50, 90, `url(#${id}h)`) + R(-4, 0, 50, 90, `url(#${id}v)`) + (dk ? R(-4, 0, 50, 90, '#000', ' opacity=".28"') : '') + `</g>` +
     `<ellipse cx="11" cy="4" rx="11" ry="2.6" fill="${crestMix(so, -.6)}"/>` + L(K, 'rgba(0,0,0,.5)', 1) + `</g>`;
-  // студия: свет, подиум, отражение, искры, рамка
-  const bgc = [0, ['#273444', '#11171f'], ['#253a52', '#0c1520'], ['#2e4260', '#0a111c'], ['#43341a', '#0d0a04'], [crestMix(co, -.45), '#07090f']][lv];
-  const fr = 'x="1" y="1" width="258" height="218" rx="18"';
-  const bg = `<radialGradient id="${id}r" cx=".38" cy=".3" r=".85"><stop offset="0" ${st(bgc[0])}/><stop offset="1" ${st(bgc[1])}/></radialGradient>` +
-    lg('l', 'x2="0" y2="1"', [[0, '#fff', .16], [1, '#fff', 0]]) + lg('t', 'x2="0" y2="1"', [[0, '#fff', .9], [1, '#fff', 0]]) +
-    lg('x', 'x2="1" y2="1"', lv >= 5 ? holo : [[0, '#fff', .7], [.5, '#8b98a8', .5], [1, '#fff', .6]]) +
-    `<radialGradient id="${id}y"><stop offset="0" ${st(live ? co : '#f5c542', .55)}/><stop offset="1" ${st(co, 0)}/></radialGradient>` +
-    `<mask id="${id}z"><rect y="190" width="260" height="30" fill="url(#${id}t)"/></mask><clipPath id="${id}F"><rect ${fr}/></clipPath>`;
-  let stage = `<rect ${fr} fill="url(#${id}r)"/>`;
-  if (lv >= 2) stage += P('M66 0H114L210 210H-30Z', `url(#${id}l)`, ` filter="url(#${id}b)"`) + P('M8 194V203A122 9 0 0 0 252 203V194Z', crestMix(bgc[0], -.35)) +
-    `<ellipse cx="130" cy="194" rx="122" ry="9" fill="${crestMix(bgc[0], .12)}"/>`;
-  if (lv >= 4) stage += `<ellipse cx="92" cy="96" rx="96" ry="90" fill="url(#${id}y)"${anim ? ' class="kc-pl"' : ''}/>`;
-  stage += `<g filter="url(#${id}b)" fill="#000" opacity=".5"><ellipse cx="92" cy="196" rx="58" ry="4"/><ellipse cx="226" cy="201" rx="26" ry="3"/></g>`;
+  // студия (общая с эмблемой: fxStage): свет, подиум, сияние, искры, рамка; здесь — тени и отражение формы
+  const ST = fxStage(id, lv, co, 260, 220, 90), bg = ST.defs;
+  let stage = ST.back + `<g filter="url(#${id}b)" fill="#000" opacity=".5"><ellipse cx="92" cy="196" rx="58" ry="4"/><ellipse cx="226" cy="201" rx="26" ry="3"/></g>`;
   if (lv >= 3) stage += `<use href="#${id}S" transform="translate(4 380) scale(1 -1)" opacity=".24" mask="url(#${id}z)"/>`;
-  const spk = (a, b, r, i) => P(`M${a} ${b - r * 2}Q${a} ${b} ${a + r * 2} ${b}Q${a} ${b} ${a} ${b + r * 2}Q${a} ${b} ${a - r * 2} ${b}Q${a} ${b} ${a} ${b - r * 2}Z`, live ? (i % 2 ? '#fff' : co) : '#ffe9a3', anim ? ` class="kc-tw" style="animation-delay:${i * .37}s"` : ' opacity=".85"');
+  const spk = (a, b, r, i) => fxSpark(a, b, r, i, live, co, !anim);
   if (o.duel) return `<svg class="kcard kduelc lv${lv}" viewBox="0 0 160 120" aria-hidden="true"><defs>${defs}${bg}<clipPath id="${id}p"><path d="${SH}"/></clipPath></defs><rect x=".5" y=".5" width="159" height="119" rx="12" fill="url(#${id}r)"/>` +
     (lv >= 4 ? `<ellipse cx="60" cy="62" rx="62" ry="58" fill="url(#${id}y)"/>` : '') + `<g transform="translate(8 6) scale(.6)">${shirt}</g><g transform="translate(40 30) scale(.46)">${shorts}</g>` +
     (lv >= 4 ? [[14, 16, 1.6], [112, 12, 1.4], [148, 100, 1.5], [104, 108, 1.2]].map(([a, b, r], i) => spk(a, b, r, i)).join('') : '') +
     (lv >= 2 ? `<rect x=".5" y=".5" width="159" height="119" rx="12" fill="none" stroke="${lv === 4 ? G : lv >= 3 ? `url(#${id}x)` : 'rgba(255,255,255,.14)'}" stroke-width="${gold ? 2 : 1.2}"/>` : '') + `</svg>`;
-  let fx = '';
-  if (lv >= 4) [[22, 30, 3], [160, 22, 2.4], [180, 128, 2], [12, 150, 2.2], [150, 186, 1.8], [246, 30, 2.6], [36, 196, 1.6], [128, 12, 1.7], [244, 150, 1.9]]
-    .forEach(([a, b, r], i) => fx += spk(a, b, r, i));
-  if (o.tryon) fx += `<g fill="#fff" opacity=".13" font-size="14" font-weight="900" transform="rotate(-18 130 110)">${[30, 80, 130, 180, 230].map(y => `<text x="-40" y="${y}">ПРИМЕРКА · ПРИМЕРКА · ПРИМЕРКА</text>`).join('')}</g>` +
-    `<g transform="translate(240 190)" opacity=".6"><rect x="-9" y="-2" width="18" height="14" rx="3" fill="#fff"/><path d="M-5-2V-6A5 5 0 0 1 5-6V-2" fill="none" stroke="#fff" stroke-width="2.6"/></g>` +
-    `<rect x="174" y="8" width="78" height="17" rx="8.5" fill="rgba(0,0,0,.6)" stroke="#fff" stroke-opacity=".35"/><text x="213" y="20" text-anchor="middle" font-size="10" font-weight="800" fill="#fff" letter-spacing=".8">👁 ПРИМЕРКА</text>`;
-  const frame = lv >= 4 ? `<rect ${fr} fill="none" stroke="${live ? `url(#${id}x)` : G}" stroke-width="2.6"/><rect x="5" y="5" width="250" height="210" rx="15" fill="none" stroke="${live ? `url(#${id}x)` : G}" stroke-width=".6" opacity=".6"/>` :
-    lv >= 2 ? `<rect ${fr} fill="none" stroke="${lv >= 3 ? `url(#${id}x)` : 'rgba(255,255,255,.12)'}" stroke-width="${lv >= 3 ? 1.4 : 1}"/>` : '';
   return `<svg class="kcard lv${lv}" viewBox="0 0 260 220" aria-hidden="true"><defs>${defs}${bg}<clipPath id="${id}p"><path d="${SH}"/></clipPath><clipPath id="${id}k"><path d="${K}"/></clipPath></defs>` +
-    `<g clip-path="url(#${id}F)">${stage}${shorts}${sock(194, 110, 1)}${sock(212, 116)}<g transform="translate(4 6)">${shirt}</g>${fx}</g>` + frame +
-    (anim ? `<rect ${fr} fill="none" stroke="#fff" stroke-width="2.6" stroke-dasharray="60 860" class="kc-run"/>` : '') + `</svg>`;
+    `<g clip-path="url(#${id}F)">${stage}${shorts}${sock(194, 110, 1)}${sock(212, 116)}<g transform="translate(4 6)">${shirt}</g>${ST.sparks}${o.tryon ? fxTry(260, 220) : ''}</g>${ST.frame}</svg>`;
 }
 const KIT_PATCH = {league: 'Чемпион лиги', cup: 'Обладатель кубка'};
 // перед и спина касанием (общий обработчик кликов: data-kitflip); перевёрнута ли — помнит KIT_BACK
-const kitFlip = (x, lv, o) => `<button type="button" class="kflip${KIT_BACK ? ' bk' : ''}" data-kitflip aria-label="Перевернуть форму"><div class="kfi"><div class="kff">${kitCard(x, lv, {...o, back: 0})}</div><div class="kfb">${kitCard(x, lv, {...o, back: 1})}</div></div></button>`;
+const kitFlip = (x, lv, o) => fxFlip(kitCard(x, lv, {...o, back: 0}), kitCard(x, lv, {...o, back: 1}), 'data-kitflip', KIT_BACK, 'Перевернуть форму');
 // распаковка после оплаты: пак трясётся, вспышка, крышка улетает, форма выезжает, конфетти в цветах клуба; тап — пропустить (data-kitub)
-function kitUnbox(el, x, lv, o) {
-  o = o || {};
-  const c = [0, ['#94a3b8', '#334155'], ['#7cc4ff', '#1d4ed8'], ['#f1f5f9', '#64748b'], ['#fde68a', '#b7791f'], ['#f0abfc', '#22d3ee']][lv], cols = [x.s, x.c2 || x.sh, x.co || '#fff', '#ffe27a'];
-  let cf = '';
-  for (let i = 0; i < 44; i++) { const a = i * 2.4, d = 70 + i * 37 % 90;
-    cf += `<i style="--x:${Math.round(Math.cos(a) * d * 1.3)}px;--y:${Math.round(Math.sin(a) * d * .8 + 50)}px;--r:${i * 47 % 540}deg;background:${cols[i % 4]};animation-delay:${1 + i % 6 * .05}s"></i>`; }
-  el.innerHTML = `<button type="button" class="kub" data-kitub aria-label="Пропустить"><div class="kub-card">${kitCard(x, lv, o)}</div><div class="kub-pk">` +
-    `<svg class="kub-lid" viewBox="0 0 120 30"><defs><linearGradient id="kub${lv}" x2="1" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient></defs>` +
-    `<rect x="2" y="4" width="116" height="24" rx="6" fill="url(#kub${lv})"/><rect x="52" y="4" width="16" height="24" fill="#fff" opacity=".4"/><rect x="2" y="4" width="116" height="6" rx="3" fill="#fff" opacity=".25"/></svg>` +
-    `<svg class="kub-box" viewBox="0 0 120 80"><rect x="6" width="108" height="78" rx="7" fill="url(#kub${lv})"/><rect x="6" width="108" height="78" rx="7" opacity=".18"/><rect x="52" width="16" height="78" fill="#fff" opacity=".35"/>` +
-    `<text x="60" y="52" text-anchor="middle" font-size="26" fill="#fff">★</text></svg></div><div class="kub-flash"></div><div class="kub-cf">${cf}</div>` +
-    `<div class="kub-t">✨ Новый уровень: <b>${KIT_EDITOR.level_names[lv]}</b></div></button>`;
-  const k = el.firstChild; let over = false;
-  const fin = () => { if (over) return; over = true; k.classList.add('done'); o.onDone && o.onDone(); };
-  if (CREST_CALM) k.classList.add('done', 'rm');      // без анимации — сразу итог и короткая вспышка
-  setTimeout(fin, CREST_CALM ? 700 : 3000);
-  return {node: k, fin};
-}
+const kitUnbox = (el, x, lv, o) => fxUnbox(el, kitCard(x, lv, o), lv, [x.s, x.c2 || x.sh, x.co || '#fff', '#ffe27a'], `Новый уровень: <b>${KIT_EDITOR.level_names[lv]}</b>`, 'data-kitub', o);
 function kitGk(x) { return {s: x.gk[0], sh: x.gk[1], so: x.gk[0], co: crestMix(x.gk[0], -.45)}; }
 function kitColors(cur, key, need) {      // палитра: замок — по уровню цвета и по уровню самой части формы (гетры, окантовка…)
   const L = KIT_EDITOR.levels.colors;
@@ -1110,7 +1132,7 @@ function kitColors(cur, key, need) {      // палитра: замок — по
 }
 function kitMe() {      // своя форма: эмблема на груди, на спине фамилия и номер капитана (нет капитана — без фамилии, №10), нашивки
   const hb = H(), c = ((hb.manage || {}).players || []).find(p => p.slot === S.captain), cr = (hb.home || {}).crest;
-  return {name: c && c.last ? c.last : '', num: c ? c.number : 10, crest: cr ? crestSvg(cr) : '', ab: esc(initials(hb.club || 'FC')),
+  return {name: c && c.last ? c.last : '', num: c ? c.number : 10, crest: cr ? crestSvg(cr) : '', badge: cr ? crestBadge(cr, crestLv()) : '', ab: esc(initials(hb.club || 'FC')),
     patches: (hb.kit_edit || {}).patches || []};
 }
 function kitShop(E) {      // плашки уровней с ценой (замок/открыт), примерка закрытого, «Открыть «X» · N ⭐», набор «все уровни сразу»
@@ -1149,7 +1171,7 @@ function panelKit(m) {
     `<div class="hint kcap">${tryon ? `👁 Примерка: так ваша форма выглядит на уровне «${N[show]}». Сохранить её можно, когда уровень открыт.` : 'Коснитесь карточки — перед и спина'}</div>`;
   const pt = me.patches.filter(k => KIT_PATCH[k]);
   if (x.gk || pt.length) h += `<div class="kunder${x.gk && pt.length ? '' : ' one'}">` +
-    (x.gk ? `<div class="kgk">${kitCard(kitGk(x), show, {num: 1, crest: me.crest, ab: me.ab, patches: pt})}<span>🧤 вратарь</span></div>` : '') +
+    (x.gk ? `<div class="kgk">${kitCard(kitGk(x), show, {...kitMe(), num: 1, name: '', patches: pt})}<span>🧤 вратарь</span></div>` : '') +
     (pt.length ? `<div class="kpatch">🏆 <span>Нашивки на рукаве — ${pt.map(k => `«${KIT_PATCH[k]}»`).join(' и ')}: <b>нашивка за трофей — не продаётся</b>.</span></div>` : '') + `</div>`;
   h += `<div class="crgrid kittabs">` + KIT_SLOTS.map(s => { const n = L.slots[s] || 1, has = !!d[s];
     return `<button type="button" class="crt${s === KIT_SLOT ? ' on' : ''}${has ? '' : kitLock(n)}" data-kitslot="${s}">${has ? kitTile(d[s], lv) : `<b class="crlet">${n > lv ? '🔒' : '➕'}</b>`}<span>${KIT_SLOT_T[s]}</span>${has ? '' : kitLk(n)}</button>`; }).join('') + `</div>`;
@@ -1191,7 +1213,8 @@ function kitDuel(m) {      // перед матчем: в какой форме 
   const K = m.kits, N = KIT_EDITOR.level_names, me = H().home || {};
   if (!K || !K.h || !K.a) return '';
   const side = (i, x) => { const mine = (i === 0) === !!m.home, lv = Math.min(5, Math.max(1, (K.lv || [])[i] || 1)), cr = mine ? me.crest : crestOf(m), nm = (mine ? me.club : m.opp) || '?';
-    return `<div>${kitCard(x, lv, {duel: 1, crest: cr ? crestSvg(cr) : '', ab: esc(initials(nm)), patches: (K.pt || [])[i] || []})}` +
+    const badge = cr ? crestBadge(cr, crestSeen(cr)) : '';      // значок на груди — уровень по видимой отделке, одинаково у всех; без фильтров
+    return `<div>${kitCard(x, lv, {duel: 1, badge, ab: esc(initials(nm)), patches: (K.pt || [])[i] || []})}` +
       `<div class="kdn"><span>${i ? '✈️' : '🏠'} ${esc(nm)}</span><span class="klt l${lv}">${N[lv]}</span></div></div>`; };
   return `<div class="kduel">${side(0, K.h)}<div class="kvs">VS</div>${side(1, K.a)}</div>`;
 }
@@ -1518,22 +1541,146 @@ function crestColors(cur, attr) {
   const L = CREST_EDITOR.levels.colors;
   return `<div class="colors">` + CREST_EDITOR.palette.map(c => `<button type="button" class="color${cur === c ? ' on' : ''}${crestLock(L[c] || 1)}" style="background:${c}" aria-label="${c}" ${attr}="${c}"></button>`).join('') + `</div>`;
 }
-function crestLevelCard(E, name) {      // «Уровни эмблемы «клуб»: N из 5», лесенка, кнопки «Улучшить» и набор «Все уровни сразу»
-  const lv = E.level || 1, N = CREST_EDITOR.level_names, P = E.prices, cl = esc(name || '');
-  let h = `<div class="crlv"><b>🎨 Уровни эмблемы «${cl}»: ${lv} из 5</b><div class="sub">Сейчас — «${N[lv]}»</div>` +
-    `<div class="crlad">${N.slice(1).map((t, i) => `<i class="${i + 1 <= lv ? 'on' : ''}">${i + 1 <= lv ? '✅' : '🔒'} ${i + 1}</i>`).join('')}</div>`;
-  if (!P) h += `<div class="sub">У администратора открыты все уровни — бесплатно.</div>`;
-  else if (!Object.keys(P).length) h += `<div class="sub">Продажа уровней сейчас закрыта — меняйте эмблему в пределах купленного уровня бесплатно.</div>`;
-  else if (lv >= 5) h += `<div class="sub">Открыты все уровни. Меняйте эмблему сколько угодно — бесплатно.</div>`;
-  else {
-    h += (E.official ? `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_OFF_TEXT[lv + 1]}. Основа эмблемы не меняется, менять отделку в пределах уровня — бесплатно.</div>` +
-        `<div class="banner warn">⚠️ Уровень остаётся у вас. При смене официального клуба он снизится на один.</div>` :
-        `<div class="sub">Уровень ${lv + 1} «${N[lv + 1]}»: ${CREST_LV_TEXT[lv + 1]}. Менять эмблему в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда.</div>`) +
-      `<button type="button" class="go main" data-crbuy="next">⬆️ Улучшить эмблему «${cl}» до уровня ${lv + 1} — ${P[lv + 1]} ⭐</button>`;
-    if (lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
-      h += `<button type="button" class="go" data-crbuy="all">🎁 Все уровни сразу — ${P.all} ⭐${gain > 0 ? ` (выгода ${gain} ⭐)` : ''}</button>`; }
+/* 🛡 витрина эмблемы: crestCard(эмблема, уровень, opts) → SVG. Рисунок — crestSvg, уровень задаёт материал: 1 печать,
+   2 эмаль на металле, 3 металл с гравировкой, 4 золото и камни за трофеи, 5 голограмма; студия, рамка, искры — fxStage.
+   opts: {back — оборот медали (название и год), tryon — примерка}. crestBadge — эмблема на форме: нашивка (ур. 1–2) или значок. */
+const CREST_EDGE = [0, 0, ['#e2e8f0', '#64748b'], ['#f8fafc', '#4b5563'], ['#ffe9a3', '#7a5205'], ['#f0abfc', '#22d3ee']];
+let CREST_TRY = 0, CREST_SEL = 0, CREST_PREV = null, CREST_UB = null, CREST_BACK = false;      // примерка, плашка, [чей, уровень] до оплаты, распаковка, оборот
+function crestMat(c, lv) {      // материал по уровню: металл каймы, объём, свечение и анимация — только с нужного уровня
+  const x = {...c}, e = x.e;
+  if (lv >= 4) delete x.t;      // звёзды за трофеи — камнями над медалью
+  if (lv < 4) delete x.w;
+  if (lv < 5) delete x.a; else x.a = 1;
+  if (lv < 2) delete x.g; else x.g = 1;
+  x.e = lv >= 5 ? e || 'holo' : lv === 4 ? (e === 'silver' ? e : 'gold') : lv === 3 ? (e === 'gold' ? e : 'silver') : undefined;
+  if (!x.e) delete x.e;
+  return x;
+}
+function crestPlace(c, lv, bx, by, bw, bh, cls) {      // эмблема в рамке bx,by,bw,bh (низом к подиуму); не нарисовалась — null
+  const x = crestMat(c, lv), sv = crestSvg(x, cls || 'crbig'), vb = sv.match(/viewBox="([^"]+)"/);
+  if (!vb) return null;
+  const [x0, y0, W, H] = vb[1].split(' ').map(Number), k = Math.min(bw / W, bh / H);
+  return {k, top: by + bh - H * k, x, t: `translate(${(bx + (bw - W * k) / 2 - x0 * k).toFixed(1)} ${(by + bh - H * k - y0 * k).toFixed(1)}) scale(${k.toFixed(3)})`,
+    inner: sv.slice(sv.indexOf('>') + 1, sv.lastIndexOf('</svg>'))};
+}
+function crestMetal(id, lv, c) {      // градиенты материала: кромка, лицо оборота, блик, гравировка, камни (без фильтров)
+  const E = CREST_EDGE[lv] || ['#94a3b8', '#334155'], face = lv >= 3 ? CREST_METAL[crestMat(c, lv).e] : null, b = c.c[lv > 1 ? 2 : 0];
+  return `<linearGradient id="${id}k" x2="0" y2="1"><stop offset="0" stop-color="${E[0]}"/><stop offset="1" stop-color="${E[1]}"/></linearGradient>` +
+    `<linearGradient id="${id}f" x2="1" y2="1">` + (face || [crestMix(b, .25), b, crestMix(b, -.35), b, crestMix(b, -.2)]).map((s, i) => `<stop offset="${i / 4}" stop-color="${s}"/>`).join('') + `</linearGradient>` +
+    `<radialGradient id="${id}e" cx=".3" cy=".2" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
+    `<linearGradient id="${id}s"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity="${lv >= 5 ? .55 : .3}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+    `<radialGradient id="${id}j" cx=".38" cy=".32" r=".7"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="${lv >= 5 ? '#f5d0fe' : '#bfe3ff'}"/><stop offset="1" stop-color="${lv >= 5 ? '#7c3aed' : '#1d4ed8'}"/></radialGradient>`;
+}
+function crestFace(id, lv, c, back, o, lite) {      // поверх рисунка (координаты эмблемы): толщина, эмаль, гравировка, блик; или оборот
+  const sh = CREST_SHAPES[c.s], clip = `clip-path="url(#${id}c)"`;
+  const gil = op => `<g fill="none" stroke="${op}" stroke-width=".5">${Array.from({length: 18}, (_, i) => `<circle cx="50" cy="60" r="${6 + i * 5}"/>`).join('')}</g>`;
+  if (back) {      // оборот: металл, гравировка, название по дуге, мяч, год основания (нет года — название уровня), звёзды уровня
+    const ink = lv >= 3 ? 'rgba(0,0,0,.55)' : crestDark(c.c[lv > 1 ? 2 : 0]) ? 'rgba(255,255,255,.75)' : 'rgba(0,0,0,.6)';
+    const tx = (x, y, f, t, e) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="${CREST_FONT}" font-weight="800" font-size="${f}"${e || ''}>${t}</text>`;
+    const nm = esc(String(c.nm || 'КЛУБ').toUpperCase()), fs = Math.min(11, 90 / Math.max(4, nm.length * .62)).toFixed(1);
+    const yr = c.y ? tx(50, 92, 7, 'ОСНОВАН') + tx(50, 103, 11, c.y) : tx(50, 100, 9, CREST_EDITOR.level_names[lv].toUpperCase());
+    return `<path d="${sh}" fill="url(#${id}k)" transform="translate(0 4)"/><path d="${sh}" fill="url(#${id}f)"/><g ${clip}>${gil('rgba(0,0,0,.14)')}<rect width="100" height="120" fill="url(#${id}e)"/></g>` +
+      `<path d="${sh}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="2" transform="translate(50 60) scale(.86) translate(-50 -60)"/><path id="${id}n" d="M16 44Q50 26 84 44" fill="none"/>` +
+      [['rgba(255,255,255,.45)', .6], [ink, 0]].map(([f, d]) => `<g fill="${f}" transform="translate(${d} ${d})"><text font-family="${CREST_FONT}" font-weight="800" font-size="${fs}" text-anchor="middle"><textPath href="#${id}n" startOffset="50%">${nm}</textPath></text>` +
+        crestIcon('ball', 50, 64, 22, f) + yr + `</g>`).join('') + tx(50, 112, 6, '★'.repeat(lv), ` fill="${lv >= 4 ? '#facc15' : ink}"`) + `<path d="${sh}" fill="none" stroke="url(#${id}k)" stroke-width="5"/>`;
   }
-  return h + `</div>`;
+  // толщина: силуэт щита, сдвинутый вниз, цветами кромки — без копий рисунка и без фильтров
+  let s = (lv >= 2 && !lite ? `<path d="${sh}" fill="url(#${id}k)" transform="translate(0 3.6)"/><path d="${sh}" fill="url(#${id}k)" opacity=".7" transform="translate(0 1.8)"/>` : '') + `{{CREST}}<g ${clip}>`;
+  if (lv === 2) s += `<ellipse cx="36" cy="28" rx="46" ry="30" fill="url(#${id}e)"/>`;
+  if (lv >= 3) s += gil('rgba(255,255,255,.07)') + `<g${lv >= 5 && !lite ? ' class="kc-sw"' : ''}><rect x="${lv >= 5 && !lite ? -70 : 18}" y="-20" width="22" height="170" fill="url(#${id}s)" transform="rotate(22 50 60)"/></g>`;
+  return s + `</g>`;
+}
+function crestGems(id, n, cx, y, r) {      // драгоценные звёзды за трофеи: огранка, оправа
+  let s = '';
+  for (let i = 0; i < n; i++) { const x = cx + (i - (n - 1) / 2) * r * 2.6, pt = [];
+    for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, q = k % 2 ? r * .45 : r; pt.push((x + Math.cos(a) * q).toFixed(1) + ' ' + (y + Math.sin(a) * q).toFixed(1)); }
+    s += `<path d="M${pt.join('L')}Z" fill="url(#${id}j)" stroke="url(#${id}Au)" stroke-width="${(r * .22).toFixed(2)}" stroke-linejoin="round"/>` +
+      `<path d="${pt.filter((_, k) => !(k % 2)).map(p => `M${x.toFixed(1)} ${y.toFixed(1)}L${p}`).join('')}" stroke="#fff" stroke-opacity=".55" stroke-width="${(r * .07).toFixed(2)}"/>`; }
+  return s;
+}
+function crestCard(c, lv, o) {
+  o = o || {}; lv = Math.min(5, Math.max(1, lv || 1));
+  const id = 'cc' + (++CREST_N), W = 260, H = 220;
+  if (!c || !CREST_SHAPES[c.s] || !Array.isArray(c.c)) return '';
+  const S = fxStage(id, lv, lv >= 5 ? '#8b5cf6' : c.c[2], W, H), gems = lv >= 4 ? Math.min(c.t || 0, 5) : 0;
+  const bh = S.py - H * .07 - (gems ? H * .085 : 0), bw = W * .82, by = S.py - bh - H * .02, P = crestPlace(c, lv, (W - bw) / 2, by, bw, bh), r = H * .028;
+  if (!P) return '';
+  const medal = `<g transform="${P.t}">${crestFace(id, lv, P.x, o.back, o).replace('{{CREST}}', () => P.inner)}</g>` + (gems ? crestGems(id, gems, W / 2, P.top - r * 1.6, r) : '') +
+    (lv >= 4 && !o.back ? [[.66, .22, 1.2], [.36, .5, .9], [.6, .72, .8]].map(([a, b, q]) => fxStar4(+(W / 2 + (a - .5) * bw).toFixed(1), +(P.top + b * (S.py - P.top)).toFixed(1), +(q * H * .012).toFixed(2), '#fff', lv >= 5 ? ' class="kc-tw"' : ' opacity=".9"')).join('') : '');
+  let mirror = '';      // отражение в подиуме — облегчённая статичная копия: без фильтров, анимаций и камней (живая эмблема одна)
+  if (lv >= 3) { const Q = o.back ? P : crestPlace(c, lv, (W - bw) / 2, by, bw, bh, 'crmid');
+    if (Q) mirror = `<g transform="translate(0 ${2 * S.py}) scale(1 -1)" opacity=".22" mask="url(#${id}z)"><g transform="${Q.t}">${crestFace(id, lv, Q.x, o.back, o, 1).replace('{{CREST}}', () => Q.inner)}</g></g>`; }
+  return `<svg class="kcard crc lv${lv}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>${S.defs}${crestMetal(id, lv, c)}<clipPath id="${id}c"><path d="${CREST_SHAPES[c.s]}"/></clipPath></defs>` +
+    `<g clip-path="url(#${id}F)">${S.back}<ellipse cx="${W / 2}" cy="${S.py}" rx="${(bw * .3).toFixed(1)}" ry="${(H * .02).toFixed(1)}" fill="#000" opacity=".5" filter="url(#${id}B)"/>` +
+    mirror + medal +
+    S.sparks + (o.tryon ? fxTry(W, H) : '') + `</g>${S.frame}</svg>`;
+}
+function crestBadge(c, lv) {      // эмблема на форме (коробка 0 0 100 120 для kitCard opts.badge): вышитая нашивка или металлический значок; без фильтров
+  const id = 'cb' + (++CREST_N);
+  if (!c || !CREST_SHAPES[c.s]) return '';
+  const sh = CREST_SHAPES[c.s], P = crestPlace(c, lv >= 3 ? lv : 1, 4, 4, 92, 112, lv >= 3 ? 'crmid' : 'cr');
+  if (!P) return '';
+  const defs = `<defs>${crestMetal(id, Math.max(lv, 2), c)}<clipPath id="${id}c"><path d="${sh}"/></clipPath><pattern id="${id}t" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="4" height="1.6" fill="#fff" fill-opacity=".14"/><rect y="2" width="4" height="1.2" fill="#000" fill-opacity=".12"/></pattern></defs>`;
+  const body = lv >= 3 ? crestFace(id, lv, P.x, 0, {}, 1).replace('{{CREST}}', () => P.inner) + `<path d="${sh}" fill="none" stroke="url(#${id}k)" stroke-width="6"/><path d="${sh}" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="1.4" transform="translate(-.8 -1)"/>` :
+    `<path d="${sh}" fill="#000" opacity=".45" transform="translate(2 4)"/>` + P.inner + `<g clip-path="url(#${id}c)"><rect width="100" height="120" fill="url(#${id}t)"/></g>` +
+    `<path d="${sh}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="3" stroke-dasharray="4 3" transform="translate(50 60) scale(.9) translate(-50 -60)"/>`;
+  return defs + `<g transform="${P.t}">${body}</g>`;
+}
+const crestFlip = (c, lv, o) => fxFlip(crestCard(c, lv, {...o, back: 0}), crestCard(c, lv, {...o, back: 1}), 'data-crflip', CREST_BACK, 'Перевернуть эмблему');
+const crestUnbox = (el, c, lv, o) => fxUnbox(el, crestCard(c, lv, o), lv, [...c.c, '#ffe27a'], `Новый уровень эмблемы: <b>${CREST_EDITOR.level_names[lv]}</b>`, 'data-crub', o);
+function crestSeen(c) {      // уровень эмблемы соперника — по тому, что на ней видно (уровня в состоянии нет): не выше настоящего
+  const L = CREST_EDITOR.levels;
+  if (!c) return 1;
+  let n = Math.max(1, L.shapes[c.s] || 1, L.divs[c.d] || 1);
+  for (const k in L.keys) if (c[k] !== undefined) n = Math.max(n, L.keys[k]);
+  if (c.e === 'holo') n = Math.max(n, L.holo);
+  return Math.min(5, n);
+}
+function crestSync() {      // перед отрисовкой экрана: пришёл купленный уровень — распаковка (один раз); примерка открытого — снята
+  const lv = crestLv();
+  if (CREST_UB && CREST_UB.node && (CREST_UB.over || !document.contains(CREST_UB.node))) CREST_UB = null;      // распаковку прервал уход с экрана — сразу медаль
+  if (CREST_PREV && CREST_PREV[0] === CREST_DRAFT_OF && lv > CREST_PREV[1] && !CREST_UB) { CREST_UB = {lv}; CREST_TRY = CREST_SEL = 0; }
+  if (CREST_PREV && (CREST_UB || CREST_PREV[0] !== CREST_DRAFT_OF)) CREST_PREV = null;
+  if (CREST_SEL && CREST_SEL <= lv) CREST_SEL = 0;
+  if (CREST_TRY && CREST_TRY <= lv) CREST_TRY = 0;
+}
+function crestHero(x, m, need) {      // большая переворотная медаль: уровень клуба, примерка закрытого или то, что требует черновик
+  const lv = crestLv(), N = CREST_EDITOR.level_names, show = Math.min(5, Math.max(lv, CREST_TRY, need)), tryon = show > lv;
+  const c = {...x, nm: m.name, t: ((H().home || {}).crest || {}).t};
+  return `<div class="khero" id="crhero">` + (CREST_UB ? '' : `<span class="ktag l${show}">${tryon ? '👁 ' : ''}УР. ${show} · ${N[show].toUpperCase()}</span>` + crestFlip(c, show, {tryon})) + `</div>` +
+    `<div class="hint kcap">${tryon ? `👁 Примерка: так эмблема выглядит на уровне «${N[show]}». Сохранить её можно, когда уровень открыт.` : 'Материал медали задаётся уровнем эмблемы'}</div>` +
+    `<div class="crestprev"><div class="crrow">${crestSvg(c)}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+}
+function crestPause(f) {      // SMIL-анимации эмблемы на невидимой стороне медали — на паузе (CSS-правило .kflip их не останавливает)
+  if (f) f.querySelectorAll('.kff svg,.kfb svg').forEach(s => { if (!s.pauseAnimations) return; if (!!s.closest('.kff') === CREST_BACK) s.pauseAnimations(); else s.unpauseAnimations(); });
+}
+function crestAfter() {      // после отрисовки экрана «Эмблема»: невидимая сторона медали на паузе; распаковка купленного уровня на месте медали
+  const host = $('crhero'), u = CREST_UB;
+  if (host) crestPause(host.querySelector('.kflip'));
+  if (!host || !u || u.node) return;
+  const x = crestDraft(), m = M() || {};
+  Object.assign(u, crestUnbox(host, {...x, nm: m.name, t: ((H().home || {}).crest || {}).t}, u.lv, {onDone: () => { u.over = true;
+    setTimeout(() => { if (CREST_UB === u) { CREST_UB = null; if (PANEL && PANEL.k === 'crest') renderPanel(); } }, 900); }}));
+}
+function crestLevelCard(E, name) {      // уровни эмблемы — как у формы: плашки с ценой, примерка закрытого, «Улучшить», «Все уровни сразу»
+  const lv = E.level || 1, N = CREST_EDITOR.level_names, P = E.prices, sale = !!P && Object.keys(P).length > 0, cl = esc(name || ''), nx = lv + 1;
+  const sel = CREST_SEL || Math.min(5, nx), T = E.official ? CREST_OFF_TEXT : CREST_LV_TEXT;
+  let h = `<b>🎨 Уровни эмблемы «${cl}»: ${lv} из 5</b><div class="kchips">` + N.slice(1).map((t, i) => { const n = i + 1, own = n <= lv;
+    return `<button type="button" class="${n === sel ? 'on' : ''}${own ? ' own' : ''}" data-crsel="${n}">${own ? '✅' : '🔒'} ${t}<small>${own ? 'открыт' : sale && P[n] ? P[n] + ' ⭐' : 'закрыт'}</small></button>`; }).join('') + `</div>`;
+  if (sel > lv) {
+    h += `<div class="sub">Уровень ${sel} «${N[sel]}»: ${T[sel]}.</div><div class="kacts${sale ? '' : ' one'}">` +
+      `<button type="button" class="ktry" data-crtry="${sel}">${CREST_TRY === sel ? '✕ Закрыть' : '👁 Примерить'}</button>` +
+      (sale ? `<button type="button" class="kbuy l${nx}" data-crbuy="next"><span>⬆️ Улучшить эмблему «${cl}»<small>до уровня ${nx} «${N[nx]}» · ${E.official ? 'уровень — ваш' : 'навсегда'}</small></span><span class="pr">${P[nx]} ⭐</span></button>` : '') + `</div>`;
+    if (sale && sel > nx) h += `<div class="hint">Уровни открываются по порядку — сначала «${N[nx]}».</div>`;
+    if (sale && lv === 1 && P.all) { const gain = [2, 3, 4, 5].reduce((a, k) => a + P[k], 0) - P.all;
+      h += `<button type="button" class="kall" data-crbuy="all"><span class="kbadge">ВЫГОДНО</span>🎁 Все уровни сразу<b>${P.all} ⭐${gain > 0 ? ` · выгода ${gain} ⭐` : ''}</b></button>`; }
+  }
+  if (E.official && sale && lv < 5) h += `<div class="banner warn">⚠️ Уровень остаётся у вас. При смене официального клуба он снизится на один.</div>`;
+  if (!P) h += `<div class="sub">У администратора открыты все уровни — бесплатно.</div>`;
+  else if (!sale) h += `<div class="sub">Продажа уровней сейчас закрыта — меняйте эмблему в пределах купленного уровня бесплатно. Примерить закрытый уровень можно.</div>`;
+  else if (lv >= 5) h += `<div class="sub">Открыты все уровни. Меняйте эмблему сколько угодно — бесплатно.</div>`;
+  else h += `<div class="sub">${E.official ? 'Основа эмблемы не меняется, менять отделку в пределах уровня — бесплатно.' : 'Менять эмблему в пределах уровня — бесплатно, купленный уровень остаётся у клуба навсегда.'} Уровень формы покупается отдельно.</div>`;
+  return `<div class="crlv kshop">${h}</div>`;
 }
 function panelCrest(m) {
   const E = H().crest_edit, hc = H().home && H().home.crest;
@@ -1542,11 +1689,11 @@ function panelCrest(m) {
   if (E.official) return panelCrestOfficial(m, E);
   const lv = crestLv(), L = CREST_EDITOR.levels;
   const x = crestDraft(), err = crestErr(x), need = crestNeed(x), named = v => ({...v, nm: m.name}), alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
+  crestSync();
   const plain = ch => { const v = {...x, ...ch}; ['f', 'k', 'n', 'o', 'y', 'g', 'w', 'a'].forEach(k => delete v[k]); return crestSvg(named(v), 'crmini'); };   // форма и фон — без украшений, крупнее
   let h = panelHead('🎨 Эмблема клуба', E.custom ? 'Своя эмблема клуба' : 'Сейчас — автоэмблема: по названию и цветам формы') + lockBanner() + crestHead(E, m);
   if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите конструктор как администратор (все уровни, бесплатно).</div>`;
-  h += crestLevelCard(E, m.name);
-  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(named(x))}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+  h += crestLevelCard(E, m.name) + crestHero(x, m, need);
   const grid = (list, attr) => list.map(([t, v], i) => { const r = crestReady(v, E), n = crestNeed(r);
     return `<button type="button" class="crt${n > lv ? ' lock' : ''}" ${attr}="${i}">${crestSvg(named(r), 'crmini')}<span>${t}</span>${crestLk(n)}</button>`; }).join('');
   const rk = JSON.stringify(E.auto) + m.name + lv;
@@ -1573,10 +1720,10 @@ function panelCrest(m) {
 function panelCrestOfficial(m, E) {      // официальный клуб: основа своя (с замком), менеджер меняет только отделку
   const lv = crestLv(), x = crestDraft(), deco = crestDecoOf(x), need = crestNeed(deco), named = v => ({...v, nm: m.name}),
     alt = ch => crestSvg(named({...x, ...ch}), 'crmini');
+  crestSync();
   let h = panelHead('🎨 Эмблема клуба', 'Основа — у клуба, отделка — ваша') + lockBanner() + crestHead(E, m);
   if (!E.everyone && !E.prices) h += `<div class="banner warn">🔒 Продажа эмблем закрыта — вы видите отделку как администратор (все уровни, бесплатно).</div>`;
-  h += crestLevelCard(E, m.name);
-  h += `<div class="crestprev">${crestSvg(named(x), 'crbig')}<div class="crrow">${crestSvg(named(x))}<b>${esc(m.name)}</b><div class="sub">так — в таблице</div></div></div>`;
+  h += crestLevelCard(E, m.name) + crestHero(x, m, need);
   h += `<div class="crbase">${crestSvg(E.base, 'crmini')}<div><b>🔒 Основа официального клуба — не меняется</b><div>форма, фон, цвета и символ — как у «${esc(m.name)}»</div></div></div>`;
   h += `<div class="label">✨ Отделка</div>` + crestDecoHtml(x, alt);
   if (need > lv) h += `<div class="banner warn">🔒 В отделке есть то, что открывается с уровня ${need} — «${CREST_EDITOR.level_names[need]}». Улучшите эмблему или уберите отмеченное замком.</div>`;
@@ -1612,14 +1759,18 @@ function crestPay(link) {       // счёт в звёздах: уровень п
     if (st === 'paid') {
       haptic('ok'); toast('⭐ Оплачено — открываем уровень');
       [1500, 4000].forEach(ms => setTimeout(() => { CREST_READY_HTML = null; send({a: 'crest', check: true}); }, ms));
-    } else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+    } else { CREST_PREV = null; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
 }
 function crestClick(b) {      // нажатия в конструкторе эмблем; true — обработано
   const d = b.dataset, E = H().crest_edit;
   if (!E || E.why) return false;
   const x = crestDraft(), N = CREST_EDITOR.level_names, need = n => `🔒 Это с уровня ${n} — «${N[n]}». Нажмите «⬆️ Улучшить» вверху`;
-  if (d.crbuy) { send({a: 'crest', buy: d.crbuy}); return true; }
+  if (b.hasAttribute('data-crflip')) { CREST_BACK = !CREST_BACK; b.classList.toggle('bk', CREST_BACK); crestPause(b); haptic(); return true; }      // лицо/оборот — без перерисовки
+  if (b.hasAttribute('data-crub')) { if (CREST_UB && CREST_UB.fin) CREST_UB.fin(); return true; }      // тап — пропустить распаковку
+  if (d.crsel) { const n = +d.crsel, lv = crestLv(); CREST_SEL = n > lv ? n : 0; CREST_TRY = CREST_TRY && n > lv ? n : 0; haptic(); renderPanel(); return true; }
+  if (d.crtry) { const n = +d.crtry; CREST_TRY = CREST_TRY === n ? 0 : n; haptic(); renderPanel(); return true; }      // примерка закрытого уровня (не сохраняется)
+  if (d.crbuy) { CREST_PREV = [CREST_DRAFT_OF, crestLv()]; send({a: 'crest', buy: d.crbuy}); return true; }      // уровень до оплаты — для распаковки
   if (d.crready !== undefined || d.crtheme !== undefined) {      // готовые и темы — показываем даже закрытые: видно, что даёт уровень
     const r = crestReady((d.crtheme !== undefined ? CREST_THEMES[+d.crtheme] : CREST_READY[+d.crready])[1], E), n = crestNeed(r);
     CREST_DRAFT = r; toast(n > crestLv() ? need(n) : 'Готово — можно сохранить или подправить', n > crestLv());
@@ -2042,7 +2193,7 @@ function openSheet(slot) {
   const ob = H().onboarding;     // шаг «Посмотреть состав» ещё не пройден — бот проверит, что игрок из вашего клуба
   if (ob && !PVIEW_SENT && ob.steps.some(s => s.key === 'player' && !s.done)) { PVIEW_SENT = true; send({a: 'pview', slot}); }
 }
-function closeSheet() { CREST_DRAFT = null; KIT_DRAFT = null; KIT_SLOT = 'home'; KIT_TRY = KIT_SEL = KIT_PREV_LV = 0; KIT_UB = null; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
+function closeSheet() { CREST_DRAFT = null; CREST_TRY = CREST_SEL = 0; CREST_UB = CREST_PREV = null; KIT_DRAFT = null; KIT_SLOT = 'home'; KIT_TRY = KIT_SEL = KIT_PREV_LV = 0; KIT_UB = null; open = null; draft = null; MS = null; PANEL = null; panelSig = ''; $('veil').classList.add('hidden'); $('sheet').classList.add('hidden'); }
 
 /* ---------------- «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) ----------------
    Подсказка подсвечивает настоящую кнопку или поле (остальное затемнено) и пишет, что нажать и что ввести.
