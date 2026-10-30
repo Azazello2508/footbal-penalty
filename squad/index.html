@@ -270,6 +270,7 @@ tr[data-pedit]{cursor:pointer}
 .own{display:flex;gap:6px;margin-top:8px}
 .own input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px}
 .own button{background:var(--accent);color:#111;font-weight:700;border-radius:11px;padding:0 14px}
+.own select{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px}
 .kind{display:block;width:100%;text-align:left;background:var(--card2);padding:11px 12px;border-radius:12px;margin-top:6px;font-size:15px}
 .kind span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
 .kind.on{outline:2px solid var(--accent)}
@@ -790,13 +791,21 @@ target:"M247 32v23.2C143.2 59.8 59.8 143.2 55.2 247H32v18h23.2C59.8 368.8 143.2 
 zap:"m292.5 20.5l19 40.6L66.3 28.8L362 158.1l-19-40.6l149.2 15.3zm-252 23.4L318.3 414L312.9 348l185 146.5L294 186.7l5.4 66zM20.9 76.2l36.5 316.4L83 351.8l68.1 139.3l-9.6-241.1l-25.6 40.8l-95-214.6z",
 octopus:"M150.2 20c-114.5-.6-140 184.9 20.6 212.1c-29.5.5-55.4 8.1-91.8 26C-19.2 306.3.7 463 100.9 446c34.5-5.8 51.2-50.3.9-65.4c16.5 29.6-28 47.1-41.9 1.9c-11.3-36.5 21.1-74.9 52.5-85c30.5-9.8 55.2-10.9 82.5-5.8c-36.6 34.2-56.5 80.5-42.4 123.6c44.5 135.6 192.1 82.5 162.8-6.7c-10.3-31.5-41.4-46.5-68-10.2c35.2-8.9 50.5 38.8 18.2 49.3c-26.4 8.7-60.2-13.5-66-41.3c-7.8-37.4 19.8-77.2 54.8-95.2c22.2 35.4 38.8 48.7 83.2 72.2c85.8 45.4 213-36.5 143.9-110.5c-22.6-24.2-54.6-30-67.5 13.1c30.2-20.1 60.7 26.8 33.9 47.6c-21.9 17-61.5 19.1-86.4 5.5c-30.8-16.8-53.8-37.8-70.2-66.5c57.1 13.7 119.6-1.1 143-45.3c45.7-86.5-7-152.5-59.1-153.4c-20.4-.4-40.7 9.2-54.9 31.5c-17.9 27.9-9.8 61.5 35.2 59.1c-29.1-21.6-1.9-63.6 26.7-45.3c23.4 14.9 22.5 51.9 9.8 77.3c-15.2 30.2-60.6 50.7-95.1 24.7c-3-5.7-5.6-11.7-7.8-17.8c9-6.5 14.9-17 14.9-28.9c0-17.8-13.3-32.6-30.3-35.2c-9.8-47.1-23.3-92.6-84.8-112.6c-13.6-4.4-26.4-6.5-38.3-6.5zm117.8 137.4c9.5 0 16.9 7.5 16.9 16.9s-7.5 16.9-16.9 16.9s-16.9-7.5-16.9-16.9s7.4-16.9 16.9-16.9zm-65.4 10.5c9.5 0 16.9 7.5 16.9 16.9s-7.5 16.9-16.9 16.9s-16.9-7.5-16.9-16.9s7.5-16.9 16.9-16.9"};
 function initials(name) { const w = name.replace(/[«»"]/g, '').split(/[\s-]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); }
+function voteBlock(v) {        // 🗳 приз симпатий: один голос за игрока соперника, сутки после матча
+  if (!v) return '';
+  if (v.voted) return `<div class="sub">🗳 Ваш голос — приз симпатий: ${esc(v.voted)}</div>`;
+  return `<div class="sublabel">🗳 Приз симпатий — лучший игрок соперника (один голос, сутки после матча)</div><div class="own">` +
+    `<select id="pomsel">${v.cands.map(([s, n]) => `<option value="${s}">${esc(n)}</option>`).join('')}</select>` +
+    `<button type="button" data-pom="${v.fx}">Голосовать</button></div>`;
+}
 function matchCard(m, title) {
   const where = m.home ? 'дома' : 'в гостях';
   const score = m.score ? `<span class="score${m.res ? ' res-' + m.res : ''}">${esc(m.score)}</span>` : '';
   const o = m.offer;
   let x = `<div class="card${o || m.status === 'open' ? ' need' : ''}">${title ? `<h3>${title}</h3>` : ''}` +
     `<div class="row"><div>${crestSvg(crestOf(m))}<b>${esc(m.opp)}</b>${m.oid ? `<button type="button" class="repb" data-rep="${m.oid}" aria-label="Пожаловаться на название">⚠️</button>` : ''}${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
-    `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>` + kitDuel(m);
+    `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>` + kitDuel(m) +
+    (m.h2h ? `<div class="sub">${esc(m.h2h)}</div>` : '');
   if (o) x += `<div class="sub" style="color:#fde68a">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
     `<div class="mrow"><button type="button" class="ok" data-resp="acc" data-id="${m.id}">✅ Принять</button><button type="button" class="no" data-resp="dec" data-id="${m.id}">❌ Отказаться</button></div>` +
     (m.can_time ? `<button type="button" class="go" data-time="${m.id}">🕐 Предложить другое время</button>` : '');
@@ -896,7 +905,7 @@ function panelClub(m, P) {
     const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
     return panelHead(`№${p.number} ${esc(p.first)} ${esc(p.last)}`, years(p.age)) + lockBanner() +
       (p.trait ? `<div class="label">Характер</div><div class="banner">${esc(p.trait)} — ${esc(p.trait_info || '')}</div>` : '') +
-      (p.promise ? `<div class="banner warn">🤝 ${esc(p.promise)} на ближайший матч</div>` : '') + playerStatsCard(p, m) +
+      (p.promise ? `<div class="banner warn">🤝 ${esc(p.promise)} на ближайший матч</div>` : '') + playerStatsCard(p, m) + celebBlock(p, m) +
       `<div class="label">Имя и фамилия</div><div class="own"><input id="pf" value="${esc(p.first)}" maxlength="20" placeholder="Имя">` +
       `<input id="pl" value="${esc(p.last)}" maxlength="20" placeholder="Фамилия"></div><button type="button" class="go" data-pname>✏️ Сохранить имя</button>` +
       `<div class="label">Номер на футболке (1–99)</div><div class="own"><input id="pn" inputmode="numeric" value="${p.number}" maxlength="2"><button type="button" data-pnum>OK</button></div>` +
@@ -926,7 +935,14 @@ function statsTable(m) {
     `<tr><th style="text-align:left">Игрок</th><th>М</th><th>Г</th><th>П</th><th>Уд</th><th>Оц</th></tr>` +
     rows.map(({p, s}) => `<tr data-pedit="${p.slot}"><td class="n">№${p.number} ${esc(p.last)}</td><td>${s.games || 0}</td><td>${s.goals || 0}</td>` +
       `<td>${s.assists || 0}</td><td>${s.shots || 0}</td><td class="pts">${rate(s.rating)}</td></tr>`).join('') +
-    `</table><div class="note" style="margin-top:6px">М — матчи, Г — голы, П — голевые передачи, Уд — удары, Оц — средняя оценка за матч (1–10).</div></div>`;
+    `</table><div class="note" style="margin-top:6px">М — матчи, Г — голы, П — голевые передачи, Уд — удары, Оц — средняя оценка за матч (5–10).</div></div>`;
+}
+// фирменное празднование гола и приз симпатий соперника (выбор и голоса проверяет бот — app/celebrations.py, app/motm.py)
+function celebBlock(p, m) {
+  if (!m.cels) return '';
+  return `<div class="label">🎉 Празднование гола</div><div class="chips">` + m.cels.map(([k, icon, name]) =>
+    `<button type="button" class="chip${p.cel === k ? ' on' : ''}" data-pcel="${k}"><b>${icon}</b><span>${esc(name)}</span></button>`).join('') +
+    `</div>` + (p.pom ? `<div class="note" style="margin-top:6px">🗳 Приз симпатий соперника: ${p.pom}</div>` : '');
 }
 function playerStatsCard(p, m) {
   const s = p.st || {};
@@ -2380,8 +2396,8 @@ function renderHome() {
   x += h.next ? matchCard(h.next, h.next.status === 'live' ? '🔴 Идёт матч' : 'Ближайший матч') + (h.next.status === 'live' ? '' : seekBlock())
     : `<div class="card"><h3>Ближайший матч</h3><div class="note">Матчей нет — найдите соперника или позовите друга из лиги.</div>${seekBlock()}<button type="button" class="go" data-fr>🤝 Товарищеский с другом</button></div>`;
   x += communityCard(hb);
-  if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
-    `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div>` +
+  if (h.last) x += `<div class="card"><h3>Последний матч</h3><div class="row"><div>${esc(h.last.title)}${h.last.motm ? `<div class="sub">⭐ игрок матча: ${esc(h.last.motm)}</div>` : h.last.hero ? `<div class="sub">герой: ${esc(h.last.hero)}</div>` : ''}</div>` +
+    `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div>` + voteBlock(h.last.vote) +
     (h.press ? `<button type="button" class="go" data-panel="press">🎤 Пресс-конференция</button>` : '') + `</div>`;
   const ready = !h.problems.length;
   x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` +
@@ -3183,6 +3199,7 @@ document.addEventListener('click', e => {
   if (b.hasAttribute('data-seek')) { haptic(); send({a: 'seek'}); return; }
   if (b.hasAttribute('data-unseek')) { haptic(); send({a: 'unseek'}); return; }
   if (b.hasAttribute('data-fr')) { haptic(); openMatchSheet({fr: true, kind: null}); return; }
+  if (b.dataset.pom) { haptic(); send({a: 'pom', fx: +b.dataset.pom, slot: +val('pomsel')}); return; }
   if (b.dataset.kind) { MS.kind = b.dataset.kind; haptic(); renderMatchSheet(); return; }
   if (b.dataset.rival) { if (MS && MS.kind) send({a: 'friendly', kind: MS.kind, opp: +b.dataset.rival}); return; }
   if (b.dataset.time) { haptic(); openMatchSheet({id: +b.dataset.time}); return; }
@@ -3248,6 +3265,7 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (b.hasAttribute('data-cname')) { if (val('cn')) send({a: 'rename', text: val('cn')}); else toast('Напишите название', true); return true; }
   if (b.hasAttribute('data-pname')) { send({a: 'player', op: 'rename', slot: P.slot, text: val('pf') + ' ' + val('pl')}); return true; }
   if (b.hasAttribute('data-pnum')) { send({a: 'player', op: 'number', slot: P.slot, text: val('pn')}); return true; }
+  if (d.pcel) { haptic(); send({a: 'cel', slot: P.slot, k: d.pcel}); return true; }
   if (b.hasAttribute('data-prepl')) {
     const p = mp(P.slot), text = [val('rf'), val('rl'), val('rn'), val('ra')].join(' ');
     if (!val('rf') || !val('rl') || !val('rn') || !val('ra')) { toast('Заполните имя, фамилию, номер и возраст', true); return true; }
@@ -3695,7 +3713,7 @@ function demoManage(kitAll) {   // раздел «Клуб» из демо-со�
       personal: {fresh: -15, mood: 3, progress: 0.2, min_fresh: 30}},
     talks: [['praise', '👏 Похвалить'], ['demand', '😤 Потребовать больше'], ['promise', '🤝 Пообещать место в основе']],
     growth_rule: '📈 Очки роста (игрок, отыгравший 40+ минут: матч тура — 1 очко, официальный товарищеский — 0,25). Вкладывается целое очко: прирост зависит от возраста (до 22 лет +0,3; до 29 +0,2; старше +0,1), максимум 40.',
-    rating_rule: 'Оценка за матч — от 1 до 10, начиная с 6,0: гол +1, передача +0,6, удар в створ +0,15, мимо −0,1, отбор +0,25; вратарю сейв +0,35, пропущенный −0,4, «сухой» матч +0,5; жёлтая −0,5, красная −1,5; победа +0,3, поражение −0,3.',
+    rating_rule: 'Оценка за матч — от 5 до 10, начиная с 6,0: гол +1, передача +0,6, удар в створ +0,15, мимо −0,1, отбор +0,25, фол −0,1; вратарю сейв +0,35, пропущенный −0,4, «сухой» матч +0,5; жёлтая −0,5, красная −1,5; победа +0,3, поражение −0,3. Лучшая оценка матча — ⭐ игрок матча.',
     statdefs: S.statdefs.map(([k, t]) => [k, t])};
 }
 function demoClubAct(act) {   // демо: раздел «Клуб» меняется только на этой странице
