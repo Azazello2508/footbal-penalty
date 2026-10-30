@@ -1392,18 +1392,21 @@ function build(a) {
       }});
       break;
     }
-    case 'brawl': {
+    case 'brawl': {                                        // длина — по уровню (реальное время); сцена отстаёт — короткий вариант
       const p = P(a.t, a.s), q = P(a.ot, a.os);
       const mid = p && q ? lerpPt(p, q, .5) : {x: ball.x, y: ball.y};
       const words = {scuffle: '🥊 Стычка!', fight: '🥊 ДРАКА!', mass: '🥊🔥 МАССОВАЯ ПОТАСОВКА!'};
-      const dur = {scuffle: 2600, fight: 3400, mass: 4200}[a.lvl] || 2600;
-      steps.push({d: dur, run: () => {
-        holder = null;
-        if (p && q) startBrawl(a.lvl, p, q, mid, dur);
-        camTo(a.lvl === 'mass' ? 1.5 : 2, dur, () => brawl ? brawl.mid : mid, undefined, true, cam.r);
-        whistle(true); label(words[a.lvl] || '🥊', 2200); haptic('heavy'); roar(a.lvl === 'scuffle' ? 1.2 : 2.4);
+      const z0 = a.lvl === 'mass' ? 2.05 : 2.55;           // камера ближе: драка крупно
+      let dur = BRAWL_MS[a.lvl] || BRAWL_MS.scuffle;
+      steps.push({d: () => dur, real: true, run: () => {
+        holder = null; focus = {};
+        dur = speed() > 1 || lagging() ? (BRAWL_SHORT[a.lvl] || BRAWL_SHORT.scuffle) / speed() : BRAWL_MS[a.lvl] || BRAWL_MS.scuffle;
+        if (p && q) startBrawl(a.lvl, p, q, mid, dur, brawlCard(a));
+        camTo(z0, dur * speed(), () => brawl ? brawl.cam : mid, undefined, true, cam.r);
+        if (camOn && shotCam) shotCam.z = () => brawl && brawl.z || z0;   // зум следует за дракой (наезд на удар)
+        whistle(); label(words[a.lvl] || '🥊', 1100); haptic('heavy'); roar(a.lvl === 'scuffle' ? 1.2 : 2.4);
       }});
-      steps.push({d: 300, run: () => { focus = {}; crowd = null; brawl = null; }});
+      steps.push({d: 300, run: () => { focus = {}; crowd = null; if (downed && downed.brawl) downed = null; brawl = null; ref.face = null; }});
       break;
     }
     case 'varcheck': {                                     // судья держит руку у уха; при просмотре — бежит к монитору
@@ -1482,23 +1485,52 @@ function build(a) {
 }
 
 /* ---------------- конфликты на поле: стычка, драка, массовая потасовка, скандал с судьёй ----------------
-   Как в жизни: двое сходятся лицом к лицу, толчок — отлетел — ответный толчок; в драке — удар, соперник падает;
-   сбегаются партнёры (кто толкается, кто кричит и машет руками), свои оттаскивают своих сзади, судья вклинивается.
-   В потасовке со скамеек выбегают запасные в манишках и тренеры. Скандал: игроки окружают судью, он пятится, тренер
-   возмущается у бровки. Всё — только показ (что случилось, решил бот: карточки придут следующими событиями). */
+   Как в жизни, по фазам (доли длины эпизода): лицом к лицу, грудь в грудь (0–.14) → толчок и ответ (.14–.3) → в драке
+   удар, соперник падает (.3–.36) → сбегаются партнёры, толпа накатывает волнами (кто толкается, кто кричит) → судья
+   вбегает в середину, свистит и разводит руками (.34–.72) → своих оттаскивают сзади (.55–.85) → судья показывает
+   карточку на месте (.86–1; цвет — из следующего события минуты, нет карточки — жест «успокойтесь»). Вариантов несколько
+   (кто толкнул первым, толчок / схватил за футболку / лоб в лоб, удар рукой или головой, сколько волн, упавший
+   катается или сразу вскакивает) — выбор случайный, это только показ. В потасовке со скамеек выбегают запасные в
+   манишках и тренеры. Сцена отстаёт — драка короче, а начавшая отставать сразу переходит к «разводят». Скандал: игроки
+   окружают судью, он пятится, тренер возмущается у бровки. Что случилось, решил бот: карточки придут следующими событиями. */
+const BRAWL_MS = {scuffle: 6000, fight: 7500, mass: 9000};            // полный показ
+const BRAWL_SHORT = {scuffle: 2600, fight: 3400, mass: 4200};         // сцена отстаёт (и ещё делится на speed())
 let brawl = null;
-function startBrawl(lvl, a, b, mid, dur) {
-  const now = performance.now(), cast = [];
+function brawlCard(a) {                               // карточка после драки (самая строгая из этой минуты) — судья покажет её на месте
+  let best = null;
+  for (const s of queue) {
+    if (s.tick) break;                                // дальше — уже другая минута
+    const c = s.act;
+    if (c && c !== a && c.a === 'card' && (!best || (c.c === 'red' && best.c !== 'red'))) best = c;
+  }
+  return best;
+}
+function brawlF(B, now) {                             // где драка: 0…1; начала отставать — к концу быстрее
+  if (!B.cut) return clamp((now - B.t0) / B.dur, 0, 1);
+  return clamp(B.cut.f0 + (1 - B.cut.f0) * (now - B.cut.at) / Math.max(1, B.cut.end - B.cut.at), 0, 1);
+}
+function startBrawl(lvl, a, b, mid, dur, card) {
+  const now = performance.now(), cast = [], any = v => v[Math.floor(Math.random() * v.length)];
   const near = (t, n, skip) => teamPlayers(t, true).filter(q => !skip.includes(q)).sort((x, y) => dd(x, mid) - dd(y, mid)).slice(0, n);
   const n = lvl === 'mass' ? 6 : lvl === 'fight' ? 3 : 2;
   const pullA = near(a.t, 1, [a])[0], pullB = near(b.t, 1, [b])[0];
-  for (const t of [a.t, b.t]) near(t, n, [a, b, pullA, pullB]).forEach((q, i) => cast.push({p: q, ang: rnd(0, 6.28), r: rnd(16, lvl === 'mass' ? 40 : 30), ph: rnd(0, 6)}));
+  const L0 = dd(a, b), ux = L0 > .5 ? (b.x - a.x) / L0 : 1, uy = L0 > .5 ? (b.y - a.y) / L0 : 0;   // ось «a → b» — на весь эпизод
+  for (const t of [a.t, b.t]) near(t, n, [a, b, pullA, pullB]).forEach(q => {
+    const sd = t === a.t ? -1 : 1, hot = Math.random();                 // свои — за спиной своего; самые злые лезут в середину
+    cast.push({p: q, hot, ph: rnd(0, 6), lag: rnd(0, .05), late: rnd(.1, .24), rIn: rnd(10, 16), rOut: rnd(24, lvl === 'mass' ? 46 : 36),
+               ang: Math.atan2(uy * sd, ux * sd) + (lvl === 'mass' && hot > .6 ? rnd(-2.6, 2.6) : rnd(-1.2, 1.2))});
+  });
+  const V = {first: Math.random() < .7 ? 'a' : 'b', open: any(['push', 'grab', 'brow']),     // кто первым; толчок / за футболку / лоб в лоб
+             hit: Math.random() < .7 ? 'punch' : 'butt', fall: Math.random() < .55 ? 'roll' : 'up'};   // удар рукой / головой; катается / вскочил
+  const nw = lvl === 'mass' ? 2 + (Math.random() < .5 ? 1 : 0) : 1 + (Math.random() < (lvl === 'fight' ? .5 : .3) ? 1 : 0);
+  V.waves = nw === 1 ? [.3] : nw === 2 ? [.28, .48] : [.26, .4, .54];   // сколько раз накатывает толпа
   const extras = [];
   if (lvl === 'mass') DUGOUT.forEach(([y0, y1], t) => {     // скамейки пустеют: двое запасных в манишках и тренер
     for (let i = 0; i < 3; i++) extras.push({t, coach: i === 2, x: -16, y: (y0 + y1) / 2 + (i - 1) * 14, ang: 0, stride: 0, pw: 100,
-                                             go: {x: mid.x + rnd(-38, 38), y: mid.y + rnd(-34, 34)}, delay: 300 + i * 250});
+                                             go: {x: mid.x + rnd(-38, 38), y: mid.y + rnd(-34, 34)}, delay: .14 + i * .05});
   });
-  brawl = {lvl, a, b, mid: {...mid}, t0: now, dur, cast, pullA, pullB, extras, tgt: {}};
+  const rs = Math.sign((ref.x - mid.x) * -uy + (ref.y - mid.y) * ux) || 1;   // с какой стороны подбегает судья
+  brawl = {lvl, a, b, mid: {...mid}, ux, uy, rs, t0: now, dur, cast, pullA, pullB, extras, tgt: {}, V, card, cam: {...mid}, z: 0, step};
 }
 function startProtest(t, dur) {
   const now = performance.now(), mates = teamPlayers(t, true).sort((x, y) => dd(x, ref) - dd(y, ref)).slice(0, 3);
@@ -1591,8 +1623,8 @@ function brawlTick(now) {
   if (!B) return;
   const k = now - B.t0, T = B.tgt;
   for (const kk in T) delete T[kk];
-  const setP = (p, x, y, pz, faceTo) => {
-    T[key(p.t, p.s)] = {x, y};
+  const setP = (p, x, y, pz, faceTo, sp) => {         // далеко — бегом во весь дух, рядом — как сказано (шагом, трусцой)
+    T[key(p.t, p.s)] = {x, y, sp: dd(p, {x, y}) > 50 ? 'sprint' : sp || 'run'};
     if (pz) p.pose = {k: pz, until: now + 140, dir: 0};
     if (faceTo) p.face = {a: Math.atan2(faceTo.y - p.y, faceTo.x - p.x), until: now + 200};
   };
@@ -1601,35 +1633,97 @@ function brawlTick(now) {
     B.cast.forEach(c => setP(c.p, ref.x + Math.cos(c.ang) * c.r, ref.y + Math.sin(c.ang) * c.r, Math.sin(now / 300 + c.ph) > -.2 ? 'argue' : 'push', ref));
     return;
   }
-  const {a, b} = B, ux = (b.x - a.x) / (dd(a, b) || 1), uy = (b.y - a.y) / (dd(a, b) || 1);
-  let gapA = 7, gapB = 7, poseA = null, poseB = null;
-  if (k > 350 && k < 750) { poseA = 'push'; gapB = 7 + clamp((k - 450) / 200, 0, 1) * 9; }           // толчок — отлетел
-  else if (k >= 750 && k < 1100) { gapB = 14 - (k - 750) / 350 * 6; poseB = B.lvl === 'fight' ? null : 'push'; if (B.lvl !== 'fight') gapA = 7 + clamp((k - 850) / 200, 0, 1) * 7; }   // ответный толчок
-  if (B.lvl === 'fight' && k > 1000 && k < 1350) poseA = 'punch';                                    // удар
-  if (B.lvl === 'fight' && k > 1150) { downed = {k: key(b.t, b.s), until: B.t0 + B.dur - 300}; gapB = 16; }   // упал
-  if (B.lvl === 'mass' && k > 1100) { poseA = Math.sin(now / 160) > 0 ? 'push' : 'argue'; poseB = Math.sin(now / 170 + 1) > 0 ? 'push' : 'argue'; }
-  const drag = clamp((k - 1400) / 900, 0, 1) * 22;                                                    // своих оттаскивают в стороны
-  const ax = B.mid.x - ux * (gapA + drag), ay = B.mid.y - uy * (gapA + drag), bx = B.mid.x + ux * (gapB + (B.lvl === 'fight' ? 0 : drag)), by = B.mid.y + uy * (gapB + (B.lvl === 'fight' ? 0 : drag));
-  setP(a, ax, ay, poseA || (k > 1400 ? 'argue' : null), b);
-  if (!(downed && downed.k === key(b.t, b.s))) setP(b, bx, by, poseB || (k > 1400 ? 'argue' : null), a);
-  else T[key(b.t, b.s)] = {x: bx, y: by};
-  if (B.pullA && k > 900) setP(B.pullA, ax - ux * 8, ay - uy * 8, 'hold', a);                      // одноклубник обхватил сзади
-  if (B.pullB && k > 1000 && B.lvl !== 'fight') setP(B.pullB, bx + ux * 8, by + uy * 8, 'hold', b);
-  else if (B.pullB && B.lvl === 'fight' && k > 1200) setP(B.pullB, bx + ux * 5 - uy * 9, by + uy * 5 + ux * 9, null, b);   // склонился над упавшим
-  B.cast.forEach(c => {                                                                              // сбежались: толкаются и кричат
-    const a2 = c.ang + Math.sin(now / 900 + c.ph) * .25;
-    const tx = B.mid.x + Math.cos(a2) * c.r, ty = B.mid.y + Math.sin(a2) * c.r;
-    const mood = Math.sin(now / 280 + c.ph);
-    setP(c.p, tx, ty, k < 500 ? null : mood > .55 ? 'push' : mood > -.3 ? 'argue' : null, B.mid);
+  if (!B.cut && lagging() && B.t0 + B.dur - now > 1800) {           // сцена начала отставать: судья сразу разводит, конец ближе
+    B.cut = {at: now, f0: Math.max(brawlF(B, now), .56), end: now + 1500};
+    if (step === B.step) stepEnd = Math.min(stepEnd, B.cut.end);
+    if (downed && downed.brawl) downed.until = Math.min(downed.until, B.cut.end);
+  }
+  const f = brawlF(B, now), {a, b, V, ux, uy} = B, nx = -uy, ny = ux, fight = B.lvl === 'fight', mass = B.lvl === 'mass';
+  const seg = (x0, x1) => clamp((f - x0) / (x1 - x0), 0, 1);                                         // доля пройденного отрезка
+  const sway = Math.sin(now / 1700) * 4 * seg(.1, .2) * (1 - seg(.5, .6));                           // куча гуляет туда-сюда
+  const c = {x: B.mid.x + ux * sway, y: B.mid.y + uy * sway};
+  const fk = V.first, rk = fk === 'a' ? 'b' : 'a';                                                   // кто толкнул первым, кто ответил
+  const G = {a: 6, b: 6}, Z = {a: 'argue', b: V.open === 'brow' ? 'chest' : 'arms'};                 // грудь в грудь: один кричит, другой «и что?»
+  if (V.open === 'brow' && f < .3) { G.a = G.b = 5.5 + Math.sin(now / 180) * 1.2; Z.a = Z.b = 'chest'; }   // лоб в лоб, давят друг на друга
+  if (f >= .14 && f < .36) {
+    if (V.open === 'grab' && f < .3) { Z[fk] = 'grab'; if (f > .19) Z[rk] = 'grab'; G.a = G.b = 5 + Math.sin(now / 130) * 1.5; }   // вцепились в футболки, тянут
+    else if (V.open === 'push') {
+      if (f < .19) Z[fk] = 'push';
+      G[rk] += 10 * seg(.15, .19) * (1 - seg(.22, .26));                                             // толчок в грудь — отлетел — вернулся
+      if (f > .22 && f < .27) Z[rk] = 'push';
+      G[fk] += 8 * seg(.23, .27) * (1 - seg(.3, .36));                                               // ответный
+    }
+    else if (f > .2 && f < .3) { Z[rk] = 'push'; G[fk] += 7 * seg(.2, .25) * (1 - seg(.28, .34)); }    // лоб в лоб — один отпихивает
+  }
+  if (fight) {
+    if (f >= .3 && f < .36) { Z.a = V.hit; G.a = 6 - 4 * Math.sin(Math.PI * seg(.3, .35)); }        // удар: рывок вперёд
+    if (f >= .33 && !B.hit) {                                                                        // попал: вспышка-кольцо, пыль, отдача
+      B.hit = now;
+      downed = {k: key(b.t, b.s), until: Math.min(now + (V.fall === 'roll' ? .4 : .13) * B.dur, B.cut ? B.cut.end : Infinity), roll: V.fall === 'roll', brawl: true};
+      fx.push({k: 'ring', x: b.x, y: b.y - 6, vx: 0, vy: 0, r: 4, life: 450, t0: now});
+      for (let i = 0; i < 4; i++) fx.push({k: 'dust', x: b.x + rnd(-8, 8), y: b.y + rnd(-5, 5), vx: ux * rnd(.2, .6), vy: uy * rnd(.2, .6), r: rnd(5, 9), life: rnd(600, 1000), t0: now});
+      haptic('heavy'); kick();
+    }
+    if (B.hit) G.b = 14 + 2 * seg(.33, .4);                                                          // упал
+    if (V.fall === 'up' && f > .46) { G.b = 6 + 8 * (1 - seg(.46, .52)); Z.b = 'argue'; }           // вскочил — и обратно с претензией
+  }
+  if (mass && f >= .3 && f < .6) {                                                                   // сцепились: толкают, тянут за футболку
+    Z.a = Math.sin(now / 160) > 0 ? 'push' : 'grab'; Z.b = Math.sin(now / 170 + 1) > 0 ? 'push' : 'argue';
+    G.a = 5 + Math.sin(now / 210) * 2; G.b = 5 + Math.sin(now / 230 + 2) * 2;
+  }
+  if (!fight && !mass && f >= .3 && f < .56) { Z.a = 'argue'; Z.b = Math.sin(now / 400) > 0 ? 'argue' : 'arms'; G.a = G.b = 7; }
+  const bDown = !!(downed && downed.brawl && downed.k === key(b.t, b.s) && now < downed.until);
+  const drag = (1 - Math.cos(Math.PI * seg(.55, .82))) / 2 * (mass ? 34 : 26);                       // разводят: своих оттаскивают в стороны
+  G.a += drag; if (!bDown) G.b += drag;
+  if (f >= .56) {
+    Z.a = f > .86 ? 'hips' : Math.sin(now / 500) > -.3 ? 'argue' : 'arms';
+    Z.b = fight && B.hit && V.fall === 'roll' ? 'headh' : f > .86 ? 'hips' : 'arms';                 // ударенный — за голову
+  }
+  const ax = c.x - ux * G.a, ay = c.y - uy * G.a, bx = c.x + ux * G.b, by = c.y + uy * G.b;
+  setP(a, ax, ay, Z.a, b, 'run');
+  if (bDown) T[key(b.t, b.s)] = {x: bx, y: by, sp: 'run'};
+  else setP(b, bx, by, Z.b, a, 'run');
+  const hold = fight || mass ? .34 : .3;                                                             // одноклубник: сначала кричит, потом обхватил сзади и тянет
+  if (B.pullA && f > hold) setP(B.pullA, ax - ux * 8, ay - uy * 8, f > .5 ? 'hold' : 'argue', a, 'run');
+  if (B.pullB && f > hold) {
+    if (bDown) setP(B.pullB, bx + nx * 9, by + ny * 9, 'knees', b, 'run');                          // склонился над упавшим
+    else setP(B.pullB, bx + ux * 8, by + uy * 8, f > .5 || (fight && V.fall === 'up' && f > .46) ? 'hold' : 'argue', b, 'run');
+  }
+  const out = seg(.62, .95);                                                                         // разводят — толпа расходится
+  B.cast.forEach(cc => {                                                                             // сбегаются и накатывают волнами
+    if (f < cc.late) return;                                                                         // ещё не сорвался с места
+    let w = .35;
+    for (const x0 of V.waves) { const x = f - x0 - cc.lag; if (x > -.05 && x < .14) w = Math.max(w, x < 0 ? 1 + x / .05 : 1 - x / .14 * .65); }
+    const r = lerp(cc.rOut, cc.rIn, w * (1 - out)) + out * 22 + Math.sin(now / 650 + cc.ph) * 3;     // шаг назад — и снова вперёд
+    const an = cc.ang + Math.sin(now / 1300 + cc.ph) * .35;
+    const x = c.x + Math.cos(an) * r, y = c.y + Math.sin(an) * r, far = dd(cc.p, {x, y});
+    const mood = Math.sin(now / 320 + cc.ph);
+    const pz = far > 30 ? null : out > .5 ? (mood > .2 ? 'arms' : 'hips') : cc.hot > .55 && w > .6 ? (mood > -.2 ? 'push' : 'argue') : mood > .3 ? 'argue' : mood > -.5 ? 'arms' : null;
+    setP(cc.p, x, y, pz, c, out > .3 ? 'walk' : w > .55 ? 'run' : 'jog');
   });
-  if (k > 1500 && Math.random() < .25) fx.push({k: 'dust', x: B.mid.x + rnd(-25, 25), y: B.mid.y + rnd(-15, 15), vx: rnd(-.3, .3), vy: rnd(-.3, .1), r: rnd(6, 12), life: rnd(700, 1400), t0: now});
+  const cp = B.card && P(B.card.t, B.card.s);                                                        // судья: подбежал → между ними → карточка
+  let rp, rf = Math.floor(now / 700) % 2 ? a : b;
+  if (f < .34) rp = {x: c.x + nx * B.rs * 16, y: c.y + ny * B.rs * 16};
+  else if (f < .72) rp = {x: c.x + nx * B.rs * 2, y: c.y + ny * B.rs * 2};                           // встал в середину
+  else if (f < .86 || !cp) { rp = {x: c.x + nx * B.rs * 10, y: c.y + ny * B.rs * 10}; rf = a; }
+  else { rp = {x: cp.x + nx * B.rs * 13, y: cp.y + ny * B.rs * 13}; rf = cp; }
+  refTo(rp, 400);
+  if (f >= .3 && !B.wh) { B.wh = true; whistle(true); ref.sig = {k: 'up', until: now + 700, dir: 0}; }   // долгий свисток, рука вверх
+  if (dd(ref, rp) < 14) {
+    ref.face = {a: Math.atan2(rf.y - ref.y, rf.x - ref.x), until: now + 200};
+    if (f >= .86 && cp) ref.card = {c: B.card.c, until: now + 200};
+    else if (!(ref.sig && now < ref.sig.until && ref.sig.k === 'up')) ref.sig = {k: mass && Math.sin(now / 260) > .4 ? 'push' : 'arms', until: now + 150, dir: 0};   // разводит руками: «успокойтесь»
+  }
+  B.cam = lerpPt(B.cam, f >= .86 && cp ? lerpPt(c, cp, .5) : lerpPt(a, b, .5), .05);               // камера плавно за серединой
+  B.z = (mass ? 2.05 - .2 * seg(.25, .45) : 2.55) + (B.hit ? .4 * Math.max(0, 1 - (now - B.hit) / 1100) : 0);   // наезд на удар
+  if (!perf.lite && (fight || mass) && f > .3 && f < .7 && Math.random() < .2) fx.push({k: 'dust', x: c.x + rnd(-25, 25), y: c.y + rnd(-15, 15), vx: rnd(-.3, .3), vy: rnd(-.3, .1), r: rnd(6, 12), life: rnd(700, 1400), t0: now});
 }
 function drawBrawlExtras(now) {                     // выбежавшие со скамеек: запасные в манишках и тренеры
   if (!brawl || !brawl.extras.length || !S) return;
-  const k = now - brawl.t0;
+  const f = brawlF(brawl, now);
   for (const e of brawl.extras) {
-    if (k < e.delay) continue;
-    const back = k > brawl.dur - 900, to = back ? {x: -16, y: e.y} : e.go;
+    if (f < e.delay) continue;
+    const back = f > .8, to = back ? {x: -16, y: e.y} : e.go;
     const d = dd(e, to), sp = d > 4 ? Math.min(d, 2.6) : 0;
     if (d > 1) { e.x += (to.x - e.x) / d * sp; e.y += (to.y - e.y) / d * sp; e.ang = Math.atan2(to.y - e.y, to.x - e.x); }
     else e.ang = Math.atan2(brawl.mid.y - e.y, brawl.mid.x - e.x);
@@ -1815,7 +1909,7 @@ function updatePlay(now) {
   for (const p of list) tg.set(p, p.enter ? {...targetOf(p, now), sp: 'run'} : targetOf(p, now));   // на замену — выбегает бегом
   spaceOut(list, tg);
   for (const p of list) {
-    const T0 = tg.get(p), sharp = T0.sp === 'sprint' || !!focus[key(p.t, p.s)] || !!crowd;
+    const T0 = tg.get(p), sharp = T0.sp === 'sprint' || !!focus[key(p.t, p.s)] || !!crowd || !!T0.bw;   // bw — в драке: сразу к своей точке
     if (p.gx === undefined || dd({x: p.gx, y: p.gy}, T0) > 260) { p.gx = T0.x; p.gy = T0.y; p.tv = 0; }
     const kt = 1 - Math.exp(-dt * (sharp ? 9 : 2.6));          // к эпизоду — сразу, в «фоне» — плавно
     const gx0 = p.gx, gy0 = p.gy;
@@ -1850,8 +1944,9 @@ function updatePlay(now) {
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const a = list[i], b = list[j], d = dd(a, b);
     const lead = holder && (focus[holder] && (holder === key(a.t, a.s) || holder === key(b.t, b.s)));   // ведущий эпизода с мячом не упирается в соперника
-    if (d > 0 && d < 22 && !lead && !(crowd && (crowd.kind === 'celebrate' || crowd.kind === 'mass'))) {
-      const push = (22 - d) * 3.2 * dt, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
+    const lim = brawl && brawl.tgt[key(a.t, a.s)] && brawl.tgt[key(b.t, b.s)] ? 11 : 22;   // в драке — грудь в грудь
+    if (d > 0 && d < lim && !lead && !(crowd && (crowd.kind === 'celebrate' || crowd.kind === 'mass'))) {
+      const push = (lim - d) * 3.2 * dt, nx = (a.x - b.x) / d, ny = (a.y - b.y) / d;
       a.x += nx * push; a.y += ny * push; b.x -= nx * push; b.y -= ny * push;
     }
   }
@@ -2149,7 +2244,7 @@ function target0(p, now) {
   }
   if (ball.recv === k && now - ball.t0 < ball.d + 300) return {x: ball.tx, y: ball.ty, sp: 'sprint'};   // пас летит ему — к мячу, а не на свою точку
   if (f) return {x: f.x, y: f.y, sp: f.sp || 'sprint'};
-  if (brawl && brawl.tgt[k]) return {x: brawl.tgt[k].x, y: brawl.tgt[k].y, sp: 'sprint'};
+  if (brawl && brawl.tgt[k]) return {x: brawl.tgt[k].x, y: brawl.tgt[k].y, sp: brawl.tgt[k].sp || 'sprint', bw: true};
   if (dissent && dissent.map[k]) { const ds = dissentSpot(k); if (ds) return ds; }   // спорит с судьёй
   if (crowd && !p.gk) {
     if (crowd.kind === 'celebrate' && p.t === crowd.t) return {...near2(crowd.to, p, 20), sp: 'sprint'};
@@ -2787,7 +2882,7 @@ function drawPlayer(p, now) {
   // фигурка сверху: четыре тени от прожекторов, ноги в беге, шорты, руки, футболка с объёмом, голова с причёской
   const tm = S.teams[p.t];
   const K = kitOf(p.t), kit = p.gk ? K.gk : K, shirt = kit.c1;
-  const down = downed && downed.k === key(p.t, p.s) && now < downed.until;
+  const down = downed && downed.k === key(p.t, p.s) && now < downed.until && (downed.roll ? 'roll' : true);   // roll — катается, за лицо
   const active = !!focus[key(p.t, p.s)];
   const v = Math.hypot(p.vx || 0, p.vy || 0);
   const facing = p.face && now < p.face.until;
@@ -2834,12 +2929,17 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   if (down || pz === 'slide') {                                         // лежит / подкат: тело вдоль газона
     const dir = down ? face : (sx >= 0 ? 1 : -1);
     g.scale(dir, 1);
+    const roll = down === 'roll' ? Math.sin(now / 230 + (p.s || 0)) : 0;
+    if (roll) { g.translate(0, roll * 1.3); g.rotate(roll * .13); }      // катается по газону
     g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-2, -3); g.lineTo(13, -2); g.moveTo(-2, -5); g.lineTo(12, pz === 'slide' ? -8 : -5); g.stroke();
     blob(14, -2, 3, 2.2, boot); blob(13, pz === 'slide' ? -8 : -5, 3, 2.2, boot);
     shaded(-3, -4, 5, 4, shorts);
     if (kit) kitLying(kit, -11, -5, 8.5, 5.2, -1); else shaded(-11, -5, 8.5, 5.2, shirt);
     shaded(-21, -6, 4.6, 4.6, L.skin); if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(-22, -7.2, 4.4, Math.PI * .9, Math.PI * 1.9); g.fill(); }
-    g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(-12, -9); g.lineTo(-17, pz === 'slide' ? -14 : -11); g.stroke();
+    g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath();
+    if (down === 'roll') { g.moveTo(-12, -9); g.lineTo(-19, -4); g.moveTo(-9, -2); g.lineTo(-18, -2 + roll); }   // обе руки — к лицу
+    else { g.moveTo(-12, -9); g.lineTo(-17, pz === 'slide' ? -14 : -11); }
+    g.stroke();
     g.restore(); return;
   }
   if (pz === 'dive') {                                                  // вратарь в полёте: вытянут к мячу, над газоном
@@ -2856,7 +2956,7 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   const knees = pz === 'knees';
   const jumpy = pz === 'cele' || pz === 'hug';                          // празднуют — подпрыгивают (каждый в своём ритме)
   const lift = pz === 'head' ? 11 : jumpy ? Math.max(0, Math.sin(now / 150 + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : 5) : 0;
-  const lean = (side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (knees ? .3 : 0)) : 0)
+  const lean = (side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (pz === 'butt' ? .38 : pz === 'chest' ? .12 : pz === 'grab' ? .1 : 0) + (knees ? .3 : 0)) : 0)
              + (pz === 'plane' ? Math.sin(now / 260 + (p.s || 0)) * .16 : 0);   // «самолётик» — покачивает крыльями
   g.translate(0, -lift); g.rotate(lean);
   const hip = -15 - hop * .5 + (knees ? 1.5 : 0), shoulder = hip - (knees ? 10 : 13), neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже
@@ -2897,6 +2997,8 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (pz === 'hold') { hx = side ? sh.x + face * 8 : sh.x - i * 1.5; hy = hip - 2; }                                             // обхватил сзади
     if (knees) { hx = side ? sh.x + face * 5 : i * 3.4; hy = hip + 6.5; }                                                       // руки на коленях
     if (pz === 'punch') { if (i === 1) { hx = side ? sh.x + face * 13 : sh.x + 1; hy = side ? shoulder + 1 : shoulder - (back ? 6 : -6); } else { hx = sh.x + (side ? face * 3 : i * 2); hy = shoulder - 1; } }   // удар и защита
+    if (pz === 'grab') { const w = Math.sin(now / 90 + (p.s || 0)) * 1.5; hx = side ? sh.x + face * (8 + w) : sh.x * .4; hy = shoulder + 2 + (side ? 0 : w); }   // вцепился в футболку, тянет
+    if (pz === 'chest' || pz === 'butt') { hx = side ? sh.x - face * (pz === 'butt' ? 5 : 4) : sh.x + i * 3.5; hy = hip + (pz === 'butt' ? 1 : 0); }   // грудь вперёд / удар головой: руки назад
     if (pz === 'argue') { const w = Math.sin(now / 110 + (p.s || 0)); if (i === 1) { hx = sh.x + 3 + w * 3; hy = shoulder - 8 - w * 2; } else { hx = sh.x + i * 8; hy = shoulder + 2 + w; } }   // кричит, машет руками
     // живые мелочи: жесты — только положение кисти (и локтя), без нового рисования
     let eo = 1.2;                                                       // локоть наружу
@@ -3240,7 +3342,7 @@ function crowdFlashes(now) {                       // вспышки телеф�
 }
 function drawRef(now) {                         // судья: чёрная форма; при карточке — поднятая рука с карточкой
   if (ref.x < TUNNEL.x + 6) return;
-  const v = Math.hypot(ref.ux, ref.uy), ang = v > 8 ? Math.atan2(ref.uy, ref.ux) : Math.atan2(ball.y - ref.y, ball.x - ref.x);
+  const v = Math.hypot(ref.ux, ref.uy), ang = ref.face && now < ref.face.until ? ref.face.a : v > 8 ? Math.atan2(ref.uy, ref.ux) : Math.atan2(ball.y - ref.y, ball.x - ref.x);
   ref.ang = ref.ang === undefined ? ang : turn(ref.ang, ang, .12); ref.stride = (ref.stride || 0) + Math.min(v / 60, 4) * .2;
   g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ref.x, ref.y, 9 * PS, 5.5 * PS, 0, 0, 7); g.fill();
   const card = ref.card && now < ref.card.until, vp = ref.varPose && now < ref.varPose.until ? ref.varPose.k : null;
@@ -3361,7 +3463,7 @@ function camAim(now) {
       return {x: c.x, y: c.y, z: Math.max(Math.min(shotCam.z, fitZ(ball, gl, shotCam.z)), zMin(r)), r};
     }
     const pnt = typeof a === 'function' ? a(now) : a;
-    if (pnt) return {x: pnt.x, y: pnt.y, z: Math.max(shotCam.z, zMin(r)), r};
+    if (pnt) return {x: pnt.x, y: pnt.y, z: Math.max(typeof shotCam.z === 'function' ? shotCam.z(now) : shotCam.z, zMin(r)), r};
   }
   if (wave) {                                        // камера бежит за «волной» по трибунам
     const c = waveAt(now) < wave.laps + .02 && waveCenter(now);
@@ -4746,12 +4848,20 @@ function demo() {
   const kinds = ['goal', 'save', 'miss', 'corner', 'fk', 'foul', 'card', 'tackle', 'brawl', 'pen', 'fkduel', 'stop'];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const field = tm => [...tm.def, ...(tm.mid || []), ...tm.att];
+  const BRAWL_Q = ['scuffle', 'fight', 'mass'].includes(Q.get('brawl')) ? Q.get('brawl') : null;   // ?brawl=scuffle|fight|mass — драка этого уровня с 3-й минуты и каждые 5 минут
+  let brawlAt = -9;
+  const brawlActs = (t, lvl, acts, feed) => {          // как у бота: драка, карточки, после драки и потасовки — «игра возобновлена»
+    const s = pick(field(st.teams[t])).s, o = pick(field(st.teams[1 - t])).s;
+    acts.push({a: 'brawl', lvl, t, s, ot: 1 - t, os: o}, {a: 'card', c: lvl === 'scuffle' ? 'yellow' : 'red', t, s}, {a: 'card', c: 'yellow', t: 1 - t, s: o});
+    if (lvl !== 'scuffle') acts.push({a: 'resume'});
+    feed.push({m: st.minute, t: `${st.minute}' ` + {scuffle: '🥊 Стычка!', fight: '🥊 ДРАКА!', mass: '🥊🔥 МАССОВАЯ ПОТАСОВКА!'}[lvl]});
+  };
   setInterval(() => {
     if (st.minute >= 60) return;
     if (st.phase === 'half') { if (performance.now() < halfEnd) return; st.phase = 'play'; delete st.left; }   // перерыв (?half=сек, 0 — без него)
     // пока идут запланированные моменты (гол с повтором, штрафной, замена, удаление) — ждём, пока сцена доиграет минуту:
     // демо-минута короче настоящей, и иначе сцена отставала бы и повтор пропускался
-    if (st.minute >= 2 && st.minute < 19 && Q.get('script') !== '0' && queue.some(x => x.tick)) return;
+    if ((BRAWL_Q || (st.minute >= 2 && st.minute < 19 && Q.get('script') !== '0')) && queue.some(x => x.tick)) return;
     st.minute++; st.phase = 'play';
     for (const tm of st.teams) for (const p of field(tm)) p.pw = Math.max(15, Math.round((p.pw === undefined ? 100 : p.pw) - rnd(.4, 1.8)));
     if (st.minute === 8 && !tacQ[0]) st.teams[0].tactic = '🔥 Прессинг';
@@ -4759,7 +4869,8 @@ function demo() {
     const acts = [], feed = [];
     if (st.minute === 1) acts.push({a: 'whistle', w: 'start'});
     const scripted = demoScript(st, acts, feed);       // в каждом демо: гол с повтором, штрафной, замена, удаление
-    if (!scripted && Math.random() < .55) {
+    if (!scripted && BRAWL_Q && st.minute >= 3 && st.minute - brawlAt >= 5) { brawlAt = st.minute; brawlActs(Math.random() < .5 ? 0 : 1, BRAWL_Q, acts, feed); }
+    else if (!scripted && Math.random() < .55) {
       const t = Math.random() < .5 ? 0 : 1, tm = st.teams[t], s = pick(field(tm)).s, k = pick(kinds);
       const nm = P(t, s) ? P(t, s).nm : '';
       if (k === 'goal' || k === 'save' || k === 'miss') {
@@ -4775,7 +4886,7 @@ function demo() {
       else if (k === 'fk') { acts.push({a: 'foul', t: 1 - t, s: pick(field(st.teams[1 - t])).s, v: s}, {a: 'fk', t}, {a: 'miss', t, s, how: 'штрафной'}); feed.push({m: st.minute, t: `${st.minute}' 🛑 Фол → 🎯 Опасный штрафной! → мимо`}); }
       else if (k === 'foul' || k === 'card') { const v = pick(field(st.teams[1 - t])).s; acts.push({a: 'foul', t, s, v}); if (k === 'card') acts.push({a: 'card', c: 'yellow', t, s}); feed.push({m: st.minute, t: `${st.minute}' 🛑 Фол` + (k === 'card' ? ' → 🟨 Жёлтая карточка: ' + nm : '')}); }
       else if (k === 'tackle') acts.push({a: 'tackle', t, s});
-      else if (k === 'brawl') { const o = pick(field(st.teams[1 - t])).s; acts.push({a: 'brawl', lvl: pick(['scuffle', 'fight', 'mass']), t, s, ot: 1 - t, os: o}); feed.push({m: st.minute, t: `${st.minute}' 🥊 Стычка!`}); }
+      else if (k === 'brawl') brawlActs(t, pick(['scuffle', 'fight', 'mass']), acts, feed);
       else if (k === 'pen' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t); return; }
       else if (k === 'fkduel' && Q.get('pen') !== '0' && !(pen && pen.open)) { demoPen(t, true); return; }
       else if (k === 'pen') { const scored = Math.random() < .7; if (scored) tm.score++; acts.push({a: 'foul', t: 1 - t, s: pick(field(st.teams[1 - t])).s, v: s}, {a: 'pen', t}, {a: scored ? 'goal' : 'save', t, s, how: 'пенальти', score: [st.teams[0].score, st.teams[1].score]}); feed.push({m: st.minute, t: `${st.minute}' 🥅❗ ПЕНАЛЬТИ!`}); }
