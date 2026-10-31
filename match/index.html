@@ -143,6 +143,13 @@ canvas{display:block}
 #qs .list button:disabled{opacity:.45}
 #note{position:absolute;left:10px;right:10px;bottom:44px;text-align:center;font-size:14px;background:rgba(5,10,24,.85);border-radius:10px;padding:8px;display:none}
 #note.on{display:block}
+#penres{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:min(calc(100% - 32px),420px);box-sizing:border-box;padding:10px 14px 12px;border-radius:12px;
+  background:rgba(5,10,24,.93);border-top:4px solid #facc15;box-shadow:0 10px 30px rgba(0,0,0,.6);text-align:center;pointer-events:none;display:none;z-index:6}
+#penres.on{display:block}
+#penres b{display:block;font-size:22px;font-weight:900;color:#fff}
+#penres span{display:block;margin-top:4px;font-size:14px;color:#cbd5e1}
+#penres i{display:block;margin-top:6px;font-size:14px;font-style:normal;font-weight:800;color:#fbbf24}
+#penres i:empty{display:none}
 /* подсказка «один раз» на стадионе (отметку «Понятно» хранит бот — app/onboarding.py) */
 #tip{position:absolute;left:10px;right:10px;top:10px;z-index:6;display:none;gap:8px;align-items:flex-start;font-size:13px;line-height:1.4;
   background:rgba(5,10,24,.92);border:1px solid #a16207;border-radius:12px;padding:9px 12px}
@@ -233,7 +240,7 @@ body.deciding #feed{display:none}
   <div id="stats"></div>
 </div>
 <div id="pitchwrap"><canvas id="c"></canvas><div id="status"></div><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div><div id="rpl"><em></em><b><i></i>ПОВТОР<small>×0.5</small></b></div><div id="tvg"><i></i><b></b><span></span></div><div id="smap"></div>
-  <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><button id="talk" type="button" aria-label="Чат">💬<b></b></button><div id="bub"></div><div id="note"></div><div id="tip"><span id="tiptx"></span><button type="button" id="tipok">Понятно</button></div></div>
+  <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><button id="talk" type="button" aria-label="Чат">💬<b></b></button><div id="bub"></div><div id="note"></div><div id="penres"><b></b><span></span><i></i></div><div id="tip"><span id="tiptx"></span><button type="button" id="tipok">Понятно</button></div></div>
 <div id="qbar" hidden></div>
 <div id="feed"></div>
 <div id="dec"></div>
@@ -4672,7 +4679,8 @@ function ping() {
 let pen = null, penFrame = null, penReady = false, penSent = null, penClose = 0;
 const DUELS = ['penalty', 'fk'];                // дуэли во вложенной сцене: пенальти и штрафной у самой штрафной
 const penEl = $('pen');
-function penUrl() { return (LOCAL ? '../penalty/' : '../') + '?embed=1' + (Q.get('3d') === '0' ? '&3d=0' : ''); }   // по умолчанию — 3D-сцена; ?3d=0 — только 2D
+function penUrl() { if (Q.get('penframe') === '0') return 'about:blank';     // ?penframe=0 — сцена пенальти «не загрузилась» (проверка итога текстом)
+  return (LOCAL ? '../penalty/' : '../') + '?embed=1' + (Q.get('3d') === '0' ? '&3d=0' : ''); }   // по умолчанию — 3D-сцена; ?3d=0 — только 2D
 function toFrame(m) { if (penFrame && penReady) try { penFrame.contentWindow.postMessage(m, location.origin); } catch (e) {} }
 function penOpen() {
   clearTimeout(penClose);
@@ -4701,10 +4709,18 @@ function penState() {                         // всё, что нужно сц�
   penSent = pen.wid;
 }
 let penUntil = 0;
+function penText(r) {                       // итог пенальти/штрафного текстом поверх стадиона: исход, подпись, «⏱ Время вышло…»
+  const el = $('penres'), fk = r.fk !== undefined;
+  el.querySelector('b').textContent = (fk ? '🎯 ' : '🥅 ') + ({goal: 'ГОЛ!', save: 'СЕЙВ!', block: 'СТЕНКА!'}[r.outcome] || 'МИМО!');
+  el.querySelector('span').textContent = r.text || '';
+  el.querySelector('i').textContent = r.note || '';
+  el.classList.add('on'); clearTimeout(penText.t); penText.t = setTimeout(() => el.classList.remove('on'), 7000);
+}
 function onPen(m) {
   const prev = pen;
   if (m.result && !m.open) {
-    if (m.late || !penFrame) return;          // старый исход (сцену открыли позже) — не показываем
+    if (m.late) return;                       // старый исход (сцену открыли позже) — не показываем
+    if (!penFrame || !penReady) { penHide(); pen = m; penText(m.result); return; }   // сцена пенальти не загрузилась — итог текстом
     pen = m; toFrame({type: 'result', ...m.result});
     penClose = setTimeout(penHide, 16000);    // страница пенальти сама скажет «готово» (с повтором — до ~12 с); это — на всякий случай, с запасом на медленный телефон
     return;
@@ -5283,11 +5299,11 @@ function demoMgAnswer(i) {
 let demoWid = 100;
 function demoPen(t, fk) {                       // fk — штрафной у самой штрафной: стенка из полевых соперника
   const tm = S.teams[t], o = S.teams[1 - t], kp = tm.att[0] || tm.def[0];
-  onPen({type: 'pen', open: true, wid: ++demoWid, kind: fk ? 'fk' : 'penalty', role: t === 0 ? 'kick' : 'keep', left: 15, picked: null,
+  onPen({type: 'pen', open: true, wid: ++demoWid, kind: fk ? 'fk' : 'penalty', role: t === 0 ? 'kick' : 'keep', left: 25, picked: null,
          kicker: {num: kp.n, name: kp.nm, stat: 'Удар 30', shirt: tm.shirt, shorts: tm.shorts},
          keeper: {num: o.gk.n, name: o.gk.nm, stat: 'Вратарство 28', shirt: fk ? o.shirt : gkColor(1 - t)},
          wall: [...o.def, ...(o.mid || [])].slice(0, 4).map(p => p.n), shorts2: o.shorts, spot: Math.round((Math.random() * 1.2 - .6) * 100) / 100, minute: S.minute});
-  demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 15000);
+  demoPen.t = t; demoPen.timer = setTimeout(() => demoAct({a: 'pen', v: null}), 25000);   // то же время, что у бота (LIVE penalty_sec)
 }
 function demoAct(a) {
   if (a.a === 'mg') { demoMgAnswer(a.i); return; }
@@ -5296,6 +5312,7 @@ function demoAct(a) {
   if (a.a !== 'pen' || !pen || !pen.open) return;
   clearTimeout(demoPen.timer);
   const role = pen.role, v = a.v;
+  const note = v === null ? '⏱ Время вышло — ' + (role === 'kick' ? 'удар выбран' : pen.kind === 'fk' ? 'стенка и вратарь выбраны' : 'прыжок выбран') + ' случайно' : '';   // как у бота: auto_note
   if (v !== null) toFrame({type: 'picked', value: v});
   if (pen.kind === 'fk') {                      // штрафной: правила как у бота (FK_DUEL), без характеристик
     const fk = role === 'kick' && v !== null ? v : Math.floor(Math.random() * 4), dv = role === 'keep' && v !== null ? v : Math.floor(Math.random() * 6);
@@ -5305,11 +5322,11 @@ function demoAct(a) {
     const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!', save: 'Вратарь достаёт из угла!'}[outcome] || 'Вратарь ушёл не в тот угол';
     setTimeout(() => {
       onPen({type: 'pen', open: false});
-      onPen({type: 'pen', open: false, result: {fk, wall, dive, outcome, text}});
+      onPen({type: 'pen', open: false, result: {fk, wall, dive, outcome, text, ...(note ? {auto: [role], note} : {})}});
       const t = demoPen.t, tm = S.teams[t];
       if (outcome === 'goal') tm.score++;
       const act = outcome === 'block' ? {a: 'clear', t} : {a: outcome, t, s: (tm.att[0] || tm.def[0]).s, how: 'штрафной', score: [S.teams[0].score, S.teams[1].score]};
-      onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'fk', t}, act], feed: [{m: S.minute, t: `${S.minute}' 🎯 Штрафной у самой штрафной: ` + text}]});
+      onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'fk', t}, act], feed: [{m: S.minute, t: `${S.minute}' 🎯 Штрафной у самой штрафной: ` + text}, ...(note ? [{m: S.minute, t: note}] : [])]});
     }, 700);
     return;
   }
@@ -5317,10 +5334,10 @@ function demoAct(a) {
   const outcome = Math.random() < .08 ? 'miss' : aim % 3 === dive && Math.random() < .5 ? 'save' : 'goal';
   setTimeout(() => {
     onPen({type: 'pen', open: false});
-    onPen({type: 'pen', open: false, result: {aim, dive, outcome, text: outcome === 'goal' ? 'Вратарь прыгнул в другую сторону' : outcome === 'save' ? 'Вратарь угадал угол!' : 'Мимо!'}});
+    onPen({type: 'pen', open: false, result: {aim, dive, outcome, text: outcome === 'goal' ? 'Вратарь прыгнул в другую сторону' : outcome === 'save' ? 'Вратарь угадал угол!' : 'Мимо!', ...(note ? {auto: [role], note} : {})}});
     const t = demoPen.t, tm = S.teams[t];
     if (outcome === 'goal') tm.score++;
-    onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'pen', t}, {a: outcome, t, s: (tm.att[0] || tm.def[0]).s, how: 'пенальти', score: [S.teams[0].score, S.teams[1].score]}], feed: [{m: S.minute, t: `${S.minute}' 🥅 Пенальти: ` + outcome}]});
+    onTick({seq: Date.now(), state: JSON.parse(JSON.stringify(S)), acts: [{a: 'pen', t}, {a: outcome, t, s: (tm.att[0] || tm.def[0]).s, how: 'пенальти', score: [S.teams[0].score, S.teams[1].score]}], feed: [{m: S.minute, t: `${S.minute}' 🥅 Пенальти: ` + outcome}, ...(note ? [{m: S.minute, t: note}] : [])]});
   }, 700);
 }
 
