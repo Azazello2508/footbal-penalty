@@ -1182,7 +1182,7 @@ function tidyStep(tmp, a) {                // розыгрыш кончился 
 // подход к удару: прострел, стенка, вразрез, издали, обводка, контратака, добивание. F — бег игрока без мяча (снимается в конце)
 const LEADS = {
   cross(a, F) {                            // крайний уходит к лицевой, нападающий — в штрафную, крайний защитник подключается
-    let w = null, xf = .12, spot = null;
+    let w = null, xf = .12, spot = null, run = null;
     return [{d: 0, max: 4500, poss: a.t, run: () => {
       const sh = shooter(a); if (!sh) return;
       camTo(1.45, 4200, 'ball', a.t);
@@ -1190,7 +1190,8 @@ const LEADS = {
       xf = ((by && by !== sh ? by : holderP() || ball).x < W / 2) ? .12 : .88;
       w = mateOf(a, sh, at(a.t, .72, xf)); if (!w) return;
       getBall(w);
-      F(sh, {...at(a.t, .84, xf < .5 ? rnd(.52, .6) : rnd(.4, .48)), sp: 'sprint'});
+      run = at(a.t, rnd(.88, .92), xf < .5 ? rnd(.52, .6) : rnd(.4, .48));     // в штрафную (её линия — глубина .848), до вратарской
+      F(sh, {...run, sp: 'sprint'});
       const fb = nearestTo(at(a.t, .35, xf), teamPlayers(a.t, true).filter(q => q.role === 'def' && q !== w && q !== sh));
       if (fb) F(fb, {...at(a.t, .74, xf < .5 ? .1 : .9), sp: 'sprint'});
     }, wait: () => !w || !acquire},
@@ -1201,7 +1202,8 @@ const LEADS = {
     }, wait: () => !w || holder !== kOf(w) || dd(w, spot) < 26},
     {d: 260, real: true, poss: a.t, run: () => {     // прострел: навесом на дальнюю или низом под удар
       const sh = shooter(a); if (!w || !sh || holder !== kOf(w)) return;
-      const lead = {x: clamp(sh.x + (sh.ux || 0) * .35, M + 10, W - M - 10), y: clamp(sh.y + (sh.uy || 0) * .35, M + 10, H - M - 10)};
+      // прострел — в точку, куда он бежит (не туда, где он сейчас: иначе мяч встречают перед штрафной)
+      const lead = run && dd(sh, run) < 120 ? run : at(a.t, Math.max(depthOf(a.t, sh.y), .87), xfOf(sh.x));
       windup(w, lead, 160, () => {
         if (holderP() !== w) return; delete focus[kOf(w)];
         const low = Math.random() < .45; strike(1); kick();
