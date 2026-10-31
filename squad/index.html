@@ -283,6 +283,8 @@ tr[data-pedit]{cursor:pointer}
 /* раздел «Клуб» */
 .kind:disabled{opacity:.45}
 .own+.own{margin-top:6px}
+.prown{display:block;width:100%;box-sizing:border-box;margin-top:8px;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px;resize:vertical;min-height:84px}
+.hotq{color:#f97316;font-weight:700}
 .go.danger{color:#fca5a5}
 .invite{word-break:break-all;font-size:13px;color:var(--muted);margin-top:6px}
 .mrow2{display:flex;gap:6px}.mrow2 .go{flex:1}
@@ -872,7 +874,7 @@ function ask(text, yes) {     // подтверждение: окно Telegram, 
 }
 function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel();
   if (k === 'trophies' || k === 'top') { if (k === 'trophies') { TROPHIES = null; renderPanel(); } send({a: k}); }
-  if (k === 'press' || k === 'awards' || k === 'pred') { if (k === 'press') { PRESS = null; PRESS_PICK = []; } else if (k === 'awards') AWARDS = null; else PRED = null;
+  if (k === 'press' || k === 'awards' || k === 'pred') { if (k === 'press') { PRESS = null; PRESS_PICK = []; PRESS_OWN = null; } else if (k === 'awards') AWARDS = null; else PRED = null;
     renderPanel(); send({a: k}); } }
 // имена с приставкой panel: в Telegram на iPhone глобальное head занято (HTMLHeadElement) — «head is not a function»
 function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
@@ -1484,7 +1486,7 @@ function panelTop(m, P) {        // лучшие менеджеры всех л�
   return h + `<div class="hint">${esc(d.rule)} %П — процент побед, 📣 — болельщики.</div>`;
 }
 /* 🎤 пресс-конференция, 🏅 награды сезона, 🔮 прогнозы — данные по запросу (app/press.py, app/awards.py, app/predict.py) */
-let PRESS = null, PRESS_PICK = [], AWARDS = null, PRED = null;
+let PRESS = null, PRESS_PICK = [], PRESS_OWN = null, AWARDS = null, PRED = null;   // PRESS_OWN — ✍️ свой ответ (null — готовая цитата)
 const PRED_DRAFT = {};      // счёт, набранный кнопками, пока не сохранён: fx → [хозяева, гости]
 function pressCard(p) {     // «Главная»: журналисты ждут — вопросы приходят по запросу
   return `<div class="card ask"><div class="wtag">🎤 Пресс-конференция</div><h3>${esc(p.title)}<small>Журналисты ждут: ${p.n} ${p.n === 1 ? 'вопрос' : 'вопроса'}. Ответы меняют настрой игроков.</small></h3>` +
@@ -1495,8 +1497,15 @@ function panelPress(m, P) {
   if (!d) return panelHead('🎤 Пресс-конференция') + `<div class="note">${PRESS === false ? 'Пресс-конференции сейчас нет.' : 'Загружаю…'}</div>`;
   let h = panelHead('🎤 Пресс-конференция', esc(d.title));
   if (d.locked) h += `<div class="banner warn">${esc(d.locked)}</div>`;
-  h += d.questions.map((q, i) => `<div class="label">Вопрос ${i + 1} из ${d.questions.length}</div><div class="card"><b>${esc(q.text)}</b>` +
-    q.answers.map(([t, quote, eff], j) => `<button type="button" class="kind${PRESS_PICK[i] === j ? ' on' : ''}" data-prq="${i}:${j}">${esc(t)}: «${esc(quote)}»<span>${esc(eff)}</span></button>`).join('') + `</div>`).join('');
+  if (PRESS_OWN === null && d.draft && PRESS_PICK[0] == null) { PRESS_PICK[0] = d.draft[0]; PRESS_OWN = d.draft[1]; }     // черновик из чата
+  const max = d.own_max || 200;
+  const own = () => PRESS_OWN === null ? `<button type="button" class="kind" data-prown>✍️ Свой ответ<span>Тон — кнопкой выше (он решает настрой), а слова — ваши; цитата уйдёт в новости лиги</span></button>` :
+    `<textarea id="prowntext" class="prown" maxlength="${max}" rows="3" placeholder="Ваш ответ журналистам — до ${max} знаков">${esc(PRESS_OWN)}</textarea>` +
+    `<div class="sub" id="prowncnt">${PRESS_OWN.length}/${max} · грубые слова закроем звёздочками, ссылки, @имена и телефоны не пропустим</div>` +
+    `<button type="button" class="kind" data-prownx>↩️ Готовая цитата вместо своей</button>`;
+  h += d.questions.map((q, i) => `<div class="label">Вопрос ${i + 1} из ${d.questions.length}${q.hot ? ' · <span class="hotq">🔥 острый</span>' : ''}</div><div class="card"><b>${esc(q.text)}</b>` +
+    q.answers.map(([t, quote, eff], j) => `<button type="button" class="kind${PRESS_PICK[i] === j ? ' on' : ''}" data-prq="${i}:${j}">${esc(t)}: ${i === 0 && PRESS_OWN !== null ? '<i>свой ответ</i>' : `«${esc(quote)}»`}<span>${esc(eff)}</span></button>`).join('') +
+    (i === 0 ? own() : '') + `</div>`).join('');
   const all = d.questions.every((q, i) => PRESS_PICK[i] != null);
   h += `<button type="button" class="big" data-prsend${all && !d.locked ? '' : ' disabled'}>📣 Ответить журналистам</button>`;
   return h + `<div class="hint">${esc(d.until)}</div><div class="hint">${esc(d.rule)}</div>`;
@@ -1538,7 +1547,10 @@ function betweenClick(b) {       // нажатия в окнах пресс-ко
   const d = b.dataset;
   if (d.prq) { const [i, j] = d.prq.split(':').map(Number); PRESS_PICK[i] = j; haptic(); renderPanel(); return true; }
   if (b.hasAttribute('data-prsend')) { if (!PRESS || PRESS_PICK.length !== PRESS.questions.length || PRESS_PICK.some(x => x == null)) return true;
-    haptic(); send({a: 'press', fx: PRESS.fx, picks: PRESS_PICK.slice()}); return true; }
+    const act = {a: 'press', fx: PRESS.fx, picks: PRESS_PICK.slice()}; if (PRESS_OWN !== null) act.own = PRESS_OWN;     // проверка и звёздочки — на сервере
+    haptic(); send(act); return true; }
+  if (b.hasAttribute('data-prown')) { PRESS_OWN = ''; haptic(); renderPanel(); const t = $('prowntext'); if (t) t.focus(); return true; }
+  if (b.hasAttribute('data-prownx')) { PRESS_OWN = null; haptic(); renderPanel(); return true; }
   if (d.pd) { const [fx, side, step] = d.pd.split(':').map(Number), o = PRED && PRED.open.find(x => x.fx === fx); if (!o) return true;
     const v = (PRED_DRAFT[fx] || o.mine || [0, 0]).map(x => x == null ? 0 : x).slice();
     v[side] = Math.max(0, Math.min(15, v[side] + step)); PRED_DRAFT[fx] = v; haptic(); renderPanel(); return true; }
@@ -3158,7 +3170,8 @@ function formCheck(all) {          // all — показать все ошибк
   }
   return ok;
 }
-document.addEventListener('input', e => { if (e.target && e.target.closest && e.target.closest('#sheetin')) formCheck(false); });
+document.addEventListener('input', e => { if (e.target && e.target.closest && e.target.closest('#sheetin')) formCheck(false);
+  if (e.target && e.target.id === 'prowntext') { PRESS_OWN = e.target.value; const c = $('prowncnt'); if (c) c.firstChild.textContent = `${PRESS_OWN.length}/${(PRESS && PRESS.own_max) || 200} · грубые слова закроем звёздочками, ссылки, @имена и телефоны не пропустим`; } });
 function daysWord(n) { const d = n % 10, h = n % 100; return n + (d === 1 && h !== 11 ? ' день' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' дня' : ' дней'); }
 let DAILY_SHOW = null;        // ответ на вопрос дня: итог виден ~3 секунды, потом блок исчезает до завтра
 
@@ -3414,7 +3427,7 @@ function onAck(m) {
   if (act && PANEL && PANEL.k === 'report' && ((act.a === 'repinfo' && !m.ok) || (act.a === 'report' && m.ok))) closeSheet();
   if (m.ok && m.trophies) { TROPHIES = m.trophies; if (PANEL && PANEL.k === 'trophies') renderPanel(); }
   if (m.ok && m.top) { TOPM = m.top; if (PANEL && PANEL.k === 'top') renderPanel(); }
-  if (act && act.a === 'press') { if (act.picks && m.ok) { PRESS = null; if (PANEL && PANEL.k === 'press') closeSheet(); if (S && S.hub && S.hub.home) { delete S.hub.home.press; renderHome(); } }
+  if (act && act.a === 'press') { if (act.picks && m.ok) { PRESS = null; PRESS_OWN = null; if (PANEL && PANEL.k === 'press') closeSheet(); if (S && S.hub && S.hub.home) { delete S.hub.home.press; renderHome(); } }
     else if (!act.picks) { PRESS = m.press || false; if (PANEL && PANEL.k === 'press') renderPanel(); } }
   if (m.awards) { AWARDS = m.awards; if (PANEL && PANEL.k === 'awards') renderPanel(); }
   if (m.pred) { PRED = m.pred; if (m.ok && act && act.fx) delete PRED_DRAFT[act.fx]; if (PANEL && PANEL.k === 'pred') renderPanel(); }
@@ -3822,15 +3835,18 @@ function demoTrophies() {       // демо: полка трофеев — те 
       {icon: '📣', title: 'Рекорд болельщиков', value: '1240', sub: 'сейчас 1180'}]};
 }
 function demoPress() {           // демо: пресс-конференция — поля как у бота (app/press.py view)
-  const A = (q, a, b, c) => ({text: q, answers: [['😌 Спокойно', a[0], a[1]], ['👏 Похвалить', b[0], b[1]], ['😠 Жёстко', c[0], c[1]]]});
-  return {fx: 501, title: 'Девятка 3:2 Тройка', locked: null, until: 'Ответить — до следующего матча клуба, не позже 31.10 21:40 (UTC+4)',
+  const A = (k, q, a, b, c, hot) => ({k, hot: !!hot, text: q, answers: [['😌 Спокойно', a[0], a[1]], ['👏 Похвалить', b[0], b[1]], ['😠 Жёстко', c[0], c[1]]]});
+  return {fx: 501, title: 'Девятка 3:2 Тройка', locked: null, own_max: 200, draft: null, until: 'Ответить — до следующего матча клуба, не позже 31.10 21:40 (UTC+4)',
     rule: 'Демо: в Telegram — полный текст правил пресс-конференции.',
-    questions: [A('Вы проигрывали, но отыгрались — 3:2. Что сказали игрокам?', ['Попросил не паниковать и играть своё.', 'Настрой: всем +1'],
+    questions: [A('comeback', 'Отыгрались, 3:2. Почему команда начинает просыпаться, только когда пропустит?', ['Попросил не паниковать и играть своё.', 'Настрой: всем +1'],
       ['Эта команда не сдаётся — вот что я им сказал.', 'Настрой: всем +4'], ['Сказал, что так начинать матчи нельзя.', 'Настрой: уверенным +3, остальным −1']),
-    A('№9 Беркут — лучший у вас сегодня. Ждёте от него большего?', ['Он молодец, но футбол — командная игра.', 'Настрой: всем +1'],
+    A('hero', '№9 Беркут сегодня был везде. Это его лучший матч?', ['Он молодец, но футбол — командная игра.', 'Настрой: всем +1'],
       ['Это игрок высочайшего уровня.', 'Настрой: №9 Беркут +4'], ['Ему ещё многому нужно учиться.', 'Настрой: №9 Беркут −2, остальным +1']),
-    A('Что скажете болельщикам?', ['Спасибо за поддержку — работаем дальше.', 'Настрой: всем +1'], ['Это команда для вас — гордитесь ею!', 'Настрой: всем +2'],
-      ['Пусть требуют больше — мы обязаны соответствовать.', 'Настрой: уверенным +2, остальным −2'])]};
+    A('h_boring', 'Менеджер «Тройка» назвал вашу тактику скучной — ответите?', ['Каждый имеет право на мнение. Счёт на табло важнее.', 'Настрой: всем +1'],
+      ['Мои ребята выполнили план идеально — пусть завидуют.', 'Настрой: всем +3'], ['Пусть смеются. Мы запомним и ответим на поле.', 'Настрой: уверенным +4, остальным −2'], true)]};
+}
+function demoMask(t) {           // демо: упрощённые звёздочки; в игре закрывает сервер по полному словарю (app/rules.py mask_profanity)
+  return t.replace(/[\p{L}\d@$]+/gu, w => /^(бля|бл[яе]д|ху[йеяию]|пизд|еба|ёба|заеб|нахуй|похуй|сука|fuck|shit)/i.test(w) ? w[0] + '*'.repeat(w.length - 1) : w);
 }
 function demoAwards() {          // демо: награды сезона — поля как у бота (app/awards.py league_view)
   const T = (who, club, line, v) => ({icon: '⭐', title: 'Символическая сборная сезона', kind: 'team', who, club, line, value: v, mine: club === 'Девятка'});
@@ -3914,7 +3930,12 @@ function demoAct(act) {
     else if (o) { o.steps.find(s => s.key === 'player').done = true; o.done = o.steps.filter(s => s.done).length; r.note = `+${o.reward} болельщиков за шаг`; }
   }
   else if (act.a === 'trophies') r.trophies = demoTrophies();
-  else if (act.a === 'press') { if (act.picks) { delete S.hub.home.press; r.note = '🎤 Пресс-конференция окончена (демо): в игре настрой игроков изменится, цитата уйдёт в новости лиги.'; r.press = null; }
+  else if (act.a === 'press') { if (act.picks) { const own = act.own == null ? null : demoMask(act.own.split(/\s+/).join(' ').trim());
+      if (own === '') r = {ok: false, note: 'Напишите ответ — пустой текст не подойдёт.'};
+      else if (own && own.length > 200) r = {ok: false, note: `Слишком длинно: свой ответ — до 200 знаков. Сейчас ${own.length}.`};
+      else { const quote = own || demoPress().questions[0].answers[act.picks[0]][1];
+        S.hub.news = [{at: '31.10 20:15', text: `🎤 Менеджер «Девятка»: «${quote}»`}, ...(S.hub.news || [])];
+        delete S.hub.home.press; r.note = '🎤 Пресс-конференция окончена (демо): в игре настрой игроков изменится, цитата — в новостях лиги.'; r.press = null; } }
     else if (S.hub.home.press) r.press = demoPress(); else r = {ok: false, note: 'Пресс-конференции сейчас нет', press: null}; }
   else if (act.a === 'awards') r.awards = demoAwards();
   else if (act.a === 'pred') r = demoPred(act);
