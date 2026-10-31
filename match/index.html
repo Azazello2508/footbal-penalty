@@ -124,6 +124,23 @@ canvas{display:block}
   -webkit-user-select:text;user-select:text}
 #chat form button{font:inherit;font-size:15px;font-weight:800;padding:0 14px;border-radius:12px;border:0;background:var(--gold);color:#111}
 #chat .err{color:#fca5a5;font-size:12px;min-height:15px}
+/* замена вне окна решений: полоска под полем и выбор снизу (как чат); замена ждёт ближайшей остановки */
+#qbar{flex:none;display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);min-width:0}
+#qbar[hidden]{display:none}
+#qbar span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#qbar button{flex:none;font:inherit;font-size:14px;font-weight:800;padding:6px 12px;border-radius:12px;border:1px solid #ffffff14;background:#17254a;color:#fff}
+#qs{position:fixed;left:0;right:0;bottom:0;z-index:4;display:none;flex-direction:column;max-height:62%;overflow-y:auto;background:#0b1328;border-top:1px solid var(--line);
+  border-radius:14px 14px 0 0;padding:8px 12px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.5)}
+#qs.on{display:flex}
+#qs .hd{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px;margin-bottom:4px}
+#qs .hd button{font:inherit;font-size:18px;background:none;border:0;color:var(--muted);padding:2px 6px}
+#qs .sub{color:var(--muted);font-size:13px;margin:2px 0 6px;line-height:1.35}
+#qs .res{font-size:14px;margin:4px 0 6px;padding:7px 10px;border-radius:10px;background:#16223f;line-height:1.35}
+#qs .res.bad{background:#3b1420}
+#qs .list{display:flex;flex-direction:column;gap:7px}
+#qs .list button{font:inherit;font-size:14px;font-weight:700;padding:11px 10px;border-radius:12px;border:1px solid #ffffff14;background:#17254a;color:#fff;text-align:left}
+#qs .list button.wait{background:#3a2a0c}
+#qs .list button:disabled{opacity:.45}
 #note{position:absolute;left:10px;right:10px;bottom:44px;text-align:center;font-size:14px;background:rgba(5,10,24,.85);border-radius:10px;padding:8px;display:none}
 #note.on{display:block}
 /* подсказка «один раз» на стадионе (отметку «Понятно» хранит бот — app/onboarding.py) */
@@ -217,8 +234,10 @@ body.deciding #feed{display:none}
 </div>
 <div id="pitchwrap"><canvas id="c"></canvas><div id="status"></div><div id="label"></div><div id="var"><div class="box"><div class="logo"><i></i>VAR</div><div class="txt"><span class="t1"></span><small class="t2"></small></div></div></div><div id="flash"><b>ГОЛ!</b><span></span></div><div id="rpl"><em></em><b><i></i>ПОВТОР<small>×0.5</small></b></div><div id="tvg"><i></i><b></b><span></span></div><div id="smap"></div>
   <button id="mute" type="button" aria-label="Звук">🔊</button><button id="cam" type="button" aria-label="Камера">🎥</button><button id="talk" type="button" aria-label="Чат">💬<b></b></button><div id="bub"></div><div id="note"></div><div id="tip"><span id="tiptx"></span><button type="button" id="tipok">Понятно</button></div></div>
+<div id="qbar" hidden></div>
 <div id="feed"></div>
 <div id="dec"></div>
+<div id="qs"></div>
 <div id="pen"><div class="wait">🥅 Пенальти…</div></div>
 <div id="chat"><div class="hd">💬 Чат с соперником<button type="button" id="chatx" aria-label="Закрыть">✕</button></div><div class="msgs" id="msgs"></div><div class="chips" id="phr"></div><div class="chips emo" id="emo"></div><form id="chatf"><input id="chati" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Сообщение…"><button type="submit">➤</button></form><div class="err" id="chate"></div></div>
 <script>
@@ -4444,7 +4463,7 @@ const decEl = $('dec');
 function onMine(m) {
   const wasOpen = mine && mine.open, sameWin = mine && mine.wid === m.wid;
   mine = m;
-  if (!m.open) pending = null;
+  if (!m.open && !(pending && (pending.a === 'qsub' || pending.a === 'qdel'))) pending = null;   // окно закрылось — решение в нём уже не нужно
   if (m.open) {
     mineUntil = performance.now() + (m.left || 0) * 1000;
     if (!wasOpen || !sameWin) { view = 'main'; viewArg = null; pending = null; haptic('medium'); ping(); }
@@ -4480,6 +4499,11 @@ function onAck(m) {
     return;
   }
   if (was.a === 'taker') { if (!m.ok) haptic('rigid'); renderDec(); return; }
+  if (was.a === 'qsub' || was.a === 'qdel') {   // замена вне окна: принята — закрыть выбор, нет — оставить и сказать почему
+    if (mine && mine.q) mine.q.note = m.note || mine.q.note;
+    if (m.ok) qsView = null; else haptic('rigid');
+    renderSubQ(); return;
+  }
   if (was.a === 'mg' || was.a === 'bet') { mgNote = m.ok ? '' : '⚠️ ' + (m.note || 'Не принято'); if (!m.ok) haptic('rigid'); renderDec(); return; }
   if (mine) mine.note = m.note || mine.note;
   if (!m.ok) haptic('rigid');
@@ -4550,13 +4574,13 @@ function renderDec() {
     const t = document.createElement('div'); t.className = 'sub';
     if (viewArg === null || viewArg === undefined) {          // шаг 1: кого убрать
       t.textContent = 'Кого заменить?'; box.appendChild(t);
-      for (const p of m.field) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.gk ? ' (вратарь)' : ''}<small>силы ${power(p)}</small>`, '',
+      for (const p of m.field) box.appendChild(btn(p.lb ? `⬇️ ${esc(p.lb)}` : `№${p.n} ${esc(p.nm)}${cardsOf(p)}${p.gk ? ' (вратарь)' : ''}<small>силы ${power(p)}</small>`, '',
         () => { if (ready.length > 1) { viewArg = p.s; renderDec(); } else act({a: 'sub', s: p.s, i: ready[0] && ready[0].s}); }));
       box.appendChild(back());
     } else {                                                   // шаг 2: кто из запасных выйдет
       const out = m.field.find(p => p.s === viewArg);
       t.textContent = `Вместо №${out ? out.n + ' ' + out.nm : ''} выйдет:`; box.appendChild(t);
-      for (const p of ready) box.appendChild(btn(`№${p.n} ${esc(p.nm)}${cardsOf(p)}<small>силы ${power(p)}</small>`, '', () => act({a: 'sub', s: viewArg, i: p.s})));
+      for (const p of ready) box.appendChild(btn(p.lb ? `⬆️ ${esc(p.lb)}` : `№${p.n} ${esc(p.nm)}${cardsOf(p)}<small>силы ${power(p)}</small>`, '', () => act({a: 'sub', s: viewArg, i: p.s})));
       box.appendChild(btn('⬅️ Назад', 'wide', () => { viewArg = null; renderDec(); }));
     }
   } else if (view === 'form') {
@@ -4710,6 +4734,98 @@ function setDeciding() {
   const on = !!((mine && mine.open) || (pen && pen.open && pen.kind === 'urgent') || mgOpen());
   if (document.body.classList.contains('deciding') !== on) { document.body.classList.toggle('deciding', on); fit(); }
   renderDec();
+  renderSubQ();
+}
+/* ---------------- замена в любой момент матча ----------------
+   Вне окна решений бот присылает в панели mine поле q: кто на поле, кто на скамейке, что ждёт в очереди.
+   Замена уходит боту ({a:'qsub', s, i} / {a:'qdel', s}); он проверяет права и правила и выпускает игрока
+   в ближайшую остановку — на границе следующей минуты или при окне решений. Во время пенальти кнопки нет. */
+let qsView = null;                 // null — выбор закрыт; 'out' — кого убрать; число — слот уходящего, выбор, кто выйдет
+function qAvail() { return !!(mine && !mine.open && mine.q && !(pen && pen.open) && !mgOpen() && !document.body.classList.contains('deciding')); }
+function renderSubQ() {
+  const bar = $('qbar'), on = qAvail();
+  if (bar.hidden === on) { bar.hidden = !on; fit(); }
+  if (!on) { qsView = null; $('qs').classList.remove('on'); return; }
+  const q = mine.q;
+  if (!bar.firstChild) {             // кнопку не пересоздаём каждую минуту — нажатие не теряется
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = '🔄 Замена';
+    b.onclick = () => { qsView = 'out'; renderSubSheet(); };
+    bar.appendChild(b); bar.appendChild(document.createElement('span'));
+  }
+  bar.lastChild.textContent = q.queue.length ? '⏳ ' + q.queue.map(x => x.text).join(' · ') : 'в любой момент — выйдет в ближайшую остановку';
+  renderSubSheet();
+}
+function renderSubSheet() {
+  const box = $('qs'), q = mine && mine.q;
+  if (!q || qsView === null) { box.classList.remove('on'); return; }
+  box.classList.add('on'); box.textContent = '';
+  const hd = document.createElement('div'); hd.className = 'hd';
+  hd.innerHTML = '<span>🔄 Замена</span><button type="button" aria-label="Закрыть">✕</button>';
+  hd.querySelector('button').onclick = () => { qsView = null; renderSubSheet(); };
+  box.appendChild(hd);
+  const qb = (html, cls, fn, dis) => { const x = document.createElement('button'); x.type = 'button'; x.className = cls || ''; x.innerHTML = html;
+    x.disabled = !!dis || !!pending; x.onclick = fn; return x; };
+  const sub = document.createElement('div'); sub.className = 'sub';
+  sub.textContent = 'Замена не мгновенная: игрок выйдет в ближайшую остановку — перед следующей минутой или в окне решений. Пока ждёт — можно отменить.';
+  box.appendChild(sub);
+  if (pending || q.note) {
+    const r = document.createElement('div'); r.className = 'res' + (!pending && q.note && q.note.startsWith('⚠️') ? ' bad' : '');
+    r.textContent = pending ? 'Отправляем…' : q.note; box.appendChild(r);
+  }
+  const list = document.createElement('div'); list.className = 'list';
+  for (const x of q.queue) list.appendChild(qb(`✖️ Отменить: ${esc(x.text)}`, 'wait', () => sendAct({a: 'qdel', s: x.out}, 0)));
+  const outs = new Set(q.queue.map(x => x.out)), ins = new Set(q.queue.map(x => x.in));
+  const free = q.bench.filter(p => !ins.has(p.s));
+  if (qsView === 'out') {
+    const t = document.createElement('div'); t.className = 'sub'; t.textContent = free.length ? 'Кого заменить?' : 'Все запасные уже в замене или выйти не могут.';
+    list.appendChild(t);
+    if (free.length) for (const p of q.field.filter(p => !outs.has(p.s)))
+      list.appendChild(qb(`⬇️ ${esc(p.lb)}`, '', () => { if (free.length === 1) sendAct({a: 'qsub', s: p.s, i: free[0].s}, 0); else { qsView = p.s; renderSubSheet(); } }));
+  } else {
+    const out = q.field.find(p => p.s === qsView);
+    const t = document.createElement('div'); t.className = 'sub'; t.textContent = out ? `Вместо №${out.n} ${out.nm} выйдет:` : 'Кто выйдет?';
+    list.appendChild(t);
+    for (const p of free) list.appendChild(qb(`⬆️ ${esc(p.lb)}`, '', () => sendAct({a: 'qsub', s: qsView, i: p.s}, 0)));
+    list.appendChild(qb('⬅️ Назад', '', () => { qsView = 'out'; renderSubSheet(); }));
+  }
+  box.appendChild(list);
+}
+// демо (?qsub=1): замена вне окна «как от бота» — очередь и выход на поле в начале следующей минуты
+let demoSt = null, demoQueue = [];
+const DEMO_BENCH = [{s: 11, n: 15, nm: 'Аль Фомин', y: 0, pw: 100}, {s: 12, n: 18, nm: 'Аль Жуков', y: 0, pw: 100}, {s: 13, n: 22, nm: 'Аль Рыбин', y: 0, pw: 100}];
+function demoQPanel(note) {
+  if (!demoSt || !Q.get('qsub') || demoSt.minute < 1 || demoSt.phase === 'final' || demoSt.phase === 'half') { if (mine && mine.q) { mine = {type: 'mine', t: 0, open: false}; renderSubQ(); } return; }
+  const tm = demoSt.teams[0], pos = {def: 'Защ', mid: 'ПЗ', att: 'Нап'};
+  const lb = (p, where, extra) => `№${p.n} ${p.nm.split(' ').slice(-1)[0]}${p.y ? ' 🟨' : ''} · ${where} · ${extra} · ${p.pw === undefined ? 100 : p.pw}%`;
+  const field = [{...tm.gk, lb: lb(tm.gk, 'Вратарь', '6.0')}];
+  for (const k of ['def', 'mid', 'att']) for (const p of tm[k] || []) field.push({...p, lb: lb(p, pos[k], (6 + (p.s % 3) / 5).toFixed(1))});
+  const onPitch = new Set(field.map(p => p.s));
+  const bench = DEMO_BENCH.filter(p => !onPitch.has(p.s)).map(p => ({...p, lb: lb(p, 'Нап', '★Удар 24')}));
+  const name = p => `№${p.n} ${p.nm}`, find = s => field.find(p => p.s === s) || DEMO_BENCH.find(p => p.s === s) || {n: '?', nm: ''};
+  mine = {type: 'mine', t: 0, open: false, q: {field, bench, note: note !== undefined ? note : (mine && mine.q && mine.q.note) || '',
+          queue: demoQueue.map(x => ({out: x.out, in: x.in, text: `${name(find(x.out))} → ${name(find(x.in))}`}))}};
+  renderSubQ();
+}
+function demoQAct(a) {
+  let note;
+  if (a.a === 'qdel') { demoQueue = demoQueue.filter(x => x.out !== a.s); note = '↩️ Замена отменена.'; }
+  else if (demoQueue.some(x => x.out === a.s)) note = '⚠️ Этот игрок уже уходит в другой замене — сначала отмените её.';
+  else { demoQueue.push({out: a.s, in: a.i}); note = '⏳ Замена ждёт ближайшей остановки.'; }
+  pending = {a: a.a, id: -1}; onAck({id: -1, ok: !note.startsWith('⚠️'), note});
+  demoQPanel(note);
+}
+function demoQRun(st, acts, feed) {             // начало демо-минуты: замены из очереди выходят на поле
+  const tm = st.teams[0];
+  for (const x of demoQueue) {
+    const inn = DEMO_BENCH.find(p => p.s === x.in);
+    let out = null;
+    if (tm.gk.s === x.out) { out = tm.gk; tm.gk = {...inn}; }
+    else for (const k of ['def', 'mid', 'att']) { const i = (tm[k] || []).findIndex(p => p.s === x.out); if (i >= 0) { out = tm[k][i]; tm[k][i] = {...inn}; } }
+    if (!out || !inn) continue;
+    acts.push({a: 'sub', t: 0, out: out.s, inn: inn.s, no: out.n, ni: inn.n});
+    feed.push({m: st.minute, t: `${st.minute}' 🔄 Замена «${tm.name}»: №${out.n} ${out.nm} → №${inn.n} ${inn.nm}`});
+  }
+  if (demoQueue.length) { demoQueue = []; demoQPanel('✅ Замена прошла.'); }
 }
 function renderUrgent() {
   const m = pen, left = Math.max(0, Math.ceil((penUntil - performance.now()) / 1000));
@@ -4995,7 +5111,7 @@ function demo() {
   };
   // Альфа — команда «с характером»: вратарь ловит намертво, защитники-силачи, два технаря в центре, бомбардир впереди.
   // Бета — середняки, вратарь ненадёжный (отбивает перед собой), один слабый в технике защитник
-  const st = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [
+  const st = demoSt = {minute: 0, full: 60, half: 30, phase: 'pre', teams: [
     mk('Альфа', '#dc2626', '#f5f5f5', '2-2-2', ['Иванов', 'Петров', 'Сидоров', 'Козлов', 'Орлов', 'Белов', 'Носов'],
        [[10, 1, 1, 0, 2], [15, 1, 2, 0, 0], [16, 0, 2, 0, 0], [30, 2, 1, 1, 0], [27, 2, 0, 1, 0], [34, 1, 0, 2, 0], [22, 0, 0, 1, 0]]),
     mk('Бета', '#2563eb', '#202024', '3-2-1', ['Смирнов', 'Волков', 'Зайцев', 'Морозов', 'Лебедев', 'Новиков', 'Гусев'],
@@ -5039,6 +5155,7 @@ function demo() {
     if (st.minute === 14 && !tacQ[1]) st.teams[1].tactic = '🛡 Оборона';
     const acts = [], feed = [];
     if (st.minute === 1) acts.push({a: 'whistle', w: 'start'});
+    demoQRun(st, acts, feed);                          // ?qsub=1 — замены вне окна из очереди
     const scripted = demoScript(st, acts, feed);       // в каждом демо: гол с повтором, штрафной, замена, удаление
     if (!scripted && BRAWL_Q && st.minute >= 3 && st.minute - brawlAt >= 5) { brawlAt = st.minute; brawlActs(Math.random() < .5 ? 0 : 1, BRAWL_Q, acts, feed); }
     else if (!scripted && Math.random() < .55) {
@@ -5070,6 +5187,7 @@ function demo() {
     const tot = st.teams[0].shots + st.teams[1].shots || 1;
     st.teams[0].poss = Math.round(100 * (st.teams[0].shots + 1) / (tot + 2)); st.teams[1].poss = 100 - st.teams[0].poss;
     onTick({seq: seq++, state: JSON.parse(JSON.stringify(st)), acts, feed});
+    demoQPanel();
   }, Number(Q.get('tick')) || 4000);
 }
 
@@ -5174,6 +5292,7 @@ function demoPen(t, fk) {                       // fk — штрафной у с
 function demoAct(a) {
   if (a.a === 'mg') { demoMgAnswer(a.i); return; }
   if (a.a === 'bet') { if (bets) { bets = {...bets, mine: a.i}; renderDec(); } return; }
+  if (a.a === 'qsub' || a.a === 'qdel') { demoQAct(a); return; }
   if (a.a !== 'pen' || !pen || !pen.open) return;
   clearTimeout(demoPen.timer);
   const role = pen.role, v = a.v;
