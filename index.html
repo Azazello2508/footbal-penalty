@@ -82,7 +82,7 @@ const P = {   // участники (в матче придут от серве�
 };
 let role = null;          // kick | keep
 let phase = 'intro';      // intro | choose | wait | play | done
-let myPick = null, deadline = 0, chooseSec = 15;
+let myPick = null, deadline = 0, chooseSec = 25;
 let anim = null;          // {t0, aim, dive, outcome, text}
 let excite = 0, shake = 0, flash = 0, punch = 0, glow = 0;   // punch — рывок камеры к удару, glow — экран в цвете забившей команды
 const fx = [];
@@ -1612,7 +1612,7 @@ const pickWords = v => isFk() ? (role === 'kick' ? `удар ${v + 1} — ${FKA[
   : role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
 function pick(v, auto) {
   if (phase !== 'choose') return;
-  myPick = v; phase = 'wait'; haptic('tap');
+  myPick = v; phase = 'wait'; haptic('tap'); pick.auto = !!auto;
   if (EMBED) { toParent({type: 'pick', value: v}); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
@@ -1657,6 +1657,8 @@ function markPicked(v) {
 function closeBtn() { return TG ? [['Закрыть', '', () => TG.close()]] : []; }
 
 /* ---------------- ДЕМО: соперник и исход (в матче это сделает сервер) ---------------- */
+// не успел выбрать — пометка к итогу (как у бота: app/live.py auto_note); в демо — когда время вышло у вас
+function demoNote(r) { if (pick.auto) r.note = '⏱ Время вышло — ' + (role === 'kick' ? 'удар выбран' : isFk() ? 'стенка и вратарь выбраны' : 'прыжок выбран') + ' случайно'; return r; }
 function demoOpponent(mine) {
   if (isFk()) { setTimeout(() => demoFk(mine), 500 + Math.random() * 900); return; }
   setTimeout(() => {
@@ -1669,7 +1671,7 @@ function demoOpponent(mine) {
     else outcome = 'goal';
     const text = outcome === 'goal' ? (guessed ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь остался в центре' : 'Вратарь прыгнул в другую сторону')
                : outcome === 'save' ? 'Вратарь угадал угол!' : (high ? 'Выше перекладины!' : 'Мимо, рядом со штангой!');
-    play({aim, dive, outcome, text});
+    play(demoNote({aim, dive, outcome, text}));
   }, 500 + Math.random() * 900);
 }
 function demoFk(mine) {                                // те же правила, что у бота (app/engine.py FK_DUEL), без характеристик
@@ -1684,16 +1686,16 @@ function demoFk(mine) {                                // те же правил
   const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!',
                 save: dive === col ? 'Вратарь достаёт из угла!' : 'Вратарь успевает из центра!'}[outcome]
              || (dive === col ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь не дотянулся из центра' : 'Вратарь ушёл не в тот угол');
-  play({fk, wall, dive, outcome, text});
+  play(demoNote({fk, wall, dive, outcome, text}));
 }
 function play(result) {
   phase = 'play'; events = {};
   if (isFk() && result.fk !== undefined) {               // штрафной: исход в форме пенальти (угол для вратаря и бьющего) + стенка
     anim = Object.assign({t0: performance.now()}, result, {aim: (result.fk < 2 ? 0 : 3) + (result.fk % 2 ? 2 : 0), fkWall: result.wall});
-    anim.plan = makeFkPlan(anim); setUi(''); return;
+    anim.plan = makeFkPlan(anim); setUi(result.note || ''); return;
   }
   anim = Object.assign({t0: performance.now()}, result); anim.plan = makePlan(anim);
-  setUi('');
+  setUi(result.note || '');            // кто-то не успел — «⏱ Время вышло…» под сценой
 }
 function finish() {
   phase = 'done';
