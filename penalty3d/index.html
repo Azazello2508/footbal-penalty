@@ -54,7 +54,8 @@ canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block}
 #card .cl i{flex:none;font-style:normal;color:#cbd5e1;font-weight:700}
 #card .ch{margin-top:3px;font-size:15px;font-weight:800;color:#fde68a}
 #card .cx{margin-top:5px;font-size:13px;color:#cbd5e1;line-height:1.25}
-#card .cx:empty,#card .ch:empty{display:none}
+#card .ca{margin-top:5px;font-size:13px;font-weight:800;color:#fbbf24;line-height:1.25}
+#card .cx:empty,#card .ch:empty,#card .ca:empty{display:none}
 #rp{position:fixed;left:12px;top:calc(7.5vh + 10px + env(safe-area-inset-top));display:none;align-items:center;gap:8px;padding:6px 12px 6px 10px;border-radius:6px;
   background:linear-gradient(#facc15,#eab308);color:#111;font-weight:900;font-size:15px;letter-spacing:1.5px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 #rp i{width:9px;height:9px;border-radius:50%;background:#b91c1c;animation:blink .6s infinite alternate}
@@ -104,7 +105,7 @@ button:active{transform:translateY(1px)}
   <div id="timer"><div><i id="bar"></i></div><span id="sec"></span></div>
   <div id="cap" class="pill" style="color:#facc15"></div>
 </div>
-<div id="card"><div id="word"></div><div class="cl"><b></b><span></span><i></i></div><div class="ch"></div><div class="cx"></div></div>
+<div id="card"><div id="word"></div><div class="cl"><b></b><span></span><i></i></div><div class="ch"></div><div class="cx"></div><div class="ca"></div></div>
 <div id="rp"><i></i>ПОВТОР</div>
 <button id="mute" type="button" aria-label="Звук">🔊</button>
 <div id="ui">
@@ -183,7 +184,7 @@ const HAIRS = ['#2b1d16', '#6b4423', '#0f0f10', '#b7791f'];
 const SKINS = ['#e3b08c', '#9a6544', '#f2c9a8', '#c48a62'];
 let MODE = new URLSearchParams(location.search).get('fk') === '1' ? 'fk' : 'pen';
 const isFk = () => MODE === 'fk';
-let role = null, phase = 'intro', myPick = null, deadline = 0, chooseSec = 15, anim = null, fkWall = 0;
+let role = null, phase = 'intro', myPick = null, deadline = 0, chooseSec = 25, anim = null, fkWall = 0;
 let excite = 0, shake = 0, flash = 0, punch = 0, glow = 0, events = {};
 // SO — табло серии пенальти кубка (от бота: n, kick, keep, g); MINUTE — минута матча для карточки итога; introT0 — начало выбора (судья ставит стенку);
 // pendingState — следующий удар серии пришёл, пока показывается этот: начнём, когда показ (без повтора) закончится
@@ -2592,6 +2593,7 @@ function fillCard(a) {
   cd.querySelector('.cl i').textContent = when ? '· ' + when : '';
   cd.querySelector('.ch').textContent = howText(a);
   cd.querySelector('.cx').textContent = a.text ? a.text + (pl.kind === 'postIn' ? '' : pl.note) : '';
+  cd.querySelector('.ca').textContent = a.note || '';          // «⏱ Время вышло — … выбран случайно»
 }
 function renderSo(a) {                                        // табло серии пенальти кубка: кружки по командам и счёт; исход этого удара — когда показан
   const el = $('so');
@@ -2877,7 +2879,7 @@ const pickWords = v => isFk() ? (role === 'kick' ? `удар ${v + 1} — ${FKA[
   : role === 'kick' ? `угол ${v + 1} (${AIMS[v]})` : DIVES[v].replace('прыгает', 'прыгнуть').replace('остаётся', 'остаться');
 function pick(v, auto) {
   if (phase !== 'choose') return;
-  myPick = v; phase = 'wait'; haptic('tap');
+  myPick = v; phase = 'wait'; haptic('tap'); pick.auto = !!auto;
   if (EMBED) { toParent({type: 'pick', value: v}); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   if (live) { live.send(JSON.stringify({type: 'pick', value: v})); setUi(`Ваш выбор: ${pickWords(v)}. Отправляем…`); return; }
   setUi((auto ? 'Время вышло — выбрано случайно: ' : 'Ваш выбор: ') + pickWords(v) + '. Ждём соперника…');
@@ -2930,6 +2932,8 @@ function markPicked(v) {
   setUi(`Ваш выбор: ${pickWords(v)}. Ждём соперника…`);
 }
 function closeBtn() { return TG ? [['Закрыть', '', () => TG.close()]] : []; }
+// не успел выбрать — пометка к итогу (как у бота: app/live.py auto_note); в демо — когда время вышло у вас
+function demoNote(r) { if (pick.auto) r.note = '⏱ Время вышло — ' + (role === 'kick' ? 'удар выбран' : isFk() ? 'стенка и вратарь выбраны' : 'прыжок выбран') + ' случайно'; return r; }
 function demoOpponent(mine) {
   if (isFk()) { setTimeout(() => demoFk(mine), 500 + Math.random() * 900); return; }
   setTimeout(() => {
@@ -2942,7 +2946,7 @@ function demoOpponent(mine) {
     else outcome = 'goal';
     const text = outcome === 'goal' ? (guessed ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь остался в центре' : 'Вратарь прыгнул в другую сторону')
                : outcome === 'save' ? 'Вратарь угадал угол!' : (high ? 'Выше перекладины!' : 'Мимо, рядом со штангой!');
-    play({aim, dive, outcome, text});
+    play(demoNote({aim, dive, outcome, text}));
   }, 500 + Math.random() * 900);
 }
 function demoFk(mine) {                                // те же правила, что у бота (app/engine.py FK_DUEL), без характеристик
@@ -2957,7 +2961,7 @@ function demoFk(mine) {                                // те же правил
   const text = {block: 'Стенка блокирует!', miss: over ? 'Над перекладиной!' : 'Мимо, рядом со штангой!',
                 save: dive === col ? 'Вратарь достаёт из угла!' : 'Вратарь успевает из центра!'}[outcome]
              || (dive === col ? 'Вратарь угадал, но не дотянулся' : dive === 1 ? 'Вратарь не дотянулся из центра' : 'Вратарь ушёл не в тот угол');
-  play({fk, wall, dive, outcome, text});
+  play(demoNote({fk, wall, dive, outcome, text}));
 }
 function play(result) {
   phase = 'play'; events = {}; boardMat.map = BOARD_N; dbgRp = null;
@@ -2967,7 +2971,7 @@ function play(result) {
   } else { anim = Object.assign({t0: performance.now()}, result); anim.plan = finishPlan(makePlan(anim)); }
   mocapPlan(anim.plan, anim);
   anim.t0 = performance.now();                                 // разбор исхода позирует фигуры — время сцены считаем после него
-  setUi('');
+  setUi(result.note || '');                                    // кто-то не успел — «⏱ Время вышло…» под сценой и в карточке
 }
 let dbgReal = null, dbgCam = null, dbgMove = null, dbgRp = null;                                          // для проверки: остановить сцену на нужной секунде (?3d — скриншоты)
 window.__p3debug = {play: r => play(r), freeze: s => { dbgReal = s; }, camAt: c => { dbgCam = c; }, move: o => { dbgMove = o; }, get moves() { return MOVES; }, track: (who, n, mir) => moveTrack(who === 'kicker' ? kicker : keeper, n, mir), get kicker() { return kicker; }, setKicker: o => { Object.assign(P.kicker, o); castSig = ''; layout(); }, setKeeper: o => { Object.assign(P.keeper, o); castSig = ''; layout(); }, setFk: o => { fkSetup(o); }, get wall() { return wall; }, buildOf: (b, n, g) => buildOf(b, n, g), get anim() { return anim; }, start: r => start(r), get scene() { return scene; }, get keeper() { return keeper; }, THREE, selfTest: () => selfTest(), get weather() { return WX; }, get bloom() { return bloomOn; }, get cam() { return [camera.position, ball.position, kicker.root.position]; }, replay: s => { dbgRp = s; }, startReplay: () => startReplay(), endReplay: () => endReplay(), setSo: v => { SO = v; }, setMinute: v => { MINUTE = v; }, get ref() { return ref; }, get lier() { return lier; }, intro: s => { dbgIntro = s; }, mark5: () => mk.length > 4 ? mk[4].s.position : null, headPos: who => headPos(who === 'kicker' ? kicker : keeper), project: p => screenOf(V(...p))};
