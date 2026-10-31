@@ -108,18 +108,18 @@ canvas{display:block}
 #chat{position:fixed;left:0;right:0;bottom:0;z-index:4;display:none;flex-direction:column;max-height:58%;background:#0b1328;border-top:1px solid var(--line);
   border-radius:14px 14px 0 0;padding:8px 10px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.5)}
 #chat.on{display:flex}
-#chat .hd{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px;margin-bottom:4px}
+#chat .hd{flex:none;display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px;margin-bottom:4px}
 #chat .hd button{font:inherit;font-size:18px;background:none;border:0;color:var(--muted);padding:2px 6px}
 #chat .msgs{flex:1;overflow-y:auto;min-height:60px;display:flex;flex-direction:column;gap:5px;padding:4px 0}
 #chat .msgs div{max-width:82%;align-self:flex-start;background:#16223f;border-radius:10px;padding:5px 9px;font-size:14px;line-height:1.3;word-break:break-word;
   border-left:3px solid var(--cc,#facc15)}
 #chat .msgs div.me{align-self:flex-end;background:#1e3a8a}
 #chat .msgs .empty{align-self:center;background:none;border:0;color:var(--muted);font-size:13px;text-align:center}
-#chat .chips{display:flex;gap:6px;overflow-x:auto;padding:5px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#chat .chips{flex:none;display:flex;gap:6px;overflow-x:auto;padding:5px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #chat .chips::-webkit-scrollbar{display:none}
 #chat .chips button{flex:none;font:inherit;font-size:13px;font-weight:700;padding:7px 10px;border-radius:14px;border:1px solid #ffffff14;background:#17254a;color:#fff}
 #chat .chips.emo button{font-size:19px;padding:4px 8px}
-#chat form{display:flex;gap:6px;margin-top:4px}
+#chat form{flex:none;display:flex;gap:6px;margin-top:4px}
 #chat input{flex:1;min-width:0;font:inherit;font-size:16px;padding:9px 11px;border-radius:12px;border:1px solid #ffffff22;background:#050a18;color:#fff;
   -webkit-user-select:text;user-select:text}
 #chat form button{font:inherit;font-size:15px;font-weight:800;padding:0 14px;border-radius:12px;border:0;background:var(--gold);color:#111}
@@ -2942,6 +2942,13 @@ function onState(m) {                      // полное состояние: �
   syncLineup(); feedEl.textContent = ''; addFeed(m.feed || [], false);
   statusUntil = performance.now() + (S.left || 0) * 1000;
   renderBoard(); note('');
+  sendFinal(true);                         // вошли (или бот перезапустился) уже после финала — итог можно присылать
+}
+// сцена показала финальный свисток — бот присылает итог в чат только после этого (ждёт не дольше ~25 сек)
+let finalSent = false;
+function sendFinal(again) {
+  if ((finalSent && !again) || !shown || shown.phase !== 'final') return;
+  try { if (!ws || ws.readyState !== 1) return; ws.send(JSON.stringify({type: 'act', act: {a: 'final'}})); finalSent = true; } catch (e) {}   // показ без связи (демо) — некому
 }
 function onTick(m) {
   if (m.seq <= lastSeq) return;
@@ -2973,7 +2980,7 @@ function onTick(m) {
   });
   for (const a of acts) { a._st = fresh; const bs = build(a); for (const q of bs) q.act = a; steps.push(...bs); }   // act — для ТВ-подачи   // _st — каким стал состав после этой минуты
   // в конце эпизода — табло, состав и лента (чтобы счёт и строки не обгоняли мяч)
-  steps.push({d: 0, tick: true, run: () => { shown = fresh; syncLineup(fresh); addFeed(m.feed || [], true); renderBoard(); }});   // состав — этой минуты, а не последней пришедшей
+  steps.push({d: 0, tick: true, run: () => { shown = fresh; syncLineup(fresh); addFeed(m.feed || [], true); renderBoard(); sendFinal(); }});   // состав — этой минуты, а не последней пришедшей
   queue.push(...steps);
   renderBoard();
 }
