@@ -364,6 +364,87 @@ tr[data-pedit]{cursor:pointer}
 .pcard .tags i{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:var(--acc-soft);color:var(--acc-text);text-transform:uppercase;letter-spacing:.04em}
 .pcard .body{padding:4px 12px 12px;background:var(--card)}
 .pcard .cond{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
+/* 🏋️ итог тренировки (шапка в цвете клуба, три цифры, «на кого смотреть») и выбор тренировки плитками */
+.tsum{position:relative;overflow:hidden;border-radius:20px;padding:14px 16px 16px;margin-top:6px;color:#fff;background:linear-gradient(135deg,var(--club,#1d4ed8),var(--club-hi,#1a46c2))}
+.tsum:after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+.tsum .stamp{display:inline-block;border:2px solid #fff;border-radius:8px;padding:1px 8px;font:italic 800 12px var(--sport);text-transform:uppercase;letter-spacing:.5px;transform:rotate(-4deg);margin-bottom:8px}
+.tsum h3{margin:0;font:italic 800 24px/1.05 var(--sport);text-transform:uppercase;overflow-wrap:anywhere}
+.tsum p{position:relative;margin:6px 0 0;font-size:13px;line-height:1.35}
+.ttiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.ttiles>div{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 6px;text-align:center}
+.ttiles b{display:block;font:italic 800 23px/1.1 var(--sport);overflow-wrap:anywhere}
+.ttiles small{display:block;font-size:11px;color:var(--muted);line-height:1.25;margin-top:3px}
+.ttiles .up,.tk .ef{color:var(--okt)}.ttiles .dn{color:var(--warnt)}
+.twatch{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:2px 12px}
+.twatch>div{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:14px}.twatch>div+div{border-top:1px solid var(--line)}
+.twatch i{font-style:normal;font-size:22px;flex:none}.twatch small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+details.tall,details.trules{margin-top:10px}
+details.tall>summary,details.trules>summary{list-style:none;cursor:pointer;text-align:center;color:var(--muted);font-size:13px;font-weight:700;padding:8px}
+details.tall>summary::-webkit-details-marker,details.trules>summary::-webkit-details-marker{display:none}
+details.tall[open]>summary .tw{display:inline-block;transform:rotate(180deg)}
+.tpl{display:grid;grid-template-columns:auto minmax(0,1fr) 46px auto;align-items:center;gap:4px 8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:13px}
+.tpl b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tpl span{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
+.tpl .n{color:var(--muted);font-size:12px}.tpl .tbar{margin:0}
+.tmeter{display:flex;gap:8px;margin-top:8px}
+.tmeter>div{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.tmeter small{color:var(--muted);font-size:11px;font-weight:700}.tmeter b{display:block;font-size:16px;margin-top:1px;overflow-wrap:anywhere}
+.tbar{height:7px;border-radius:4px;background:var(--bar0);margin-top:5px;overflow:hidden}.tbar i{display:block;height:100%;border-radius:4px}
+.tk{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card2);border-radius:16px;padding:10px 12px;margin-top:8px;font-weight:700;font-size:15px}
+html[data-theme="club"] .tk{background:var(--card);box-shadow:var(--soft)}
+.tk .ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none;background:var(--acc-soft)}
+.tk .ic.n{font:italic 800 19px var(--sport)}
+.tk .ic.c-recovery{background:rgba(14,165,233,.16)}.tk .ic.c-rest{background:rgba(147,51,234,.15)}.tk .ic.c-attack{background:rgba(220,38,38,.15)}
+.tk .ic.c-defense{background:rgba(79,70,229,.16)}.tk .ic.c-stamina{background:rgba(22,163,74,.16)}.tk .ic.c-personal{background:rgba(234,179,8,.2)}
+.tk .tx{flex:1;min-width:0}.tk small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
+.tk .ef{flex:none;max-width:42%;text-align:right;font-size:12px;font-weight:800}
+.tk:disabled{opacity:.45}.tk.on{outline:2px solid var(--accent)}
+.trules .kind{cursor:default}
+/* 🃏 коллекционная карточка игрока: рамка по сумме характеристик (сервер — app/rules.py card_tier), верх в цвете формы */
+.ccard{border-radius:24px;padding:3px;margin-top:6px;background:var(--line)}
+.ccard.gold{background:linear-gradient(160deg,#fff3c4,#e2b53c 30%,#fff7d6 50%,#c58f1f 75%,#f6dc8b);box-shadow:0 14px 28px rgba(197,143,31,.28)}
+.ccard.silver{background:linear-gradient(160deg,#f4f6fa,#b8bfcc 40%,#fff 60%,#9aa3b5);box-shadow:0 14px 28px rgba(100,116,139,.25)}
+.ccard.bronze{background:linear-gradient(160deg,#f3d2b3,#b87333 40%,#f6dcc3 60%,#8d5524);box-shadow:0 14px 28px rgba(141,85,36,.25)}
+.ccard .in{position:relative;border-radius:21px;overflow:hidden;background:var(--card)}
+.ccard .cedge,.ccard .ctop{clip-path:polygon(0 0,100% 0,100% 84%,0 100%)}
+.ccard .cedge{position:absolute;left:0;right:0;top:0;height:206px}
+.ccard .ctop{position:relative;height:200px;overflow:hidden}
+.ccard .cstr{position:absolute;inset:0}
+.ccard .ov{position:absolute;left:12px;top:12px;text-align:center;line-height:.95;border-radius:12px;padding:5px 8px 6px}
+.ccard .ov b{display:block;font:italic 800 42px/1 var(--sport)}.ccard .ov small{font:italic 800 12px var(--sport);letter-spacing:1px;text-transform:uppercase}
+.ccard .rar{position:absolute;right:12px;top:14px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;letter-spacing:1px;color:#2b1d05;background:linear-gradient(135deg,#fff3c4,#e2b53c)}
+.ccard.silver .rar{color:#1e293b;background:linear-gradient(135deg,#fff,#b8bfcc)}.ccard.bronze .rar{color:#fff;background:linear-gradient(135deg,#b87333,#8d5524)}
+.ccard .cshirt{position:absolute;left:50%;top:22px;width:140px;transform:translateX(-50%);filter:drop-shadow(0 10px 12px rgba(0,0,0,.35))}
+.ccard .cshirt svg{display:block;width:100%;height:auto}
+.ccard .nm{text-align:center;padding:2px 12px 0;margin-top:-6px;position:relative}
+.ccard .nm small{display:block;color:var(--muted);font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.ccard .nm b{display:block;font:italic 800 28px/1.05 var(--sport);text-transform:uppercase;overflow-wrap:anywhere}
+.ccard .six{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;padding:12px 16px 6px}
+.ccard .six div{display:flex;align-items:baseline;gap:6px;font-size:11.5px;color:var(--muted);font-weight:700;min-width:0}
+.ccard .six b{font:italic 800 22px var(--sport);color:var(--text);min-width:26px;text-align:right}
+.ccard .six .best b{color:var(--acc-text)}
+.ccard .foot{display:flex;justify-content:center;gap:6px;padding:4px 12px 14px;flex-wrap:wrap}
+.ccard .foot i{font-style:normal;display:inline-flex;align-items:center;gap:4px;background:var(--card2);border-radius:999px;padding:4px 9px;font-size:11.5px;font-weight:800}
+.ccond{display:flex;gap:8px;margin-top:12px}
+.ccond>div{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:700}
+.ccond b{display:block;font-size:15px;color:var(--text);margin-top:2px;overflow-wrap:anywhere}
+/* 📈 рост игроков: копилка (кольцо — доля очка), ярлык возраста с приростом, плитки «было → станет» */
+.ghero{display:flex;align-items:center;gap:14px;border-radius:20px;padding:14px 16px;margin-top:6px;color:#fff;background:linear-gradient(135deg,var(--club,#1d4ed8),var(--club-hi,#1a46c2))}
+.ghero>b{font:italic 800 54px/1 var(--sport);flex:none}.ghero div{min-width:0;font-size:12.5px;line-height:1.35}.ghero div b{display:block;font-size:16px}
+.gpr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px;margin-top:8px}
+.gpr .tx{flex:1;min-width:0}.gpr .tx>b{font-size:14.5px}.gpr small{display:block;color:var(--muted);font-size:11.5px;font-weight:700;margin-top:1px}
+.gring{width:46px;height:46px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+.gring span{width:36px;height:36px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--acc-text)}
+.gpr.sm .gring{width:38px;height:38px}.gpr.sm .gring span{width:30px;height:30px;font-size:13px}
+.gage{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.gage.y{background:var(--okbg);color:var(--okfg)}.gage.m{background:var(--acc-soft);color:var(--acc-text)}.gage.o{background:var(--card2);color:var(--muted)}
+.ggo{flex:none;border-radius:16px;padding:8px 12px;font-weight:800;font-size:13px;background:#e2b53c;color:#3d2e00;box-shadow:inset 0 -4px 8px rgba(0,0,0,.13),inset 0 4px 8px rgba(255,255,255,.4)}
+.ggo:disabled{opacity:.5}
+.gstg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.gst{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px 12px;min-width:0}
+.gst .t{font-size:12px;color:var(--muted);font-weight:700}.gst .v{font:italic 800 22px/1.1 var(--sport);margin-top:3px}.gst .v em{font-style:inherit;color:var(--okt)}
+.gst .tag{position:absolute;right:8px;top:8px;font-size:10px;font-weight:800;border-radius:999px;padding:2px 7px;background:var(--card2);color:var(--muted)}
+.gst .tag.s{background:#fef3c7;color:#92400e}
+.gst .tbar i{background:var(--accent)}.gst:disabled{opacity:.5}
 /* «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) */
 .tblk{position:fixed;z-index:30;background:rgba(2,6,23,.74);touch-action:none}
 #tring{position:fixed;z-index:31;border:3px solid var(--accent);border-radius:12px;pointer-events:none;box-shadow:var(--tglow)}
@@ -1015,7 +1096,7 @@ function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(
   if (k === 'press' || k === 'awards' || k === 'pred') { if (k === 'press') { PRESS = null; PRESS_PICK = []; PRESS_OWN = null; } else if (k === 'awards') AWARDS = null; else PRED = null;
     renderPanel(); send({a: k}); } }
 // имена с приставкой panel: в Telegram на iPhone глобальное head занято (HTMLHeadElement) — «head is not a function»
-function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
+function panelSub(ch) { const cur = Object.assign({}, PANEL, {report: null, train: null}); const hist = cur.hist; delete cur.hist; PANEL = Object.assign({}, cur, ch, {hist: hist.concat([cur])}); renderPanel(); }
 function panelBack() { const h = PANEL.hist || []; if (!h.length) { closeSheet(); return; } PANEL = Object.assign({}, h[h.length - 1], {hist: h.slice(0, -1)}); renderPanel(); }
 function panelHead(title, small) {
   return `<div class="sh-top">${PANEL.hist.length ? '<button type="button" class="x" data-pback>‹</button>' : ''}<h2>${title}${small ? `<small>${small}</small>` : ''}</h2>` +
@@ -1027,11 +1108,12 @@ function renderPanel() {
   if (PANEL && PANEL.k === 'kit' && KIT_UB && KIT_UB.node && !KIT_UB.over && document.contains(KIT_UB.node)) return;      // идёт распаковка — не прерываем
   if (PANEL && PANEL.k === 'crest' && CREST_UB && CREST_UB.node && !CREST_UB.over && document.contains(CREST_UB.node)) return;
   const m = M(); if (!m && !NO_CLUB_PANELS.includes(PANEL.k)) { closeSheet(); return; }
-  const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, P.sec, P.fx, !!P.report].join('|'), keep = {};
+  const P = PANEL, sig = [P.k, P.slot, P.step, P.focus, P.lg, P.club, P.sec, P.fx, !!P.report, !!P.train].join('|'), keep = {};
   if (sig === panelSig) document.querySelectorAll('#sheetin input').forEach(i => { keep[i.id] = i.value; });   // новое состояние не стирает ввод
   panelSig = sig;
   let h;
-  if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
+  if (P.train) h = panelTrainDone(P.train);      // итог тренировки с сервера; старый сервер без train — прежний текст отчёта
+  else if (P.report) h = panelHead('📋 Отчёт') + `<div class="report">${esc(P.report)}</div><button type="button" class="big" data-pdone>Понятно</button>`;
   else h = {club: panelClub, cards: panelCards, kit: panelKit, training: panelTraining, talk: panelTalk, growth: panelGrowth,
     crest: panelCrest, friends: panelFriends, official: panelOfficial, admin: panelAdmin, report: panelReport, newclub: panelNewClub, help: panelHelp, scout: panelScout, rules: panelRules, trophies: panelTrophies, top: panelTop, press: panelPress, awards: panelAwards, pred: panelPred}[P.k](m, P);
   $('sheetin').innerHTML = h;
@@ -1102,18 +1184,44 @@ function panelCards(m, P) {
       `<b>${esc(p.last)}</b><span>${esc(sq.pos || 'очки не распределены')}</span></button>`;
   }).join('') + `</div>`;
   const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
-  const sq = player(p.slot) || {};
-  let h = panelHead('🃏 Карточка игрока') + `<div class="pcard"><div class="top" style="background:${kit[0]};border-bottom:6px solid ${kit[1]}">` +
-    `<div class="shirt" style="background:${kit[1]};color:${ink(kit[1])}">${p.number}</div>` +
-    `<div style="color:${ink(kit[0])}"><b>${esc(p.first)} ${esc(p.last)}</b><small style="color:inherit">${esc(sq.pos || '')}${sq.pos ? ' · ' : ''}${years(p.age)} · ${esc(m.name)}</small></div></div>` +
-    (p.badges.length ? `<div class="tags" style="background:var(--card);padding-top:8px">${p.badges.map(b => `<i>${esc(b)}</i>`).join('')}</div>` : '') + `<div class="body">`;
+  const sq = player(p.slot) || {}, tone = clubTone(kit), tier = CARD_TIER_T[p.tier] ? p.tier : '';
+  const best = p.stats ? m.statdefs.reduce((a, [k]) => p.stats[k] > p.stats[a] ? k : a, m.statdefs[0][0]) : null;
+  // верх — цвет клуба (clubTone: белый текст читается и на нём, и на втором оттенке полос heroShade), футболка — настоящих цветов формы
+  let h = panelHead('🃏 Карточка игрока') + `<div class="ccard${tier ? ' ' + tier : ''}"><div class="in"><div class="ctop" style="background:${tone}">` +
+    `<div class="cstr" style="background:repeating-linear-gradient(100deg,${tone} 0 26px,${heroShade(tone)} 26px 40px)"></div>` +
+    (best ? `<div class="ov" style="color:#fff;background:rgba(0,0,0,.16)"><b>${num(p.stats[best])}</b><small>${esc(m.statdefs.find(x => x[0] === best)[1])}</small></div>` : '') +
+    (tier ? `<div class="rar">${CARD_TIER_T[tier]}</div>` : '') + `<div class="cshirt">${shirtSvg(kit, p.number)}</div></div>` +
+    `<div class="nm"><small>${esc(p.first)}</small><b>${esc(p.last)}</b><div class="note">${esc(sq.pos || '')}${sq.pos ? ' · ' : ''}${years(p.age)}</div></div>`;
+  if (p.stats) h += `<div class="six">` + m.statdefs.map(([k, t]) => `<div${k === best ? ' class="best"' : ''}><b>${num(p.stats[k])}</b>${esc(t.slice(0, 3).toUpperCase())}</div>`).join('') + `</div>`;
+  const form = p.form || ((p.cond || '').match(/в ударе|хорошая форма|неважная форма|в спаде/) || [])[0];
+  const tags = p.badges.map(b => `<i>${badgeIc(b)} ${esc(b)}</i>`).concat(form && form !== 'обычная форма' ? [`<i>${/ударе|хорошая/.test(form) ? '🔥' : '📉'} ${esc(form)}</i>`] : []);
+  h += (tags.length ? `<div class="foot">${tags.join('')}</div>` : `<div style="height:12px"></div>`) + `</div></div>`;
+  const lv = p.mood_lv != null ? p.mood_lv : 2, g = p.growth || 0;
+  h += `<div class="ccond"><div>Свежесть<b>${p.injured ? '🚑 травма' : p.fresh + '%'}</b><div class="tbar"><i style="width:${p.injured ? 100 : p.fresh}%;background:${p.injured ? 'var(--bad)' : freshCol(p.fresh)}"></i></div></div>` +
+    `<div>Настрой<b>${esc(p.mood || '—')}</b><div class="tbar"><i style="width:${(lv + 1) * 20}%;background:${lv >= 2 ? 'var(--ok)' : '#f59e0b'}"></i></div></div>` +
+    `<div>Очки роста<b>📈 ${num(g)}</b><div class="tbar"><i style="width:${Math.min(100, g * 100)}%;background:#e2b53c"></i></div></div></div>`;
   if (!p.stats) h += `<div class="note" style="padding-top:8px">⚠️ Очки ещё не распределены.</div><button type="button" class="go main" data-go="squad">📋 Раздать очки в составе</button>`;
-  else {
-    const best = m.statdefs.reduce((a, [k]) => p.stats[k] > p.stats[a] ? k : a, m.statdefs[0][0]);
-    h += m.statdefs.map(([k, t]) => `<div class="st"><div class="t">${esc(t)}${k === best ? ' ★' : ''}</div><b>${num(p.stats[k])}</b>` +
-      `<div class="barw"><div class="bar" style="width:${Math.round(100 * p.stats[k] / S.limits.max)}%"></div></div></div>`).join('');
-  }
-  return h + `<div class="cond">${esc(p.cond)}</div></div></div>`;
+  return h;
+}
+const CARD_TIER_T = {gold: '★ ЗОЛОТО', silver: 'СЕРЕБРО', bronze: 'БРОНЗА'};      // рамку по сумме характеристик выбирает сервер (app/rules.py card_tier)
+const BADGE_IC = [['капитан', '©'], ['пенальтист', '🎯'], ['талант', '✨'], ['запасной', '🪑'], ['травма', '🚑']];
+const badgeIc = b => (BADGE_IC.find(([w]) => b.startsWith(w)) || [0, '•'])[1];
+const freshCol = f => f < 40 ? 'var(--bad)' : f < 60 ? '#f59e0b' : 'var(--ok)';
+// итог тренировки (condition.train_summary): шапка в цвете клуба, 2–3 цифры, на кого смотреть, все игроки под раскрывашкой
+function panelTrainDone(T) {
+  const W = T.watch || [], hurt = W.filter(w => w.kind === 'injury'), tired = W.filter(w => w.kind === 'tired');
+  const row = (ic, b, tip) => `<div><i>${ic}</i><div>${b}<small>${esc(tip || '')}</small></div></div>`;
+  const rows = hurt.map(x => row('🚑', `<b>№${x.number} ${esc(x.last)}</b> — травма на ${x.days} дн.`, x.tip)).join('') +
+    (tired.length ? row('🪫', `<b>${tired.map(x => `${esc(x.last)} ${x.fresh}%`).join(', ')}</b> — ${tired.length > 1 ? 'устали' : 'устал'}`, tired[0].tip) : '');
+  const all = (T.players || []).map(p => `<span class="n">№${p.number}</span><b>${esc(p.last)}</b>` +
+    `<div class="tbar"><i style="width:${p.injured ? 100 : p.fresh}%;background:${p.injured ? 'var(--bad)' : freshCol(p.fresh)}"></i></div>` +
+    `<span>${p.injured ? `🚑 травма${p.days ? `, ${p.days} дн.` : ''}` : `${p.fresh}% · ${esc(p.mood || '')}`}</span>`).join('');
+  return panelHead('📋 Итог тренировки') + `<div class="tsum"><div class="stamp">Проведена</div><h3>${esc(T.title || 'Тренировка')}</h3>` +
+    (T.coach ? `<p>«${esc(T.coach)}»</p>` : '') + `</div>` +
+    `<div class="ttiles">${(T.tiles || []).map(x => `<div><b class="${x.c === 'up' || x.c === 'dn' ? x.c : ''}">${esc(x.v)}</b><small>${esc(x.t)}</small></div>`).join('')}</div>` +
+    `<div class="label">На кого смотреть</div><div class="twatch">${rows || row('✅', '<b>Все в порядке</b>', `травм нет, никто не устал ниже ${T.risk_below || 40}%`)}</div>` +
+    (all ? `<details class="tall"><summary><span class="tw">▾</span> Все игроки</summary><div class="tpl">${all}</div></details>` : '') +
+    `<button type="button" class="big" data-pdone>Понятно</button>`;
 }
 /* ---------------- 👕 Форма клуба: комплекты с узорами и уровни формы (правила — app/kits.py, оплата — app/level_shop.py) ----------------
    Комплект: {s: футболка, sh: шорты, p: узор, c2: второй цвет, so: гетры, co: воротник и окантовка, gk: [футболка, шорты вратаря]};
@@ -1512,29 +1620,54 @@ function kitClick(b) {      // нажатия на экране «Форма»; 
   else return false;
   haptic(); renderPanel(); return true;
 }
+// плитка тренировки: иконка в цветном квадрате, название, 2–3 слова, справа эффект (короткие подписи — condition.train_short)
+function tkTile(attr, cls, ic, name, small, ef, dis) {
+  return `<button type="button" class="tk" ${attr}${dis ? ' disabled' : ''}><div class="ic ${cls}">${ic}</div><div class="tx">${name}${small ? `<small>${small}</small>` : ''}</div>` +
+    (ef ? `<div class="ef">${esc(ef)}</div>` : '') + `</button>`;
+}
+const tkSplit = t => { const i = String(t).indexOf(' '); return i > 0 ? [t.slice(0, i), t.slice(i + 1)] : ['•', t]; };      // «⚔️ Атака» → значок и название
+const STAT_IC = {speed: '⚡', shot: '💥', pass: '🎯', defense: '🛡', stamina: '🫁', keeping: '🧤'};
+function trainTeam(m) {      // свежесть и настрой команды: с сервера (condition.team_now), у старого сервера — из игроков
+  if (m.train.team) return m.train.team;
+  const fit = m.players.filter(p => !p.injured), list = fit.length ? fit : m.players, cnt = {};
+  list.forEach(p => { cnt[p.mood] = (cnt[p.mood] || 0) + 1; });
+  return {fresh: Math.round(list.reduce((a, p) => a + (p.fresh || 0), 0) / Math.max(1, list.length)), mood: Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '—', mood_lv: null};
+}
 function panelTraining(m, P) {
-  const t = m.train, pers = t.personal;
+  const t = m.train, pers = t.personal, sh = t.short || {};
   const focusNote = t.focus ? `<div class="card note">💪 Действует акцент ${esc(t.focus)} — до ближайшего матча; новый акцент заменит его.</div>` : '';
   if (t.block) return panelHead('🏋️ Тренировка', 'Одна в сутки на клуб') + `<div class="banner warn">${esc(t.block)}</div>` + focusNote;
   if (P.step === 'focus') {
     const f = t.focuses.find(x => x[0] === P.focus);
-    return panelHead(esc(f[1]), esc(f[2]) + '. Какая нагрузка?') + t.loads.map(([k, title, fresh, eff]) =>
-      `<button type="button" class="kind" data-tload="${k}">${esc(title)}<span>свежесть ${fresh}%, ${esc(eff[P.focus])}${k === 'heavy' ? '; форма +1, но уставшие (ниже 40%) рискуют травмой' : ''}</span></button>`).join('');
+    return panelHead(esc(f[1]), esc(f[2]) + '. Какая нагрузка?') + t.loads.map(([k, title, fresh, eff]) => { const [ic, nm] = tkSplit(title);
+      return tkTile(`data-tload="${k}"`, k === 'heavy' ? 'c-attack' : 'c-stamina', ic, esc(nm), sh[k] ? esc(sh[k][0]) :
+        `свежесть ${fresh}%, ${esc(eff[P.focus])}${k === 'heavy' ? '; форма +1, но уставшие (ниже 40%) рискуют травмой' : ''}`, sh[k] ? sh[k][1][P.focus] : ''); }).join('');
   }
   if (P.step === 'personal' && P.slot == null) return panelHead('👤 Персональная', 'С кем занимаемся?') + m.players.filter(p => p.stats && !p.injured).map(p =>
-    `<button type="button" class="kind" data-tpp="${p.slot}"${p.fresh < pers.min_fresh ? ' disabled' : ''}>${esc(p.label)}<span>свежесть ${p.fresh}%${p.fresh < pers.min_fresh ? ` — слишком устал, нужна от ${pers.min_fresh}%` : ''}</span></button>`).join('');
+    tkTile(`data-tpp="${p.slot}"`, 'n', p.number, `${esc(p.first)} ${esc(p.last)}`, `свежесть ${p.fresh}%${p.fresh < pers.min_fresh ? ` — слишком устал, нужна от ${pers.min_fresh}%` : ''}`,
+      `${p.fresh}%`, p.fresh < pers.min_fresh)).join('');
   if (P.step === 'personal') {
     const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
     return panelHead(esc(p.label), `${esc(p.cond)}<br>Свежесть −${Math.abs(pers.fresh)}%, прогресс +${num(pers.progress)}. Набрался 1 — характеристика вырастет на ${num(p.step)}.`) +
       m.statdefs.filter(([k]) => p.stats[k] < S.limits.max).map(([k, title]) =>
-        `<button type="button" class="kind" data-tps="${k}">${esc(title)} ${num(p.stats[k])}<span>прогресс ${num(p.progress[k] || 0)}/1</span></button>`).join('');
+        tkTile(`data-tps="${k}"`, 'c-personal', STAT_IC[k] || '•', `${esc(title)} ${num(p.stats[k])}`, `прогресс ${num(p.progress[k] || 0)}/1`, `+${num(pers.progress)}`)).join('');
   }
-  return panelHead('🏋️ Тренировка', 'Одна в сутки на клуб') + lockBanner() + focusNote + `<div class="label">Без акцента</div>` +
-    t.kinds.map(([k, title, d]) => `<button type="button" class="kind" data-tkind="${k}">${esc(title)}<span>${esc(d)}</span></button>`).join('') +
+  const tm = trainTeam(m), lv = tm.mood_lv;
+  const tile = (attr, k, title, d) => { const [ic, nm] = tkSplit(title); return tkTile(attr, 'c-' + k, ic, esc(nm), esc(sh[k] ? sh[k][0] : d), sh[k] ? sh[k][1] : ''); };
+  return panelHead('🏋️ Тренировка', 'Одна в сутки на клуб') + lockBanner() + focusNote +
+    `<div class="tmeter"><div><small>Свежесть команды</small><b>${tm.fresh}%</b><div class="tbar"><i style="width:${tm.fresh}%;background:${freshCol(tm.fresh)}"></i></div></div>` +
+    `<div><small>Настрой</small><b>${esc(tm.mood)}</b><div class="tbar"><i style="width:${lv == null ? 50 : (lv + 1) * 20}%;background:${lv == null || lv >= 2 ? 'var(--ok)' : '#f59e0b'}"></i></div></div></div>` +
+    `<div class="label">Восстановить</div>` + t.kinds.map(([k, title, d]) => tile(`data-tkind="${k}"`, k, title, d)).join('') +
+    `<div class="label">Подготовка к матчу — бонус к ближайшему</div>` + t.focuses.map(([k, title, d]) => tile(`data-tfocus="${k}"`, k, title, d)).join('') +
+    `<div class="label">Один игрок</div>` + tkTile('data-tpers', 'c-personal', '👤', 'Персональная', esc(sh.personal ? sh.personal[0] : 'один игрок, одна характеристика'), sh.personal ? sh.personal[1] : '') +
+    // прежние подробные описания — под раскрывашкой (только текст, без кнопок)
+    `<details class="trules"><summary>ⓘ Подробные правила</summary><div class="label">Без акцента</div>` +
+    t.kinds.map(([k, title, d]) => `<div class="kind">${esc(title)}<span>${esc(d)}</span></div>`).join('') +
     `<div class="label">С акцентом — бонус к ближайшему матчу</div>` +
-    t.focuses.map(([k, title, d]) => `<button type="button" class="kind" data-tfocus="${k}">${esc(title)}<span>${esc(d)}</span></button>`).join('') +
-    `<div class="label">Персональная</div><button type="button" class="kind" data-tpers>👤 Один игрок, одна характеристика<span>свежесть игрока −${Math.abs(pers.fresh)}%, прогресс +${num(pers.progress)}. ` +
-    `Набрался 1 — характеристика растёт, как от очка роста (нужна свежесть от ${pers.min_fresh}%).</span></button>`;
+    t.focuses.map(([k, title, d]) => `<div class="kind">${esc(title)}<span>${esc(d)}</span></div>`).join('') +
+    t.loads.map(([k, title, fresh, eff]) => `<div class="kind">${esc(title)} нагрузка<span>свежесть ${fresh}%; ${Object.values(eff).map(esc).join(', ')}${k === 'heavy' ? '; форма +1, но уставшие (ниже 40%) рискуют травмой' : ''}</span></div>`).join('') +
+    `<div class="label">Персональная</div><div class="kind">👤 Один игрок, одна характеристика<span>свежесть игрока −${Math.abs(pers.fresh)}%, прогресс +${num(pers.progress)}. ` +
+    `Набрался 1 — характеристика растёт, как от очка роста (нужна свежесть от ${pers.min_fresh}%).</span></div></details>`;
 }
 function panelTalk(m, P) {
   if (P.slot == null) return panelHead('🗣 Разговор с игроками', 'С каждым игроком — раз в сутки') + lockBanner() + m.players.map(p =>
@@ -1546,18 +1679,39 @@ function panelTalk(m, P) {
     m.talks.map(([k, title]) => `<button type="button" class="kind" data-say="${k}"${p.talked ? ' disabled' : ''}>${esc(title)}</button>`).join('') +
     (p.talked ? `<div class="hint">С этим игроком сегодня уже говорили. Завтра можно снова.</div>` : '');
 }
+const gAge = p => `<span class="gage ${p.step >= .3 ? 'y' : p.step >= .2 ? 'm' : 'o'}">${years(p.age)} · +${num(p.step)}</span>`;      // прирост за очко — по возрасту (condition.growth_step)
+const gRing = (p, f) => `<div class="gring" style="background:conic-gradient(#e2b53c ${Math.round(f * 100)}%,var(--bar0) 0)"><span>${p.number}</span></div>`;
+const pts = n => { const d = n % 10, h = n % 100; return n + (d === 1 && h !== 11 ? ' очко' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' очка' : ' очков'); };
+function gLeft(m, g) {      // сколько осталось до целого очка — словами, по наградам сервера (condition.GROWTH_AWARD)
+  const A = m.growth_award, left = Math.round((1 - g % 1) * 100) / 100;
+  if (!A || !A.friendly) return `до очка ещё ${num(left)}`;
+  if (left >= A.official) return 'нужен 1 матч тура';
+  const n = Math.ceil(left / A.friendly - 1e-9);
+  return `ещё ${n} ${n === 1 ? 'товарищеский' : 'товарищеских'} или 1 матч тура`;
+}
 function panelGrowth(m, P) {
   if (P.slot == null) {
-    const can = m.players.filter(p => p.growth >= 1 && p.stats);
-    return panelHead('📈 Рост игроков') + `<div class="note">${esc(m.growth_rule)}</div>` + lockBanner() +
-      (can.length ? `<div class="label">Кому вложить очко?</div>` + can.map(p => `<button type="button" class="kind" data-grow="${p.slot}">${esc(p.label)}<span>${num(p.growth)} очк.</span></button>`).join('')
-        : `<div class="card note">Пока вкладывать нечего: играйте матчи тура и официальные товарищеские.</div>`) +
-      `<div class="label">Все игроки</div><div class="card">` + m.players.map(p => `<div class="item">№${p.number} ${esc(p.first)} ${esc(p.last)}: ${num(p.growth)} очк. (вложено ${p.grown})</div>`).join('') + `</div>`;
+    const can = m.players.filter(p => p.growth >= 1 && p.stats), rest = m.players.filter(p => !(p.growth >= 1 && p.stats)).sort((a, b) => b.growth % 1 - a.growth % 1);
+    const total = can.reduce((a, p) => a + Math.floor(p.growth), 0);
+    let h = panelHead('📈 Рост игроков') + lockBanner() + `<div class="ghero"><b>${total}</b><div>` + (total ?
+      `<b>${pts(total).replace(/^\d+ /, '')} можно вложить</b>у ${can.length} ${can.length === 1 ? 'игрока' : 'игроков'} · каждое очко — +0,1…0,3 к характеристике` :
+      `<b>вкладывать пока нечего</b>очки роста дают матчи тура и официальные товарищеские — за 40+ минут на поле`) + `</div></div>`;
+    if (can.length) h += `<div class="label">Готовы расти</div>` + can.map(p => { const g = Math.floor(p.growth), r = Math.round((p.growth - g) * 100) / 100;
+      return `<div class="gpr">${gRing(p, 1)}<div class="tx"><b>${esc(p.last)}</b>${gAge(p)}<small>${pts(g)}${r ? ` · ещё ${num(r)} копится` : ''}</small></div>` +
+        `<button type="button" class="ggo" data-grow="${p.slot}">Вложить</button></div>`; }).join('');
+    if (rest.length) h += `<div class="label">Копят — до следующего очка</div>` + rest.map(p => { const f = p.growth % 1;
+      return `<div class="gpr sm">${gRing(p, f)}<div class="tx"><b>${esc(p.last)}</b>${gAge(p)}<small>${p.stats ? `${num(Math.round(f * 100) / 100)} из 1 · ${gLeft(m, p.growth)}` : 'очки ещё не распределены'}</small></div></div>`; }).join('');
+    return h + `<details class="trules"><summary>ⓘ Как растут игроки</summary><div class="note">${esc(m.growth_rule)}</div>` +
+      `<div class="label">Все игроки</div><div class="card">` + m.players.map(p => `<div class="item">№${p.number} ${esc(p.first)} ${esc(p.last)}: ${num(p.growth)} очк. (вложено ${p.grown})</div>`).join('') + `</div></details>`;
   }
   const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
   if (p.growth < 1) return panelHead(esc(p.label)) + `<div class="card note">Очков роста больше нет.</div><button type="button" class="big" data-pback>Назад</button>`;
-  return panelHead(esc(p.label), `${num(p.growth)} очк. В какую характеристику вложить?`) + lockBanner() +
-    m.statdefs.filter(([k]) => p.next[k]).map(([k, title]) => `<button type="button" class="kind" data-gstat="${k}">${esc(title)} ${esc(p.next[k])}</button>`).join('');
+  const vals = m.statdefs.map(([k]) => p.stats[k]), hi = Math.max(...vals), lo = Math.min(...vals), max = S.limits.max;
+  return panelHead(`${esc(p.first)} ${esc(p.last)}`, `${gAge(p)}<br>${pts(Math.floor(p.growth))} · каждое даёт <b>+${num(p.step)}</b>. Нажмите характеристику.`) + lockBanner() +
+    `<div class="gstg">` + m.statdefs.map(([k, title]) => { const v = p.stats[k], nx = p.next[k], to = nx ? nx.split('→').pop().trim() : null;
+      const tag = v === hi ? '<span class="tag s">★ сильная</span>' : v === lo ? '<span class="tag">слабая</span>' : '';
+      return `<button type="button" class="gst" ${nx ? `data-gstat="${k}"` : 'disabled'}>${tag}<div class="t">${esc(title)}</div>` +
+        `<div class="v">${num(v)} ${to ? `<em>→ ${esc(to)}</em>` : '<em>максимум</em>'}</div><div class="tbar"><i style="width:${Math.round(100 * v / max)}%"></i></div></button>`; }).join('') + `</div>`;
 }
 /* ---------------- лиги друзей, официальные лиги, администратор (тот же механизм окон) ---------------- */
 const SCOUTS = {};         // разведка и план по матчам: номер матча → данные (приходят по запросу scout)
@@ -3594,7 +3748,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'propose' && MS) closeSheet();
   if (m.ok && act && act.a === 'chal' && MS) closeSheet();
   if (m.ok && act && act.a === 'friendly') { closeSheet(); OPEN_AFTER = m.open; }
-  if (m.ok && m.report && PANEL) { PANEL.report = m.report; renderPanel(); }
+  if (m.ok && m.report && PANEL) { PANEL.report = m.report; PANEL.train = m.train && typeof m.train === 'object' ? m.train : null; renderPanel(); }
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (!m.ok && act && act.buy) SHOP_PREV = null;      // счёт не выставлен — распаковки в магазине не будет
@@ -3894,11 +4048,13 @@ function demoManage(kitAll) {   // раздел «Клуб» из демо-со�
     players: S.players.map(p => ({slot: p.slot, first: p.name.split(' ')[0], last: p.name.split(' ')[1], number: p.number, age: p.age,
       stats: p.stats && Object.assign({}, p.stats), cond: p.injury ? `🚑 травма, ещё ${p.injury} дн.` : `🔋 свежесть ${p.fresh}% · 🙂 настрой: ${p.mood}`,
       badges: [S.captain === p.slot && 'капитан', S.penalty === p.slot && 'пенальтист', S.talent && S.talent_slot === p.slot && 'талант', p.place === 'bench' && 'запасной', p.injury && 'травма'].filter(Boolean),
-      label: `№${p.number} ${p.name}`, growth: p.slot === 6 ? 1.25 : 0, grown: 0, step: p.age < 22 ? 0.3 : p.age < 29 ? 0.2 : 0.1,
+      label: `№${p.number} ${p.name}`, growth: [0.25, 0.5, 0, 0.75, 2.25, 1.25, 0.5, 0.25, 0, 0][p.slot - 1], grown: 0, step: p.age < 22 ? 0.3 : p.age < 29 ? 0.2 : 0.1,
       next: p.stats ? Object.fromEntries(Object.entries(p.stats).filter(([, v]) => v < 40).map(([k, v]) => [k, `${v} → ${num(Math.round((v + 0.2) * 10) / 10)}`])) : {},
       trait: ['🙂 Спокойный', '💪 Боец', '😰 Ранимый', '🦁 Лидер', '🙂 Спокойный', '🌟 Звезда', '😴 Ленивый', '🌟 Звезда', '💪 Боец', '🙂 Спокойный'][p.slot - 1],
       trait_info: 'демо: в Telegram здесь описание характера', promise: p.slot === 9 ? 'обещано место в основе' : null,
       progress: p.slot === 4 ? {shot: 0.4} : {}, talked: p.slot === 2, fresh: p.fresh, injured: !!p.injury, mood: p.mood,
+      mood_lv: p.slot === 3 ? 1 : 2, form: p.slot === 6 ? 'в ударе' : 'обычная форма',
+      tier: p.stats ? ['silver', 'bronze', 'bronze', 'gold', 'silver', 'gold', 'bronze', 'silver', 'bronze', 'bronze'][p.slot - 1] : null,      // в игре рамку считает бот
       st: p.place === 'bench' && p.slot > 8 ? null : {games: 4, min: 200 + p.slot * 5, goals: [0, 0, 0, 1, 0, 5, 2, 0, 0, 0][p.slot - 1],
         assists: [0, 0, 1, 2, 0, 1, 3, 0, 0, 0][p.slot - 1], shots: [0, 1, 2, 5, 1, 11, 7, 1, 0, 0][p.slot - 1], on: [0, 0, 1, 3, 0, 7, 4, 0, 0, 0][p.slot - 1],
         tackles: [0, 6, 5, 3, 7, 1, 2, 1, 0, 0][p.slot - 1], saves: p.slot === 1 ? 9 : 0, rating: [6.6, 6.5, 6.6, 7.1, 6.4, 7.9, 7.4, 6.1, 6, 6][p.slot - 1]}})),
@@ -3906,11 +4062,45 @@ function demoManage(kitAll) {   // раздел «Клуб» из демо-со�
       focuses: [['attack', '⚔️ Атака', 'завершение атак: в ближайшем матче атаки острее'], ['defense', '🛡 Оборона', 'игра без мяча: в ближайшем матче оборона надёжнее'], ['stamina', '🏃 Выносливость', 'дыхание: в ближайшем матче игроки устают медленнее']],
       loads: [['light', '🟢 Лёгкая', -5, {attack: 'сила атакующей линии +12%', defense: 'сила защиты +12%', stamina: 'игроки устают медленнее на 4%'}],
         ['heavy', '🔴 Тяжёлая', -12, {attack: 'сила атакующей линии +24%', defense: 'сила защиты +24%', stamina: 'игроки устают медленнее на 8%'}]],
-      personal: {fresh: -15, mood: 3, progress: 0.2, min_fresh: 30}},
+      personal: {fresh: -15, mood: 3, progress: 0.2, min_fresh: 30},
+      short: {"recovery": ["отдых для ног", "свежесть +25%"], "rest": ["для недовольных", "настрой ↑"], "attack": ["лёгкая / тяжёлая", "+12…24%"], "defense": ["лёгкая / тяжёлая", "+12…24%"], "stamina": ["лёгкая / тяжёлая", "−4…8% усталости"], "personal": ["растит одну характеристику", "+0,2 к росту"], "light": ["свежесть −5%, настрой +4", {"attack": "+12%", "defense": "+12%", "stamina": "−4%"}], "heavy": ["свежесть −12%, настрой +8, форма +1; уставшим (ниже 40%) — риск травмы", {"attack": "+24%", "defense": "+24%", "stamina": "−8%"}]},      // = condition.train_short()
+      team: {fresh: Math.round(S.players.filter(p => !p.injury).reduce((a, p) => a + p.fresh, 0) / Math.max(1, S.players.filter(p => !p.injury).length)), mood: 'спокоен', mood_lv: 2}},
     talks: [['praise', '👏 Похвалить'], ['demand', '😤 Потребовать больше'], ['promise', '🤝 Пообещать место в основе']],
+    growth_award: {official: 1.0, cup: 1.0, friendly: 0.25},      // = condition.GROWTH_AWARD
     growth_rule: '📈 Очки роста (игрок, отыгравший 40+ минут: матч тура — 1 очко, официальный товарищеский — 0,25). Вкладывается целое очко: прирост зависит от возраста (до 22 лет +0,3; до 29 +0,2; старше +0,1), максимум 40.',
     rating_rule: 'Оценка за матч — от 5 до 10, начиная с 6,0: гол +1, передача +0,6, удар в створ +0,15, мимо −0,1, отбор +0,25, фол −0,1; вратарю сейв +0,35, пропущенный −0,4, «сухой» матч +0,5; жёлтая −0,5, красная −1,5; победа +0,3, поражение −0,3. Лучшая оценка матча — ⭐ игрок матча.',
     statdefs: S.statdefs.map(([k, t]) => [k, t])};
+}
+function demoTrain(m, act) {      // демо: итог тренировки той же формы, что присылает бот (condition.train_summary)
+  const sh = m.train.short, fit = m.players.filter(p => !p.injured), n = fit.length, all = n === m.players.length ? 'у всей команды' : `у ${n} из ${m.players.length}`;
+  let kind = act.kind, title, tiles, hurt = null, d = 0;
+  const words = {recovery: 'Лёгкая работа с мячом, бассейн, массаж — ребята приходят в себя.', rest: 'Тренер дал день отдыха: голова должна отдохнуть так же, как ноги.',
+    light: 'Тренировка без надрыва — игроки довольны.', heavy: 'Тренер выжал из команды всё: многие вышли с поля еле живыми.', personal: 'Индивидуальное занятие: тренер разобрал ошибки и отработал движение.'};
+  if (act.a === 'personal') {
+    const q = mp(act.slot), t = m.statdefs.find(x => x[0] === act.stat)[1]; kind = 'personal'; title = `👤 Персональная · ${t}`;
+    q.fresh = Math.max(0, q.fresh - 15); q.progress[act.stat] = Math.round(((q.progress[act.stat] || 0) + .2) * 10) / 10;
+    tiles = [{v: `${num(q.progress[act.stat])}/1`, t: `прогресс: ${t.toLowerCase()}`, c: 'up'}, {v: '−15%', t: `свежесть у ${q.last}`, c: 'dn'}, {v: '🙂', t: 'настрой немного вырос', c: 'up'}];
+    return demoTrainOut(m, kind, title, words.personal, tiles, [q], null);
+  }
+  if (kind === 'focus') {
+    const L = m.train.loads.find(x => x[0] === act.load), f = m.train.focuses.find(x => x[0] === act.focus); d = L[2];
+    title = `${f[1]} · ${L[1].split(' ').slice(1).join(' ').toLowerCase()}`;
+    tiles = [{v: sh[act.load][1][act.focus], t: {attack: 'атака', defense: 'оборона', stamina: 'усталость'}[act.focus] + ' в ближайшем матче', c: 'up'},
+      {v: `−${-d}%`, t: 'свежесть ' + all, c: 'dn'}, {v: '😀', t: 'настрой вырос ' + all, c: 'up'}];
+    if (act.load === 'heavy') hurt = fit.find(p => p.fresh < 40) || fit[Math.min(6, n - 1)];      // демо: на тяжёлой кто-то перетрудился
+  } else {
+    title = m.train.kinds.find(x => x[0] === kind)[1]; d = kind === 'recovery' ? 25 : 5;
+    tiles = [{v: `+${d}%`, t: 'свежесть ' + all, c: 'up'}, {v: '➡️', t: 'настрой без изменений', c: ''}, {v: '—', t: 'без бонуса к матчу', c: ''}];
+  }
+  fit.forEach(p => { p.fresh = Math.max(0, Math.min(100, p.fresh + d)); });
+  if (hurt) { hurt.injured = true; hurt.cond = '🚑 травма, ещё 1 дн.'; }
+  return demoTrainOut(m, act.load || kind, title, words[act.load || kind], tiles, fit, hurt);
+}
+function demoTrainOut(m, kind, title, coach, tiles, trained, hurt) {
+  const watch = (hurt ? [{kind: 'injury', number: hurt.number, last: hurt.last, days: 1, tip: 'в ближайшем матче не сыграет'}] : [])
+    .concat(trained.filter(p => p !== hurt && !p.injured && p.fresh < 40).map(p => ({kind: 'tired', number: p.number, last: p.last, fresh: p.fresh, tip: 'завтра лучше восстановительная'})));
+  return {kind, title, coach, tiles, watch, risk_below: 40,
+    players: m.players.map(p => ({number: p.number, last: p.last, fresh: p.fresh, injured: !!p.injured, days: p.injured ? 1 : 0, mood: p.mood, mood_lv: p.mood_lv != null ? p.mood_lv : 2}))};
 }
 function demoClubAct(act) {   // демо: раздел «Клуб» меняется только на этой странице
   if (!M()) return null;
@@ -3958,7 +4148,7 @@ function demoClubAct(act) {   // демо: раздел «Клуб» меняе�
   }
   if (act.a === 'train' || act.a === 'personal') {
     m.train.block = 'Сегодня тренировка уже была. Следующая — завтра.'; S.hub.home.can_train = false;
-    return {ok: true, note: '✅ Тренировка проведена', report: '📋 ОТЧЁТ ТРЕНЕРА\nДемо: в Telegram здесь будет отчёт тренера — кто устал, у кого вырос настрой.'};
+    return {ok: true, note: '✅ Тренировка проведена', report: '📋 ОТЧЁТ ТРЕНЕРА\nДемо: в Telegram здесь будет отчёт тренера — кто устал, у кого вырос настрой.', train: demoTrain(m, act)};
   }
   if (act.a === 'talk') { q.talked = true; return {ok: true, note: '✅ Поговорили', report: `Демо: разговор — ${q.first} ${q.last}.\nВ Telegram здесь будет, как он отреагировал и как изменился настрой.`}; }
   if (act.a === 'grow') {
