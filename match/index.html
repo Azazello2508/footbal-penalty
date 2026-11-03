@@ -256,7 +256,8 @@ body.deciding #feed{display:none}
 const W = 600, H = 840, M = 26;                       // логические размеры поля и отступ до линий
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 const $ = id => document.getElementById(id);
-const cv = $('c'), g = cv.getContext('2d');
+const cv = $('c'), gMain = cv.getContext('2d');
+let g = gMain;                                      // куда рисуем: обычно холст; в «Телекамере» газон и трибуны — сначала в запасной холст (tvBuf)
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = t => { t = clamp(t, 0, 1); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
@@ -586,7 +587,7 @@ let actx = null, muted = false;
 try { muted = localStorage.getItem('fm_mute') === '1'; } catch (e) {}
 $('mute').textContent = muted ? '🔇' : '🔊';
 $('cam').onclick = () => {
-  camMode = {auto: 'wide', wide: 'follow', follow: 'auto'}[camMode] || 'auto'; camOn = camMode === 'auto'; shotCam = null; baseShot = null;
+  camMode = {auto: 'wide', wide: 'follow', follow: 'tv', tv: 'auto'}[camMode] || 'auto'; camOn = camMode === 'auto'; shotCam = null; baseShot = null;
   $('cam').classList.toggle('off', camMode === 'wide'); try { localStorage.setItem('fm_cam2', camMode); } catch (e) {} label(CAM_MODES[camMode]);
 };
 $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; try { localStorage.setItem('fm_mute', muted ? '1' : '0'); } catch (e) {} audio(); setMute(); toFrame({type: 'mute', on: muted}); };
@@ -4304,18 +4305,18 @@ function drawDivots(now) {                      // следы подката: т
    на эпизодах — свои планы: из-за спины атакующего, крупно удар и гол с облётом, угловой — от флажка на ворота,
    пенальти — из-за спины бьющего, фол и карточка — крупно, «волна» и трибуны. Поле можно поворачивать (r — угол),
    надписи и номера остаются ровными. Только картинка: на матч не влияет.
-   🎥 — режим: «Режиссёр» → «Всё поле» → «За мячом». Пока открыта панель решений — всё поле. */
-let cam = {x: W / 2, y: H / 2, z: 1, r: 0, vx: 0, vy: 0, vz: 0, vr: 0, tl: 0, vtl: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
-try { const v = localStorage.getItem('fm_cam2'); camMode = ['auto', 'wide', 'follow'].includes(v) ? v : 'auto'; } catch (e) {}   // по умолчанию — «Режиссёр»
+   🎥 — режим: «Режиссёр» → «Всё поле» → «За мячом» → «Телекамера». Пока открыта панель решений — всё поле. */
+let cam = {x: W / 2, y: H / 2, z: 1, r: 0, vx: 0, vy: 0, vz: 0, vr: 0, tl: 0, vtl: 0, tv: 0, vtv: 0}, shotCam = null, nextPan = 0, camMode = 'auto', baseShot = null;
+try { const v = localStorage.getItem('fm_cam2'); camMode = ['auto', 'wide', 'follow', 'tv'].includes(v) ? v : 'auto'; } catch (e) {}   // по умолчанию — «Режиссёр»
 let camOn = camMode === 'auto';
-const CAM_MODES = {auto: '🎥 Режиссёр: планы и ракурсы', wide: '🎥 Всё поле', follow: '🎥 За мячом'};
+const CAM_MODES = {auto: '🎥 Режиссёр: планы и ракурсы', wide: '🎥 Всё поле', follow: '🎥 За мячом', tv: '📺 Телекамера: вид с трибуны'};
 $('cam').classList.toggle('off', camMode === 'wide');
 function aimUp(from, to) { return -Math.PI / 2 - Math.atan2(to.y - from.y, to.x - from.x); }   // поворот: «от from к to» — вверх экрана
 function nearRot(r) {                              // ракурс эпизода, только если камере не нужно крутиться больше чем на 100°
   let d = r - baseRot(); while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
   return Math.abs(d) <= 1.75 ? r : baseRot();
 }
-function baseRot() { return baseShot && baseShot.kind === 'tv' ? baseShot.side * Math.PI / 2 : 0; }
+function baseRot() { return camMode === 'tv' ? Math.PI / 2 : baseShot && baseShot.kind === 'tv' ? baseShot.side * Math.PI / 2 : 0; }
 function camTo(z, ms, target, goalT, free, r) {     // goalT — кто атакует (в кадре мяч и ворота); free — план трибун; r — угол (число или функция)
   if (!camOn) return;
   shotCam = {z, until: performance.now() + ms / speed(), at: target, goalT, free, r, t0: performance.now()};
@@ -4345,17 +4346,22 @@ function camAim(now) {
   const full = {x: W / 2, y: H / 2, z: 1, r: 0};
   if (replay && replay.cur && replay.view && camMode !== 'wide') {   // повтор момента — свой ракурс (из-за ворот, с другой бровки)
     const v = replay.view, c = lerpPt({x: replay.cur.bx, y: replay.cur.by}, v.c, v.k);
-    return {x: c.x, y: c.y, z: Math.max(v.z, zMin(v.r)), r: v.r};
+    return {x: c.x, y: c.y, z: Math.max(v.z, zMin(v.r)), r: v.r, tv: camMode === 'tv' ? 1 : 0};   // в «Телекамере» повтор — тоже в перспективе
   }
   if (replay && replay.cur && camMode !== 'wide') {  // повтор — крупно: мяч и ворота, куда он летит
     const r = baseRot(), c = lerpPt({x: replay.cur.bx, y: replay.cur.by}, goalOf(replay.t), .3);
-    return {x: c.x, y: c.y, z: Math.max(1.85, zMin(r)), r};
+    return {x: c.x, y: c.y, z: Math.max(1.85, zMin(r)), r, tv: camMode === 'tv' ? 1 : 0};
   }
   const dr = droneAim(now);                          // перерыв — дрон (и при открытой панели решений: в перерыве она открыта всё время)
   if (dr) return dr;
   if (camMode === 'wide' || !S || document.body.classList.contains('deciding') || speed() > 1) { shotCam = null; return full; }
   if (S.phase === 'final') return {x: W / 2, y: H / 2, z: 1 + .1 * Math.max(0, Math.sin(now / 5000)), r: Math.sin(now / 8000) * .1};
   if (S.phase !== 'play' && S.phase !== 'pen') return full;           // до матча, перерыв, окна решений — всё поле
+  if (camMode === 'tv') {                            // телекамера на центральной трибуне: поле боком, ведёт мяч; кадр — по ширине стадиона
+    const ah = ballAhead(), r = Math.PI / 2, z = Math.max(clamp(HH1 / ((1 - TV_SQ) * TW / 2) * TV_FIT, 1.2, 2.6), zMin(r));
+    const near = HH1 / (1 + TV_B) / (z * (1 - TV_SQ));                 // сколько поля под центром кадра (у ближней бровки перспектива крупнее)
+    return {x: W + ST - near - 6, y: ah.y + (poss === 0 ? -50 : 50), z, r, tv: 1};   // по высоте камера стоит: низ кадра — ближняя трибуна; ездит вдоль поля за мячом
+  }
   if (!baseShot || now > baseShot.until) nextBase(now);
   if (shotCam && now > shotCam.until) shotCam = null;
   if (shotCam && shotCam.stands && ((step && step.act) || queue.some(s => s.act))) shotCam = null;   // показывали трибуны, а пошёл эпизод — сразу к мячу
@@ -4415,8 +4421,12 @@ function camUpdate(now, dt) {
   cam.z = Math.max(cam.z, t.drone || cam.z < .999 ? droneZ() * .9 : 1);    // ниже 1 — только дрон (и пока он спускается обратно)
   [cam.tl, cam.vtl] = spring(cam.tl, cam.vtl, t.tilt || 0, 1.3, dt);     // наклон дрона: 0 — сверху, 1 — сбоку
   if (cam.tl < .002 && !t.tilt) cam.tl = cam.vtl = 0;
+  [cam.tv, cam.vtv] = spring(cam.tv, cam.vtv, t.tv || 0, 1.6, dt);       // «Телекамера»: 0 — плоско, 1 — перспектива с трибуны
+  if (cam.tv < .002 && !t.tv) cam.tv = cam.vtv = 0;
+  if (t.drone) cam.tv = cam.vtv = 0;                                     // дрон в перерыве — без перспективы
   const co = Math.cos(cam.r), si = Math.sin(cam.r);
-  if (cam.z > 1.02 && !(waveCam(now) && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: с 55% полукадра камера мягко подтягивается, с 78% — быстро
+  const tvFix = t.tv && camMode === 'tv' && !(replay && replay.cur);                                  // «Телекамера»: высоту кадра держит прицел, рамка стадиона — только вдоль поля
+  if (cam.z > 1.02 && !tvFix && !(waveCam(now) && !shotCam) && !(shotCam && shotCam.free)) {   // мяч не уходит из кадра: с 55% полукадра камера мягко подтягивается, с 78% — быстро
     const mx = HW1 / cam.z, my = HH1 / cam.z, by = ball.y - ball.h;
     const dx = ball.x - cam.x, dy = by - cam.y, sx = co * dx - si * dy, sy = si * dx + co * dy;
     const out = (v, m, f) => v - clamp(v, -m * f, m * f), ks = 1 - Math.exp(-dt * 2.2), kh = 1 - Math.exp(-dt * 7);
@@ -4431,21 +4441,77 @@ function camUpdate(now, dt) {
   if (t.drone) cam.post = true;                                           // после дрона центр возвращается плавно, а не рывком
   const back = v => !cam.post || Math.abs(v) < 2 ? 0 : v * Math.exp(-dt * 5);
   if (cam.z >= 1) {                                                       // дрон выше — кадр шире стадиона, рамки нет
-    if (lx > hx) cam.x = W / 2 + back(cam.x - W / 2); else if (cam.x < lx || cam.x > hx) { cam.x = clamp(cam.x, lx, hx); cam.vx = 0; }
+    if (tvFix) {} else if (lx > hx) cam.x = W / 2 + back(cam.x - W / 2); else if (cam.x < lx || cam.x > hx) { cam.x = clamp(cam.x, lx, hx); cam.vx = 0; }
     if (ly > hy) cam.y = H / 2 + back(cam.y - H / 2); else if (cam.y < ly || cam.y > hy) { cam.y = clamp(cam.y, ly, hy); cam.vy = 0; }
     if (!t.drone && cam.tl === 0) cam.post = false;
   }
   const k = K0 * cam.z, a = k * co, b = k * si, c = -k * si, d = k * co;
-  const sq = 1 - TILT_SQ * cam.tl;                                       // наклон: вид сбоку — кадр сжат по вертикали
-  g.setTransform(a, b * sq, c, d * sq, cv.width / 2 - (a * cam.x + c * cam.y), cv.height / 2 - (b * cam.x + d * cam.y) * sq);
+  const sq = camSq();                                                   // наклон: вид сбоку — кадр сжат по вертикали
+  cam.m = [a, b * sq, c, d * sq, -(a * cam.x + c * cam.y), -(b * cam.x + d * cam.y) * sq]; cam.u = [a, b, c, d];
+  g.setTransform(a, b * sq, c, d * sq, cv.width / 2 + cam.m[4], cv.height / 2 + cam.m[5]);
 }
+function camSq() { return (1 - TILT_SQ * cam.tl) * (1 - TV_SQ * cam.tv); }
+
+/* ---------------- «Телекамера»: перспектива как в трансляции ----------------
+   Газон, трибуны и всё, что лежит на земле, рисуются обычной камерой в запасной холст (крупнее экрана), а потом
+   переносятся на экран полосками: дальняя бровка уже, ближняя шире (трапеция). Фигуры — игроки, судья, мяч, частицы —
+   рисуются поверх уже на экране, каждая в своей точке и со своим масштабом по глубине: стоят ровно, не сплющены.
+   Только картинка: на матч не влияет. */
+const TV_B = .32, TV_SQ = .4;                      // сила перспективы (дальняя бровка ×0,68, ближняя ×1,32) и наклон камеры
+const TV_LIFT = 1.9, TV_FIT = .62;                 // дальняя трибуна — стеной (выше, чем лежит на земле); какая доля ширины стадиона в кадре по высоте
+let tvBuf = null;
+function tvB() { return TV_B * cam.tv; }
+function tvBegin() {                               // рисование земли — в запасной холст; запас сверху и по бокам — то, что видно у дальней бровки
+  const q = perf.lite ? .8 : 1, ex = 1 / (1 - TV_B), bw = Math.ceil(cv.width * ex * q), bh = Math.ceil(cv.height * (ex + 1) / 2 * q);
+  if (!tvBuf) { tvBuf = document.createElement('canvas'); tvBuf.ctx = tvBuf.getContext('2d'); }
+  if (tvBuf.width !== bw || tvBuf.height !== bh) { tvBuf.width = bw; tvBuf.height = bh; }
+  tvBuf.q = q; tvBuf.cx = cv.width * ex / 2; tvBuf.cy = cv.height * ex / 2;
+  const x = tvBuf.ctx, m = cam.m;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#060b16'; x.fillRect(0, 0, bw, bh);
+  x.setTransform(q * m[0], q * m[1], q * m[2], q * m[3], q * (m[4] + tvBuf.cx), q * (m[5] + tvBuf.cy));
+  g = x;
+}
+function tvEdge(e) {                               // где в запасном холсте (доля полувысоты кадра) край газона (+e за ним): от центра кадра вверх по экрану
+  const ux = -Math.sin(cam.r), uy = -Math.cos(cam.r), m = cam.m;
+  let d = Infinity;
+  if (ux < -1e-3) d = Math.min(d, (cam.x + e) / -ux); else if (ux > 1e-3) d = Math.min(d, (W + e - cam.x) / ux);
+  if (uy < -1e-3) d = Math.min(d, (cam.y + e) / -uy); else if (uy > 1e-3) d = Math.min(d, (H + e - cam.y) / uy);
+  d = Math.max(0, d); const x = cam.x + ux * d, y = cam.y + uy * d;
+  return (m[1] * x + m[3] * y + m[5]) / (cv.height / 2);
+}
+function tvWarp() {                                // запасной холст — на экран полосками: строка экрана берёт свою строку земли и сжимается по ширине
+  g = gMain;
+  const b = tvB(), W0 = cv.width, cy = cv.height / 2, q = tvBuf.q, st = perf.lite ? 4 : 2;
+  const t0 = tvEdge(8), t1 = tvEdge(ST - 12), y0 = t0 / (1 - b * t0), s0 = 1 + b * y0, r0 = 1 / (s0 * s0), lift = 1 + (TV_LIFT - 1) * cam.tv;   // выше края газона — трибуна: стеной, ширина не меняется
+  const dep = Math.max(.01, t0 - t1), yt = y0 - dep * lift / r0;          // дальше конца трибуны — второй ярус: та же трибуна ещё раз, в тени козырька
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  for (let Y = 0; Y < cv.height; Y += st) {
+    const yn = (Y + st / 2 - cy) / cy, up = yn < y0;
+    const sx = up ? s0 : 1 + b * yn, sh = up ? st * r0 / lift : st / (sx * sx);
+    let ts = up ? t0 - (y0 - yn) * r0 / lift : yn / sx;
+    if (ts < t1) ts = t0 - (t0 - ts) % dep;
+    g.drawImage(tvBuf, (tvBuf.cx - W0 / 2 / sx) * q, (tvBuf.cy + ts * cy - sh / 2) * q, W0 / sx * q, sh * q, 0, Y, W0, st + .6);
+  }
+  const Yt = cy + yt * cy;
+  if (Yt > 0 && cam.tv > .3) {                     // второй ярус темнее, между ярусами — бетонный край
+    const sh = g.createLinearGradient(0, 0, 0, Yt); sh.addColorStop(0, 'rgba(4,8,18,.75)'); sh.addColorStop(1, 'rgba(4,8,18,.3)');
+    g.fillStyle = sh; g.fillRect(0, 0, W0, Yt);
+    g.fillStyle = 'rgba(148,163,184,.85)'; g.fillRect(0, Yt - 2 * cy / 300, W0, 3 * cy / 300);
+  }
+}
+function tvAt(x, y) {                              // фигура в точке поля (x, y): туда, куда эта точка легла в трапеции, и крупнее/мельче по глубине
+  const m = cam.m, u = cam.u, cy = cv.height / 2, fu = m[0] * x + m[2] * y + m[4], fv = m[1] * x + m[3] * y + m[5];
+  const s = 1 / (1 - tvB() * fv / cy);
+  g.setTransform(u[0] * s, u[1] * s, u[2] * s, u[3] * s, cv.width / 2 + fu * s - s * (u[0] * x + u[2] * y), cy + fv * s - s * (u[1] * x + u[3] * y));
+}
+function tvFlat() { const m = cam.m; g.setTransform(m[0], m[1], m[2], m[3], cv.width / 2 + m[4], cv.height / 2 + m[5]); }
 function upright(x, y, fn) {                        // надпись в точке (x, y) ровно на экране, как бы ни была повёрнута камера
   if (!cam.r) { fn(); return; }
   g.save(); g.translate(x, y); g.rotate(-cam.r); g.translate(-x, -y); fn(); g.restore();
 }
 function inView(x, y, r) {                          // точка (с запасом r) в кадре камеры: что за кадром — не рисуем
-  const co = Math.abs(Math.cos(cam.r)), si = Math.abs(Math.sin(cam.r)), sq = 1 - TILT_SQ * cam.tl;
-  return Math.abs(x - cam.x) < (co * HW1 + si * HH1 / sq) / cam.z + r && Math.abs(y - cam.y) < (si * HW1 + co * HH1 / sq) / cam.z + r;
+  const co = Math.abs(Math.cos(cam.r)), si = Math.abs(Math.sin(cam.r)), sq = camSq(), pad = 1 / (1 - tvB());   // в «Телекамере» у дальней бровки видно шире
+  return Math.abs(x - cam.x) < (co * HW1 + si * HH1 / sq) / cam.z * pad + r && Math.abs(y - cam.y) < (si * HW1 + co * HH1 / sq) / cam.z * pad + r;
 }
 function camIdle(now) {                              // в спокойной игре — изредка показать трибуны
   if (!camOn || shotCam || waveCam(now) || !stands || S.phase !== 'play' || stopped) return;
@@ -5140,6 +5206,8 @@ function frame(now) {
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#060b16'; g.fillRect(0, 0, cv.width, cv.height);
   camUpdate(now, clamp((now - (camUpdate.last || now)) / 1000, 0, .05)); camUpdate.last = now;
   const out = cam.z < .995 || cam.tl > .02 || wideFrame;   // дрон поднялся (или ещё наклонён) или кадр шире стадиона: виден стадион снаружи
+  const tv = !out && cam.tv > .01;                         // «Телекамера»: земля — в запасной холст, потом трапецией на экран
+  if (tv) tvBegin();
   if (out) { drawOutside(now); g.save(); ringPath(g, ST); g.clip(); g.drawImage(pitchImg, -ST, -ST, TW, TH); g.restore(); }
   else { g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4); g.drawImage(pitchImg, -ST, -ST, TW, TH); }
   if (S) {
@@ -5152,7 +5220,7 @@ function frame(now) {
     drawDivots(now);
     drawNetHit(now);
     drawMonitor(now);
-    drawRef(now);
+    if (!tv) drawRef(now);
     drawARs(now);
     waveTick(now);
     if (S.derby && !perf.lite && S.phase === 'play' && !stopped && now > derbyFire) {   // дерби: файеры то с одной, то с другой трибуны
@@ -5165,19 +5233,29 @@ function frame(now) {
     const scr = q => Math.sin(cam.r) * q.x + Math.cos(cam.r) * q.y;          // глубина на экране
     const list = (R ? R.list.slice() : [...Object.values(players), ...gone]).filter(p => p.x > TUNNEL.x + 6).sort((a, b) => scr(a) - scr(b));   // ушедшие в тоннель не видны
     drawMedic(now);                             // врачи и носилки — под игроками (лежащий — на носилках)
-    for (const p of list) drawPlayer(p, now);
-    drawFoam(now);                              // пена — поверх ног: у мяча всегда толпятся бьющий, судья и стенка
-    drawSubBoard(now);
-    drawBrawlExtras(now);
+    if (tv) {                                   // «Телекамера»: остальное на земле — в запасной холст, и на экран; фигуры — поверх, каждая в своей точке
+      drawFoam(now); drawSubBoard(now); drawBrawlExtras(now); if (fan) drawInvader(now); if (pyro) drawPyro(now); drawFlares(now);
+      tvWarp();
+      const fig = [...list, {ref: true, x: ref.x, y: ref.y}].sort((a, b) => scr(a) - scr(b));
+      for (const p of fig) { tvAt(p.x, p.y); if (p.ref) drawRef(now); else drawPlayer(p, now); }
+    } else {
+      for (const p of list) drawPlayer(p, now);
+      drawFoam(now);                            // пена — поверх ног: у мяча всегда толпятся бьющий, судья и стенка
+      drawSubBoard(now);
+      drawBrawlExtras(now);
+    }
     for (const c of cards) {
       const p = R ? R.list.find(q => key(q.t, q.s) === c.k) : players[c.k] || gone.find(q => q.gone.k === c.k); if (!p || now > c.until) continue;
+      if (tv) tvAt(p.x, p.y);
       g.fillStyle = c.c === 'red' ? '#dc2626' : '#facc15'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
       upright(p.x, p.y, () => { g.fillRect(p.x - 8, p.y - 52, 16, 22); g.strokeRect(p.x - 8, p.y - 52, 16, 22); });
     }
     cards = cards.filter(c => now < c.until);
   }
-  if (fan) drawInvader(now);                  // болельщик на поле и стюарды
-  if (pyro) drawPyro(now);
+  if (tv && !S) tvWarp();                     // до данных матча — только газон
+  if (fan && !tv) drawInvader(now);           // болельщик на поле и стюарды
+  if (pyro && !tv) drawPyro(now);
+  if (tv) tvAt(ball.x, ball.y);
   drawBall();
   // частицы
   fx = fx.filter(f => now - f.t0 < f.life);
@@ -5185,6 +5263,7 @@ function frame(now) {
   for (const f of fx) {
     const age = now - f.t0; if (age < 0) continue;
     const k = age / f.life, x = f.x + f.vx * age / 16, y = f.y + f.vy * age / 16;
+    if (tv) tvAt(x, y);
     if (f.k === 'turf') { g.globalAlpha = 1 - k; g.fillStyle = '#3f6212'; g.fillRect(x - f.r / 2, y - f.r / 2 - age * .02, f.r, f.r * .7); g.globalAlpha = 1; continue; }
     if (f.k === 'ring') { g.globalAlpha = (1 - k) * .8; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, f.r + k * 16, 0, 7); g.stroke(); g.globalAlpha = 1; continue; }
     if (f.k === 'conf') { g.save(); g.translate(x, y); g.rotate(f.r + age / 200); g.globalAlpha = 1 - k; g.fillStyle = f.c; g.fillRect(-5, -3, 10, 6); g.restore(); }
@@ -5196,7 +5275,8 @@ function frame(now) {
     else { const col = f.k === 'smoke' ? (k < .2 ? '#e88a7c' : '#c9a7a2') : '#d6c7a1';
       smoke(x, y, f.r * (1 + k * (f.k === 'smoke' ? 2 : 1.2)), col, (1 - k) * (k < .06 ? k / .06 : 1) * (f.k === 'smoke' ? .5 : .55)); }
   }
-  if (S) drawFlares(now);                     // пламя файеров — поверх их же дыма
+  if (S && !tv) drawFlares(now);              // пламя файеров — поверх их же дыма
+  if (tv) tvFlat();
   if (out) drawRoof(Math.max(smooth((1 - cam.z) / .45), cam.tl), wideFrame ? 1 : 0);   // крыша проявляется по мере подъёма; кромка — сразу, если кадр шире стадиона
   else if (outside && outside.img && (!S || S.phase !== 'half')) { outside.img.width = outside.img.height = 0; outside.img = null; }   // перерыв кончился — картинку округи из памяти
   drawWeather(now);
