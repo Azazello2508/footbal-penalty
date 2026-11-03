@@ -1,13 +1,24 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="club">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Футбольный менеджер</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@1,700;1,800&amp;subset=cyrillic&amp;display=swap">
 <style>
 :root{--bg:#0b1220;--card:#131c31;--card2:#1b2742;--line:#26344f;--text:#e8eefc;--muted:#93a3c3;--accent:#facc15;
-  --ok:#22c55e;--bad:#f87171;--pitch:#166534;--pitch2:#15803d}
+  --ok:#22c55e;--bad:#f87171;--pitch:#166534;--pitch2:#15803d;
+  /* тёмное оформление (как раньше): цвета, которые раньше были прописаны в правилах */
+  --panel:#0f172a;--on-acc:#111;--acc-soft:rgba(250,204,21,.12);--acc-soft1:rgba(250,204,21,.1);--acc-soft2:rgba(250,204,21,.08);--acc-text:#fde68a;
+  --warnl:#a16207;--warnt:#fde68a;--warnbg:#422006;--needbg:#1f1a0b;--sbtn:rgba(255,255,255,.12);--veil:rgba(2,6,23,.6);--shadow:rgba(0,0,0,.5);
+  --okt:#86efac;--okt2:#4ade80;--badt:#fca5a5;--badt2:#fecaca;--strong:#fff;--bar0:#334155;
+  --okbg:#166534;--okfg:#dcfce7;--nobg:#3f1d1d;--nofg:#fecaca;--wonbg:#14532d;--lostbg:#7f1d1d;--drawbg:#374151;--place2bg:#14532d;
+  --skyt:#7dd3fc;--viot:#c4b5fd;--shclosed:linear-gradient(135deg,#1e293b,#312e81);--shclosedb:#4338ca;
+  --promo-bg:linear-gradient(135deg,#2a1d05,#1b2742 60%,#2a1645);--croff:linear-gradient(135deg,#3b2a05,#6b4e0a);--crofft:#fde68a;
+  --ktryb:rgba(255,255,255,.18);--ktrybg:rgba(255,255,255,.06);--swatch:rgba(255,255,255,.35);--tglow:0 0 0 4px rgba(250,204,21,.22),0 0 18px rgba(250,204,21,.35);
+  --sport:"Roboto Condensed",Bahnschrift,"Arial Narrow",sans-serif}      /* узкий спортивный шрифт: на телефонах своего нет — грузим с Google Fonts */
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
   -webkit-tap-highlight-color:transparent}
@@ -18,17 +29,17 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 #club{font-size:20px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #status{font-size:13px;padding:5px 10px;border-radius:999px;background:var(--card2);white-space:nowrap}
-#status.ok{background:rgba(34,197,94,.18);color:#86efac}
-#status.bad{background:rgba(248,113,113,.16);color:#fecaca}
+#status.ok{background:rgba(34,197,94,.18);color:var(--okt)}
+#status.bad{background:rgba(248,113,113,.16);color:var(--badt2)}
 .banner{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:14px;margin:8px 0;color:var(--muted)}
-.banner.warn{border-color:#a16207;color:#fde68a}
+.banner.warn{border-color:var(--warnl);color:var(--warnt)}
 .label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
 .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .chip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center}
 .chip b{display:block;font-size:16px}
 .chip span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
-.chip.on{border-color:var(--accent);background:rgba(250,204,21,.12)}
-.chip.on span{color:#fde68a}
+.chip.on{border-color:var(--accent);background:var(--acc-soft)}
+.chip.on span{color:var(--acc-text)}
 #pitch{position:relative;border-radius:16px;padding:12px 6px;background:repeating-linear-gradient(180deg,var(--pitch) 0 44px,var(--pitch2) 44px 88px);
   border:2px solid rgba(255,255,255,.55);display:flex;flex-direction:column;gap:12px;overflow:hidden}
 #pitch:before{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid rgba(255,255,255,.4)}
@@ -62,12 +73,12 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 #bench{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 4px}
 #bench .pl{width:auto}
 #bench .pl .nm{text-shadow:none}
-#swapbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#422006;color:#fde68a;
-  border:1px solid #a16207;border-radius:12px;padding:8px 10px;margin:8px 0;font-size:14px}
-#swapbar button{background:rgba(255,255,255,.12);padding:6px 10px;border-radius:9px}
+#swapbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--warnbg);color:var(--warnt);
+  border:1px solid var(--warnl);border-radius:12px;padding:8px 10px;margin:8px 0;font-size:14px}
+#swapbar button{background:var(--sbtn);padding:6px 10px;border-radius:9px}
 .hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
 /* карточка игрока */
-#veil{position:fixed;inset:0;background:rgba(2,6,23,.6);z-index:10}
+#veil{position:fixed;inset:0;background:var(--veil);z-index:10}
 #sheet{position:fixed;left:0;right:0;bottom:0;z-index:11;max-height:var(--sheet-h,88vh);overflow:auto;-webkit-overflow-scrolling:touch;background:var(--card);border-radius:18px 18px 0 0;
   border-top:1px solid var(--line);padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
 #sheet .in{max-width:520px;margin:0 auto}
@@ -84,8 +95,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .st .btns button{width:40px;height:34px;border-radius:9px;background:var(--card2);font-weight:700;font-size:14px}
 .st .btns button:disabled{opacity:.3}
 #left{margin:10px 0;font-size:15px;text-align:center}
-#left.ok{color:#86efac}
-.big{display:block;width:100%;padding:13px;border-radius:13px;font-weight:700;font-size:16px;background:var(--accent);color:#111;margin-top:6px}
+#left.ok{color:var(--okt)}
+.big{display:block;width:100%;padding:13px;border-radius:13px;font-weight:700;font-size:16px;background:var(--accent);color:var(--on-acc);margin-top:6px}
 .big:disabled{background:var(--card2);color:var(--muted)}
 .acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
 .acts button{background:var(--card2);padding:11px 8px;border-radius:12px;font-size:14px;text-align:center}
@@ -94,18 +105,18 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .tal span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .tal.on{outline:2px solid var(--accent)}
 #toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;max-width:90vw;
-  background:#0f172a;border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:12px;font-size:14px;
-  box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
+  background:var(--panel);border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:12px;font-size:14px;
+  box-shadow:0 8px 24px var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
 #toast.show{opacity:1}
-#toast.bad{border-color:#b91c1c;color:#fecaca}
+#toast.bad{border-color:#b91c1c;color:var(--badt2)}
 #conn{text-align:center;color:var(--muted);font-size:14px;margin:40px 0}
 /* вкладки игры */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(6,1fr);background:#0f172a;
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:8;display:grid;grid-template-columns:repeat(6,1fr);background:var(--panel);
   border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
 #nav button{background:transparent;padding:4px 0;border-radius:10px;color:var(--muted);font-size:10.5px;position:relative;white-space:nowrap;min-width:0}
 #nav .nl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 1px}      /* узкий экран: подпись не налезает на соседнюю */
 #nav button i{display:block;font-style:normal;font-size:21px;line-height:1.2}
-#nav button.on{color:var(--accent);background:rgba(250,204,21,.08)}
+#nav button.on{color:var(--accent);background:var(--acc-soft2)}
 #nav .dot{position:absolute;top:0;left:calc(50% + 8px);min-width:17px;height:17px;border-radius:9px;background:#dc2626;color:#fff;
   font-size:11px;line-height:17px;padding:0 4px}
 /* 🛍 магазин и пометка NEW */
@@ -114,23 +125,23 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .shsub{color:var(--muted);font-size:12.5px;line-height:1.4}
 .shjump{display:flex;gap:6px;overflow-x:auto;margin:10px -16px 4px;padding:0 16px 4px;scrollbar-width:none}.shjump::-webkit-scrollbar{display:none}
 .shjump button{flex:none;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:6px 11px;font-size:12.5px}
-.shclosed{background:linear-gradient(135deg,#1e293b,#312e81);border:1px solid #4338ca;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;margin:8px 0}
+.shclosed{background:var(--shclosed);border:1px solid var(--shclosedb);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;margin:8px 0}
 .shblk{margin:16px 0 6px;padding:10px;border-radius:18px;border:1px solid var(--line);background:var(--card2);scroll-margin-top:10px}
-.shblk.off{border-color:#a16207;background:linear-gradient(180deg,rgba(234,179,8,.12),var(--card2) 140px)}
+.shblk.off{border-color:var(--warnl);background:linear-gradient(180deg,rgba(234,179,8,.12),var(--card2) 140px)}
 .shbh{display:flex;align-items:center;gap:10px}.shbh>div{min-width:0;flex:1}.shbh b{display:block;font-size:17px;line-height:1.25;overflow-wrap:anywhere}.shbh small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
-.shblk.off .shbh b{color:#fde68a}.shbc{flex:none;width:44px;height:53px;display:flex;align-items:center;justify-content:center;font-size:28px}.shbc svg{width:44px;height:53px}
+.shblk.off .shbh b{color:var(--warnt)}.shbc{flex:none;width:44px;height:53px;display:flex;align-items:center;justify-content:center;font-size:28px}.shbc svg{width:44px;height:53px}
 .shbx{font-size:12.5px;color:var(--muted);line-height:1.4;margin:6px 0 2px}.shblk .shsec{margin:14px 0 4px}.shblk .shit{background:var(--card)}
 .shsec{margin:18px 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);scroll-margin-top:10px}
 .shit{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px;margin:8px 0;position:relative}
-.shit.off{border-color:#a16207;background:linear-gradient(180deg,rgba(234,179,8,.08),var(--card) 40%)}
+.shit.off{border-color:var(--warnl);background:linear-gradient(180deg,rgba(234,179,8,.08),var(--card) 40%)}
 .shotag{display:inline-block;font-size:10.5px;font-weight:800;color:#2a1c00;background:linear-gradient(135deg,#fff4b8,#e8b923);border-radius:8px;padding:2px 7px;margin-bottom:4px}
 .shhd{display:flex;justify-content:space-between;align-items:center;gap:8px}.shhd>div{min-width:0}.shhd b{font-size:15px;overflow-wrap:anywhere}.shhd small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
-.shlad{display:flex;gap:3px;flex:none}.shlad i{width:14px;height:6px;border-radius:3px;background:#334155}.shlad i.on{background:var(--accent)}
+.shlad{display:flex;gap:3px;flex:none}.shlad i{width:14px;height:6px;border-radius:3px;background:var(--bar0)}.shlad i.on{background:var(--accent)}
 .shpair{display:grid;grid-template-columns:1fr 18px 1fr;gap:4px;align-items:center;width:100%;margin-top:8px;padding:0;background:none;text-align:left;color:var(--text)}.shpair>span{min-width:0}
 .shpair svg,.shnf svg,.shpromo svg{width:100%;height:auto;display:block;border-radius:10px}.shpair .ar{text-align:center;color:var(--muted)}
 .shcap{display:flex;justify-content:space-between;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-top:3px}
 .shwhat{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.4}.shwhat b{color:var(--text);font-weight:600}
-.shbig{margin-top:8px}.shmax{font-size:12.5px;color:#4ade80;margin-top:8px}
+.shbig{margin-top:8px}.shmax{font-size:12.5px;color:var(--okt2);margin-top:8px}
 .shsoon,.shsw{display:flex;align-items:center;justify-content:center;border-radius:16px;padding:10px;background:var(--card2);color:var(--muted);font-weight:700;font-size:13.5px;border:1px dashed var(--line);text-align:center}
 .shsw{color:var(--text);border-style:solid}.shwarn{font-size:12.5px;margin:0 0 4px}
 .shpack{display:flex;align-items:center;gap:10px}.shpack .ic{font-size:26px}.shpack .tx{flex:1;min-width:0;font-size:13px}.shpack .tx small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35}.shpack .tx b{white-space:nowrap}
@@ -138,17 +149,17 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .kbuy.shpk{width:auto;flex:none;padding:7px 9px}
 .shnf{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center}.shnf.one{grid-template-columns:1fr}.shnfl{font-size:12.5px;line-height:1.45}.shnfl div{margin:3px 0}.shnfl .lk{color:var(--muted)}
 .shpromo{display:grid;grid-template-columns:1fr 80px 66px;gap:8px;align-items:center;width:100%;margin:6px 0 8px;padding:10px;border-radius:16px;text-align:left;color:var(--text);
-  border:1px solid #a16207;background:linear-gradient(135deg,#2a1d05,#1b2742 60%,#2a1645);box-shadow:0 4px 18px rgba(245,197,66,.15)}
+  border:1px solid var(--warnl);background:var(--promo-bg);box-shadow:0 4px 18px rgba(245,197,66,.15)}
 .shpromo b{font-size:15px;white-space:nowrap}@media (max-width:370px){.shpromo{grid-template-columns:1fr 70px 58px;gap:6px}}.shpromo b i{font-style:normal;font-size:10px;font-weight:800;background:#ef4444;color:#fff;border-radius:6px;padding:2px 5px;vertical-align:2px}
-.shpromo small{display:block;color:#fde68a;font-size:12px;margin-top:4px;line-height:1.3}.shpt{min-width:0}.shpm{min-width:0}
+.shpromo small{display:block;color:var(--warnt);font-size:12px;margin-top:4px;line-height:1.3}.shpt{min-width:0}.shpm{min-width:0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
 .card h3{margin:0 0 6px;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .card .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .card .sub{color:var(--muted);font-size:13px;margin-top:3px}
-.card.need{border-color:#a16207;background:#1f1a0b}
-.card.warnc{border-color:#a16207}
+.card.need{border-color:var(--warnl);background:var(--needbg)}
+.card.warnc{border-color:var(--warnl)}
 .go{display:block;width:100%;margin-top:9px;padding:10px;border-radius:11px;background:var(--card2);font-size:14px;text-align:center}
-.go.main{background:var(--accent);color:#111;font-weight:700}
+.go.main{background:var(--accent);color:var(--on-acc);font-weight:700}
 .crest{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
 .badge{flex:none;width:58px;height:66px;border-radius:12px 12px 29px 29px;display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:20px;border:3px solid rgba(255,255,255,.85);box-shadow:0 4px 12px rgba(0,0,0,.45);text-shadow:0 1px 2px rgba(0,0,0,.6);color:#fff}
@@ -170,7 +181,7 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .crt .lk{display:block;font-size:10px;font-style:normal;color:var(--muted);font-weight:600}.color.lock{position:relative}.color.lock::after{top:50%;left:50%;right:auto;transform:translate(-50%,-50%)}
 .crlv{background:var(--card2);border-radius:12px;padding:10px 12px;margin:8px 0}.crlv b{font-size:16px}.crlv .sub{margin-top:3px;font-size:13px;color:var(--muted)}.crlv .go{margin-top:8px}
 .crhead{border-radius:12px;padding:9px 12px;margin:6px 0;font-size:14px;font-weight:700;background:var(--card2);border:1px solid var(--line)}
-.crhead.off{background:linear-gradient(135deg,#3b2a05,#6b4e0a);border-color:#e8b923;color:#fde68a}
+.crhead.off{background:var(--croff);border-color:#e8b923;color:var(--crofft)}
 .crhead small{display:block;font-size:11.5px;font-weight:400;opacity:.85;margin-top:2px;line-height:1.35}.crhead{overflow-wrap:anywhere}
 .crgrid.kitoff{grid-template-columns:repeat(2,1fr)}.crbase>div{min-width:0}
 .crbase{display:flex;align-items:center;gap:10px;background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:8px 12px;margin:8px 0;font-size:13px;color:var(--muted)}.crbase svg{width:44px;height:53px;flex:none}.crbase b{color:var(--text)}
@@ -182,17 +193,17 @@ svg.crl{width:26px;height:31px;vertical-align:-9px}
 .form i{width:16px;height:16px;border-radius:50%;font-style:normal;font-size:10px;line-height:16px;text-align:center;color:#0b1220;font-weight:700}
 .form .В{background:#22c55e}.form .Н{background:#facc15}.form .П{background:#f87171}
 .score{font-weight:800;font-size:18px;white-space:nowrap}
-.res-В{color:#86efac}.res-Н{color:#fde68a}.res-П{color:#fca5a5}
+.res-В{color:var(--okt)}.res-Н{color:var(--warnt)}.res-П{color:var(--badt)}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 10px}
 .seg button{background:transparent;padding:8px;border-radius:9px;font-size:14px;color:var(--muted)}
 .seg button.on{background:var(--card2);color:var(--text);font-weight:700}
 table.tb{width:100%;border-collapse:collapse;font-size:14px}
 .cupm{padding:8px 0;border-top:1px solid var(--line);gap:8px}.cupm:first-child{border-top:0}
-.cupm .w{font-weight:700;color:var(--accent)}.cupm.me,.row.me{background:rgba(250,204,21,.08);border-radius:8px}
+.cupm .w{font-weight:700;color:var(--accent)}.cupm.me,.row.me{background:var(--acc-soft2);border-radius:8px}
 .tb th{font-size:11px;color:var(--muted);font-weight:600;text-align:center;padding:4px 2px}
 .tb td{padding:8px 2px;border-top:1px solid var(--line);text-align:center}
 .tb td.n{text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tb tr.me td{background:rgba(250,204,21,.1);font-weight:700}
+.tb tr.me td{background:var(--acc-soft1);font-weight:700}
 .tb td.pts{font-weight:800}
 /* полка трофеев и лучшие менеджеры */
 .tb.top td.n{max-width:none;white-space:normal}.tb.top td.n small{display:block;color:var(--muted);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46vw}
@@ -203,7 +214,7 @@ table.tb{width:100%;border-collapse:collapse;font-size:14px}
 .item{padding:9px 0;border-top:1px solid var(--line);font-size:14px;line-height:1.35}
 .item:first-of-type{border-top:0}
 .item small{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
-.item.new{color:#fff}.item.new small:after{content:" · новое";color:var(--accent)}
+.item.new{color:var(--strong)}.item.new small:after{content:" · новое";color:var(--accent)}
 button.item{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);color:inherit;font:inherit;font-size:14px;cursor:pointer}
 button.item i{display:block;font-style:normal;font-size:12px;color:var(--accent);margin-top:2px}
 button.item.more{text-align:center;color:var(--accent);font-weight:600}
@@ -212,10 +223,10 @@ button.item.more{text-align:center;color:var(--accent);font-weight:600}
 .pstats b{display:block;font-size:20px}.pstats span{font-size:11px;color:var(--muted)}
 tr[data-pedit]{cursor:pointer}
 .scoutb{border-color:var(--accent)!important}
-.ask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}.ask .wtag{color:#7dd3fc}
+.ask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}.ask .wtag{color:var(--skyt)}
 .ask h3 small{display:block;font-size:12px;color:var(--muted);font-weight:400}
 .daily{border:1px solid #a78bfa;background:linear-gradient(135deg,rgba(167,139,250,.14),var(--card))}
-.daily .wtag{font-size:12px;color:#c4b5fd;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+.daily .wtag{font-size:12px;color:var(--viot);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
 .daily h3{margin:6px 0 2px;font-size:16px;line-height:1.3;text-transform:none;letter-spacing:0;font-family:inherit}.daily .dtheme{font-size:12px;color:var(--muted)}
 .daily .dopt{display:block;width:100%;text-align:left;background:var(--card2);padding:12px;border-radius:12px;margin-top:6px;font-size:15px;border:1px solid transparent;color:var(--text)}
 .daily .dopt:disabled{opacity:.6}.daily .dopt.right{border-color:#22c55e;background:rgba(34,197,94,.14)}.daily .dopt.wrong{border-color:#ef4444;background:rgba(239,68,68,.12)}
@@ -228,23 +239,23 @@ tr[data-pedit]{cursor:pointer}
 .sublabel{font-size:13px;font-weight:700;margin:12px 0 6px}
 .formrow{display:flex;gap:6px}.formrow .fr{flex:1;text-align:center;border-radius:10px;padding:6px 0;font-weight:800;background:var(--card2)}
 .formrow .fr small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
-.fr.res-В{background:#14532d}.fr.res-П{background:#7f1d1d}.fr.res-Н{background:#374151}
+.fr.res-В{background:var(--wonbg)}.fr.res-П{background:var(--lostbg)}.fr.res-Н{background:var(--drawbg)}
 .tbar{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:4px 0}.tbar b{text-align:right}
 .tbar .barw{height:8px;border-radius:4px;background:var(--card2);overflow:hidden}.tbar .bar{height:100%;background:var(--accent)}
-.wnew{border:1px solid var(--accent);background:linear-gradient(135deg,rgba(250,204,21,.12),var(--card))}
+.wnew{border:1px solid var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}
 /* первые шаги, разрешение писать в чат, подсказки «один раз» (app/onboarding.py) */
 .obs{border:1px solid #22c55e;background:linear-gradient(135deg,rgba(34,197,94,.12),var(--card))}
-.obs .wtag{font-size:12px;color:#86efac;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+.obs .wtag{font-size:12px;color:var(--okt);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
 .obs .obar{height:8px;border-radius:6px;background:var(--card2);margin:8px 0 4px;overflow:hidden}.obs .obar i{display:block;height:100%;background:#22c55e;border-radius:6px}
 .obstep{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line)}.obstep:first-of-type{border-top:0}
 .obstep .ck{flex:0 0 22px;height:22px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px}
 .obstep.done .ck{background:#22c55e;border-color:#22c55e;color:#06210f}.obstep.done .tx b{color:var(--muted);text-decoration:line-through}
 .obstep .tx{flex:1;min-width:0}.obstep .tx b{display:block;font-size:14px;font-weight:600}.obstep .tx span{display:block;font-size:12px;color:var(--muted)}
-.obstep .do{flex:0 0 auto;padding:6px 10px;border-radius:9px;background:var(--accent);color:#111;font-weight:700;font-size:13px}
+.obstep .do{flex:0 0 auto;padding:6px 10px;border-radius:9px;background:var(--accent);color:var(--on-acc);font-weight:700;font-size:13px}
 .obhide{display:block;margin:8px auto 0;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
 .wask{border:1px solid #38bdf8;background:linear-gradient(135deg,rgba(56,189,248,.12),var(--card))}
-.tip{background:rgba(250,204,21,.1);border:1px solid #a16207;border-radius:12px;padding:9px 12px;margin:8px 0;font-size:13px;line-height:1.4;display:flex;gap:8px;align-items:flex-start}
-.tip span{flex:1}.tip button{flex:0 0 auto;padding:5px 10px;border-radius:9px;background:var(--accent);color:#111;font-weight:700;font-size:12px}
+.tip{background:var(--acc-soft1);border:1px solid var(--warnl);border-radius:12px;padding:9px 12px;margin:8px 0;font-size:13px;line-height:1.4;display:flex;gap:8px;align-items:flex-start}
+.tip span{flex:1}.tip button{flex:0 0 auto;padding:5px 10px;border-radius:9px;background:var(--accent);color:var(--on-acc);font-weight:700;font-size:12px}
 /* «Сообщество игры» на «Главной»: свой зелёный фон и белый текст — не зависит от темы Telegram */
 .comm{display:grid;grid-template-columns:42px minmax(0,1fr) auto;column-gap:10px;row-gap:3px;align-items:center;width:100%;text-align:left;
   margin:8px 0;padding:12px;border-radius:14px;color:#fff;background:linear-gradient(135deg,#15803d 0%,#16a34a 55%,#22c55e 100%);
@@ -259,17 +270,17 @@ tr[data-pedit]{cursor:pointer}
 .comm.thin .ct{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.comm.thin .ct span{color:#dcfce7}
 .comm.thin .ca{font-size:20px;line-height:1;font-weight:700}
 .wnew h3{margin:4px 0 6px}.wnew .wtag{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.item .kick{display:block;margin-top:6px;background:none;border:1px solid var(--line);color:#fca5a5;border-radius:10px;padding:5px 10px;font:inherit;font-size:13px}
+.item .kick{display:block;margin-top:6px;background:none;border:1px solid var(--line);color:var(--badt);border-radius:10px;padding:5px 10px;font:inherit;font-size:13px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .mrow button{padding:10px 6px;border-radius:11px;background:var(--card2);font-size:14px}
-.mrow button.ok{background:#166534;color:#dcfce7}
-.mrow button.no{background:#3f1d1d;color:#fecaca}
+.mrow button.ok{background:var(--okbg);color:var(--okfg)}
+.mrow button.no{background:var(--nobg);color:var(--nofg)}
 .slots{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
 .slots button{padding:11px 6px;border-radius:11px;background:var(--card2);font-size:15px}
-.slots button.now{grid-column:1/-1;background:var(--accent);color:#111;font-weight:700}
+.slots button.now{grid-column:1/-1;background:var(--accent);color:var(--on-acc);font-weight:700}
 .own{display:flex;gap:6px;margin-top:8px}
 .own input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px}
-.own button{background:var(--accent);color:#111;font-weight:700;border-radius:11px;padding:0 14px}
+.own button{background:var(--accent);color:var(--on-acc);font-weight:700;border-radius:11px;padding:0 14px}
 .own select{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px}
 .kind{display:block;width:100%;text-align:left;background:var(--card2);padding:11px 12px;border-radius:12px;margin-top:6px;font-size:15px}
 .kind span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
@@ -285,7 +296,7 @@ tr[data-pedit]{cursor:pointer}
 .own+.own{margin-top:6px}
 .prown{display:block;width:100%;box-sizing:border-box;margin-top:8px;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:10px;font:inherit;font-size:15px;resize:vertical;min-height:84px}
 .hotq{color:#f97316;font-weight:700}
-.go.danger{color:#fca5a5}
+.go.danger{color:var(--badt)}
 .invite{word-break:break-all;font-size:13px;color:var(--muted);margin-top:6px}
 .mrow2{display:flex;gap:6px}.mrow2 .go{flex:1}
 .repb{background:none;border:0;padding:0 4px;font-size:13px;opacity:.55;vertical-align:middle}
@@ -318,9 +329,9 @@ tr[data-pedit]{cursor:pointer}
 .ktag.l4,.klt.l4{background:linear-gradient(135deg,#fff4b8,#e8b923 40%,#9a6b00);color:#2a1c00}.ktag.l5,.klt.l5{background:linear-gradient(90deg,#ff1f8f,#a855f7,#00e5ff);color:#fff}
 .kcap{text-align:center;margin:4px 0 6px}
 .kchips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:2px 0 8px}.kshop .sub{font-size:12.5px;line-height:1.35;color:var(--muted);margin-top:6px}.kchips button{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border-radius:12px;background:var(--card2);padding:6px 2px;font-size:11px;font-weight:600;line-height:1.15}
-.kchips small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;margin-top:2px}.kchips .on{box-shadow:0 0 0 2px var(--accent) inset}.kchips .own small{color:#4ade80}
+.kchips small{display:block;font-weight:500;color:var(--muted);font-size:10.5px;margin-top:2px}.kchips .on{box-shadow:0 0 0 2px var(--accent) inset}.kchips .own small{color:var(--okt2)}
 .kacts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:stretch;margin-top:8px}.kacts.one{grid-template-columns:1fr}@media (max-width:370px){.kacts{grid-template-columns:1fr}.ktry{padding:8px 14px}}      /* узкий экран: «Примерить» над кнопкой покупки */
-.ktry{border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:10px 14px;background:rgba(255,255,255,.06);font-weight:700;font-size:14px;box-shadow:0 0 16px rgba(94,181,247,.25)}
+.ktry{border:1px solid var(--ktryb);border-radius:16px;padding:10px 14px;background:var(--ktrybg);font-weight:700;font-size:14px;box-shadow:0 0 16px rgba(94,181,247,.25)}
 .kbuy{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border-radius:16px;padding:10px 12px;font-weight:800;font-size:14.5px;line-height:1.2;text-align:left;color:#2a1c00;overflow:hidden;
  background:linear-gradient(135deg,#fff4b8,#f5c542 35%,#e8a90c 70%,#ffe27a);box-shadow:0 6px 22px rgba(245,197,66,.38),inset 0 1px 0 rgba(255,255,255,.7)}
 .kbuy.l5{background:linear-gradient(120deg,#ff5fc8,#a855f7 40%,#22d3ee);color:#fff;box-shadow:0 6px 24px rgba(168,85,247,.45),inset 0 1px 0 rgba(255,255,255,.5)}
@@ -338,7 +349,7 @@ tr[data-pedit]{cursor:pointer}
 .kdn{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:5px;font-size:12px;font-weight:700;min-width:0}.kdn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .klt{font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:10px;background:rgba(127,127,127,.25);white-space:nowrap}.klt.l3{background:linear-gradient(135deg,#f1f5f9,#94a3b8);color:#1e293b}.klt.l2{background:#2f8ff0;color:#fff}
 @media (prefers-reduced-motion:reduce){.kc-sw,.kc-pl,.kc-sh,.kc-tw,.kc-run,.kbuy::after{animation:none}.kfi{transition:none}}
-.color{aspect-ratio:1;border-radius:50%;border:2px solid rgba(255,255,255,.35);max-width:36px;justify-self:center;width:100%}
+.color{aspect-ratio:1;border-radius:50%;border:2px solid var(--swatch);max-width:36px;justify-self:center;width:100%}
 .color.on{outline:3px solid var(--accent);outline-offset:2px}
 .cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .mini{background:var(--card2);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
@@ -350,14 +361,14 @@ tr[data-pedit]{cursor:pointer}
 .pcard .top b{display:block;font-size:18px}
 .pcard .top small{color:rgba(255,255,255,.85);font-size:13px}
 .pcard .tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 6px}
-.pcard .tags i{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:rgba(250,204,21,.15);color:#fde68a;text-transform:uppercase;letter-spacing:.04em}
+.pcard .tags i{font-style:normal;font-size:11px;padding:3px 8px;border-radius:999px;background:var(--acc-soft);color:var(--acc-text);text-transform:uppercase;letter-spacing:.04em}
 .pcard .body{padding:4px 12px 12px;background:var(--card)}
 .pcard .cond{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
 /* «📖 Обучение»: подсказки поверх настоящих экранов (app/learning.py) */
 .tblk{position:fixed;z-index:30;background:rgba(2,6,23,.74);touch-action:none}
-#tring{position:fixed;z-index:31;border:3px solid var(--accent);border-radius:12px;pointer-events:none;box-shadow:0 0 0 4px rgba(250,204,21,.22),0 0 18px rgba(250,204,21,.35)}
+#tring{position:fixed;z-index:31;border:3px solid var(--accent);border-radius:12px;pointer-events:none;box-shadow:var(--tglow)}
 #tbub{position:fixed;z-index:32;left:12px;right:12px;max-width:496px;margin:0 auto;max-height:46vh;overflow:auto;-webkit-overflow-scrolling:touch;
-  background:#0f172a;border:1px solid var(--accent);border-radius:14px;padding:11px 12px 12px;box-shadow:0 10px 30px rgba(0,0,0,.65)}
+  background:var(--panel);border:1px solid var(--accent);border-radius:14px;padding:11px 12px 12px;box-shadow:0 10px 30px var(--shadow)}
 #tbub.center{max-height:84vh}
 #tbub.shake{animation:tshake .35s}
 @keyframes tshake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
@@ -369,10 +380,10 @@ tr[data-pedit]{cursor:pointer}
 #tbub .tx{font-size:14px;line-height:1.42}
 #tbub .ex{margin-top:7px;font-size:13px;line-height:1.4;background:var(--card2);border-radius:10px;padding:7px 10px}
 #tbub .ex b{color:var(--accent)}
-#tbub .warnx{margin-top:7px;font-size:13px;color:#fde68a}
+#tbub .warnx{margin-top:7px;font-size:13px;color:var(--warnt)}
 #tbub .tbtns{display:flex;gap:6px;margin-top:9px}
 #tbub .tbtns button{flex:1;padding:9px 6px;border-radius:11px;background:var(--card2);font-size:14px}
-#tbub .tbtns button.main{background:var(--accent);color:#111;font-weight:700}
+#tbub .tbtns button.main{background:var(--accent);color:var(--on-acc);font-weight:700}
 #tbub .tpath{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-top:8px;font-size:15px;position:relative}
 #tbub .tpath b{display:block;font-size:16px}
 #tbub .tpath span{display:block;color:var(--muted);font-size:13px;margin-top:3px;line-height:1.35}
@@ -394,19 +405,77 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 .pdc{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:7px}
 .pdc .st{width:34px;height:34px;border-radius:10px;background:var(--card);font-size:18px;font-weight:700;line-height:1}
 .pdc b{min-width:20px;text-align:center;font-size:18px}
-.pdc .sv{padding:8px 10px;border-radius:10px;background:var(--accent);color:#111;font-weight:700;font-size:13px;margin-left:4px}.pdc .sv:disabled{opacity:.45}
+.pdc .sv{padding:8px 10px;border-radius:10px;background:var(--accent);color:var(--on-acc);font-weight:700;font-size:13px;margin-left:4px}.pdc .sv:disabled{opacity:.45}
 .tb.pd td.n small{display:block;color:var(--muted);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-top:7px}
 .lrn .ic{font-size:24px;flex:none;width:30px;text-align:center}
 .lrn .tt{flex:1;min-width:0}.lrn .tt b{display:block;font-size:15px}.lrn .tt span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
-.lrn .stt{flex:none;font-size:12px;font-weight:700;color:var(--accent);text-align:right}.lrn .stt.ok{color:#86efac}
-.lrn.main{border-color:var(--accent);background:linear-gradient(135deg,rgba(250,204,21,.12),var(--card))}
+.lrn .stt{flex:none;font-size:12px;font-weight:700;color:var(--accent);text-align:right}.lrn .stt.ok{color:var(--okt)}
+.lrn.main{border-color:var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}
 .lrnre{display:block;margin:4px 0 0 auto;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
-.ferr{color:#fca5a5;font-size:12px;line-height:1.35;margin:-2px 2px 6px;white-space:pre-line}.ferr:empty{display:none}
+.ferr{color:var(--badt);font-size:12px;line-height:1.35;margin:-2px 2px 6px;white-space:pre-line}.ferr:empty{display:none}
 .own input.bad{border-color:#ef4444}
 .presets{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 6px}.presets button{background:var(--card2);border-radius:9px;padding:6px 8px;font-size:12px}
-.place2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.place2 button{background:#14532d;color:#dcfce7;padding:11px 8px;border-radius:12px;font-size:14px;font-weight:700}
+.place2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.place2 button{background:var(--place2bg);color:var(--okfg);padding:11px 8px;border-radius:12px;font-size:14px;font-weight:700}
+/* 🎨 оформление «в цветах клуба» (по умолчанию; тёмное — html[data-theme=dark], прежние цвета выше). --club, --club-hi,
+   --club-soft, --club-soft2 ставит clubTheme() по форме активного клуба (clubTone: текст цвета клуба читается на белом) */
+.hero .hshirt{display:none}
+html[data-theme="club"]{--bg:#f7f8fa;--card:#fff;--card2:#eef1f6;--line:#e3e7ef;--text:#0d1530;--muted:#6b7390;--accent:var(--club,#1d4ed8);
+  --panel:#fff;--on-acc:#fff;--acc-soft:var(--club-soft,rgba(29,78,216,.1));--acc-soft1:var(--acc-soft);--acc-soft2:var(--club-soft2,rgba(29,78,216,.06));--acc-text:var(--club,#1d4ed8);
+  --warnl:#f59e0b;--warnt:#92400e;--warnbg:#fffbeb;--needbg:#fffbeb;--sbtn:rgba(146,64,14,.1);--veil:rgba(13,21,48,.45);--shadow:rgba(13,21,48,.16);
+  --okt:#15803d;--okt2:#15803d;--badt:#b91c1c;--badt2:#b91c1c;--strong:#0d1530;--bar0:#dde2ea;
+  --okbg:#dcfce7;--okfg:#166534;--nobg:#fee2e2;--nofg:#991b1b;--wonbg:#bbf7d0;--lostbg:#fecaca;--drawbg:#e5e7eb;--place2bg:#dcfce7;
+  --skyt:#0369a1;--viot:#6d28d9;--shclosed:linear-gradient(135deg,#eef2ff,#e0e7ff);--shclosedb:#a5b4fc;
+  --promo-bg:linear-gradient(135deg,#fff7db,#fff 60%,#f3e8ff);--croff:linear-gradient(135deg,#fef3c7,#fde68a);--crofft:#713f12;
+  --ktryb:var(--line);--ktrybg:var(--card2);--swatch:rgba(13,21,48,.25);--tglow:0 0 0 4px var(--acc-soft),0 0 18px var(--acc-soft);--soft:0 2px 10px rgba(13,21,48,.06)}
+html[data-theme="club"] body{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+html[data-theme="club"] .card,html[data-theme="club"] .chip,html[data-theme="club"] .stats3 div,html[data-theme="club"] .menu button,html[data-theme="club"] .lrn,html[data-theme="club"] .shit,html[data-theme="club"] #bench,html[data-theme="club"] .seg,html[data-theme="club"] .banner,html[data-theme="club"] .chem,html[data-theme="club"] .crbase{box-shadow:var(--soft)}
+html[data-theme="club"] .banner.warn,html[data-theme="club"] .card.warnc{background:var(--warnbg)}
+html[data-theme="club"] .seg button.on{background:var(--accent);color:var(--on-acc)}
+html[data-theme="club"] #sheet{box-shadow:0 -10px 30px rgba(13,21,48,.15)}
+/* нижнее меню — белая плавающая панель */
+html[data-theme="club"] #nav{left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));max-width:540px;margin:0 auto;border:0;border-radius:18px;padding:6px 4px;box-shadow:0 10px 30px rgba(13,21,48,.14)}
+html[data-theme="club"] #nav button.on{font-weight:700}
+/* поле — картинка газона: имена белые; на белой скамейке и белом фоне — обводка у светлых кружков, эмблем и форм */
+html[data-theme="club"] #pitch .pl{color:#fff}
+html[data-theme="club"] #bench .pl .shirt{border-color:#dfe3ea;box-shadow:0 2px 6px rgba(13,21,48,.2)}
+html[data-theme="club"] .mini .shirt,html[data-theme="club"] .pcard .top .shirt{box-shadow:0 0 0 1px rgba(13,21,48,.2)}
+html[data-theme="club"] .pcard .top{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+html[data-theme="club"] svg.cr,html[data-theme="club"] .crt svg,html[data-theme="club"] .shbc svg,html[data-theme="club"] .crbase svg,html[data-theme="club"] .kdn svg{filter:drop-shadow(0 0 .6px rgba(13,21,48,.6)) drop-shadow(0 1px 1.5px rgba(13,21,48,.22))}
+/* цифры и название клуба — спортивный узкий наклонный шрифт */
+html[data-theme="club"] .stats3 b,html[data-theme="club"] .pstats b,html[data-theme="club"] .score,html[data-theme="club"] .tb td.pts,html[data-theme="club"] .tb td:first-child:not(.n),html[data-theme="club"] .chip b,html[data-theme="club"] .recs b,html[data-theme="club"] .st .t b,html[data-theme="club"] .pdc b,html[data-theme="club"] .formrow .fr{font-family:var(--sport);font-style:italic;font-weight:700}
+html[data-theme="club"] .stats3 b{font-size:26px;line-height:1.05}html[data-theme="club"] .pstats b{font-size:24px}html[data-theme="club"] .score{font-size:21px}
+html[data-theme="club"] .crest h1,html[data-theme="club"] #club{font-family:var(--sport);font-style:italic;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+html[data-theme="club"] .crest h1{font-size:24px;line-height:1.05}
+html[data-theme="club"] .crest h1 small{font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;font-style:normal;font-weight:400;text-transform:none;letter-spacing:0;margin-top:5px}
+/* шапка «Главной»: цвет формы клуба, полосы чуть светлее, скошенный низ, крупная футболка с номером капитана */
+html[data-theme="club"] .hero{position:relative;display:flex;align-items:center;gap:8px;margin:calc(-10px - env(safe-area-inset-top)) -16px 6px;padding:calc(18px + env(safe-area-inset-top)) 16px 40px;color:#fff;
+  background:repeating-linear-gradient(90deg,var(--club,#1d4ed8) 0 34px,var(--club-hi,#2a5cf0) 34px 40px);clip-path:polygon(0 0,100% 0,100% calc(100% - 28px),0 100%)}
+html[data-theme="club"] .hero .crest{flex:1;min-width:0;margin:0}html[data-theme="club"] .hero .crest h1{min-width:0;overflow-wrap:break-word;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+html[data-theme="club"] .hero .crest small{color:rgba(255,255,255,.9)}
+html[data-theme="club"] .hero .hshirt{display:block;flex:none;width:80px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.3))}.hero .hshirt svg{display:block;width:100%;height:auto}
+/* узор шапки — как у активной формы (kit_edit.design.home.p), в двух оттенках клуба: белый текст читается на обоих */
+html[data-theme="club"] .hero[data-pat="stripes"]{background:repeating-linear-gradient(90deg,var(--club,#1d4ed8) 0 26px,var(--club-hi,#1a46c2) 26px 52px)}
+html[data-theme="club"] .hero[data-pat="hoops"]{background:repeating-linear-gradient(180deg,var(--club,#1d4ed8) 0 24px,var(--club-hi,#1a46c2) 24px 48px)}
+html[data-theme="club"] .hero[data-pat="halves"]{background:linear-gradient(90deg,var(--club,#1d4ed8) 50%,var(--club-hi,#1a46c2) 50%)}
+html[data-theme="club"] .hero[data-pat="quarters"]{background:linear-gradient(90deg,var(--club,#1d4ed8) 50%,var(--club-hi,#1a46c2) 50%) top/100% 50% no-repeat,linear-gradient(90deg,var(--club-hi,#1a46c2) 50%,var(--club,#1d4ed8) 50%) bottom/100% 50% no-repeat}
+html[data-theme="club"] .hero[data-pat="sash"]{background:linear-gradient(118deg,var(--club,#1d4ed8) 0 34%,var(--club-hi,#1a46c2) 34% 54%,var(--club,#1d4ed8) 54%)}
+html[data-theme="club"] .hero[data-pat="sleeves"]{background:linear-gradient(90deg,var(--club-hi,#1a46c2) 0 15%,var(--club,#1d4ed8) 15% 85%,var(--club-hi,#1a46c2) 85%)}
+html[data-theme="club"] .hero[data-pat="chevron"]{background:linear-gradient(to top right,transparent 0 38%,var(--club-hi,#1a46c2) 38% 56%,transparent 56%) left/50% 100% no-repeat,linear-gradient(to top left,transparent 0 38%,var(--club-hi,#1a46c2) 38% 56%,transparent 56%) right/50% 100% no-repeat,var(--club,#1d4ed8)}
+html[data-theme="club"] .hero[data-pat="fade"]{background:linear-gradient(180deg,var(--club,#1d4ed8) 15%,var(--club-hi,#1a46c2) 100%)}
+html[data-theme="club"] .hero[data-pat="camo"]{background:radial-gradient(ellipse 34px 20px at 12% 22%,var(--club-hi,#1a46c2) 98%,transparent),radial-gradient(ellipse 40px 24px at 46% 64%,var(--club-hi,#1a46c2) 98%,transparent),radial-gradient(ellipse 30px 22px at 80% 28%,var(--club-hi,#1a46c2) 98%,transparent),radial-gradient(ellipse 36px 20px at 26% 86%,var(--club-hi,#1a46c2) 98%,transparent),radial-gradient(ellipse 28px 18px at 92% 76%,var(--club-hi,#1a46c2) 98%,transparent),var(--club,#1d4ed8)}
+/* футболка в шапке: касание — спина с фамилией и номером (как «перед и спина» в магазине); день матча: отсчёт и LIVE */
+html[data-theme="club"] .hero .hshirt.kflip{padding:0;border-radius:0;touch-action:manipulation}html[data-theme="club"] .hero .hshirt .kfi{transition-duration:.5s}
+.hero .hday{display:none}html[data-theme="club"] .hero{flex-wrap:wrap}html[data-theme="club"] .hero .hday{display:flex;flex:1 0 100%;align-items:center;gap:8px;margin-top:10px;font-size:13px;font-weight:700;min-width:0}
+html[data-theme="club"] .hero .hday>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-theme="club"] .hero .hcount{font-family:var(--sport);font-style:italic;font-size:20px;letter-spacing:.5px;background:rgba(0,0,0,.22);border-radius:8px;padding:1px 8px;white-space:nowrap}
+html[data-theme="club"] .hero .hlive{flex:none;background:#dc2626;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;letter-spacing:.06em;animation:hlive 1.2s steps(2,start) infinite}
+html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out infinite}
+@keyframes hlive{to{opacity:.35}}@keyframes wpulse{50%{box-shadow:0 0 0 6px var(--acc-soft),0 6px 18px var(--acc-soft);transform:scale(1.015)}}
+@media (prefers-reduced-motion:reduce){html[data-theme="club"] .hero .hlive,html[data-theme="club"] .go.main[data-watch]{animation:none}html[data-theme="club"] .hero .hshirt .kfi{transition:none}}
+@media (max-width:370px){html[data-theme="club"] .hero .hshirt{width:64px}html[data-theme="club"] .hero .crest svg.crbig{width:62px;height:71px}html[data-theme="club"] .hero .crest h1{font-size:21px}}
 </style>
+<script>try { if (localStorage.getItem('ui_theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) { /* без хранилища — в цветах клуба */ }</script>
 </head>
 <body>
 <main>
@@ -451,7 +520,44 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 <div id="tbub" class="hidden" role="dialog" aria-live="polite"></div>
 <script>
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
-if (TG) { TG.ready(); TG.expand(); try { TG.setHeaderColor('#0b1220'); TG.setBackgroundColor('#0b1220'); } catch (e) { /* старый Telegram */ } }
+if (TG) { TG.ready(); TG.expand(); }
+/* 🎨 оформление: «в цветах клуба» (светлое, акцент — цвет формы активного клуба) или тёмное, как раньше; выбор — в localStorage */
+let THEME = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'club', THEME_TG = '', THEME_CLUB = '';
+const rgbOf = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
+const hexOf = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+function lumOf(h) { const f = v => (v /= 255) <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4), [r, g, b] = rgbOf(h); return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); }
+const chromaOf = h => { const c = rgbOf(h); return Math.max(...c) - Math.min(...c); };
+function toneFit(h) {      // тот же оттенок темнее/светлее: белый текст на нём и он на фоне #f7f8fa — контраст ≥ 4.5:1
+  let [r, g, b] = rgbOf(h).map(v => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let l = (mx + mn) / 2, hu = 0;
+  const sa = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  if (d) hu = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const at = L => { const c = (1 - Math.abs(2 * L - 1)) * sa, x = c * (1 - Math.abs(hu % 2 - 1)), m = L - c / 2;
+    const [p, q, w] = hu < 1 ? [c, x, 0] : hu < 2 ? [x, c, 0] : hu < 3 ? [0, c, x] : hu < 4 ? [0, x, c] : hu < 5 ? [x, 0, c] : [c, 0, x]; return hexOf([p + m, q + m, w + m].map(v => v * 255)); };
+  let out = h; for (let i = 0; i < 100 && lumOf(out) > .165; i++) { l -= .01; out = at(l); }
+  for (let i = 0; i < 100 && lumOf(out) < .012; i++) { l += .01; out = at(l); }      // почти чёрный — чуть светлее, чтобы полосы и выделения были видны
+  return out;
+}
+function clubTone(kit) {      // цвет клуба: футболка; светлая — шорты, если они цветные, иначе тот же оттенок темнее; бесцветная светлая — графит
+  const ok = h => /^#[0-9a-f]{6}$/i.test(h || ''), [a, b] = kit || [];
+  if (!ok(a)) return '#1d4ed8';
+  if (lumOf(a) <= .165) return toneFit(a);
+  if (ok(b) && chromaOf(b) >= 40 && lumOf(b) <= .165) return toneFit(b);
+  if (chromaOf(a) < 30) return ok(b) && chromaOf(b) >= 40 ? toneFit(b) : '#1e293b';
+  return toneFit(a);
+}
+const heroShade = c => { const [r, g, b] = rgbOf(c); return hexOf(lumOf(c) < .04 ? [r, g, b].map(v => v + (255 - v) * .14) : [r, g, b].map(v => v * .8)); };      // второй оттенок узора шапки
+const HERO_PATS = ['stripes', 'hoops', 'halves', 'quarters', 'sash', 'sleeves', 'chevron', 'fade', 'camo'];      // узоры формы, которые повторяет шапка; остальное — тонкие полосы
+function clubTheme() {      // при каждой отрисовке: тема, цвет активного клуба (нет клуба — синий), цвета окна Telegram
+  const R = document.documentElement, home = S && S.hub && S.hub.home, c = home ? clubTone(home.kit) : '#1d4ed8';
+  R.dataset.theme = THEME;
+  if (c !== THEME_CLUB) { THEME_CLUB = c; const [r, g, b] = rgbOf(c);
+    R.style.setProperty('--club', c); R.style.setProperty('--club-hi', heroShade(c));
+    R.style.setProperty('--club-soft', `rgba(${r},${g},${b},.1)`); R.style.setProperty('--club-soft2', `rgba(${r},${g},${b},.06)`); }
+  const bg = THEME === 'dark' ? '#0b1220' : '#f7f8fa';
+  if (TG && bg !== THEME_TG) { THEME_TG = bg; try { TG.setHeaderColor(bg); TG.setBackgroundColor(bg); } catch (e) { /* старый Telegram */ } }
+}
+function setTheme(t) { THEME = t === 'dark' ? 'dark' : 'club'; try { localStorage.setItem('ui_theme', THEME); } catch (e) { /* без хранилища — до закрытия */ } clubTheme(); }
+if (TG) { THEME_TG = THEME === 'dark' ? '#0b1220' : '#f7f8fa'; try { TG.setHeaderColor(THEME_TG); TG.setBackgroundColor(THEME_TG); } catch (e) { /* старый Telegram */ } }
 // высота окон (карточка игрока, матч, раздел «Клуб») — от видимой области Telegram, а не от vh: в Telegram на iPhone
 // vh бывает неверным, и окно выезжало узкой полоской (так же сделано на экране матча — webapp/match, fit)
 function fitSheet() { const vh = (TG && TG.viewportStableHeight) || innerHeight; if (vh > 100) document.documentElement.style.setProperty('--sheet-h', Math.round(vh * .88) + 'px'); }
@@ -461,7 +567,7 @@ if (TG && TG.onEvent) { try { TG.onEvent('viewportChanged', fitSheet); } catch (
 addEventListener('error', e => { try { toast('Ошибка страницы: ' + e.message, true); } catch (err) { /* ещё нет toast */ } });
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-function haptic(kind) { try { if (!TG) return; if (kind === 'ok' || kind === 'bad') TG.HapticFeedback.notificationOccurred(kind === 'ok' ? 'success' : 'error'); else TG.HapticFeedback.impactOccurred('light'); } catch (e) { /* нет вибро */ } }
+function haptic(kind) { try { if (!TG || !TG.HapticFeedback || (TG.isVersionAtLeast && !TG.isVersionAtLeast('6.1'))) return; if (kind === 'ok' || kind === 'bad') TG.HapticFeedback.notificationOccurred(kind === 'ok' ? 'success' : 'error'); else TG.HapticFeedback.impactOccurred(['medium', 'soft', 'heavy', 'rigid'].includes(kind) ? kind : 'light'); } catch (e) { /* нет вибро */ } }
 let toastT = 0;
 function toast(text, bad) {
   const t = $('toast'); t.textContent = text; t.className = 'show' + (bad ? ' bad' : '');
@@ -816,14 +922,14 @@ function matchCard(m, title) {
     `<div class="row"><div>${crestSvg(crestOf(m))}<b>${esc(m.opp)}</b>${m.oid ? `<button type="button" class="repb" data-rep="${m.oid}" aria-label="Пожаловаться на название">⚠️</button>` : ''}${m.opp_ready === false ? ' <span title="соперник не готов">⚠️</span>' : ''}` +
     `<div class="sub">${esc(m.label)} · ${where}${m.when ? ' · ' + esc(m.when) : ''}${m.manager ? ' · менеджер ' + esc(m.manager) : ''}</div></div>${score}</div>` + kitDuel(m) +
     (m.h2h ? `<div class="sub">${esc(m.h2h)}</div>` : '');
-  if (o) x += `<div class="sub" style="color:#fde68a">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
+  if (o) x += `<div class="sub" style="color:var(--warnt)">📨 «${esc(o.who)}» ${o.move ? `предлагает перенести с ${esc(o.from)} на ${esc(o.when)}` : `предлагает сыграть ${esc(o.when)}`}</div>` +
     `<div class="mrow"><button type="button" class="ok" data-resp="acc" data-id="${m.id}">✅ Принять</button><button type="button" class="no" data-resp="dec" data-id="${m.id}">❌ Отказаться</button></div>` +
     (m.can_time ? `<button type="button" class="go" data-time="${m.id}">🕐 Предложить другое время</button>` : '');
   else if (m.sent) x += `<div class="sub">⏳ Вы предложили: ${esc(m.sent)} — ждём ответ соперника</div>` +
     (m.invite ? `<button type="button" class="go" data-cinv="${m.id}">📤 Позвать в сообщество<span class="sub" style="display:block">карточка в группе игры — ответить сможет только соперник</span></button>` : '');
-  else if (m.need) x += `<div class="sub" style="color:#fde68a">📨 ${esc(m.need)}</div>`;
+  else if (m.need) x += `<div class="sub" style="color:var(--warnt)">📨 ${esc(m.need)}</div>`;
   if (!o && m.can_time) x += `<button type="button" class="go${m.status === 'open' ? ' main' : ''}" data-time="${m.id}">${m.move ? '🔄 Перенести' : m.sent ? '🕐 Предложить другое время' : '🕐 Назначить время'}</button>`;
-  if (m.can_cancel) x += `<button type="button" class="go" data-cancel="${m.id}" style="color:#fca5a5">🗑 Отменить товарищеский</button>`;
+  if (m.can_cancel) x += `<button type="button" class="go" data-cancel="${m.id}" style="color:var(--badt)">🗑 Отменить товарищеский</button>`;
   if (m.watch) x += `<button type="button" class="go main" data-watch="${m.id}">📺 Смотреть матч</button>`;
   if (m.scout) x += `<button type="button" class="go scoutb" data-scout="${m.id}">🔎 Разведка и план на матч${m.plan ? ' · ✅ план готов' : ''}</button>`;
   return x + `</div>`;
@@ -892,6 +998,13 @@ function shirtSvg(kit, number) {
   return `<svg viewBox="0 0 64 70" width="64" height="70" aria-hidden="true"><path d="M21 4 9 10 2 24l10 5 3-6v21h34V23l3 6 10-5-7-14-12-6q-11 8-22 0Z" fill="${kit[0]}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>` +
     `<path d="M15 46h34v18H35l-3-7-3 7H15Z" fill="${kit[1]}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>` +
     `<text x="32" y="35" text-anchor="middle" font-size="15" font-weight="800" fill="${ink(kit[0])}" font-family="Trebuchet MS,sans-serif">${number}</text></svg>`;
+}
+function shirtBackSvg(kit, name, number) {      // спина: фамилия над номером (шапка «Главной»)
+  const nm = String(name || '').toUpperCase().slice(0, 12), fs = Math.min(7.5, 52 / Math.max(1, nm.length) * 1.7);
+  return `<svg viewBox="0 0 64 70" width="64" height="70" aria-hidden="true"><path d="M21 4 9 10 2 24l10 5 3-6v21h34V23l3 6 10-5-7-14-12-6q-11 3-22 0Z" fill="${kit[0]}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>` +
+    `<path d="M15 46h34v18H35l-3-7-3 7H15Z" fill="${kit[1]}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"/>` +
+    (nm ? `<text x="32" y="17" text-anchor="middle" font-size="${fs.toFixed(1)}" font-weight="800" fill="${ink(kit[0])}" font-family="Trebuchet MS,sans-serif">${esc(nm)}</text>` : '') +
+    `<text x="32" y="38" text-anchor="middle" font-size="19" font-weight="800" fill="${ink(kit[0])}" font-family="Trebuchet MS,sans-serif">${number}</text></svg>`;
 }
 function ask(text, yes) {     // подтверждение: окно Telegram, а вне его — обычное
   if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) { TG.showConfirm(text, ok => { if (ok) yes(); }); return; }
@@ -1370,7 +1483,7 @@ function kitClick(b) {      // нажатия на экране «Форма»; 
   if (b.hasAttribute('data-kitub')) { if (KIT_UB && KIT_UB.fin) KIT_UB.fin(); return true; }      // тап — пропустить распаковку
   if (dd.kitsel) { const n = +dd.kitsel; KIT_SEL = n > lv ? n : 0; KIT_TRY = KIT_TRY && n > lv ? n : 0; haptic(); renderPanel(); return true; }
   if (dd.kittry) { const n = +dd.kittry; KIT_TRY = KIT_TRY === n ? 0 : n; haptic(); renderPanel(); return true; }      // примерка закрытого уровня
-  if (dd.kitbuy) { KIT_PREV_LV = lv; send({a: 'kits', buy: dd.kitbuy}); return true; }      // уровень до оплаты — для распаковки
+  if (dd.kitbuy) { KIT_PREV_LV = lv; haptic('medium'); send({a: 'kits', buy: dd.kitbuy}); return true; }      // уровень до оплаты — для распаковки
   if (E.official) {      // официальный клуб: только витрина домашней и выездной; основу (цвета, узор) не меняет никто
     if (dd.kitslot === 'home' || dd.kitslot === 'away') { KIT_SLOT = dd.kitslot; haptic(); renderPanel(); return true; }
     if (Object.keys(dd).some(k => k.startsWith('kit'))) { toast('🔒 У клуба топ-лиги своя форма — меняются только отделка и уровень', true); return true; }
@@ -1987,7 +2100,7 @@ function crestClick(b) {      // нажатия в конструкторе эм
   if (b.hasAttribute('data-crub')) { if (CREST_UB && CREST_UB.fin) CREST_UB.fin(); return true; }      // тап — пропустить распаковку
   if (d.crsel) { const n = +d.crsel, lv = crestLv(); CREST_SEL = n > lv ? n : 0; CREST_TRY = CREST_TRY && n > lv ? n : 0; haptic(); renderPanel(); return true; }
   if (d.crtry) { const n = +d.crtry; CREST_TRY = CREST_TRY === n ? 0 : n; haptic(); renderPanel(); return true; }      // примерка закрытого уровня (не сохраняется)
-  if (d.crbuy) { CREST_PREV = [CREST_DRAFT_OF, crestLv()]; send({a: 'crest', buy: d.crbuy}); return true; }      // уровень до оплаты — для распаковки
+  if (d.crbuy) { CREST_PREV = [CREST_DRAFT_OF, crestLv()]; haptic('medium'); send({a: 'crest', buy: d.crbuy}); return true; }      // уровень до оплаты — для распаковки
   if (d.crready !== undefined || d.crtheme !== undefined) {      // готовые и темы — показываем даже закрытые: видно, что даёт уровень
     const r = crestReady((d.crtheme !== undefined ? CREST_THEMES[+d.crtheme] : CREST_READY[+d.crready])[1], E), n = crestNeed(r);
     CREST_DRAFT = r; toast(n > crestLv() ? need(n) : 'Готово — можно сохранить или подправить', n > crestLv());
@@ -2385,7 +2498,7 @@ function shopClick(b) {      // нажатия во вкладке «Магаз�
     const t = $('shi-' + k); if (t && t.scrollIntoView) t.scrollIntoView({block: 'nearest'}); return true; }
   if (d.shbuy || d.shpack) { const it = shopItems()[d.shbuy || d.shpack];
     if (!it || it.away || !it.sale || !it.req || (d.shpack && it.lv !== 1)) return true;      // продажа закрыта, чужой клуб, набор не с 1-го уровня — оплаты нет
-    SHOP_PREV = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; haptic(); send({...it.req, buy: d.shbuy ? 'next' : 'all'}); return true; }      // уровень до оплаты — для распаковки
+    SHOP_PREV = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; haptic('medium'); send({...it.req, buy: d.shbuy ? 'next' : 'all'}); return true; }      // уровень до оплаты — для распаковки
   return false;
 }
 function shopPromo(hb) {      // временная кнопка-баннер на «Главной»: две мини-витрины, ведёт во вкладку
@@ -2397,6 +2510,32 @@ function shopPromo(hb) {      // временная кнопка-баннер н
   return `<button type="button" class="shpromo" data-tab="shop"><span class="shpt"><b>🛍 Магазин · <i>НОВИНКА</i></b><small>Форма и эмблема: 5 уровней, примерка бесплатно</small></span>${SHOP_PROMO_HTML[1]}</button>`;
 }
 /* 🛍 конец магазина */
+/* день матча в шапке «Главной»: ближайший матч в ближайшие сутки — «до свистка ЧЧ:ММ» (последние 10 минут — ММ:СС), идёт — «● LIVE».
+   Время — то же, что в карточке матча (m.when «дд.мм чч:мм», часы лиги UTC+4 — app/league.py TZ). Один таймер HERO_T: каждая отрисовка его перезапускает */
+let HERO_BACK = false, HERO_AT = 0, HERO_T = 0;
+function heroWhen(w) {      // «23.10 20:30» (UTC+4) → мс; год — ближайший к сегодняшнему дню
+  const m = /^(\d{1,2})\.(\d{1,2}) (\d{1,2}):(\d{2})$/.exec(String(w || '').trim()); if (!m) return 0;
+  const now = Date.now(), at = y => Date.UTC(y, m[2] - 1, +m[1], m[3] - 4, +m[4]), y = new Date(now).getUTCFullYear();
+  return [y - 1, y, y + 1].map(at).sort((p, q) => Math.abs(p - now) - Math.abs(q - now))[0];
+}
+function heroDay(m) {
+  HERO_AT = 0;
+  if (!m) return '';
+  if (m.status === 'live') return `<div class="hday"><span class="hlive">● LIVE</span><span>${esc(m.opp)}${m.score ? ' · ' + esc(m.score) : ''}</span></div>`;
+  const t = m.status === 'scheduled' ? heroWhen(m.when) : 0;
+  if (!t || t - Date.now() > 864e5 || t - Date.now() < -36e5) return '';      // не сегодня или давно прошло
+  HERO_AT = t;
+  return `<div class="hday"><span>⏱ до свистка</span><b class="hcount">${heroLeft()}</b><span>${esc(m.opp)}</span></div>`;
+}
+function heroLeft() { const s = Math.max(0, Math.floor((HERO_AT - Date.now()) / 1000)), p = v => String(v).padStart(2, '0');
+  return s < 600 ? p(Math.floor(s / 60)) + ':' + p(s % 60) : p(Math.floor(s / 3600)) + ':' + p(Math.floor(s / 60) % 60); }
+function heroTick() {      // раз в минуту, за последние 10 минут — раз в секунду; нет отсчёта — таймера нет
+  clearTimeout(HERO_T); HERO_T = 0;
+  if (!HERO_AT) return;
+  document.querySelectorAll('.hcount').forEach(e => { e.textContent = heroLeft(); });
+  const left = HERO_AT - Date.now(); if (left <= 0) return;      // свисток: дальше статус «идёт» придёт от бота
+  HERO_T = setTimeout(heroTick, left < 601e3 ? 1000 - Date.now() % 1000 + 5 : Math.min(left - 600e3, 60e3 - Date.now() % 60e3) + 5);
+}
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -2409,8 +2548,13 @@ function renderHome() {
       `</div>` + communityCard(hb) + writeBlock(hb.write);
     return;
   }
-  let x = `<div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
-    `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>`;
+  const cap = S.players && S.captain ? player(S.captain) : null;      // крупная футболка в шапке — с номером капитана
+  const pat = (((hb.kit_edit || {}).design || {}).home || {}).p, num = cap ? cap.number : 10;
+  let x = `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
+    `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>` +
+    (Array.isArray(h.kit) && h.kit.length > 1 ? `<button type="button" class="hshirt kflip${HERO_BACK ? ' bk' : ''}" data-heroflip aria-label="Перевернуть футболку"><div class="kfi">` +
+      `<div class="kff">${shirtSvg(h.kit, num)}</div><div class="kfb">${shirtBackSvg(h.kit, cap ? shortName(cap) : '', num)}</div></div></button>` : '') + heroDay(h.next) + `</div>`;
+  heroTick();
   x += shopPromo(hb);      // временный баннер «Магазин · НОВИНКА» (SHOP_PROMO)
   x += writeBlock(hb.write);
   if (hb.onboarding) x += stepsBlock(hb.onboarding);
@@ -2495,8 +2639,10 @@ function renderMore() {
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
   if (hb.help && hb.help.length) x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button></div>`;
+  const themeBtn = `<button type="button" data-theme-set="${THEME === 'dark' ? 'club' : 'dark'}">🎨 Оформление: ${THEME === 'dark' ? 'тёмное (как раньше)' : 'в цветах клуба'}<span>нажмите — ${THEME === 'dark' ? 'светлое в цветах клуба' : 'тёмное (как раньше)'}</span></button>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
-    x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button></div>`; }
+    x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button>${themeBtn}</div>`; }
+  else x += `<div class="label">Настройки</div><div class="menu app">${themeBtn}</div>`;
   x += `<div class="label">Конфиденциальность</div><div class="menu app"><button type="button" data-wnhelp="privacy">🔐 Какие данные мы храним<span>политика конфиденциальности: что, зачем и кто видит</span></button><button type="button" data-erase>🗑 Удалить мои данные<span>имя, личные записи и свой клуб; официальный клуб вернётся боту</span></button></div>`;
   if (hb.sections && hb.sections.length) x += `<div class="label">В чате</div><div class="menu">` + hb.sections.map(([k, t]) => `<button type="button" data-sec="${k}">${esc(t)}</button>`).join('') + `</div>`;
   const ns = hb.notices || [], shown = NOTICES_ALL ? ns : ns.slice(0, NOTICES_SHOWN);
@@ -2524,6 +2670,7 @@ function renderNav() {
 }
 function render() {
   if (!S) return;
+  clubTheme();
   $('conn').classList.add('hidden'); $('app').classList.remove('hidden'); $('nav').classList.remove('hidden');
   if (TAB === 'shop') shopVisit();
   renderHome(); renderLeague(); renderShop(); renderLearn(); renderMore(); renderNav();
@@ -2841,10 +2988,10 @@ function tourSquadSteps() {
     {t: 'Сыгранность', go: tourToSquad, skip: () => S.chem == null, at: '#chem', x: 'Растёт, когда основа выходит тем же составом. Выше 50 — команда лучше борется за мяч. Нажмите на полосу — правило целиком.'},
     {t: 'Готово', go: tourToSquad, at: '#status', last: true, x: 'Теперь вы знаете состав. Подсказки по составу — кнопка «?» сверху этой вкладки.'}];
 }
-const TOUR_SVG = `<svg class="tcirc" viewBox="0 0 260 176" role="img" aria-label="Тактический круг"><defs><marker id="tar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#facc15"/></marker></defs>` +
-  `<g stroke="#facc15" stroke-width="2.5" fill="none" marker-end="url(#tar)"><path d="M150 34 Q205 52 212 116"/><path d="M190 150 Q130 172 70 150"/><path d="M48 116 Q55 52 110 34"/></g>` +
-  `<g font-size="14" font-weight="700" fill="#e8eefc" text-anchor="middle" font-family="Trebuchet MS,sans-serif"><text x="130" y="28">🔥 Прессинг</text><text x="215" y="140">🛡 Оборона</text><text x="45" y="140">⚡ Контратака</text></g>` +
-  `<g font-size="11" fill="#93a3c3" text-anchor="middle"><text x="200" y="70">бьёт</text><text x="130" y="176">бьёт</text><text x="60" y="70">бьёт</text></g></svg>`;
+const TOUR_SVG = `<svg class="tcirc" viewBox="0 0 260 176" role="img" aria-label="Тактический круг"><defs><marker id="tar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" style="fill:var(--accent)"/></marker></defs>` +
+  `<g style="stroke:var(--accent)" stroke-width="2.5" fill="none" marker-end="url(#tar)"><path d="M150 34 Q205 52 212 116"/><path d="M190 150 Q130 172 70 150"/><path d="M48 116 Q55 52 110 34"/></g>` +
+  `<g font-size="14" font-weight="700" style="fill:var(--text)" text-anchor="middle" font-family="Trebuchet MS,sans-serif"><text x="130" y="28">🔥 Прессинг</text><text x="215" y="140">🛡 Оборона</text><text x="45" y="140">⚡ Контратака</text></g>` +
+  `<g font-size="11" style="fill:var(--muted)" text-anchor="middle"><text x="200" y="70">бьёт</text><text x="130" y="176">бьёт</text><text x="60" y="70">бьёт</text></g></svg>`;
 function tourTacticsSteps() {
   return [
     {t: 'Тактики бьют друг друга по кругу', html: () => TOUR_SVG, dots: true,
@@ -3209,15 +3356,17 @@ document.addEventListener('click', e => {
   if (b.dataset.tourq) { haptic(); tourStart(b.dataset.tourq); return; }
   if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
+  if (b.hasAttribute('data-heroflip')) { HERO_BACK = !HERO_BACK; b.classList.toggle('bk', HERO_BACK); haptic('soft'); return; }      // футболка в шапке — без перерисовки
   if (b.dataset.rep && !PANEL) { haptic(); if (MS) closeSheet(); openPanel('report'); PANEL.club = +b.dataset.rep; send({a: 'repinfo', club: PANEL.club}); renderPanel(); return; }
   if (TAB === 'shop' && !PANEL && !MS && shopClick(b)) return;      // вкладка «Магазин»
   if (b.dataset.go) { haptic(); if (PANEL) closeSheet(); showTab(b.dataset.go); return; }
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
   if (b.hasAttribute('data-erase')) { haptic(); ask('Удалить ваше имя, личные записи и свой клуб? Официальный клуб вернётся боту. Это нельзя отменить.', () => send({a: 'erase', sure: true})); return; }
   if (b.dataset.nudges) { haptic(); send({a: 'nudges', on: b.dataset.nudges === '1'}); return; }
+  if (b.dataset.themeSet) { haptic(); setTheme(b.dataset.themeSet); renderMore(); return; }      // оформление — только на этом телефоне, бот не знает
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
   if (b.dataset.watch) {       // трансляция матча — та же страница и комната, что у кнопки в чате (пускает бот по подписи)
-    const m = matchById(+b.dataset.watch); haptic();
+    const m = matchById(+b.dataset.watch); haptic('medium');
     if (m && m.watch) location.href = m.watch; else toast('Трансляция ещё не открыта — подождите пару секунд');
     return;
   }
