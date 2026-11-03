@@ -2405,6 +2405,39 @@ function setWeather(w) {
   if (w === 'snow') { scene.fog.color.set(0x2a3446); scene.fog.near = 30; scene.fog.far = 160; hemi.intensity = WX_BASE.hemi * 1.1; }
   if (w) { weather = makeWeather(w); scene.add(weather.pts); wxDensity(); }
 }
+/* ---------------- свет по времени матча: поле light (day / dusk / night, как у сцены матча) или ?light=…
+   Ночь — как было: два прожектора с крыши. Закат — небо от лилового к оранжевому, низкое солнце сбоку даёт длинную
+   тёплую тень, второй прожектор уже горит. День — голубое небо, высокое солнце, одна чёткая тень, туман светлый. */
+let LIGHT = 'night';
+const LIGHT_BASE = {bg: scene.background, fog: scene.fog.color.getHex(), near: scene.fog.near, far: scene.fog.far,
+  hemi: [hemi.color.getHex(), hemi.groundColor.getHex(), hemi.intensity], fill: fill.intensity, exp: renderer.toneMappingExposure,
+  keys: keys.map(l => ({c: l.color.getHex(), k: l.intensity, p: l.position.clone()}))};
+const LIGHTS3 = {
+  dusk: {sky: ['#251a46', '#7a3a5e', '#d8673c', '#f4a85c'], fog: 0x4a3048, near: 70, far: 200, hemi: [0xffb08a, 0x2c3a1c, .7], fill: .45, exp: 1.08,
+         keys: [{c: 0xffa25e, k: 2.3, p: [-70, 16, -30]}, {c: 0xf3f6ff, k: .9}]},
+  day: {sky: ['#3f7fc4', '#7fb4e4', '#c7e0f2', '#e4eef5'], fog: 0xa9c7e0, near: 90, far: 240, hemi: [0xd6eaff, 0x3c5a2c, 1.05], fill: .6, exp: 1.0,
+        keys: [{c: 0xfff3dc, k: 2.7, p: [-28, 62, -12]}, {c: 0xf3f6ff, k: .15}]}};
+function setLight(L) {
+  L = LIGHTS3[L] ? L : 'night';
+  if (L === LIGHT) return;
+  LIGHT = L;
+  const B = LIGHT_BASE, d = LIGHTS3[L];
+  if (scene.background !== B.bg) scene.background.dispose();
+  scene.background = d ? canvasTex(4, 256, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); d.sky.forEach((c, i) => gr.addColorStop(i / (d.sky.length - 1), c));
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  }) : B.bg;
+  const hm = d ? d.hemi : B.hemi;
+  hemi.color.setHex(hm[0]); hemi.groundColor.setHex(hm[1]);
+  fill.intensity = d ? d.fill : B.fill; renderer.toneMappingExposure = d ? d.exp : B.exp;
+  keys.forEach((l, i) => {
+    const k = d ? d.keys[i] : null, b = B.keys[i];
+    l.color.setHex(k ? k.c : b.c); l.intensity = k ? k.k : b.k;
+    if (k && k.p) l.position.set(...k.p); else l.position.copy(b.p);
+  });
+  WX_BASE.fog.setHex(d ? d.fog : B.fog); WX_BASE.near = d ? d.near : B.near; WX_BASE.far = d ? d.far : B.far; WX_BASE.hemi = hm[2];
+  const w = WX; WX = null; setWeather(w);                          // погода — поверх нового света (туман и общий свет — от него)
+}
 function stepWeather(t) {
   if (!weather) return;
   weather.u.uT.value = t % 1000; weather.u.uPx.value = innerHeight * renderer.getPixelRatio() / (2 * Math.tan(camera.fov / 2 * Math.PI / 180));
@@ -2920,6 +2953,7 @@ function applyState(m, at0) {
   Object.assign(P.kicker, {build: null}, m.kicker || {}); Object.assign(P.keeper, {build: null}, m.keeper || {});   // телосложение — только этого удара (нет — по номеру)
   MODE = m.kind === 'fk' ? 'fk' : 'pen'; fkSetup(isFk() ? m : null); layout();
   if (m.weather !== undefined) setWeather(m.weather);
+  if (m.light !== undefined) setLight(m.light);
   MINUTE = typeof m.minute === 'number' ? m.minute : null;
   SO = m.so && Array.isArray(m.so.kick) && Array.isArray(m.so.keep) && Array.isArray(m.so.g) ? m.so : null;
   const late = at0 ? (performance.now() - at0) / 1000 : 0;    // ждали конца показа — столько секунд выбора уже прошло
@@ -3089,6 +3123,7 @@ if (Q.get('so') === '1') {                                     // демо та�
 }
 if (Q.get('min')) MINUTE = +Q.get('min') || null;
 if (Q.get('weather')) setWeather(Q.get('weather'));
+if (Q.get('light')) setLight(Q.get('light'));
 loadGrass().catch(e => console.warn('Фото травы не загрузилось — остаются нарисованные травинки:', e && e.message));
 const humansReady = (MAPPED ? loadHumans() : Promise.reject(new Error('нет карты импорта'))).then(() => {
   castSig = ''; if (phase !== 'play') layout(); else buildFanAtlas();
