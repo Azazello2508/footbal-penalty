@@ -351,10 +351,9 @@ tr[data-pedit]{cursor:pointer}
 @media (prefers-reduced-motion:reduce){.kc-sw,.kc-pl,.kc-sh,.kc-tw,.kc-run,.kbuy::after{animation:none}.kfi{transition:none}}
 .color{aspect-ratio:1;border-radius:50%;border:2px solid var(--swatch);max-width:36px;justify-self:center;width:100%}
 .color.on{outline:3px solid var(--accent);outline-offset:2px}
-.cardsgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.mini{background:var(--card2);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
-.mini .shirt{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;border:3px solid rgba(255,255,255,.8)}
-.mini span{color:var(--muted);font-size:11px}
+.cardsgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
+.cardsum{display:flex;gap:6px;margin:4px 0 2px}.cardsum i{font-style:normal;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--card2);color:var(--muted)}
+.cardsum i.warn{color:#c2410c;background:rgba(245,158,11,.16)}
 .pcard{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--card2);margin-top:6px}
 .pcard .top{display:flex;align-items:center;gap:12px;padding:12px}
 .pcard .top .shirt{flex:none;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;border:3px solid rgba(255,255,255,.85)}
@@ -401,9 +400,21 @@ html[data-theme="club"] .tk{background:var(--card);box-shadow:var(--soft)}
 .trules .kind{cursor:default}
 /* 🃏 коллекционная карточка игрока: рамка по сумме характеристик (сервер — app/rules.py card_tier), верх в цвете формы */
 .ccard{border-radius:24px;padding:3px;margin-top:6px;background:var(--line)}
-.ccard.gold{background:linear-gradient(160deg,#fff3c4,#e2b53c 30%,#fff7d6 50%,#c58f1f 75%,#f6dc8b);box-shadow:0 14px 28px rgba(197,143,31,.28)}
-.ccard.silver{background:linear-gradient(160deg,#f4f6fa,#b8bfcc 40%,#fff 60%,#9aa3b5);box-shadow:0 14px 28px rgba(100,116,139,.25)}
-.ccard.bronze{background:linear-gradient(160deg,#f3d2b3,#b87333 40%,#f6dcc3 60%,#8d5524);box-shadow:0 14px 28px rgba(141,85,36,.25)}
+.ccard.gold,.mcard.gold{background:linear-gradient(160deg,#fff3c4,#e2b53c 30%,#fff7d6 50%,#c58f1f 75%,#f6dc8b)}.ccard.gold{box-shadow:0 14px 28px rgba(197,143,31,.28)}
+.ccard.silver,.mcard.silver{background:linear-gradient(160deg,#f4f6fa,#b8bfcc 40%,#fff 60%,#9aa3b5)}.ccard.silver{box-shadow:0 14px 28px rgba(100,116,139,.25)}
+.ccard.bronze,.mcard.bronze{background:linear-gradient(160deg,#f3d2b3,#b87333 40%,#f6dcc3 60%,#8d5524)}.ccard.bronze{box-shadow:0 14px 28px rgba(141,85,36,.25)}
+/* мини-карточка в сетке «Карточки игроков»: та же рамка и верх в цвете клуба, но кнопкой */
+.mcard{display:block;width:100%;min-width:0;padding:2px;border:0;border-radius:16px;background:var(--line);color:var(--text);font:inherit;text-align:center;cursor:pointer}
+.mcard .in{position:relative;display:block;border-radius:14px;overflow:hidden;background:var(--card);padding:0 4px 7px}
+.mcard .mtop{position:absolute;left:0;right:0;top:0;height:50%;pointer-events:none}.mcard .mtop i{position:absolute;inset:0}
+.mcard .mo{position:absolute;left:6px;top:4px;z-index:1;color:#fff;text-align:left;line-height:.95;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.mcard .mo b{display:block;font:italic 800 17px/1 var(--sport)}.mcard .mo small{display:block;font:italic 800 8px var(--sport);letter-spacing:.5px}
+.mcard .mi{position:absolute;right:5px;top:3px;z-index:1;font-size:13px;line-height:1}
+.mcard .ms{position:relative;display:block;margin-top:6px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.3))}.mcard .ms svg{display:block;margin:0 auto;width:52px;height:57px}
+.mcard .mn{display:block;font-size:12.5px;font-weight:800;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .mp{display:block;font-size:10px;color:var(--muted);font-weight:700;line-height:1.15;min-height:11px}
+.mcard .mf{display:block;height:4px;border-radius:2px;background:var(--bar0);margin:4px 6px 0;overflow:hidden}.mcard .mf i{display:block;height:100%;border-radius:2px}
+.mcard .mf.hurt{height:auto;background:none;margin-top:3px;font-size:10px;font-weight:800;color:var(--bad)}
 .ccard .in{position:relative;border-radius:21px;overflow:hidden;background:var(--card)}
 .ccard .cedge,.ccard .ctop{clip-path:polygon(0 0,100% 0,100% 84%,0 100%)}
 .ccard .cedge{position:absolute;left:0;right:0;top:0;height:206px}
@@ -520,7 +531,7 @@ html[data-theme="club"] #nav button.on{font-weight:700}
 /* поле — картинка газона: имена белые; на белой скамейке и белом фоне — обводка у светлых кружков, эмблем и форм */
 html[data-theme="club"] #pitch .pl{color:#fff}
 html[data-theme="club"] #bench .pl .shirt{border-color:#dfe3ea;box-shadow:0 2px 6px rgba(13,21,48,.2)}
-html[data-theme="club"] .mini .shirt,html[data-theme="club"] .pcard .top .shirt{box-shadow:0 0 0 1px rgba(13,21,48,.2)}
+html[data-theme="club"] .pcard .top .shirt{box-shadow:0 0 0 1px rgba(13,21,48,.2)}
 html[data-theme="club"] .pcard .top{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
 html[data-theme="club"] svg.cr,html[data-theme="club"] .crt svg,html[data-theme="club"] .shbc svg,html[data-theme="club"] .crbase svg,html[data-theme="club"] .kdn svg{filter:drop-shadow(0 0 .6px rgba(13,21,48,.6)) drop-shadow(0 1px 1.5px rgba(13,21,48,.22))}
 /* цифры и название клуба — спортивный узкий наклонный шрифт */
@@ -1178,11 +1189,22 @@ function playerStatsCard(p, m) {
 }
 function panelCards(m, P) {
   const kit = m.home_kit;
-  if (P.slot == null) return panelHead('🃏 Карточки игроков', 'Нажмите на игрока') + `<div class="cardsgrid">` + m.players.map(p => {
-    const sq = player(p.slot) || {};
-    return `<button type="button" class="mini" data-card="${p.slot}"><div class="shirt" style="background:${kit[0]};color:${ink(kit[0])}">${p.number}</div>` +
-      `<b>${esc(p.last)}</b><span>${esc(sq.pos || 'очки не распределены')}</span></button>`;
-  }).join('') + `</div>`;
+  if (P.slot == null) {      // сетка мини-карточек: рамка по p.tier, верх — clubTone/heroShade, как у большой карточки
+    const tone = clubTone(kit), strip = `repeating-linear-gradient(100deg,${tone} 0 26px,${heroShade(tone)} 26px 40px)`;
+    const tired = m.players.filter(p => !p.injured && p.fresh < TIRED_BELOW).length;
+    return panelHead('🃏 Карточки игроков', 'Рамка — уровень, число — лучшая характеристика, полоска — свежесть. Нажмите на игрока') +
+      (tired ? `<div class="cardsum"><i class="warn">⚠️ ${tired} ${tired === 1 ? 'устал' : 'устали'}</i></div>` : '') + `<div class="cardsgrid">` + m.players.map(p => {
+      const sq = player(p.slot) || {}, tier = CARD_TIER_T[p.tier] ? p.tier : '';
+      const best = p.stats ? m.statdefs.reduce((a, [k]) => p.stats[k] > p.stats[a] ? k : a, m.statdefs[0][0]) : null;
+      const bd = p.injured ? '🚑' : badgeIc((['капитан', 'пенальтист', 'талант'].map(w => (p.badges || []).find(x => x.startsWith(w))).find(Boolean)) || '');
+      const ic = p.injured ? '🚑' : bd === '•' ? '' : bd, low = p.fresh < TIRED_BELOW;
+      return `<button type="button" class="mcard${tier ? ' ' + tier : ''}" data-card="${p.slot}"><span class="in"><span class="mtop" style="background:${tone}"><i style="background:${strip}"></i></span>` +
+        (best ? `<span class="mo"><b>${num(p.stats[best])}</b><small>${esc(m.statdefs.find(x => x[0] === best)[1].slice(0, 3).toUpperCase())}</small></span>` : '') +
+        (ic ? `<span class="mi">${ic}</span>` : '') + `<span class="ms">${shirtSvg(kit, p.number)}</span>` +
+        `<span class="mn">${esc(p.last)}</span><span class="mp">${esc(sq.pos || 'очки не распределены')}</span>` +
+        (p.injured ? `<span class="mf hurt">травма</span>` : `<span class="mf"><i style="width:${p.fresh}%;background:${low ? '#f59e0b' : 'var(--ok)'}"></i></span>`) + `</span></button>`;
+    }).join('') + `</div>`;
+  }
   const p = mp(P.slot); if (!p) return panelHead('Игрок не найден');
   const sq = player(p.slot) || {}, tone = clubTone(kit), tier = CARD_TIER_T[p.tier] ? p.tier : '';
   const best = p.stats ? m.statdefs.reduce((a, [k]) => p.stats[k] > p.stats[a] ? k : a, m.statdefs[0][0]) : null;
@@ -1206,6 +1228,7 @@ function panelCards(m, P) {
 const CARD_TIER_T = {gold: '★ ЗОЛОТО', silver: 'СЕРЕБРО', bronze: 'БРОНЗА'};      // рамку по сумме характеристик выбирает сервер (app/rules.py card_tier)
 const BADGE_IC = [['капитан', '©'], ['пенальтист', '🎯'], ['талант', '✨'], ['запасной', '🪑'], ['травма', '🚑']];
 const badgeIc = b => (BADGE_IC.find(([w]) => b.startsWith(w)) || [0, '•'])[1];
+const TIRED_BELOW = 40;      // ниже этой свежести игрок «устал» (= CONDITION injury_risk_below, app/condition.py; в итоге тренировки приходит как risk_below)
 const freshCol = f => f < 40 ? 'var(--bad)' : f < 60 ? '#f59e0b' : 'var(--ok)';
 // итог тренировки (condition.train_summary): шапка в цвете клуба, 2–3 цифры, на кого смотреть, все игроки под раскрывашкой
 function panelTrainDone(T) {
