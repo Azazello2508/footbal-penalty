@@ -3555,9 +3555,11 @@ function buildStands() {
       const skin = skins[Math.floor(rnd2() * skins.length)], hr = rnd2() < .1 ? '#d6d3d1' : hair[Math.floor(rnd2() * hair.length)];
       const pc = pants[Math.floor(rnd2() * pants.length)], scarf = rnd2() < .5, cap = rnd2() < .12;
       const sc2 = rnd2() < .5 ? tm.shirt : tm.shorts, bald = rnd2() < .08, big = .9 + rnd2() * .22;
+      const pz = rnd2(), stand = pz < .07, flag = !stand && pz < .095;   // разные позы и в спокойной трибуне: кто-то стоит с руками вверх, у кого-то флажок
       const at = (f, s2) => [x - nx * f * FAN + tx * s2 * FAN, y - ny * f * FAN + ty * s2 * FAN];   // f > 0 — к полю, s2 — вдоль ряда
       for (const L of [sec.sit, sec.up]) {
-        const up = L === sec.up;
+        const up = L === sec.up || stand;
+        { const [sx, sy] = at(-.9, 0); add(L, 0, 'rgba(2,6,23,.3)', sx, sy, 3 * big, 2.2, rot); }   // тень за спиной — фигурки не сливаются
         if (!up) { const [kx, ky] = at(2.4, 0); add(L, 0, pc, kx, ky, 2.1 * big, 1.25, rot); }       // колени к полю (сидит)
         const [bx, by] = at(up ? .3 : 0, 0);
         add(L, 1, mix(col, -.4), bx, by, 2.75 * big, 1.95, rot);                              // спина и плечи — тень
@@ -3577,6 +3579,8 @@ function buildStands() {
         add(L, up ? 6 : 5, skin, hx, hy, 1.6 * big, 1.6 * big, 0);
         if (cap) { const [cx, cy] = at(-.2 + (up ? .6 : .3), 0); add(L, up ? 6 : 6, sc2, cx, cy, 1.55 * big, 1.25 * big, rot); }
         else if (!bald) { const [cx, cy] = at(-.45 + (up ? .6 : .3), 0); add(L, up ? 6 : 6, hr, cx, cy, 1.5 * big, 1.05 * big, rot); }
+        { const [lx, ly] = at((up ? .6 : .3) + .35, -.5); add(L, 6, 'rgba(255,250,235,.3)', lx, ly, .6 * big, .45 * big, rot); }   // мягкий блик сверху на голове
+        if (flag && !up) { const [fx, fy] = at(1.2, 2.6 * big), [gx, gy] = at(2.2, 4.4 * big); add(L, 6, '#cbd5e1', fx, fy, .25, .25, 0); add(L, 6, sc2, gx, gy, 2, 1, rot); }   // флажок в руке
       }
       sec.nx += p.nx; sec.ny += p.ny; sec.n++; sec.team += team;
       const bx = sec.box; bx[0] = Math.min(bx[0], x - 6); bx[1] = Math.min(bx[1], y - 6); bx[2] = Math.max(bx[2], x + 6); bx[3] = Math.max(bx[3], y + 6);
@@ -3768,10 +3772,13 @@ function fit() {
   const vh = (TG && TG.viewportStableHeight) || innerHeight;
   document.body.style.setProperty('--vh', vh + 'px');
   const deciding = document.body.classList.contains('deciding');      // панель решений — поле поменьше
-  const maxH = deciding ? Math.max(200, vh * .34) : Math.max(260, Math.min(vh * .7, vh - top - 120));   // поле — во всю ширину, ленте остаётся место
+  const maxH = deciding ? decFieldH(vh, top) : Math.max(260, Math.min(vh * .7, vh - top - 120));   // поле — во всю ширину, ленте остаётся место
   const cw = deciding ? innerWidth : Math.min(innerWidth, maxH * TW / TH), ch = deciding ? Math.round(maxH) : cw * TH / TW;   // с панелью (перерыв, дрон) — во всю ширину, по бокам — округа стадиона
   scale = cw / TW;
   const dpr = Math.min(perf.lite ? 1.25 : 2, window.devicePixelRatio || 1);
+  const ease = deciding && fit.dec && fit.cw === cw && Math.abs(fit.ch - ch) > 2 && !calm();   // панель поменялась — поле подстраивается плавно
+  wrap.style.transition = cv.style.transition = ease ? 'height .28s ease' : 'none';
+  fit.dec = deciding; fit.cw = cw; fit.ch = ch;
   cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
   cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
   K0 = Math.min(cv.width / TW, cv.height / TH);                      // стадион целиком; лишнее по бокам — округа (drawOutside)
@@ -3783,6 +3790,32 @@ function fit() {
   if (stands) stands.cache = null;
   const pen = $('pen'); pen.style.top = top + 'px';
 }
+/* С панелью решений (перерыв, мини-игра, окно решений) поле занимает всё место над её содержимым, но не меньше 34% экрана.
+   Содержимое панели поменялось (мини-игра, вкладка, кнопки) — пересчёт, только если высота правда изменилась. */
+function decNeed() {                               // сколько нужно содержимому панели (без пустого низа)
+  const d = $('dec'), r = d.getBoundingClientRect(); let bot = r.top;
+  for (const c of d.children) bot = Math.max(bot, c.getBoundingClientRect().bottom + (parseFloat(getComputedStyle(c).marginBottom) || 0));
+  const est = bot - r.top + d.scrollTop + (parseFloat(getComputedStyle(d).paddingBottom) || 0) + 4;   // +4 — поля вложенных блоков
+  return Math.max(est, d.scrollHeight > d.clientHeight + 1 ? d.scrollHeight : 0);                // уже не влезает — точная высота содержимого
+}
+function decFieldH(vh, top) {
+  const free = vh - top - $('qbar').offsetHeight - decNeed() - 2, lo = Math.max(200, vh * .34);
+  let h = Math.max(lo, Math.min(free, vh * .72));
+  if (fit.dec && fit.ch && h > fit.ch && h - fit.ch < 24) h = fit.ch;   // место освободилось чуть-чуть — поле не дёргаем (а если не хватает — уменьшаем сразу)
+  return Math.round(h);
+}
+let decFitRaf = 0;
+function decRefit() {                              // после перерисовки панели: нужная полю высота изменилась — fit()
+  if (decFitRaf) return;
+  decFitRaf = requestAnimationFrame(() => {
+    decFitRaf = 0;
+    if (!document.body.classList.contains('deciding')) return;
+    const vh = (TG && TG.viewportStableHeight) || innerHeight;
+    if (Math.abs(decFieldH(vh, $('top').offsetHeight) - fit.ch) > 2) fit();
+  });
+}
+if (window.MutationObserver) new MutationObserver(decRefit).observe($('dec'), {childList: true, subtree: true, characterData: true});
+if (window.ResizeObserver) new ResizeObserver(decRefit).observe($('dec'));
 function drawPitch(pw, ph) {
   const c = document.createElement('canvas'); c.width = pw; c.height = ph;
   const x = c.getContext('2d'); x.setTransform(pw / TW, 0, 0, ph / TH, ST * pw / TW, ST * ph / TH);
@@ -3896,12 +3929,13 @@ function drawGrade() {                              // поверх кадра: 
   const L = lightNow(); if (L === 'night') return;
   if (!lightSaid && S.phase !== 'final') { lightSaid = true; label(L === 'dusk' ? '🌇 Вечерний матч' : '☀️ Дневной матч', 3200); }
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  const air = cam.z < .995 || cam.tl > .02 ? .45 : 1;   // с дрона в перерыве — слабее: стадион на земле, а не в белёсом «облаке»
   if (L === 'day') {                               // солнце: светлее и чуть теплее, тени чёткие
-    g.globalCompositeOperation = 'soft-light'; g.fillStyle = 'rgba(255,246,220,.7)'; g.fillRect(0, 0, cv.width, cv.height);
+    g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(255,246,220,${(.7 * air).toFixed(3)})`; g.fillRect(0, 0, cv.width, cv.height);
   } else {
     const gr = g.createLinearGradient(0, 0, 0, cv.height); gr.addColorStop(0, 'rgba(255,105,35,.85)'); gr.addColorStop(1, 'rgba(255,150,70,.45)');
     g.globalCompositeOperation = 'soft-light'; g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height);
-    const gl = g.createLinearGradient(0, 0, 0, cv.height); gl.addColorStop(0, 'rgba(255,120,50,.16)'); gl.addColorStop(.5, 'rgba(255,140,70,.05)'); gl.addColorStop(1, 'rgba(60,30,90,.10)');
+    const gl = g.createLinearGradient(0, 0, 0, cv.height); gl.addColorStop(0, `rgba(255,120,50,${(.16 * air).toFixed(3)})`); gl.addColorStop(.5, 'rgba(255,140,70,.05)'); gl.addColorStop(1, 'rgba(60,30,90,.10)');
     g.globalCompositeOperation = 'source-over'; g.fillStyle = gl; g.fillRect(0, 0, cv.width, cv.height);   // сверху — отсвет заката, снизу — лиловые сумерки
   }
   g.restore();
@@ -4801,7 +4835,7 @@ function tvBegin() {                               // рисование зем�
   if (tvBuf.width !== bw || tvBuf.height !== bh) { tvBuf.width = bw; tvBuf.height = bh; }
   tvBuf.q = q; tvBuf.cx = cv.width * ex / 2; tvBuf.cy = cv.height * ex / 2;
   const x = tvBuf.ctx, m = cam.m;
-  x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#060b16'; x.fillRect(0, 0, bw, bh);
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, bw, bh);   // вне стадиона — прозрачно: там небо
   x.setTransform(q * m[0], q * m[1], q * m[2], q * m[3], q * (m[4] + tvBuf.cx), q * (m[5] + tvBuf.cy));
   g = x;
 }
@@ -4814,23 +4848,305 @@ function tvEdge(e) {                               // где в запасном
   return (m[1] * x + m[3] * y + m[5]) / (cv.height / 2);
 }
 function tvWarp() {                                // запасной холст — на экран полосками: строка экрана берёт свою строку земли и сжимается по ширине
-  g = gMain;
+  g = gMain; tvNow = performance.now();
   const b = tvB(), W0 = cv.width, cy = cv.height / 2, q = tvBuf.q, st = perf.lite ? 4 : 2;
   const t0 = tvEdge(8), t1 = tvEdge(ST - 12), y0 = t0 / (1 - b * t0), s0 = 1 + b * y0, r0 = 1 / (s0 * s0), lift = 1 + (TV_LIFT - 1) * cam.tv;   // выше края газона — трибуна: стеной, ширина не меняется
-  const dep = Math.max(.01, t0 - t1), yt = y0 - dep * lift / r0;          // дальше конца трибуны — второй ярус: та же трибуна ещё раз, в тени козырька
+  const yt = y0 - Math.max(.01, t0 - t1) * lift / r0, Yt = cy + yt * cy, w = smooth((cam.tv - .05) / .9);   // yt — верх нижнего яруса; w — насколько «встали» ярусы (вместе с cam.tv)
   g.setTransform(1, 0, 0, 1, 0, 0);
+  const J = stands && w > .01 ? tvJoin(W0, cy, b, y0, s0, Yt, w) : null;   // где сходятся ярусы дальней трибуны и трибун за воротами
+  if (J) { tvRoof(W0, J.far ? J.far.Yb - TIER_H * J.k * s0 * J.far.wf : cy * (1 + y0), w, J.far && J.far.X0); tvCorners(J); }   // за трибунами — не небо, а своя крыша: из ТВ-камеры за стадион не заглянуть
   for (let Y = 0; Y < cv.height; Y += st) {
     const yn = (Y + st / 2 - cy) / cy, up = yn < y0;
     const sx = up ? s0 : 1 + b * yn, sh = up ? st * r0 / lift : st / (sx * sx);
-    let ts = up ? t0 - (y0 - yn) * r0 / lift : yn / sx;
-    if (ts < t1) ts = t0 - (t0 - ts) % dep;
+    const ts = up ? t0 - (y0 - yn) * r0 / lift : yn / sx;
+    if (ts < t1 - .004) continue;                    // выше нижнего яруса — не земля: там верхний ярус, козырёк и небо (рисуются отдельно)
     g.drawImage(tvBuf, (tvBuf.cx - W0 / 2 / sx) * q, (tvBuf.cy + ts * cy - sh / 2) * q, W0 / sx * q, sh * q, 0, Y, W0, st + .6);
   }
-  const Yt = cy + yt * cy;
-  if (Yt > 0 && cam.tv > .3) {                     // второй ярус темнее, между ярусами — бетонный край
-    const sh = g.createLinearGradient(0, 0, 0, Yt); sh.addColorStop(0, 'rgba(4,8,18,.75)'); sh.addColorStop(1, 'rgba(4,8,18,.3)');
-    g.fillStyle = sh; g.fillRect(0, 0, W0, Yt);
-    g.fillStyle = 'rgba(148,163,184,.85)'; g.fillRect(0, Yt - 2 * cy / 300, W0, 3 * cy / 300);
+  if (J) { tvFarTier(J); tvEnds(J); }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
+}
+/* Ярусы в «Телекамере». Нижний ярус — настоящая трибуна с земли (болельщики, баннеры, «волна»): дальняя — стеной,
+   за воротами — ступенями вверх от лицевой линии. Верхний ярус, козырёк с фермой и прожекторами — своя картинка
+   (рисуется один раз на сторону: при смене размера, цветов, света), в кадре её только кладут в перспективе. Небо — по свету. */
+const TV_RISE = .8;                                // трибуна за воротами: подъём на единицу глубины (если дальнего яруса нет; иначе — чтобы ярусы сошлись на углу)
+const TIER = {HR: 20, RF: 9, BW: 6, RH: 6, NR: 8, BAL: 8, SH: 12};   // по высоте: свет над крышей, козырёк, стенка, ряды, бортик, тень под ним
+const TIER_H = TIER.HR + TIER.RF + TIER.BW + TIER.RH * TIER.NR + TIER.BAL, TIER_ALL = TIER_H + TIER.SH;
+const tvTiers = {};
+let tvNow = 0;
+function tierAmp(i) {                              // как встал сектор i нижней трибуны (гол, барабаны, «волна») — так встаёт и ярус над ним
+  if (i < 0 || !stands) return 0; const sec = stands.sectors[i]; if (!sec || !sec.n) return 0;
+  return crowdAmp(sec, i, tvNow);
+}
+let tvSkyImg = null;
+function sidePt(side, t, d) { return side === 0 ? {x: t, y: -d} : side === 1 ? {x: W + d, y: t} : side === 2 ? {x: t, y: H + d} : {x: -d, y: t}; }   // сторона: 0 — y<0, 1 — x>W, 2 — y>H, 3 — x<0; t — вдоль стороны
+function tierSprite(side, UP) {                   // UP — второй кадр: те же болельщики встали, руки вверх, шарфы и флаги над головой (гол, волна, барабаны)
+  const L = lightNow(), lite = perf.lite, len = side % 2 ? TH : TW, spd = K0 * (lite ? 1.2 : 2.2);
+  const key = [spd.toFixed(3), stands.key, L, lite, !!UP].join(), slot = side + (UP ? 4 : 0);
+  const old = tvTiers[slot]; if (old && old.key === key) return old;
+  const c = document.createElement('canvas'); c.width = Math.ceil(len * spd); c.height = Math.ceil(TIER_ALL * spd);
+  const x = c.getContext('2d'); x.setTransform(spd, 0, 0, spd, 0, 0);
+  const home = S.teams[0], away = S.teams[1], fill = +stands.key.split(',')[4], rn = seeded(side * 7919 + 101);
+  const day = L === 'day', lit = !day, dusk = L === 'dusk';
+  const at = u => sidePt(side, u - ST, ST - 14), awayAt = u => { const f = frac(at(u)); return f > AWAY_SECTOR[0] && f < AWAY_SECTOR[1]; };
+  const yR = TIER.HR, yW = yR + TIER.RF, yS = yW + TIER.BW, yB = yS + TIER.RH * TIER.NR;   // козырёк, стенка, первый ряд, бортик
+  // стенка под козырьком и бетон ступеней
+  x.fillStyle = day ? '#1e2533' : '#0b1120'; x.fillRect(0, yW, len, yB - yW + 1);
+  const seat = mix(home.shirt, -.62), seatA = mix(away.shirt, -.62);
+  const skins = ['#f1c7a5', '#e0ac85', '#c68863', '#8d5a3b', '#5c3a24'], hair = ['#1c1917', '#3f2a1d', '#57351f', '#a16207', '#d6d3d1', '#0c0a09'];
+  const casual = ['#e5e7eb', '#111827', '#374151', '#1e3a8a', '#7f1d1d', '#14532d', '#78350f', '#f8fafc'];
+  const pants = ['#1f2937', '#111827', '#1e3a8a', '#374151', '#3f3f46'];
+  for (let i = 0; i < TIER.NR; i++) {
+    const y = yS + i * TIER.RH, k = i / (TIER.NR - 1);     // ряд: сверху (дальше, выше) — к бортику
+    x.fillStyle = `rgb(${Math.round(48 + 10 * k)},${Math.round(56 + 10 * k)},${Math.round(72 + 10 * k)})`; x.fillRect(0, y, len, TIER.RH);   // ступень — бетон как внизу
+    x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, y + TIER.RH - 1.1, len, 1.1);   // край ступени — тень
+    x.fillStyle = 'rgba(203,213,225,.18)'; x.fillRect(0, y + TIER.RH - 1.4, len, .35);
+    const sc = .92, F = 1.43 * sc, step = SEAT * sc, j = TIER.NR - 1 - i, want = clamp(fill * (1.3 - j * .03), 0, .97);   // как внизу: шаг кресел, болельщик во всё кресло; дальше — чуть мельче
+    const yc = y + TIER.RH * .5;
+    for (let u = 3 + (i % 2) * step / 2; u < len - 3; u += step) {
+      const p = at(u); if (isAisle(p)) continue;
+      const f = frac(p), aw = f > AWAY_SECTOR[0] && f < AWAY_SECTOR[1], tm = aw ? away : home;
+      x.fillStyle = aw ? seatA : seat; x.fillRect(u - 2 * sc, yc - 3.2 * sc, 4 * sc, 4 * sc);        // кресло со спинкой (как внизу)
+      x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(u - 2 * sc, yc - 3.8 * sc, 4 * sc, 1.2 * sc);
+      if (!aw && (Math.abs(f - AWAY_SECTOR[0]) < .012 || Math.abs(f - AWAY_SECTOR[1]) < .012)) continue;   // пустые кресла между фанатами
+      if (rn() > (aw ? clamp(fill + .3, .45, .97) : want)) continue;
+      const v = rn(), col = v < .55 ? tm.shirt : v < .7 ? tm.shorts : casual[Math.floor(rn() * casual.length)];
+      const fx = u + (rn() - .5) * 1.1, fy = yc + (rn() - .5) * 1.1, big = .9 + rn() * .22;
+      const skin = skins[Math.floor(rn() * skins.length)], hr = rn() < .1 ? '#d6d3d1' : hair[Math.floor(rn() * hair.length)];
+      const pc = pants[Math.floor(rn() * pants.length)], scarf = rn() < .5, cap = rn() < .12, sc2 = rn() < .5 ? tm.shirt : tm.shorts, bald = rn() < .08;
+      const el = (col, f2, s2, rx, ry) => { x.fillStyle = col; x.beginPath(); x.ellipse(fx + s2 * F, fy + f2 * F, rx * F, ry * F, 0, 0, 6.29); x.fill(); };   // f2 > 0 — к полю (вниз), s2 — вдоль ряда
+      if (lite) { el(col, 0, 0, 2.5 * big, 1.7); el(skin, .3, 0, 1.6 * big, 1.6 * big); continue; }
+      const pz = rn(), up = UP || pz < .07;                             // кто-то стоит с руками вверх (и шарфом над головой)
+      el('rgba(2,6,23,.3)', -.9, 0, 3 * big, 2.2);                      // тень за спиной — фигурки не сливаются
+      if (!up) el(pc, 2.4, 0, 2.1 * big, 1.25);                         // колени к полю (сидит)
+      el(mix(col, -.4), up ? .3 : 0, 0, 2.75 * big, 1.95);              // спина и плечи — тень
+      el(col, (up ? .3 : 0) + .25 / F, 0, 2.45 * big, 1.6);             // футболка
+      el(mix(col, .28), (up ? .3 : 0) + .55 / F, -.6 / F, 1.2 * big, .6);   // блик от прожекторов
+      if (up) { for (const sd of [-1, 1]) { el(col, 1.4, sd * 2.4 * big, 1.1, .75); el(skin, 2.6, sd * 2.1 * big, .75, .75); } if (scarf) el(sc2, 2.9, 0, 3.3 * big, .7); }   // руки вверх, шарф растянут
+      else { for (const sd of [-1, 1]) el(col, .6, sd * 2.5 * big, .8, 1.1); if (scarf) el(sc2, .7, 0, 2 * big, .45); }   // руки по бокам, шарф на шее
+      const hy = up ? .6 : .3;
+      el(skin, hy, 0, 1.6 * big, 1.6 * big);                            // голова
+      if (cap) el(sc2, hy - .2, 0, 1.55 * big, 1.25 * big); else if (!bald) el(hr, hy - .45, 0, 1.5 * big, 1.05 * big);   // кепка или причёска
+      el('rgba(255,250,235,.3)', hy + .35, -.5, .6 * big, .45 * big);   // мягкий блик сверху на голове
+      if (UP ? pz > .9 : !up && pz < .095) { const fh = (UP ? 13 : 9) * sc; x.fillStyle = '#cbd5e1'; x.fillRect(fx + 2.2 * F, fy - fh, .5, fh); x.fillStyle = sc2; x.fillRect(fx + 2.7 * F, fy - fh, 5 * sc, 3.2 * sc); x.fillStyle = sc2 === tm.shirt ? tm.shorts : tm.shirt; x.fillRect(fx + 2.7 * F, fy - fh + 1.1 * sc, 5 * sc, 1 * sc); }   // флаг (встали — подняли выше)
+    }
+  }
+  x.fillStyle = 'rgba(148,163,184,.34)';                  // лестницы — в тех же местах, что и внизу
+  for (let u = 0; u < len; u += .8) if (isAisle(at(u))) { x.fillRect(u, yS, .85, yB - yS); }
+  x.fillStyle = 'rgba(15,23,42,.5)';
+  for (let y = yS + 1.6; y < yB; y += 1.9) for (let u = 0; u < len; u += .8) if (isAisle(at(u))) x.fillRect(u, y, .85, .35);
+  const ais = [];                                          // середины лестниц — между ними сектора
+  for (let u = 0, a0 = -1; u < len; u += .8) { const a = isAisle(at(u)); if (a && a0 < 0) a0 = u; if (!a && a0 >= 0) { ais.push((a0 + u) / 2); a0 = -1; } }
+  for (let i = 0; i + 1 < ais.length; i += 2) {           // входы на ярус — тёмные проёмы посреди рядов, через сектор
+    const cx = (ais[i] + ais[i + 1]) / 2, y = yS + TIER.RH * 4;
+    if (cx < 20 || cx > len - 20 || ais[i + 1] - ais[i] < 24) continue;
+    x.fillStyle = '#020617'; x.fillRect(cx - 5, y - 1, 10, TIER.RH * 1.6); x.fillStyle = 'rgba(148,163,184,.55)'; x.fillRect(cx - 5.6, y - 1.6, 11.2, .8);
+  }
+  const shB = yS + TIER.RH * 2.6, sh = x.createLinearGradient(0, yW, 0, shB);   // ярус освещён прожекторами (днём — солнцем); тень козырька — только на последних рядах у крыши
+  sh.addColorStop(0, `rgba(2,6,23,${day ? .45 : .6})`); sh.addColorStop(1, 'rgba(2,6,23,0)');
+  x.fillStyle = sh; x.fillRect(0, yW, len, shB - yW);
+  if (dusk) { x.fillStyle = 'rgba(251,146,60,.07)'; x.fillRect(0, yS, len, yB - yS); }
+  // бортик: стекло с поручнем и бетонный край с лентой в цвет хозяев
+  x.fillStyle = 'rgba(186,230,253,.16)'; x.fillRect(0, yB, len, 2.6);
+  x.fillStyle = 'rgba(226,232,240,.75)'; x.fillRect(0, yB - .3, len, .55);
+  x.fillStyle = 'rgba(226,232,240,.35)'; for (let u = 1.5; u < len; u += 6) x.fillRect(u, yB, .3, 2.6);
+  const fb = x.createLinearGradient(0, yB + 2.6, 0, yB + TIER.BAL); fb.addColorStop(0, day ? '#cbd5e1' : '#64748b'); fb.addColorStop(.25, day ? '#94a3b8' : '#334155'); fb.addColorStop(1, day ? '#475569' : '#1e293b');
+  x.fillStyle = fb; x.fillRect(0, yB + 2.6, len, TIER.BAL - 2.6);
+  x.fillStyle = mix(home.shirt, lit ? .05 : -.1); x.fillRect(0, yB + 4.2, len, 1.9);
+  x.fillStyle = mix(home.shirt, lit ? .45 : .25); for (let u = 0; u < len; u += 3) x.fillRect(u, yB + 4.4, 1.8, .5);
+  for (let u = 0; u < len; u += 1.6) if (awayAt(u)) { x.fillStyle = mix(away.shirt, lit ? .05 : -.1); x.fillRect(u, yB + 4.2, 1.6, 1.9); }
+  const ug = x.createLinearGradient(0, TIER_H, 0, TIER_ALL);   // тень бортика на нижний ярус
+  ug.addColorStop(0, 'rgba(2,6,23,.55)'); ug.addColorStop(1, 'rgba(2,6,23,0)'); x.fillStyle = ug; x.fillRect(0, TIER_H, len, TIER.SH);
+  // козырёк: кромка, ферма снизу, светильники
+  const rf = x.createLinearGradient(0, yR, 0, yW); rf.addColorStop(0, day ? '#cbd5e1' : '#334155'); rf.addColorStop(.2, day ? '#64748b' : '#111827'); rf.addColorStop(1, day ? '#334155' : '#0b1120');
+  x.fillStyle = rf; x.fillRect(0, yR, len, TIER.RF);
+  x.strokeStyle = day ? 'rgba(226,232,240,.55)' : 'rgba(100,116,139,.6)'; x.lineWidth = .45; x.beginPath();
+  for (let u = 0; u < len; u += 7) { x.moveTo(u, yR + 2); x.lineTo(u + 3.5, yW - .8); x.lineTo(u + 7, yR + 2); }
+  x.moveTo(0, yR + 2); x.lineTo(len, yR + 2); x.moveTo(0, yW - .8); x.lineTo(len, yW - .8); x.stroke();
+  x.fillStyle = day ? 'rgba(15,23,42,.55)' : 'rgba(255,251,235,.9)';
+  for (let u = 3; u < len; u += 9) x.fillRect(u - .5, yW - .6, 1, .7);   // светильники под козырьком
+  // прожекторы на кромке козырька: ночью и на закате горят
+  for (let u = 40; u < len - 30; u += 92) {
+    x.fillStyle = '#1f2937'; x.fillRect(u - .4, yR - 7, .8, 7); x.fillRect(u + 17.6, yR - 7, .8, 7);
+    x.fillStyle = day ? '#475569' : '#0f172a'; x.fillRect(u - 1, yR - 11.5, 20, 5.2);
+    for (let j = 0; j < 6; j++) for (let r = 0; r < 2; r++) { x.fillStyle = lit ? '#fffbeb' : '#94a3b8'; x.fillRect(u + .3 + j * 3.2, yR - 11 + r * 2.4, 2.4, 1.9); }
+    if (lit && !lite) {
+      x.globalCompositeOperation = 'lighter';
+      const gl = x.createRadialGradient(u + 9, yR - 8.5, 0, u + 9, yR - 8.5, 26);
+      gl.addColorStop(0, `rgba(255,248,220,${dusk ? .5 : .7})`); gl.addColorStop(.25, 'rgba(255,244,214,.22)'); gl.addColorStop(1, 'rgba(255,244,214,0)');
+      x.fillStyle = gl; x.fillRect(u - 17, yR - 34, 52, 52);
+      x.globalCompositeOperation = 'source-over';
+    }
+  }
+  c.sec = new Int16Array(Math.ceil(len) + 1);        // какой сектор нижней трибуны под каждым местом яруса: ярус живёт вместе с ним
+  for (let u = 0; u <= len; u++) { const p = at(u); c.sec[u] = isAisle(p) ? -1 : Math.floor(frac(p) * SECTORS) % SECTORS; }
+  c.runs = []; for (let u = 0; u <= len; u++) { const i = c.sec[u], r = c.runs[c.runs.length - 1]; if (r && r.i === i) r.u1 = u + 1; else c.runs.push({i, u0: u, u1: u + 1}); }
+  c.runs = c.runs.filter(r => r.i >= 0);
+  c.key = key; c.spd = spd; c.side = side; tvTiers[slot] = c; return c;
+}
+function tvRoof(W0, Yr, w, X0) {                   // всё, что выше и сбоку от трибун: нижняя сторона крыши — балки, фермы, светильники; свет по матчу (днём светлее, ночью горят)
+  const L = lightNow(), H0 = cv.height, yr = Math.max(8, Math.round(Yr / 6) * 6), per = Math.round(W0 / 4), key = [L, W0, H0, yr].join();
+  if (!tvSkyImg || tvSkyImg.key !== key) {          // картинка шире кадра на один пролёт: при панораме сдвигается вместе с дальней трибуной
+    const c = document.createElement('canvas'); c.width = W0 + per; c.height = H0; const x = c.getContext('2d'), CW = c.width;
+    const P = L === 'day' ? {top: '#3b424e', mid: '#5b6370', low: '#2f3540', beam: 'rgba(203,213,225,.32)', raf: 'rgba(148,163,184,.3)', lamp: 'rgba(148,163,184,.7)', glow: 0}
+      : L === 'dusk' ? {top: '#15131c', mid: '#2e2a33', low: '#110f16', beam: 'rgba(160,150,150,.26)', raf: 'rgba(120,110,120,.26)', lamp: 'rgba(255,236,200,.85)', glow: .5}
+      : {top: '#070b14', mid: '#1a2131', low: '#05080f', beam: 'rgba(148,163,184,.22)', raf: 'rgba(100,116,139,.26)', lamp: 'rgba(255,248,220,.95)', glow: 1};
+    const gr = x.createLinearGradient(0, 0, 0, H0); gr.addColorStop(0, P.top); gr.addColorStop(Math.min(.95, yr / H0), P.mid); gr.addColorStop(1, P.low);
+    x.fillStyle = gr; x.fillRect(0, 0, CW, H0);
+    x.save();
+    const beams = []; for (let j = 1; j < 9; j++) beams.push(yr * (1 - Math.pow(j / 9, .7)));   // поперечные балки: к камере — реже
+    for (let j = 0; j < 8; j++) { const by = yr + (yr - beams[j]) * 1.3; if (by < H0) beams.push(by); }   // сбоку, над трибунами за воротами, — та же крыша (уходит к камере)
+    x.strokeStyle = P.raf; x.lineWidth = Math.max(1.2, W0 / 300); x.beginPath();
+    for (let xx = 0; xx <= CW; xx += per / 2) { x.moveTo(xx, 0); x.lineTo(xx, H0); } x.stroke();   // продольные балки
+    x.strokeStyle = P.beam; x.lineWidth = Math.max(1.5, W0 / 260);
+    x.beginPath(); for (const by of beams) { x.moveTo(0, by); x.lineTo(CW, by); } x.stroke();
+    x.strokeStyle = P.raf; x.lineWidth = Math.max(.8, W0 / 600); x.beginPath();   // фермы между балками
+    for (let j = 0; j + 1 < 8; j++) { const y1 = beams[j], y2 = beams[j + 1], step = per / (2 + Math.floor(j / 2)); for (let xx = 0; xx < CW; xx += step) { x.moveTo(xx, y1); x.lineTo(xx + step / 2, y2); x.lineTo(xx + step, y1); } }
+    for (let j = 8; j + 1 < beams.length; j++) { const y1 = beams[j], y2 = beams[j + 1], step = per / (2 + Math.floor((15 - j) / 2)); for (let xx = 0; xx < CW; xx += step) { x.moveTo(xx, y1); x.lineTo(xx + step / 2, y2); x.lineTo(xx + step, y1); } }
+    x.stroke();
+    for (let j = 0; j < beams.length; j += 2) {      // светильники под крышей
+      const jj = j < 8 ? j : 15 - j, by = beams[j], step = per / (1 + Math.floor(jj / 2)), r = Math.max(1.2, W0 / 300) * (1 + (8 - jj) * .08);
+      for (let lx = step / 2; lx < CW; lx += step) {
+        if (P.glow) { const gl = x.createRadialGradient(lx, by + r, 0, lx, by + r, r * 7); gl.addColorStop(0, `rgba(255,244,214,${(.3 * P.glow).toFixed(2)})`); gl.addColorStop(1, 'rgba(255,244,214,0)'); x.fillStyle = gl; x.fillRect(lx - r * 7, by + r - r * 7, r * 14, r * 14); }
+        x.fillStyle = P.lamp; x.fillRect(lx - r * 1.6, by, r * 3.2, r * 1.2);
+      }
+    }
+    x.restore();
+    c.key = key; c.per = per; tvSkyImg = c;
+  }
+  const off = ((X0 || 0) % tvSkyImg.per + tvSkyImg.per) % tvSkyImg.per;
+  g.globalAlpha = w; g.drawImage(tvSkyImg, off - tvSkyImg.per, 0); g.globalAlpha = 1;
+}
+function tvJoin(W0, cy, b, y0, s0, Yt, w) {        // общая геометрия ярусов: дальний ярус и ярусы за воротами сходятся на углах — одна высота бортика и козырька
+  const m = cam.m, k = K0 * cam.z, ux = -Math.sin(cam.r), uy = -Math.cos(cam.r), Y0 = cy * (1 + y0), fv0 = y0 / s0 * cy;
+  const side = Math.abs(ux) > Math.abs(uy) ? (ux > 0 ? 1 : 3) : (uy > 0 ? 2 : 0);
+  const n = [[0, -1], [1, 0], [0, 1], [-1, 0]][side], wf = w * smooth(((n[0] * ux + n[1] * uy) - .92) / .06);   // камера смотрит на сторону не прямо — ярус уходит
+  const J = {W0, cy, b, y0, s0, Y0, k, w, far: null, ends: [], R: TV_RISE, we: 0};
+  if (wf >= .01) {
+    const spr = tierSprite(side), P0 = sidePt(side, -ST, ST - 12), dir = side % 2 ? [0, 1] : [1, 0];
+    const fu0 = m[0] * P0.x + m[2] * P0.y + m[4], ax = s0 * (m[0] * dir[0] + m[2] * dir[1]) / spr.spd, V = k * s0 * wf / spr.spd;
+    J.far = {side, spr, ax, V, X0: W0 / 2 + s0 * fu0, Yb: Yt + 7 * V * spr.spd, wf};   // бортик чуть нависает над верхними рядами нижнего яруса
+  }
+  J.we = w * smooth((Math.abs(Math.sin(cam.r)) - .92) / .06);
+  if (J.we < .01 || Math.abs(m[1]) < 1e-6) return J;
+  if (J.far && side % 2) J.R = clamp((Y0 - J.far.Yb) / (s0 * k * (ST - 26)), .3, 1.6) / J.we;   // за воротами ступени поднимаются ровно до бортика дальнего яруса
+  for (const es of [0, 2]) {
+    const ny = es ? 1 : -1, yE = es ? H : 0, o = Math.sign(m[2] * ny);   // o — куда «наружу» по ширине кадра
+    const fuOf = (x, d) => m[0] * x + m[2] * (yE + ny * d) + m[4], xF = (fv0 - m[3] * yE - m[5]) / m[1];
+    J.ends.push({side: es, ny, yE, o, fuOf, X8: W0 / 2 + s0 * fuOf(xF, 8), Xe: W0 / 2 + s0 * fuOf(xF, ST - 18), XB: W0 / 2 + s0 * fuOf(xF, ST - 12)});
+  }
+  return J;
+}
+function tvCorners(J) {                             // дальние углы под бортиком: у нижнего яруса угол скруглён, за ним — небо; закрываем рядами того же яруса (рисуется до трибун — видно только в просвете)
+  const F = J.far; if (!F || !(F.side % 2) || !J.ends.length) return;
+  const spr = F.spr, sp = spr.spd, yS = TIER.HR + TIER.RF + TIER.BW, yB = yS + TIER.RH * TIER.NR, vs = (J.Y0 - F.Yb) / ((yB - yS) * sp);
+  if (vs <= 0) return;
+  g.globalAlpha = smooth(Math.min(F.wf, J.we) * 1.6);
+  for (const e of J.ends) {
+    const x0 = Math.min(e.X8, e.XB + e.o * 8), x1 = Math.max(e.X8, e.XB + e.o * 8);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.rect(x0, F.Yb - 1, x1 - x0, J.Y0 - F.Yb + 2); g.clip();
+    g.setTransform(F.ax, 0, 0, vs, F.X0, F.Yb - yS * sp * vs);
+    g.drawImage(spr, 0, 0);
+    g.restore();
+  }
+  g.globalAlpha = 1;
+}
+function tvFarTier(J) {                             // верхний ярус дальней трибуны: над нижним, ровно один раз; на углах — ровно до яруса за воротами
+  const F = J.far; if (!F) return;
+  let xl = -1e9, xr = 1e9;
+  if (F.side % 2 && J.we >= .01) for (const e of J.ends) { const X = F.X0 + F.ax * (e.yE - e.ny * R0 + ST) * F.spr.spd; if (e.o < 0) xl = Math.max(xl, X); else xr = Math.min(xr, X); }   // прямая часть — до начала дуги угла
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.beginPath(); g.rect(Math.max(0, xl), 0, Math.min(J.W0, xr) - Math.max(0, xl), cv.height); g.clip();
+  g.globalAlpha = smooth(F.wf * 1.6);
+  g.setTransform(F.ax, 0, 0, F.V, F.X0, F.Yb - TIER_H * F.spr.spd * F.V);
+  g.drawImage(F.spr, 0, 0);
+  tierUp(F.spr, smooth(F.wf * 1.6));
+  g.restore(); g.globalAlpha = 1;
+}
+const TV_ARC = R0 + ST - 18;                       // радиус дуги верхнего яруса в углу — как у нижней трибуны (кольцо по фронту яруса)
+function tvEnds(J) {                                // трибуны за воротами: нижний ярус — ступенями вверх от лицевой линии, на нём — верхний ярус с козырьком; в дальнем углу — дугой к дальнему ярусу
+  const {W0, cy, b, k, we, s0} = J, m = cam.m, F = J.far && J.far.side % 2 ? J.far : null;
+  if (we < .01 || !J.ends.length) return;
+  const q = tvBuf.q, st = perf.lite ? 12 : 6, xN = m[1] > 0 ? W : 0, Ytop = Math.max(0, Math.ceil(J.Y0));
+  const wAt = x => we * (1 - smooth(Math.max(0, (x - xN) * Math.sign(m[1])) / (ST * .85)));   // за ближней бровкой — угол к ближней трибуне: ступени плавно опускаются
+  const xc = m[1] > 0 ? R0 : W - R0;                 // с этой глубины трибуна за воротами прямая; ближе к дальней — дуга угла
+  for (const e of J.ends) {
+    const {o, yE, fuOf} = e;
+    const vis = Y => { const yn = (Y - cy) / cy, s = 1 + b * yn, fv = yn / s * cy, x = (fv - m[3] * yE - m[5]) / m[1], X = W0 / 2 + s * fuOf(x, 8); return o < 0 ? X > -2 : X < W0 + 2; };
+    if (!vis(Ytop) && !vis(cv.height)) continue;     // лицевая линия за кадром (сверху и снизу) — трибуна не видна
+    const spr = tierSprite(e.side), sp = spr.spd;
+    const at = x => {                                // фронт верхнего яруса на глубине x: где на экране и какой высоты (высота растёт к камере мягче, чем по перспективе)
+      const fv = m[1] * x + m[3] * yE + m[5], ts = fv / cy, yn = ts / (1 - b * ts), s = 1 + b * yn, Y = cy * (1 + yn), wr = wAt(x);
+      const fuA = fuOf(x, 8), fuU = fuOf(x, ST - 18);
+      return {x: W0 / 2 + s * fuU, y: Y - J.R * wr * o * s * (fuU - fuA), v: k * wr * (s0 + (s - s0) * .35), wr};
+    };
+    let arcDone = !F;
+    for (let Y = Ytop; Y < cv.height; Y += st) {
+      const yn = (Y - cy) / cy, s = 1 + b * yn, fv = yn / s * cy, fv2 = ((Y + st - cy) / cy) / (1 + b * (Y + st - cy) / cy) * cy;
+      const x = (fv - m[3] * yE - m[5]) / m[1], x2 = (fv2 - m[3] * yE - m[5]) / m[1];
+      const fuA = fuOf(x, 8), fuB = fuOf(x, ST - 12), XA = W0 / 2 + s * fuA;
+      if (o < 0 ? XA < -2 : XA > W0 + 2) continue;
+      const wr = wAt(x); if (wr < .01) continue;
+      const R = J.R * wr, ds = b * s * s / cy;
+      const lo = Math.min(fuA, fuB), sw = Math.abs(fuB - fuA) + 1.5;
+      const s2 = 1 + b * (Y + st - cy) / cy;
+      const gap = Math.max(0, (R * s - J.R * wAt(x2) * s2) * Math.abs(fuB - fuA)), kY = (st + gap + 1) / st;   // ступени к углу опускаются — полоска вытягивается вниз до следующей, плоская трибуна из-под неё не видна
+      g.setTransform(s / q, -R * o * s / q, fuA * ds / q, s * s * kY / q,
+        W0 / 2 - s * tvBuf.cx - fuA * ds * (tvBuf.cy + fv), Y - s * s * kY * (tvBuf.cy + fv) + R * o * s * (tvBuf.cx + fuA));
+      g.drawImage(tvBuf, (tvBuf.cx + lo) * q, (tvBuf.cy + fv) * q, sw * q, (fv2 - fv + 1) * q, (tvBuf.cx + lo) * q, (tvBuf.cy + fv) * q, sw * q, (fv2 - fv + 1) * q);
+      // верхний ярус над этим кусочком: столбец картинки — то место вдоль трибуны, где сейчас лицевая линия
+      const near = (x2 - xc) * Math.sign(m[1]);
+      if (near <= 0) continue;                       // ещё дуга угла — её рисуем целиком ниже
+      if (!arcDone) { arcDone = true; tvArc(J, e, at(xc), at(xc + 6 * Math.sign(m[1])), xc); }
+      const xa = (x - xc) * Math.sign(m[1]) < 0 ? xc : x, A = at(xa), B = at(x2);
+      const pa = (xa + ST) * sp, pb = (x2 + ST) * sp;
+      if (Math.max(pa, pb) < 0 || Math.min(pa, pb) > spr.width || Math.abs(pb - pa) < .01) continue;
+      tvStrip(spr, pa, pb, A, B, A.v, smooth(A.wr * 1.6));
+    }
+  }
+}
+function tierUp(spr, alpha, u0, u1) {            // поверх яруса — встающие сектора (кадр «встали»), чуть выше; «волна» — плавно, как внизу
+  if (!jump && !drums && !wave) return;             // трибуна спокойна — ничего не делаем
+  const sp = spr.spd, y0 = (TIER.HR + TIER.RF + TIER.BW - 3) * sp, y1 = (TIER_H - TIER.BAL) * sp;   // только ряды: бортик и козырёк на месте
+  let up = null;
+  for (const r of spr.runs) {
+    if (u1 !== undefined && (r.u1 < u0 || r.u0 > u1)) continue;
+    const a = tierAmp(r.i); if (a < .2) continue;
+    const wl = wave ? waveLift(r.i, tvNow) : 0, k = wl > .02 && a <= 1.3 * wl + 1e-6 ? wl : smooth((a - .2) / .3);
+    if (k < .02) continue;
+    up = up || tierSprite(spr.side, true);
+    const p0 = Math.max(r.u0, u0 === undefined ? r.u0 : u0) * sp, p1 = Math.min(r.u1, u1 === undefined ? r.u1 : u1) * sp, dy = Math.min(a, 1.3) * 3 * sp;
+    if (p1 <= p0) continue;
+    g.globalAlpha = alpha * k; g.drawImage(up, p0, y0, p1 - p0, y1 - y0, p0, y0 - dy, p1 - p0, y1 - y0);
+  }
+  g.globalAlpha = alpha;
+}
+function tvStrip(spr, pa, pb, A, B, v, alpha, fine) {     // кусок верхнего яруса: столбцы картинки pa…pb — от точки A до точки B бортика, высота v (точек экрана на единицу)
+  const sp = spr.spd, ax = (B.x - A.x) / (pb - pa), ay = (B.y - A.y) / (pb - pa), Vy = v / sp, pb0 = TIER_H * sp;
+  g.globalAlpha = alpha;
+  g.setTransform(ax, ay, 0, Vy, A.x - pa * ax, A.y - pa * ay - pb0 * Vy);
+  const p0 = Math.min(pa, pb), w0 = Math.abs(pb - pa), yH = TIER.HR * sp, yT = TIER_H * sp;   // полупрозрачные свет над крышей и тень под бортиком — встык (иначе на стыках полосы), остальное — внахлёст
+  if (!fine) g.drawImage(spr, p0 - .5, 0, w0 + 1.2, spr.height, p0 - .5, 0, w0 + 1.2, spr.height);   // узкие полоски вдоль трибуны — одним куском
+  else {
+    g.drawImage(spr, p0, 0, w0, yH, p0, 0, w0, yH);
+    g.drawImage(spr, p0 - .5, yH, w0 + 1.2, yT - yH, p0 - .5, yH, w0 + 1.2, yT - yH);
+    g.drawImage(spr, p0, yT, w0, spr.height - yT, p0, yT, w0, spr.height - yT);
+  }
+  tierUp(spr, alpha, (p0 - .5) / sp, (p0 + w0 + .7) / sp);   // и этот кусок встаёт вместе со своим сектором
+  g.globalAlpha = 1;
+}
+function tvArc(J, e, P3, P3b, xc) {                  // угол: верхний ярус по дуге от дальнего яруса к ярусу за воротами — ряды, бортик, козырёк и прожекторы идут по дуге
+  const F = J.far, fs = F.spr.spd, yS = e.yE - e.ny * R0;    // дальний ярус прямой до yS, дальше — дуга
+  const P0 = {x: F.X0 + F.ax * (yS + ST) * fs, y: F.Yb}, v0 = J.k * J.s0 * F.wf;
+  const dx = P3b.x - P3.x, dy = P3b.y - P3.y, dl = Math.hypot(dx, dy) || 1, tx = dx / dl, ty = dy / dl;   // касательная к ярусу за воротами
+  const u = Math.abs(ty) > .05 ? (P3.y - P0.y) / ty : 0, C = {x: P3.x - u * tx, y: P0.y};        // где сходились бы прямые — вершина угла
+  if ((C.x - P0.x) * e.o < 0) C.x = P0.x;
+  const P1 = {x: P0.x + .55 * (C.x - P0.x), y: P0.y}, P2 = {x: P3.x + .55 * (C.x - P3.x), y: P3.y + .55 * (C.y - P3.y)};
+  const bz = t => { const a = 1 - t; return {x: a * a * a * P0.x + 3 * a * a * t * P1.x + 3 * a * t * t * P2.x + t * t * t * P3.x, y: a * a * a * P0.y + 3 * a * a * t * P1.y + 3 * a * t * t * P2.y + t * t * t * P3.y}; };
+  const half = TV_ARC * Math.PI / 4, N = perf.lite ? 8 : 20, sgn = Math.sign(cam.m[1]), es = tierSprite(e.side);
+  for (let i = 0; i < N; i++) {                      // первая половина дуги — из картинки дальнего яруса, вторая — из картинки яруса за воротами (ряды на одной высоте)
+    const t0 = i / N, t1 = (i + 1) / N, A = bz(t0), B = bz(t1), v = lerp(v0, P3.v, (t0 + t1) / 2);
+    const first = t1 <= .5 + 1e-6, spr = first ? F.spr : es;
+    const pos = t => first ? (yS + e.ny * half * (t / .5) + ST) * fs : (xc - sgn * half * (1 - (t - .5) / .5) + ST) * es.spd;
+    tvStrip(spr, pos(t0), pos(t1), A, B, v, smooth(Math.min(F.wf, J.we) * 1.6), true);
   }
 }
 function tvAt(x, y) {                              // фигура в точке поля (x, y): туда, куда эта точка легла в трапеции, и крупнее/мельче по глубине
@@ -4867,7 +5183,7 @@ let drone = null;                                  // {t0, a — угол обл
 const calm = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 function droneAim(now) {
   if (!halfOn() || camMode === 'wide') { drone = null; return null; }
-  if (!drone) { drone = {t0: now, a: 0, last: now, aB: null}; setTimeout(() => { if (!outside) outside = buildOutside(); if (!outside.img) outside.img = outsideImg(outside); }, 50); }   // округу — заранее, пока камера стоит
+  if (!drone) { drone = {t0: now, a: 0, last: now, aB: null}; setTimeout(() => { if (!outside) outside = buildOutside(); if (!outside.img || outside.img.L !== lightNow()) outside.img = outsideImg(outside); }, 50); }   // округу — заранее, пока камера стоит
   const dt = Math.min(now - drone.last, 100); drone.last = now;
   drone.ft = drone.ft ? drone.ft * .96 + dt * .04 : 16;                 // телефон не успевает (кадр дольше 30 мс) — деталей меньше
   if (now - drone.t0 > 6000 && drone.ft > 30) drone.slow = true;
@@ -4966,22 +5282,26 @@ function buildOutside() {
   }
   return o;
 }
+const OUT_PAL = {                                  // округа по свету матча: ночь — как была; закат — тёплый, фонари только зажигаются; день — светлая, фонари погашены
+  night: {grass: '#0e2617', hi: 'rgba(34,80,44,.35)', lo: 'rgba(4,14,8,.35)', walk: '#5b6577', hedge: '#16422a', road: '#2a303b', plaza: '#3b4050', isle: '#1f4d2c', bush: '#2f6b3d', tree: 1, glow: 1, warm: 0},
+  dusk: {grass: '#1d4227', hi: 'rgba(70,120,60,.3)', lo: 'rgba(10,24,12,.3)', walk: '#6f7584', hedge: '#24502f', road: '#363b47', plaza: '#4d5160', isle: '#2b5e35', bush: '#3d7a45', tree: 1.25, glow: .45, warm: .06},
+  day: {grass: '#3f7f3b', hi: 'rgba(120,180,90,.3)', lo: 'rgba(30,70,30,.25)', walk: '#a7afbb', hedge: '#2f6d36', road: '#5a606c', plaza: '#959caa', isle: '#3f8445', bush: '#4c9a52', tree: 1.6, glow: 0, warm: 0}};
 function outsideImg(o) {                           // неподвижная округа — одной картинкой (рисуется раз за перерыв, потом только переносится)
-  const sc = perf.lite ? .28 : .4, w = OUT.x1 - OUT.x0, h = OUT.y1 - OUT.y0, rn = seeded(7);
-  const c = document.createElement('canvas'); c.width = Math.ceil(w * sc); c.height = Math.ceil(h * sc);
+  const sc = perf.lite ? .28 : .4, w = OUT.x1 - OUT.x0, h = OUT.y1 - OUT.y0, rn = seeded(7), L = lightNow(), Q = OUT_PAL[L], sun = SHADOWS[L][0];
+  const c = document.createElement('canvas'); c.width = Math.ceil(w * sc); c.height = Math.ceil(h * sc); c.L = L;
   const x = c.getContext('2d'); x.setTransform(sc, 0, 0, sc, -OUT.x0 * sc, -OUT.y0 * sc);
-  x.fillStyle = '#0e2617'; x.fill(o.grass);
+  x.fillStyle = Q.grass; x.fill(o.grass);
   for (let i = 0; i < 260; i++) {                  // газон неровный: пятна светлее и темнее
-    x.fillStyle = rn() < .5 ? 'rgba(34,80,44,.35)' : 'rgba(4,14,8,.35)';
+    x.fillStyle = rn() < .5 ? Q.hi : Q.lo;
     x.beginPath(); x.ellipse(lerp(OUT.x0, OUT.x1, rn()), lerp(OUT.y0, OUT.y1, rn()), 60 + rn() * 160, 40 + rn() * 110, rn() * 3, 0, 7); x.fill();
   }
-  x.strokeStyle = '#5b6577'; x.lineWidth = 62; x.stroke(o.dash);                       // тротуары вдоль дорог
+  x.strokeStyle = Q.walk; x.lineWidth = 62; x.stroke(o.dash);                         // тротуары вдоль дорог
   for (const [lx, ly, lw, lh] of o.lotBox) {      // парковка: живая изгородь, бордюр
-    x.fillStyle = '#16422a'; x.beginPath(); x.roundRect(lx - 20, ly - 20, lw + 40, lh + 40, 10); x.fill();
+    x.fillStyle = Q.hedge; x.beginPath(); x.roundRect(lx - 20, ly - 20, lw + 40, lh + 40, 10); x.fill();
     x.fillStyle = 'rgba(120,180,110,.25)'; for (let i = 0; i < (lw + lh) * 2 / 12; i++) { const u = i * 12, px = u < lw ? lx + u : u < lw + lh ? lx + lw + 14 : u < 2 * lw + lh ? lx + 2 * lw + lh - u : lx - 14, py = u < lw ? ly - 14 : u < lw + lh ? ly + u - lw : u < 2 * lw + lh ? ly + lh + 14 : ly + 2 * (lw + lh) - u; x.beginPath(); x.arc(px, py, 5, 0, 7); x.fill(); }
-    x.fillStyle = '#5b6577'; x.fillRect(lx - 7, ly - 7, lw + 14, lh + 14);
+    x.fillStyle = Q.walk; x.fillRect(lx - 7, ly - 7, lw + 14, lh + 14);
   }
-  x.fillStyle = '#2a303b'; x.fill(o.road, 'evenodd'); x.fill(o.lot);
+  x.fillStyle = Q.road; x.fill(o.road, 'evenodd'); x.fill(o.lot);
   x.strokeStyle = 'rgba(250,250,240,.55)'; x.lineWidth = 2.4; x.setLineDash([16, 16]); x.stroke(o.dash); x.setLineDash([]);
   x.strokeStyle = 'rgba(250,250,240,.5)'; x.lineWidth = 1.6; x.stroke(o.edges);                           // сплошные линии по краям дорог
   x.strokeStyle = 'rgba(203,213,225,.35)'; x.lineWidth = 2; for (const d of [258, 362]) { ringPath(x, d); x.stroke(); }   // бордюры
@@ -4990,25 +5310,26 @@ function outsideImg(o) {                           // неподвижная о�
     for (let i = -20; i <= 20; i += 8) { if (hor) x.fillRect(zx + i - 2, zy - 9, 4, 18); else x.fillRect(zx - 9, zy + i - 2, 18, 4); }
   x.strokeStyle = 'rgba(226,232,240,.4)'; x.lineWidth = 1.2; x.stroke(o.stalls);
   for (const [ix, iy, iw, ih] of o.islands) {                                           // островки газона с деревцами
-    x.fillStyle = '#5b6577'; x.fillRect(ix - 1, iy - 3, iw + 2, ih + 6); x.fillStyle = '#1f4d2c'; x.fillRect(ix, iy - 2, iw, ih + 4);
+    x.fillStyle = Q.walk; x.fillRect(ix - 1, iy - 3, iw + 2, ih + 6); x.fillStyle = Q.isle; x.fillRect(ix, iy - 2, iw, ih + 4);
     for (let tx = ix + 20; tx < ix + iw - 10; tx += 46) {
-      x.fillStyle = '#2f6b3d'; x.beginPath(); x.arc(tx, iy + 2, 7, 0, 7); x.fill();
+      x.fillStyle = Q.bush; x.beginPath(); x.arc(tx, iy + 2, 7, 0, 7); x.fill();
       x.fillStyle = 'rgba(140,200,120,.45)'; x.beginPath(); x.arc(tx - 2, iy, 3.5, 0, 7); x.fill();
     }
   }
+  const sdx = L === 'night' ? 1 : Math.cos(sun.a) * sun.k * 1.4, sdy = L === 'night' ? 1 : Math.sin(sun.a) * sun.k * 1.4;   // тени — от солнца, как в матче (ночью — как было)
   for (const {x: cx, y: cy, c: col, row} of o.carList) {   // машинки: тень, кузов, крыша светлее, лобовое и заднее стекло
-    x.fillStyle = 'rgba(0,0,0,.4)'; x.beginPath(); x.roundRect(cx + 1.4, cy + 1.4, 9, 18, 2.6); x.fill();
+    x.fillStyle = 'rgba(0,0,0,.4)'; x.beginPath(); x.roundRect(cx + 1.4 * sdx, cy + 1.4 * sdy, 9, 18, 2.6); x.fill();
     x.fillStyle = col; x.beginPath(); x.roundRect(cx, cy, 9, 18, 2.6); x.fill();
     x.fillStyle = mix(col, .25); x.fillRect(cx + 1.6, cy + 6, 5.8, 6.5);
     x.fillStyle = 'rgba(15,23,42,.8)'; x.fillRect(cx + 1.4, row ? cy + 3 : cy + 12.6, 6.2, 3); x.fillRect(cx + 1.8, row ? cy + 12.8 : cy + 3.2, 5.4, 1.8);
   }
-  x.fillStyle = '#3b4050'; x.fill(o.plaza);
+  x.fillStyle = Q.plaza; x.fill(o.plaza);
   x.save(); x.clip(o.plaza);                       // площадь: плитка и кольца мощения
   x.strokeStyle = 'rgba(15,23,42,.25)'; x.lineWidth = 1.2; x.stroke(o.tiles);
   for (const d of [150, 200, 240]) { ringPath(x, d); x.lineWidth = 8; x.strokeStyle = 'rgba(148,163,184,.22)'; x.stroke(); }
   x.restore();
   for (const p of o.beds) {                        // клумбы с цветами
-    x.fillStyle = '#5b6577'; x.beginPath(); x.ellipse(p.x, p.y, 30, 15, p.a, 0, 7); x.fill();
+    x.fillStyle = Q.walk; x.beginPath(); x.ellipse(p.x, p.y, 30, 15, p.a, 0, 7); x.fill();
     x.fillStyle = '#1f5130'; x.beginPath(); x.ellipse(p.x, p.y, 26, 11.5, p.a, 0, 7); x.fill();
     for (let i = 0; i < 14; i++) {
       const u = (rn() - .5) * 40, v = (rn() - .5) * 14;
@@ -5021,33 +5342,45 @@ function outsideImg(o) {                           // неподвижная о�
     x.fillStyle = 'rgba(255,255,255,.55)'; for (let i = 0; i < 4; i++) x.fillRect(t.x - 16 + i * 8, t.y - 14, 4, 28);
     x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(t.x - 1, t.y - 14, 2, 28);
   }
-  for (const t of o.trees) { x.fillStyle = 'rgba(0,0,0,.4)'; x.beginPath(); x.ellipse(t.x + t.r * .5, t.y + t.r * .55, t.r * 1.05, t.r * .9, .6, 0, 7); x.fill(); }   // тени деревьев
+  for (const t of o.trees) {                       // тени деревьев: ночью — как было, днём и на закате — от солнца (на закате длинные)
+    x.fillStyle = L === 'day' ? 'rgba(0,20,0,.32)' : 'rgba(0,0,0,.4)'; x.beginPath();
+    if (L === 'night') x.ellipse(t.x + t.r * .5, t.y + t.r * .55, t.r * 1.05, t.r * .9, .6, 0, 7);
+    else { const dd = t.r * .45 * sun.k; x.ellipse(t.x + Math.cos(sun.a) * dd, t.y + Math.sin(sun.a) * dd, t.r * (.75 + .3 * sun.k), t.r * .85, sun.a, 0, 7); }
+    x.fill();
+  }
   for (const t of o.trees) {                       // крона: тёмная основа, средний слой, блики — оттенки чуть разные
-    const gg = Math.round(70 + t.h * 40), rr2 = Math.round(20 + t.h * 30);
+    const gg = Math.round((70 + t.h * 40) * Q.tree), rr2 = Math.round((20 + t.h * 30) * Q.tree);
     x.fillStyle = `rgb(${rr2 - 6},${gg - 22},${30})`; x.beginPath(); x.arc(t.x, t.y, t.r, 0, 7); x.fill();
     x.fillStyle = `rgb(${rr2 + 6},${gg},${44})`;
     for (const [ax, ay, ar] of [[-.3, -.25, .62], [.28, -.1, .55], [-.05, .25, .5]]) { x.beginPath(); x.arc(t.x + ax * t.r, t.y + ay * t.r, ar * t.r, 0, 7); x.fill(); }
     x.fillStyle = 'rgba(170,220,140,.45)'; x.beginPath(); x.arc(t.x - t.r * .38, t.y - t.r * .38, t.r * .3, 0, 7); x.fill();
   }
-  x.globalCompositeOperation = 'lighter';
-  for (const p of o.lamps) x.drawImage(o.lamp, p.x - o.lamp.r, p.y - o.lamp.r, o.lamp.r * 2, o.lamp.r * 2);
-  for (const p of o.poles) x.drawImage(o.lamp, p.x - 40, p.y - 40, 80, 80);
-  for (const p of o.gates) x.drawImage(o.lamp, p.x + p.nx * 26 - 60, p.y + p.ny * 26 - 60, 120, 120);
+  if (Q.warm) { x.fillStyle = `rgba(251,146,60,${Q.warm})`; x.fillRect(OUT.x0, OUT.y0, w, h); }   // закатный свет
+  if (Q.glow) {                                    // фонари: ночью горят, на закате только зажигаются, днём погашены
+    x.globalCompositeOperation = 'lighter'; x.globalAlpha = Q.glow;
+    for (const p of o.lamps) x.drawImage(o.lamp, p.x - o.lamp.r, p.y - o.lamp.r, o.lamp.r * 2, o.lamp.r * 2);
+    for (const p of o.poles) x.drawImage(o.lamp, p.x - 40, p.y - 40, 80, 80);
+    for (const p of o.gates) x.drawImage(o.lamp, p.x + p.nx * 26 - 60, p.y + p.ny * 26 - 60, 120, 120);
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+  } else { x.fillStyle = '#475569'; for (const p of o.lamps.concat(o.poles)) { x.beginPath(); x.arc(p.x, p.y, 3.2, 0, 7); x.fill(); } }   // днём — просто столбы фонарей
   return c;
 }
 function drawOutside(now) {                         // всё, что снаружи стадиона: под ним
   if (!outside) outside = buildOutside();
   const o = outside;
-  if (!o.img) o.img = outsideImg(o);
+  if (!o.img || o.img.L !== lightNow()) o.img = outsideImg(o);                     // округа — по времени матча: день, закат, ночь (картинка одна на перерыв)
   g.drawImage(o.img, OUT.x0, OUT.y0, OUT.x1 - OUT.x0, OUT.y1 - OUT.y0);
+  const lit = OUT_PAL[lightNow()].glow;
   for (const t of o.traffic) {                     // машины едут по кольцевой: фары впереди, стоп-сигналы сзади
     const d = t.lane ? 300 : 320, P = ringLen(d), q = ring(d, (t.s + now * t.v * (t.lane ? 1 : -1)) % 1 * P), dir = t.lane ? 1 : -1;
     const fx = -q.ny * dir, fy = q.nx * dir;           // направление движения — по касательной
     g.save(); g.translate(q.x, q.y); g.rotate(Math.atan2(fy, fx) + Math.PI / 2);
     g.fillStyle = t.c; g.fillRect(-4.5, -9, 9, 18); g.fillStyle = 'rgba(15,23,42,.8)'; g.fillRect(-3.2, -6, 6.4, 3);
-    g.fillStyle = '#fef9c3'; g.fillRect(-4, -10, 2.4, 1.6); g.fillRect(1.6, -10, 2.4, 1.6);
-    g.fillStyle = 'rgba(254,249,195,.18)'; g.beginPath(); g.moveTo(-4, -10); g.lineTo(-9, -34); g.lineTo(9, -34); g.lineTo(4, -10); g.fill();
-    g.fillStyle = '#ef4444'; g.fillRect(-4, 8.6, 2.4, 1.4); g.fillRect(1.6, 8.6, 2.4, 1.4);
+    if (lit) {                                     // днём без фар; на закате фары тусклые
+      g.fillStyle = '#fef9c3'; g.fillRect(-4, -10, 2.4, 1.6); g.fillRect(1.6, -10, 2.4, 1.6);
+      g.fillStyle = `rgba(254,249,195,${(.18 * lit).toFixed(3)})`; g.beginPath(); g.moveTo(-4, -10); g.lineTo(-9, -34); g.lineTo(9, -34); g.lineTo(4, -10); g.fill();
+      g.fillStyle = '#ef4444'; g.fillRect(-4, 8.6, 2.4, 1.4); g.fillRect(1.6, 8.6, 2.4, 1.4);
+    }
     g.restore();
   }
   const cols = S ? [S.teams[0].shirt, S.teams[1].shirt, '#e2e8f0'] : ['#ef4444', '#3b82f6', '#e2e8f0'];
@@ -5062,10 +5395,10 @@ function drawOutside(now) {                         // всё, что снару
   }
   if (cam.tl > .01) {                               // сбоку вдали — дымка до горизонта: ночью тёмная, на закате — небо от лилового к оранжевому, днём — голубая
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
-    const ch = cv.height, hz = g.createLinearGradient(0, 0, 0, ch * .55), L = lightNow();
-    const sky = L === 'day' ? ['110,165,225', '175,210,240'] : L === 'dusk' ? ['58,36,96', '238,118,58'] : ['12,20,40', '12,20,40'];
-    hz.addColorStop(0, `rgba(${sky[0]},${(.96 * cam.tl).toFixed(3)})`); hz.addColorStop(.35, `rgba(${sky[1]},${(.8 * cam.tl).toFixed(3)})`); hz.addColorStop(1, 'rgba(12,20,40,0)');
-    g.fillStyle = hz; g.fillRect(0, 0, cv.width, ch * .55);
+    const L = lightNow(), ch = cv.height, hh = ch * (L === 'night' ? .55 : .14), hz = g.createLinearGradient(0, 0, 0, hh);   // днём и на закате — узкая полоса у самого горизонта, округа видна чётко
+    if (L === 'night') { hz.addColorStop(0, `rgba(12,20,40,${(.96 * cam.tl).toFixed(3)})`); hz.addColorStop(.35, `rgba(12,20,40,${(.8 * cam.tl).toFixed(3)})`); hz.addColorStop(1, 'rgba(12,20,40,0)'); }
+    else { const c = L === 'day' ? '150,160,132' : '140,92,72'; hz.addColorStop(0, `rgba(${c},${(.5 * cam.tl).toFixed(3)})`); hz.addColorStop(1, `rgba(${c},0)`); }   // тёплая серо-зелёная (на закате — бурая) дымка, не небо
+    g.fillStyle = hz; g.fillRect(0, 0, cv.width, hh);
     g.restore();
   }
 }
@@ -5126,7 +5459,7 @@ function drawPosters(up, k) {                       // на прямых сто�
   }
 }
 function drawRoof(a, rim) {                         // поверх трибун: стена со входами, крыша-кольцо, прожекторы на мачтах; rim — только кромка снаружи (кадр шире стадиона)
-  const o = outside, sq = 1 - TILT_SQ * cam.tl, k = Math.sqrt(1 - sq * sq) / sq, up = upVec(), ga = Math.max(a, rim || 0);
+  const o = outside, sq = 1 - TILT_SQ * cam.tl, k = Math.sqrt(1 - sq * sq) / sq, up = upVec(), ga = Math.max(a, rim || 0), glow = OUT_PAL[lightNow()].glow;   // свет: днём прожекторы и окна погашены, на закате — только зажигаются
   const lift = (h, fn) => { if (!k) { fn(); return; } g.save(); g.translate(up.x * h * k, up.y * h * k); fn(); g.restore(); };   // высота: сбоку — выше на экране
   g.globalAlpha = ga;                               // стена и входы снаружи трибун — видны и с поля
   ringPath(g, ST + 20); g.lineWidth = 14; g.strokeStyle = 'rgba(0,0,0,.4)'; g.stroke();                 // тень стадиона на площадь
@@ -5134,7 +5467,7 @@ function drawRoof(a, rim) {                         // поверх трибун
   g.strokeStyle = 'rgba(100,116,139,.6)'; g.lineWidth = 1.4; g.stroke(o.ribs);
   for (const p of o.gates) {                        // вход: тёмный проём с козырьком
     g.save(); g.translate(p.x, p.y); g.rotate(Math.atan2(p.ny, p.nx));
-    g.fillStyle = '#020617'; g.fillRect(-15, -16, 16, 32); g.fillStyle = 'rgba(253,230,138,.85)'; g.fillRect(-2, -18, 4, 36);
+    g.fillStyle = '#020617'; g.fillRect(-15, -16, 16, 32); g.fillStyle = glow ? `rgba(253,230,138,${(.85 * glow).toFixed(2)})` : '#94a3b8'; g.fillRect(-2, -18, 4, 36);
     g.restore();
   }
   g.globalAlpha = a;
@@ -5145,7 +5478,7 @@ function drawRoof(a, rim) {                         // поверх трибун
         g.save(); g.translate(up.x * e, up.y * e); ringPath(g, ST + 12); g.lineWidth = st + 2;
         const f = Math.round(e / hh * 20) / 20, win = f > .08 && f < .17, led = f > .965;   // пояс окон внизу, выше — огромные постеры, по верху — светящаяся полоса
         g.strokeStyle = led ? '#fef3c7' : win ? '#4a4026' : mix(home, -.5 + .45 * f); g.stroke();   // фасад — в цвет хозяев, к крыше светлее
-        if (win) { g.setLineDash([6, 6]); g.lineWidth = 3; g.strokeStyle = 'rgba(253,224,140,.85)'; g.stroke(); g.setLineDash([]); }
+        if (win) { g.setLineDash([6, 6]); g.lineWidth = 3; g.strokeStyle = glow ? `rgba(253,224,140,${(.85 * glow).toFixed(2)})` : 'rgba(186,206,224,.75)'; g.stroke(); g.setLineDash([]); }
         else if (!led) { g.setLineDash([26, 26]); g.lineDashOffset = e * 1.3; g.strokeStyle = mix(home, -.2 + .45 * f); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0; }   // панели — диагональной мозаикой
         g.restore();
       }
@@ -5176,7 +5509,7 @@ function drawRoof(a, rim) {                         // поверх трибун
     g.fillStyle = `rgba(203,213,225,${(.5 + .4 * cam.tl).toFixed(3)})`; g.fill(o.roofIn, 'evenodd');   // сбоку край крыши плотный — сквозь крышу ничего не видно
     g.fillStyle = '#dbe3ec'; g.fill(o.roofOut, 'evenodd');                                         // крыша — белая мембрана
     g.strokeStyle = 'rgba(100,116,139,.55)'; g.lineWidth = 2; g.stroke(o.truss);
-    ringPath(g, 30); g.lineWidth = 2.4; g.strokeStyle = 'rgba(255,251,235,.75)'; g.stroke();           // светильники по кромке проёма
+    ringPath(g, 30); g.lineWidth = 2.4; g.strokeStyle = glow ? `rgba(255,251,235,${(.75 * glow).toFixed(2)})` : 'rgba(100,116,139,.5)'; g.stroke();   // светильники по кромке проёма
     g.globalAlpha = ga; g.fillStyle = '#dbe3ec'; g.fill(o.rim, 'evenodd');                             // край козырька над фасадом
     ringPath(g, ST + 22); g.lineWidth = 3; g.strokeStyle = '#1e293b'; g.stroke();                       // край козырька
     ringPath(g, ST + 18); g.lineWidth = 6; g.strokeStyle = S ? S.teams[0].shirt : '#dc2626'; g.stroke();   // кромка крыши светится в цвет хозяев
@@ -5186,9 +5519,9 @@ function drawRoof(a, rim) {                         // поверх трибун
     if (k) { g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + up.x * MAST_H * k, cy + up.y * MAST_H * k); g.lineWidth = 3.5; g.strokeStyle = '#94a3b8'; g.stroke(); }   // мачта
     lift(MAST_H, () => {
       g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(cx - 9, cy - 5, 26, 14);
-      g.fillStyle = '#e2e8f0'; g.fillRect(cx - 12, cy - 8, 24, 14); g.fillStyle = '#fefce8';
+      g.fillStyle = '#e2e8f0'; g.fillRect(cx - 12, cy - 8, 24, 14); g.fillStyle = glow ? '#fefce8' : '#94a3b8';
       for (let i = 0; i < 4; i++) { g.fillRect(cx - 10 + i * 5.2, cy - 6, 4, 4); g.fillRect(cx - 10 + i * 5.2, cy - 1, 4, 4); }
-      g.globalCompositeOperation = 'lighter'; const f = o.flood; g.drawImage(f, cx - f.r, cy - f.r, f.r * 2, f.r * 2); g.globalCompositeOperation = 'source-over';
+      if (glow) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = ga * glow; const f = o.flood; g.drawImage(f, cx - f.r, cy - f.r, f.r * 2, f.r * 2); g.globalAlpha = ga; g.globalCompositeOperation = 'source-over'; }
     });
   }
   g.globalAlpha = 1;
