@@ -2439,7 +2439,8 @@ function ecoAdmin(E, P) {      // раздел администратора: э�
       `<div class="sub">продавцу ${ecoMoney(t.get)} · сгорело ${ecoMoney(t.burned)}${t.junior ? ` (из них стартовая стоимость новичка ${ecoMoney(t.junior)})` : ''}</div></div><div class="r"><b>${ecoMoney(t.price)}</b></div></div>`).join('')
       : `<div class="note">Сделок пока не было.</div>`) + `</div>`;
   if (!E.leagues.length) return h + `<div class="card note">Лиг друзей пока нет.</div>`;
-  return h + E.leagues.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">клубов: ${L.clubs} · экономика: ${ECO_WORD[L.economy] || L.economy}${L.test ? ' · 🧪 тестовая' : ''}${L.season ? ' · сезон идёт' : ''}${L.window ? ' · 🔄 окно до ' + esc(L.window) : ''}</div></div></div>` +
+  return h + E.leagues.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">клубов: ${L.clubs} · экономика: ${ECO_WORD[L.economy] || L.economy}${L.test ? ' · 🧪 тестовая' : ''}${L.season ? ' · сезон идёт' : ''}${L.window ? ' · 🔄 окно до ' + esc(L.window) : ''}${L.cup ? ' · 🏆 кубок: ' + esc(L.cup) : ''}</div></div></div>` +
+    (L.cup ? `<button type="button" class="go danger" data-fcupadm="${L.id}">🗑 Сбросить кубок лиги</button>` : '') +
     `<div class="mrow2">` + (L.economy === 'off' ? `<button type="button" class="go main" data-ecoon="${L.id}" data-v="1">💶 Включить экономику<br><small>со следующего сезона</small></button>`
       : `<button type="button" class="go" data-ecoon="${L.id}" data-v="0">⏸ Выключить экономику<br><small>${L.economy === 'on' ? 'после конца сезона' : 'пока не началась'}</small></button>`) +
     `<button type="button" class="go" data-ecotest="${L.id}" data-v="${L.test ? 0 : 1}">🧪 Тестовая: ${L.test ? 'вкл' : 'выкл'}<br><small>${L.test ? 'сезон от 2 клубов' : 'сезон от 5 клубов'}</small></button></div>` +
@@ -2834,12 +2835,17 @@ function renderHome() {
   if (hb.news && hb.news[0]) x += `<div class="card"><h3>Новости лиги</h3><div class="note">${esc(hb.news[0].text)}</div><button type="button" class="go" data-go="more">Все новости</button></div>`;
   $('t-home').innerHTML = x;
 }
-function cupBlock(c) {          // кубок страны: сетка по стадиям (сверху — ранняя), свой матч подсвечен
-  let x = `<div class="card"><h3>🏆 ${esc(c.title)}</h3><div class="note">${c.active ? 'На вылет, один матч; ничья — серия пенальти. Время матча назначается, как в туре.' :
-    c.winner ? `Разыгран. Обладатель — «${esc(c.winner)}» 🏆` : esc(c.note || '')}</div></div>`;
+function cupBlock(c) {          // кубок страны и кубок лиги друзей: сетка по стадиям (сверху — ранняя), свой матч подсвечен
+  const ACT = c.friends ? 'На вылет, один матч; ничья — серия пенальти. Полуфинал — два матча (дома и в гостях, по сумме мячей), финал — на нейтральном стадионе. Время матча назначается, как в туре.'
+    : 'На вылет, один матч; ничья — серия пенальти. Время матча назначается, как в туре.';
+  let x = `<div class="card"><h3>🏆 ${esc(c.title)}</h3><div class="note">${c.active ? ACT :
+    c.winner ? `Разыгран. Обладатель — «${esc(c.winner)}» 🏆` : esc(c.note || '')}</div>`;
+  const K = c.ctl || {};          // кубок лиги друзей: кнопка «Начать» создателю (права проверяет бот); начатый не отменить
+  if (K.start) x += K.start.ok ? `<button type="button" class="go main" data-fcupstart>🏆 Начать Кубок</button>` : `<div class="banner">${esc(K.start.text)}</div>`;
+  x += `</div>`;
   x += c.stages.map(st => `<div class="label">${esc(st.title)}</div><div class="card" style="padding:4px 10px">` + st.matches.map(m =>
-    `<div class="row cupm${m.mine ? ' me' : ''}"><div><span class="${m.win === 'home' ? 'w' : ''}">${esc(m.home)}</span> — <span class="${m.win === 'away' ? 'w' : ''}">${esc(m.away)}</span>` +
-    `${m.pens ? `<div class="sub">пенальти ${esc(m.pens)}</div>` : ''}</div><b style="white-space:nowrap">${esc(m.score || m.when || '')}</b></div>`).join('') + `</div>`).join('');
+    `<div class="row cupm${m.mine ? ' me' : ''}"><div>${m.leg ? `<div class="sub">${esc(m.leg)}</div>` : ''}<span class="${m.win === 'home' ? 'w' : ''}">${esc(m.home)}</span> — <span class="${m.win === 'away' ? 'w' : ''}">${esc(m.away)}</span>` +
+    `${m.pens ? `<div class="sub">пенальти ${esc(m.pens)}</div>` : ''}${m.agg ? `<div class="sub"><b>${esc(m.agg)}</b></div>` : ''}</div><b style="white-space:nowrap">${esc(m.score || m.when || '')}</b></div>`).join('') + `</div>`).join('');
   if (c.rules) x += `<button type="button" class="go" data-rules="cup">📜 Правила кубка</button>`;
   if (c.past && c.past.length) x += `<div class="label">Обладатели кубка</div><div class="card">` + c.past.map(p =>
     `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.when)}</span></div>`).join('') + `</div>`;
@@ -4071,6 +4077,7 @@ document.addEventListener('click', e => {
   if (betweenClick(b)) return;
   if (b.dataset.panel) { haptic(); openPanel(b.dataset.panel); return; }
   if (b.dataset.rules) { haptic(); openPanel('rules'); PANEL.which = b.dataset.rules; renderPanel(); return; }
+  if (b.hasAttribute('data-fcupstart')) { haptic(); const K = (H().cup || {}).ctl || {}; ask((K.start || {}).text || 'Начать Кубок лиги?', () => send({a: 'fcupstart', sure: true})); return; }
   if (PANEL && panelClick(b)) return;
   if (b.dataset.slotnow) { send({a: 'propose', fx: +b.dataset.slotnow, now: true}); return; }
   if (b.dataset.ts) { send({a: 'propose', fx: +b.dataset.id, ts: +b.dataset.ts}); return; }
@@ -4105,6 +4112,7 @@ function ecoAdminClick(b, d, P) {      // 💶 экономика лиг дру�
   if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
   if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
   if (d.ecotest) { haptic(); send({a: 'ecotest', league: +d.ecotest, on: d.v === '1'}); return true; }
+  if (d.fcupadm) { const id = +d.fcupadm; haptic(); ask(`🗑 Сбросить Кубок лиги «${L(id).name}»? Сетка и матчи кубка стираются, обладателя не будет, в этом сезоне лиги кубка больше не будет. Деньги за сыгранные матчи остаются. Отменить нельзя.`, () => send({a: 'fcupreset', league: id, sure: true})); return true; }
   if (d.ecomarket) { const mode = d.ecomarket; haptic(); if ((H().admin.economy || {}).market === mode) return true;
     ask(`Рынок: «${ECO_MARKET[mode]}»? ${ECO_MARKET_NOTE[mode]}${mode === 'off' ? ' Идущие окна закроются без ухода игроков.' : ''}`, () => send({a: 'ecomarket', mode})); return true; }
   if (d.ecoreset) { haptic(); P.ecoreset = +d.ecoreset; renderPanel(); return true; }      // шаг 1 из 2: показать, что сотрётся
@@ -4271,7 +4279,7 @@ function onAck(m) {
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
   if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
-  if (m.ok && m.economy && act && ECO_ADMIN.includes(act.a) && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
+  if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
@@ -4570,7 +4578,7 @@ function demoLeagueAct(act) {   // демо: лига меняется толь�
     return {ok: true, note: `🎉 Лига «${act.text}» создана! Вы её создатель.`};
   }
   if (act.a === 'ofcard') return {ok: true, note: '', key: act.key, card: 'Демо: в Telegram здесь состав клуба — 9 игроков с позициями и силой.', numbers: [1, 2, 4, 5, 7, 8, 9, 10, 11]};
-  if (['lgjoin', 'lgseason', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
+  if (['lgjoin', 'lgseason', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset', 'fcupstart', 'fcupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
   return null;
 }
 function demoManage(kitAll) {   // раздел «Клуб» из демо-состава — те же поля, что присылает бот (hub.club_state)
