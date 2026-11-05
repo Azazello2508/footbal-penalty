@@ -504,6 +504,27 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 .lrn .tt{flex:1;min-width:0}.lrn .tt b{display:block;font-size:15px}.lrn .tt span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.3}
 .lrn .stt{flex:none;font-size:12px;font-weight:700;color:var(--accent);text-align:right}.lrn .stt.ok{color:var(--okt)}
 .lrn.main{border-color:var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}
+.lrn.lrnrow{border-color:var(--warnl);background:linear-gradient(135deg,var(--needbg),var(--card))}
+/* 💶 вкладка «Финансы» (app/economy.py view, этап В2): только просмотр — тратить деньги пока нельзя */
+.fhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 4px}.fhead h2{margin:0;font-size:21px}
+.fpill{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.fin .cash{font:italic 800 34px/1.1 var(--sport,inherit);margin:2px 0 8px;color:var(--strong)}
+.fin .row{padding:4px 0;font-size:14px}.fin .row>span{color:var(--muted)}.fin .row b{white-space:nowrap}
+.fq{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--card2);color:var(--accent);font-size:13px;font-weight:800;margin-left:6px;border:1px solid var(--line);vertical-align:middle;flex:none}
+.fq.on{background:var(--accent);color:var(--on-acc)}
+.fqt{display:inline-block;margin:7px 6px 0 0;padding:4px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line);color:var(--accent);font-size:12.5px;font-weight:700}.fqt.on{background:var(--accent);color:var(--on-acc)}
+.fbar{position:relative;height:9px;border-radius:5px;background:var(--bar0);overflow:hidden;margin:6px 0 2px}.fbar i{display:block;height:100%;background:var(--ok)}.fbar.over i{background:var(--bad)}
+.fbar u{position:absolute;top:0;bottom:0;width:2px;background:var(--strong);opacity:.55}
+.fplus{color:var(--okt)}.fminus{color:var(--badt)}
+.fwhat{border-color:var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}.fwhat h3{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.fwhat ul{margin:6px 0 6px 18px;padding:0;font-size:13.5px;line-height:1.4}.fwhat .now{font-size:13.5px;font-weight:700;color:var(--acc-text)}
+.fsoon{display:flex;align-items:center;gap:10px;opacity:.8}.fsoon .ic{font-size:22px}
+.go[disabled]{opacity:.45}
+.fpl .row{padding:6px 0;border-top:1px solid var(--line)}.fpl .row:first-child{border-top:0}.fpl .r{text-align:right;white-space:nowrap;font-size:13px}.fpl .r b{display:block;font-size:14px}
+.ftag{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;margin-top:2px;background:var(--card2);color:var(--muted)}.ftag.x{background:var(--nobg);color:var(--nofg)}.ftag.l{background:var(--warnbg);color:var(--warnt)}
+.fwip{text-align:center;padding:14px 4px 4px}.fwip .fbig{font-size:46px;line-height:1}.fwip h3{font-size:19px;margin:10px 0 6px}.fwip .note{font-size:14px}
+.fchk div{padding:4px 0;font-size:14px}
+.fload{opacity:.6}
 .lrnre{display:block;margin:4px 0 0 auto;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
 .ferr{color:var(--badt);font-size:12px;line-height:1.35;margin:-2px 2px 6px;white-space:pre-line}.ferr:empty{display:none}
 .own input.bad{border-color:#ef4444}
@@ -576,6 +597,7 @@ html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out i
    <section id="t-home"></section>
    <section id="t-league" class="hidden"></section>
    <section id="t-shop" class="hidden"></section>
+   <section id="t-money" class="hidden"></section>
    <section id="t-learn" class="hidden"></section>
    <section id="t-more" class="hidden"></section>
    <section id="t-squad" class="hidden">
@@ -601,7 +623,7 @@ html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out i
   <button type="button" data-tab="squad"><i>📋</i><span class="nl">Состав</span></button>
   <button type="button" data-tab="league"><i>🏆</i><span class="nl">Лига</span></button>
   <button type="button" data-tab="shop"><i>🛍</i><span class="nl">Магазин</span><span id="shopnew" class="nw">NEW</span></button>
-  <button type="button" data-tab="learn"><i>📖</i><span class="nl">Обучение</span></button>
+  <button type="button" data-tab="money"><i>💶</i><span class="nl">Финансы</span></button>
   <button type="button" data-tab="more"><i>☰</i><span class="nl">Ещё</span><span id="unseen" class="dot hidden"></span></button>
 </nav>
 <div id="veil" class="hidden"></div>
@@ -698,7 +720,7 @@ function roleIcon(p) { const r = p.role && roleOf(p.role); return r ? r[2].split
 /* ---------------- вкладки игры: главная, лига, ещё ---------------- */
 let TAB = new URLSearchParams(location.search).get('tab') || 'home';
 let SEG = 'table';           // вкладка «Лига»: таблица или матчи
-const TABS = ['home', 'squad', 'league', 'shop', 'learn', 'more'];
+const TABS = ['home', 'squad', 'league', 'shop', 'money', 'more', 'learn'];      // «Обучение» — не в нижнем меню: строка на «Главной» и в «Ещё»
 if (!TABS.includes(TAB)) TAB = 'home';
 const H = () => (S && S.hub) || {};   // до первого состояния от бота S ещё нет (секундомер поиска спрашивает каждую секунду)
 // повторы состояния — один раз (app/hub.py crest_in, slots_in): эмблема клуба — по ключу cr из H().crests, варианты
@@ -2383,6 +2405,21 @@ function modClick(d) {
   if (d.munban) { const mid = +d.munban; ask('Разбанить менеджера? Доступ к игре вернётся, официальный клуб — нет.', () => send({a: 'modunban', mid, sure: true})); return true; }
   return false;
 }
+const ECO_ADMIN = ['ecoon', 'ecotest', 'ecodefault', 'ecoreset'];      // действия администратора с экономикой (права проверяет бот)
+const ECO_WORD = {off: 'выключена', next: 'со следующего сезона', on: 'работает'};
+function ecoAdmin(E, P) {      // раздел администратора: экономика и тестовые пометки лиг друзей; сброс — в два шага
+  if (!E) return '';
+  let h = `<div class="label">💶 Экономика лиг друзей</div><div class="card"><div class="row"><div><b>Новые лиги — с экономикой</b><div class="sub">${E.default ? 'вкл: новая лига друзей сразу с кассой и зарплатами (с первого сезона)' : 'выкл: новые лиги создаются без экономики'}</div></div></div>` +
+    `<button type="button" class="go${E.default ? ' danger' : ' main'}" data-ecodef="${E.default ? 0 : 1}">${E.default ? '⏸ Выключить для новых лиг' : '💶 Включить для новых лиг'}</button></div>`;
+  if (!E.leagues.length) return h + `<div class="card note">Лиг друзей пока нет.</div>`;
+  return h + E.leagues.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">клубов: ${L.clubs} · экономика: ${ECO_WORD[L.economy] || L.economy}${L.test ? ' · 🧪 тестовая' : ''}${L.season ? ' · сезон идёт' : ''}</div></div></div>` +
+    `<div class="mrow2">` + (L.economy === 'off' ? `<button type="button" class="go main" data-ecoon="${L.id}" data-v="1">💶 Включить экономику<br><small>со следующего сезона</small></button>`
+      : `<button type="button" class="go" data-ecoon="${L.id}" data-v="0">⏸ Выключить экономику<br><small>${L.economy === 'on' ? 'после конца сезона' : 'пока не началась'}</small></button>`) +
+    `<button type="button" class="go" data-ecotest="${L.id}" data-v="${L.test ? 0 : 1}">🧪 Тестовая: ${L.test ? 'вкл' : 'выкл'}<br><small>${L.test ? 'сезон от 2 клубов' : 'сезон от 5 клубов'}</small></button></div>` +
+    (P.ecoreset === L.id ? `<div class="banner warn" style="margin-top:9px">Шаг 2 из 2. Сбросить экономику лиги «${esc(L.name)}»? Кассы, журнал движений и контракты её клубов обнулятся. Отменить нельзя. Можно только между сезонами.</div>` +
+      `<div class="mrow2"><button type="button" class="go danger" data-ecoreset2="${L.id}">🗑 Да, сбросить</button><button type="button" class="go" data-ecoresetx>Отмена</button></div>`
+      : `<button type="button" class="go danger" data-ecoreset="${L.id}">🗑 Сброс экономики лиги…</button>`) + `</div>`).join('');
+}
 function panelAdmin(m, P) {
   const A = H().admin;
   if (!A) return panelHead('🛠 Администратор') + `<div class="card note">Этот раздел — только для администратора.</div>`;
@@ -2400,6 +2437,7 @@ function panelAdmin(m, P) {
     `<div class="sub" style="margin-top:8px">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div>` +
     (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
+  h += ecoAdmin(A.economy, P);      // 💶 экономика лиг друзей (app/economy.py admin_act)
   const CP = A.crest_prices || {}, LN = CREST_EDITOR.level_names;
   h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
@@ -2733,6 +2771,7 @@ function renderHome() {
       `<div class="kff">${shirtSvg(h.kit, num)}</div><div class="kfb">${shirtBackSvg(h.kit, cap ? shortName(cap) : '', num)}</div></div></button>` : '') + heroDay(h.next) + `</div>`;
   heroTick();
   x += shopPromo(hb);      // временный баннер «Магазин · НОВИНКА» (SHOP_PROMO)
+  x += learnRow();         // «Обучение» — выделенная строка (вкладка внизу теперь «💶 Финансы»)
   x += writeBlock(hb.write);
   if (hb.onboarding) x += stepsBlock(hb.onboarding);
   const dd = DAILY_SHOW && Date.now() < DAILY_SHOW.until ? DAILY_SHOW.d : hb.daily;
@@ -2815,7 +2854,8 @@ function renderMore() {
   if (hb.manage) x += `<div class="label">Лиги</div><div class="menu app">` + LEAGUE_PANELS.filter(([k]) => k !== 'admin' || hb.admin).map(([k, t, d]) =>
     `<button type="button" data-panel="${k}">${esc(t)}<span>${esc(d)}</span></button>`).join('') + `</div>`;
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
-  if (hb.help && hb.help.length) x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button></div>`;
+  x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-tab="learn">🎓 Обучение<span>подсказки прямо на экранах: что нажать и что ввести; учебный матч</span></button>` +      // «Обучение» — не в нижнем меню (там «💶 Финансы»)
+    (hb.help && hb.help.length ? `<button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button>` : '') + `</div>`;
   const themeBtn = `<button type="button" data-theme-set="${THEME === 'dark' ? 'club' : 'dark'}">🎨 Оформление: ${THEME === 'dark' ? 'тёмное (как раньше)' : 'в цветах клуба'}<span>нажмите — ${THEME === 'dark' ? 'светлое в цветах клуба' : 'тёмное (как раньше)'}</span></button>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
     x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button>${themeBtn}</div>`; }
@@ -2837,6 +2877,7 @@ function showTab(t) {
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== t));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   if (t === 'shop') { shopVisit(); renderShop(); }
+  if (t === 'money') { ecoLoad(true); renderMoney(); }      // касса — свежая при каждом заходе во вкладку
   if (t === 'more' && H().unseen) { send({a: 'seen'}); S.hub.unseen = 0; S.hub.notices.forEach(n => { n.new = false; }); renderNav(); }
   window.scrollTo(0, 0);
 }
@@ -2850,7 +2891,7 @@ function render() {
   clubTheme();
   $('conn').classList.add('hidden'); $('app').classList.remove('hidden'); $('nav').classList.remove('hidden');
   if (TAB === 'shop') shopVisit();
-  renderHome(); renderLeague(); renderShop(); renderLearn(); renderMore(); renderNav();
+  renderHome(); renderLeague(); renderShop(); renderMoney(); renderLearn(); renderMore(); renderNav();
   if (S.players && S.players.length) renderSquad();
   TABS.forEach(k => $('t-' + k).classList.toggle('hidden', k !== TAB));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === TAB));
@@ -3033,7 +3074,7 @@ function tourEnd() {               // общий конец «Создания �
     ok: () => !(S.problems || []).length, auto: false,
     btn: () => (S.problems || []).length ? '<button type="button" class="main" data-tfix>Исправить</button>' : ''},
   {t: '🚀 Готово!', go: tourHome, at: () => TQ('#t-home .obs'), soft: true, last: true,
-    x: 'Клуб создан. Дальше — «🚀 Первые шаги» на «Главной»: шесть шагов, за каждый — болельщики клубу. Все подсказки — во вкладке «📖 Обучение» внизу.'}];
+    x: 'Клуб создан. Дальше — «🚀 Первые шаги» на «Главной»: шесть шагов, за каждый — болельщики клубу. Все подсказки — в «📖 Обучении»: строка на «Главной» и в «Ещё».'}];
 }
 function tourYouthAt() {
   if (!(PANEL && PANEL.k === 'official' && PANEL.club)) return TQA(PANEL && PANEL.lg ? '#sheetin [data-ofc]' : '#sheetin [data-oflg]');
@@ -3309,7 +3350,7 @@ function tourStop() {
   TOUR = null; document.body.classList.remove('touring');
   ['tb0', 'tb1', 'tb2', 'tb3', 'tring', 'tbub'].forEach(id => $(id).classList.add('hidden'));
 }
-function tourLater() { tourStop(); toast('Продолжите во вкладке «📖 Обучение» — с того же места'); renderLearn(); }
+function tourLater() { tourStop(); toast('Продолжите в «📖 Обучении» (на «Главной» и в «Ещё») — с того же места'); renderLearn(); }
 function tourFinish() { tourSave(true); tourStop(); haptic('ok'); toast('✓ Руководство пройдено'); renderLearn(); }
 function tourBack() {
   const st = TOUR.steps; let i = TOUR.i - 1;
@@ -3454,7 +3495,116 @@ function tourClick(b) {
   if (d.thelp) { const k = d.thelp; tourFinish(); openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); }
 }
 
-/* ---- вкладка «📖 Обучение» ---- */
+/* ---- вкладка «💶 Финансы» (этап В2 экономики): касса клуба, которым менеджер управляет сейчас — только просмотр.
+   Всё считает бот (app/economy.py view, запрос {a: 'economy'}); страница только показывает. Тратить деньги нельзя: рынка ещё нет */
+let ECO = null;            // {key: клуб, st: ответ бота, err: текст ошибки, wait: ждём ответ}
+let ECO_Q = null;          // открыт блок «Что такое…» (ключ из ECO.st.blocks)
+let ECO_ALL = false;       // журнал движений раскрыт целиком
+let ECO_T = 0;             // нет ответа за 10 секунд — показываем ошибку с кнопкой «Повторить»
+const ecoKey = () => (H().home || {}).club || '';
+function ecoLoad(force) {
+  const h = H().home;
+  if (!h || h.star) return;                              // нет клуба или официальный клуб — запрашивать нечего
+  if (!force && ECO && ECO.key === ecoKey() && (ECO.st || ECO.wait || ECO.err)) return;
+  const keep = ECO && ECO.key === ecoKey() ? ECO.st : null;      // старые числа видны, пока идёт новый ответ
+  ECO = {key: ecoKey(), st: keep, err: '', wait: true};
+  clearTimeout(ECO_T);
+  ECO_T = setTimeout(() => { if (ECO && ECO.wait) { ECO.wait = false; ECO.err = 'Бот не ответил — проверьте связь и попробуйте ещё раз.'; renderMoney(); } }, 10000);
+  send({a: 'economy', key: ECO.key});
+}
+function ecoAck(m, act) {
+  if (!ECO || act.key !== ECO.key) return;              // ответ про клуб, который уже не активен
+  clearTimeout(ECO_T);
+  ECO = {key: act.key, st: m.ok && m.economy ? m.economy : ECO.st, err: m.ok ? '' : (m.note || 'Не удалось загрузить кассу'), wait: false};
+  if (ECO_Q && !(((ECO.st || {}).blocks || {})[ECO_Q])) ECO_Q = null;
+  renderMoney();
+}
+function ecoMoney(k, plus) {      // тысячи евро — как money() у бота: 877 → «877 тыс. €», 2412 → «2,41 млн €»
+  const v = Math.abs(k || 0), sign = k < 0 ? '−' : plus && k > 0 ? '+' : '';
+  return sign + (v >= 1000 ? (v / 1000).toFixed(2).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',') + ' млн €' : Math.round(v) + ' тыс. €');
+}
+const ecoQ = k => ((((ECO || {}).st || {}).blocks || {})[k] ? `<button type="button" class="fq${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}" aria-label="Что это?">?</button>` : '');
+function ecoWhat(keys) {          // блок «Что такое…» с сервера — под той карточкой, где нажали «?»
+  if (!ECO_Q || !keys.includes(ECO_Q)) return '';
+  const b = ECO.st.blocks[ECO_Q];
+  return `<div class="card fwhat"><h3><span>${esc(b.title)}</span><button type="button" class="fq" data-ecoq="${ECO_Q}" aria-label="Закрыть">✕</button></h3>` +
+    `<div class="note">${esc(b.lead)}</div><ul>${(b.points || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul><div class="now">${esc(b.now || '')}</div></div>`;
+}
+const ecoTours = n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'тур' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'тура' : 'туров');
+function ecoHead(pill) { return `<div class="fhead"><h2>💶 Финансы</h2><span class="fpill">${esc(pill)}</span></div>`; }
+const ECO_WILL = ['💶 Касса клуба: деньги за каждый сыгранный тур — телеправа, спонсор, билеты, магазин; в конце сезона — призовые',
+  '💼 Зарплаты игроков и контракты на несколько сезонов', '📊 Правило 70%: на зарплаты — не больше 70% дохода', '🔄 Позже — трансферное окно и рынок игроков'];
+function ecoOfficial(h) {         // официальный клуб: экономика официальных лиг ещё в работе (макет «экран-11»)
+  return ecoHead('официальный клуб') + `<div class="fwip"><div class="fbig">🛠</div><h3>Экономика официальных лиг — в процессе</h3>` +
+    `<div class="note">Касса и контракты уже работают у своих клубов в <b>лигах друзей</b>, где экономику включил администратор. Для официальных лиг готовим то же самое — с поправкой на формат лиги.</div>` +
+    `<div class="note" style="margin-top:8px">Пока ваш официальный клуб играет как сейчас: лига и кубок страны, без денег и рынка.</div></div>` +
+    `<div class="card fchk"><div>✅ Лиги друзей: касса, зарплаты и контракты</div><div>⏳ Трансферное окно и рынок — скоро</div><div>⏳ Официальные лиги — скоро</div></div>` +
+    (h.other && !h.other_star ? `<button type="button" class="go main" data-switch>🔁 Переключиться на свой клуб «${esc(h.other)}»</button>` : '') +
+    (H().create ? `<button type="button" class="go${h.other ? '' : ' main'}" data-panel="newclub">➕ Создать свой клуб</button>` : '');
+}
+function ecoNotYet(st, h) {       // свой клуб, где экономики нет или она начнётся со следующего сезона
+  const soon = st.status === 'soon';
+  return ecoHead('свой клуб') + `<div class="fwip"><div class="fbig">${soon ? '⏳' : '💤'}</div>` +
+    `<h3>${soon ? 'Экономика начнётся со следующего сезона' : 'Экономика в вашей лиге выключена'}</h3><div class="note">${esc(st.note || '')}</div></div>` +
+    `<div class="label">Что это будет</div><div class="card fchk">${ECO_WILL.map(t => `<div>${esc(t)}</div>`).join('')}</div>` +
+    `<div class="hint">${soon ? 'Ничего делать не нужно: касса откроется сама, когда начнётся новый сезон лиги.' :
+      h.league ? 'Экономику лиги включает администратор игры — со следующего сезона, посреди сезона она не включается.' : 'Экономика работает в лигах друзей: вступите в лигу или создайте свою.'}</div>` +
+    (!soon && !h.league ? `<button type="button" class="go" data-panel="friends">👥 Лига друзей</button>` : '');
+}
+function ecoOn(st) {
+  const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct);
+  let x = ecoHead('свой клуб');
+  x += `<div class="card fin"><div class="row"><span>Касса${ecoQ('cash')}</span></div><div class="cash">${esc(st.cash_text || ecoMoney(st.cash))}</div>` +
+    `<div class="row"><span>Доход за последний тур</span><b class="${st.income_last_tour > 0 ? 'fplus' : ''}">${ecoMoney(st.income_last_tour, true)}</b></div>` +
+    `<div class="row"><span>Зарплаты за тур${ecoQ('salary')}</span><b class="${st.salary_per_tour ? 'fminus' : ''}">${ecoMoney(-st.salary_per_tour)}</b></div>` +
+    `<div class="row"><span>Итог последнего тура${ecoQ('upkeep')}</span><b class="${st.net_last_tour > 0 ? 'fplus' : st.net_last_tour < 0 ? 'fminus' : ''}">${ecoMoney(st.net_last_tour, true)}</b></div>` +
+    `<div class="row"><span>Затраты на состав${ecoQ('rule70')}</span><b class="${st.over70 ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+    `<div class="fbar${st.over70 ? ' over' : ''}"><i style="width:${(pct * 100 / top).toFixed(1)}%"></i><u style="left:${(cap * 100 / top).toFixed(1)}%"></u></div>` +
+    `<div class="sub">${st.over70 ? `⚠️ Выше ${cap}%: зарплаты больше, чем позволяет доход. ` : ''}Доход за ${ecoTours(14)}: ${ecoMoney(st.income14)} · зарплаты за сезон: ${ecoMoney(st.payroll_season)}</div></div>`;
+  x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70']);
+  const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
+  x += `<div class="card fsoon"><span class="ic">🔄</span><div style="flex:1"><b>Рынок и трансферное окно — скоро</b>` +
+    `<div class="sub">Покупать и продавать игроков можно будет в окне между сезонами.</div><div>${qt('window', 'Что такое окно')}${qt('agent', 'Свободный агент')}</div></div></div>` +
+    `<button type="button" class="go" disabled>🔄 Рынок — скоро</button>`;
+  x += ecoWhat(['window', 'agent']);
+  const ps = st.players || [], exp = ps.filter(p => p.status === 'expiring' || p.status === 'expired').length;
+  x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}</div>`;
+  x += ecoWhat(['contract']);
+  const TAG = {expiring: ['l', 'истекает в этом сезоне'], expired: ['x', 'контракт истёк'], last: ['l', 'кончается в следующем сезоне'], none: ['', 'контракт — со следующего тура']};
+  x += `<div class="card fpl"><div class="row"><span>Истекают после этого сезона</span><b>${exp ? exp + ' игр.' : 'ни у кого'}</b></div>` + (ps.length ? ps.map(p => { const t = TAG[p.status];
+    return `<div class="row"><div><b>№${p.number} ${esc(p.name)}</b><div class="sub">${years(p.age)} · сила ${num(p.strength)} · стоит ${ecoMoney(p.value)}</div>` +
+      (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + `</div>` +
+      `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур` : '—'}${p.tours_left != null ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>`; }).join('')
+    : `<div class="note">Игроков пока нет.</div>`) + `</div>`;
+  const J = st.journal || [], shown = ECO_ALL ? J : J.slice(0, 8);
+  x += `<div class="label">Последние движения</div><div class="card fpl">` + (J.length ? shown.map(j =>
+    `<div class="row"><div>${esc(j.title)}<div class="sub">${esc(j.note || '')}</div></div><b class="${j.amount > 0 ? 'fplus' : j.amount < 0 ? 'fminus' : ''}">${ecoMoney(j.amount, true)}</b></div>`).join('') +
+    (J.length > 8 ? `<button type="button" class="go" data-ecoall>${ECO_ALL ? 'Свернуть' : `Показать все (${J.length})`}</button>` : '')
+    : `<div class="note">Пока движений нет: деньги приходят за каждый сыгранный тур лиги.</div>`) + `</div>`;
+  x += `<div class="hint">Только просмотр: тратить деньги можно будет, когда откроется рынок.</div>`;
+  return x;
+}
+function renderMoney() {
+  const el = $('t-money'); if (!el || !S) return;
+  const h = H().home;
+  if (!h) { el.innerHTML = ecoHead('нет клуба') + `<div class="card"><div class="note">Касса и контракты — у своего клуба в лиге друзей. Сначала создайте клуб.</div>` +
+    `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button></div>`; return; }
+  if (h.star) { el.innerHTML = ecoOfficial(h); return; }
+  if (TAB === 'money') ecoLoad(false);
+  const st = ECO && ECO.key === ecoKey() ? ECO.st : null;
+  if (!st) { el.innerHTML = ecoHead('свой клуб') + (ECO && ECO.err ? `<div class="card"><div class="note">⚠️ ${esc(ECO.err)}</div><button type="button" class="go main" data-ecoload>🔄 Повторить</button></div>`
+    : `<div class="card fload"><div class="note">⏳ Загружаю кассу клуба…</div></div>`); return; }
+  let x = st.status === 'official' ? ecoOfficial(h) : st.status === 'on' ? ecoOn(st) : ecoNotYet(st, h);
+  if (ECO.err) x = `<div class="banner warn">⚠️ ${esc(ECO.err)}<button type="button" class="go" data-ecoload>🔄 Повторить</button></div>` + x;
+  el.innerHTML = x;
+}
+
+/* ---- вкладка «📖 Обучение» (не в нижнем меню: строка на «Главной» и пункт в «Ещё») ---- */
+function learnRow() {
+  const G = (H().learn || {}).guides || {}, all = GUIDES.length, done = GUIDES.filter(([k]) => (G[k] || {}).done).length;
+  return `<button type="button" class="lrn lrnrow" data-tab="learn"><span class="ic">🎓</span><span class="tt"><b>Обучение</b>` +
+    `<span>${done ? `пройдено ${done} из ${all} · ` : ''}подсказки на экранах, учебный матч и вся помощь</span></span><span class="stt">›</span></button>`;
+}
 function renderLearn() {
   if (!S || !S.hub) return;
   const G = (H().learn || {}).guides || {};
@@ -3533,6 +3683,9 @@ document.addEventListener('click', e => {
   if (b.dataset.tourq) { haptic(); tourStart(b.dataset.tourq); return; }
   if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
+  if (b.dataset.ecoq) { haptic(); ECO_Q = ECO_Q === b.dataset.ecoq ? null : b.dataset.ecoq; renderMoney(); return; }      // «Финансы»: блок «Что такое…»
+  if (b.hasAttribute('data-ecoall')) { haptic(); ECO_ALL = !ECO_ALL; renderMoney(); return; }
+  if (b.hasAttribute('data-ecoload')) { haptic(); ecoLoad(true); renderMoney(); return; }
   if (b.hasAttribute('data-heroflip')) { HERO_BACK = !HERO_BACK; b.classList.toggle('bk', HERO_BACK); haptic('soft'); return; }      // футболка в шапке — без перерисовки
   if (b.dataset.rep && !PANEL) { haptic(); if (MS) closeSheet(); openPanel('report'); PANEL.club = +b.dataset.rep; send({a: 'repinfo', club: PANEL.club}); renderPanel(); return; }
   if (TAB === 'shop' && !PANEL && !MS && shopClick(b)) return;      // вкладка «Магазин»
@@ -3609,12 +3762,23 @@ document.addEventListener('click', e => {
   if (b.dataset.talent) { send({a: 'talent', key: b.dataset.talent, slot: open}); talentList = false; return; }
 });
 function val(id) { return (($(id) || {}).value || '').trim(); }
+function ecoAdminClick(b, d, P) {      // 💶 экономика лиг друзей в разделе администратора
+  const L = id => ((H().admin.economy || {}).leagues || []).find(x => x.id === +id) || {name: ''};
+  if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
+  if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
+  if (d.ecotest) { haptic(); send({a: 'ecotest', league: +d.ecotest, on: d.v === '1'}); return true; }
+  if (d.ecoreset) { haptic(); P.ecoreset = +d.ecoreset; renderPanel(); return true; }      // шаг 1 из 2: показать, что сотрётся
+  if (b.hasAttribute('data-ecoresetx')) { P.ecoreset = null; renderPanel(); return true; }
+  if (d.ecoreset2) { haptic('heavy'); send({a: 'ecoreset', league: +d.ecoreset2, sure: true}); P.ecoreset = null; renderPanel(); return true; }      // шаг 2 из 2
+  return false;
+}
 function panelClick(b) {      // нажатия в окнах раздела «Клуб»; true — нажатие обработано
   const P = PANEL, d = b.dataset, m = M();
   if (b.hasAttribute('data-pback')) { panelBack(); return true; }
   if (b.hasAttribute('data-pdone')) { PANEL = {k: P.k, hist: []}; renderPanel(); return true; }
   if (P.k === 'crest' && crestClick(b)) return true;
   if (P.k === 'admin' && modClick(d)) return true;
+  if (P.k === 'admin' && ecoAdminClick(b, d, P)) return true;
   if (P.k === 'report') {
     if (d.rept !== undefined) { P.slot = +d.rept; haptic(); renderPanel(); return true; }
     if (d.repr) { P.reason = d.repr; haptic(); renderPanel(); return true; }
@@ -3765,6 +3929,8 @@ function onAck(m) {
   const act = waiting[m.id]; delete waiting[m.id];
   if (m.note && !(m.ok && act && act.a === 'daily')) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
+  if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
+  if (m.ok && m.economy && act && ECO_ADMIN.includes(act.a) && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
@@ -3954,6 +4120,8 @@ function demoHub() {
         {key: 'esp', title: '🇪🇸 Испания', name: 'Испания', active: false, done: 0, total: 0, people: 1},
         {key: 'ita', title: '🇮🇹 Италия', name: 'Италия', active: false, done: 0, total: 0, people: 0}],
       managed: [{key: 'liv', name: 'Ливорно', who: 'Вика', league: '🇮🇹 Италия'}],
+      economy: {default: false, leagues: [{id: 7, name: 'Лига друзей', clubs: 4, test: true, economy: 'on', season: true},
+        {id: 9, name: 'Лига Бори', clubs: 6, test: false, economy: 'off', season: false}, {id: 12, name: 'Вторники', clubs: 2, test: true, economy: 'next', season: false}]},
       mod: {days: [1, 3, 7, 30], queue: [{rep: 5, kind: 'club', name: 'Скачай-бонус.ру', now: 'Скачай-бонус.ру', club: 'Скачай-бонус.ру', owner: 'Гена', mid: 4, count: 3,
         reasons: 'реклама или ссылки ×2, другое ×1', top: 'ads', top_text: 'реклама или ссылки', banned: false, blocked: false},
         {rep: 8, kind: 'player', name: 'Очень Грубый', now: 'Очень Грубый', club: 'Торпедо Пресни', owner: 'Вика', mid: 3, count: 1, reasons: 'оскорбление ×1', top: 'insult',
@@ -4294,6 +4462,35 @@ function demoSwitch() {      // демо: свой клуб ⇄ официаль
   KIT_DRAFT = null; KIT_SLOT = 'home'; CREST_DRAFT = null; CREST_READY_HTML = null; KIT_TILES = KIT_PTILES = null;
   return {ok: true, note: `🔁 Теперь активен «${nx.club}» (демо)`};
 }
+function demoEconomy() {         // демо: касса — те же поля, что присылает бот (app/economy.py view); ?eco=off / ?eco=soon — другие экраны
+  if (S.hub.home.star) return {status: 'official', note: 'Экономика официальных лиг — в процессе.'};
+  if (Q.get('eco') === 'off') return {status: 'off', note: 'В вашей лиге экономика выключена: деньги, зарплаты и контракты не считаются.'};
+  if (Q.get('eco') === 'soon') return {status: 'soon', note: 'Экономика включена: касса откроется с началом следующего сезона лиги — стартовые 965 тыс. € и контракты всем игрокам на 3 сезона.'};
+  const over = Q.get('eco') === 'over', sal = [180, 95, 88, 120, 74, 210, 140, 60, 52, 40].map(v => over ? v * 2 : v), st = 14;
+  const players = S.players.map((p, i) => ({slot: p.slot, pid: i + 1, number: p.number, name: p.name, age: p.age, strength: 100 + i % 4 * 1.5, salary: sal[i], per_tour: Math.round(sal[i] / st),
+    value: sal[i] * 10, tours_left: [30, 30, 3, 30, 17, 30, 3, 30, 30, 30][i], seasons_left: 3, status: [2, 6].includes(i) ? 'expiring' : i === 4 ? 'last' : 'ok'}));
+  const payroll = sal.reduce((a, b) => a + b, 0), inc = 2010, share = payroll / inc, kinds = [['tv', '📺 Телеправа', 93], ['brand', '🤝 Спонсор', 71], ['shop', '🛍 Магазин', 3], ['ticket', '🎟 Билеты', 22], ['upkeep', '🏟 Содержание клуба', -57], ['salary', '💼 Зарплаты', -Math.round(payroll / st)]];
+  const journal = [5, 4, 3].flatMap(t => kinds.map(([kind, title, amount]) => ({kind, title, amount, note: 'тур ' + t, at: ''}))).concat([{kind: 'start', title: '💶 Стартовая касса', amount: 503, note: 'касса открыта', at: ''}]);
+  const cash = 503 + 3 * kinds.reduce((a, k) => a + k[2], 0), M = k => ecoMoney(k);
+  return {status: 'on', cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
+    payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
+    blocks: {cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
+      salary: {title: '💼 Что такое зарплата?', lead: 'Каждый игрок получает деньги за каждый сыгранный тур лиги.', points: ['Зарплата зависит от силы: чем сильнее игрок, тем дороже (за сезон — 10% его стоимости).', 'Пока лига стоит, зарплата не идёт — как и доход.'], now: `У вас сейчас: ${M(Math.round(payroll / st))} за тур, самый дорогой — Марк Жуков.`},
+      rule70: {title: '📊 Что такое правило 70%?', lead: 'На зарплаты можно тратить не больше 70% дохода — так же, как в УЕФА.', points: ['Считаем от дохода за последние 14 туров.', 'Выше 70% нельзя покупать и продлевать контракты; прогноз виден до сделки (покупки появятся вместе с трансферным окном).', '70% зарплат + 30% содержания = клуб живёт в ноль.'], now: `У вас сейчас: ${Math.round(share * 100)}% из 70%.`},
+      contract: {title: '📝 Что такое контракт?', lead: 'Срок, на который игрок остаётся в клубе: от 1 до 5 сезонов по 14 туров.', points: ['Контракт кончается в конце сезона, перед трансферным окном.', 'Не продлили — игрок уходит свободным агентом бесплатно.', 'В последний сезон контракта игрок стоит на 20% дешевле.'], now: 'У вас сейчас: у 2 игр. контракт кончается после этого сезона.'},
+      window: {title: '🔄 Что такое трансферное окно?', lead: '4 дня после последнего матча сезона, когда можно покупать и продавать игроков.', points: ['Открывается само, по календарю вашей лиги; новый сезон начинается после него.', 'Игрока из другой лиги можно купить, если его выставили в их окно.', 'До 3 покупок за окно; в клубе всегда 10 игроков.'], now: 'У вас сейчас: трансферное окно появится на следующем этапе.'},
+      agent: {title: '🆓 Кто такой свободный агент?', lead: 'Игрок без клуба: за него не нужно платить другому клубу.', points: ['Нужно только заплатить подписные — 50% его зарплаты за сезон.', 'Новые агенты появляются с каждым окном и уходят, если их никто не взял.', 'Игрок с закончившимся контрактом тоже становится свободным агентом.'], now: 'У вас сейчас: рынок свободных агентов откроется вместе с трансферным окном.'},
+      upkeep: {title: '🏟 Что такое содержание клуба?', lead: 'Расходы на персонал, поездки и поле — 30% каждого дохода.', points: ['Списывается сразу, вместе с доходом: в кассу приходит 70%.', 'Именно поэтому на зарплаты — не больше 70%.'], now: 'У вас сейчас: за сезон на содержание ушло 171 тыс. €.'}}};
+}
+function demoEcoAdmin(act) {     // демо: экономика лиг друзей меняется только на этой странице (в игре — app/economy.py admin_act)
+  const E = S.hub.admin.economy, L = E.leagues.find(x => x.id === act.league);
+  if (act.a === 'ecodefault') E.default = act.on;
+  else if (!L) return {ok: false, note: 'Такой лиги друзей нет.'};
+  else if (act.a === 'ecotest') L.test = act.on;
+  else if (act.a === 'ecoon') { if (!act.on && L.economy === 'on' && L.season) return {ok: false, note: 'Идёт сезон с экономикой — выключить можно после его конца.'}; L.economy = act.on ? 'next' : 'off'; }
+  else if (act.a === 'ecoreset') { if (L.season) return {ok: false, note: 'Сбросить экономику можно между сезонами.'}; return {ok: true, note: `Экономика лиги «${L.name}» сброшена (демо)`, economy: E}; }
+  return {ok: true, note: 'Готово (демо)', economy: E};
+}
 function demoAct(act) {
   const p = player(act.slot); let r = {ok: true, note: ''};
   const club = demoLeagueAct(act) || demoClubAct(act);
@@ -4368,6 +4565,8 @@ function demoAct(act) {
   else if (['propose', 'respond', 'cancel', 'friendly', 'chal', 'chalx', 'cinv'].includes(act.a)) r = {ok: false, note: 'Демо: матчи назначаются только в Telegram'};
   else if (act.a === 'seek') { S.hub.seek = 0; SEEK_HB = null; r.note = '🔎 Ищем соперника… (демо: в Telegram через минуту сыграет бот)'; }
   else if (act.a === 'unseek') { S.hub.seek = null; r.note = 'Поиск отменён'; }
+  else if (act.a === 'economy') r = {ok: true, note: '', economy: demoEconomy()};
+  else if (ECO_ADMIN.includes(act.a)) r = demoEcoAdmin(act);
   else if (act.a === 'switch') r = demoSwitch();
   else if (act.a === 'seen') r.note = '';
   else if (act.a === 'stats') {
