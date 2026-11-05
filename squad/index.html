@@ -505,7 +505,7 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 .lrn .stt{flex:none;font-size:12px;font-weight:700;color:var(--accent);text-align:right}.lrn .stt.ok{color:var(--okt)}
 .lrn.main{border-color:var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}
 .lrn.lrnrow{border-color:var(--warnl);background:linear-gradient(135deg,var(--needbg),var(--card))}
-/* 💶 вкладка «Финансы» (app/economy.py view, этап В2): только просмотр — тратить деньги пока нельзя */
+/* 💶 вкладка «Финансы» (app/economy.py view, этап В2; окно — Г1, свободные агенты — Г2) */
 .fhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 4px}.fhead h2{margin:0;font-size:21px}
 .fpill{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted);background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
 .fin .cash{font:italic 800 34px/1.1 var(--sport,inherit);margin:2px 0 8px;color:var(--strong)}
@@ -528,6 +528,13 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 .fdec{padding:2px 0 10px}.fdec .row{padding:3px 0;border:0;font-size:13px;gap:8px}.fdec .row b{white-space:normal;text-align:right}.fdec .banner{margin:6px 0}
 .fterms{display:flex;gap:6px;margin:4px 0 8px}.fterms button{flex:1;padding:9px 0;border-radius:10px;background:var(--card2);border:1px solid var(--line);font-weight:800;color:var(--text)}.fterms button.on{background:var(--accent);color:var(--on-acc);border-color:var(--accent)}
 .fmk button{font-size:12px;padding:9px 2px}
+/* 🆓 свободные агенты в окне (этап Г2): кого заменит агент — сетка игроков, отпуск досрочно — тихая ссылка */
+.fagsub{font-size:12.5px;color:var(--muted);margin:-2px 2px 6px;line-height:1.35}
+.fouts{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:5px 0 8px}.fouts button{text-align:left;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 8px;min-width:0;color:var(--text)}
+.fouts button b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fouts button span{display:block;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.25}
+.fouts button.on{border-color:var(--accent);background:var(--acc-soft);box-shadow:0 0 0 1px var(--accent)}
+.fsign{border-top:1px dashed var(--line);margin-top:4px;padding-top:8px}
+.frel{display:block;margin:0 0 8px auto;background:none;border:0;color:var(--badt);font-size:12.5px;text-decoration:underline;padding:2px 0}
 .ftag.ok{background:var(--okbg);color:var(--okfg)}
 .fload{opacity:.6}
 .lrnre{display:block;margin:4px 0 0 auto;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
@@ -3508,7 +3515,7 @@ function tourClick(b) {
 }
 
 /* ---- вкладка «💶 Финансы» (этап В2 экономики): касса клуба, которым менеджер управляет сейчас — только просмотр.
-   Всё считает бот (app/economy.py view, запрос {a: 'economy'}); страница только показывает. Тратить деньги нельзя: рынка ещё нет */
+   Всё считает бот (app/economy.py view, запрос {a: 'economy'}); страница только показывает. Тратить деньги — только в окне: продление, досрочный отпуск, свободные агенты (Г1–Г2) */
 let ECO = null;            // {key: клуб, st: ответ бота, err: текст ошибки, wait: ждём ответ}
 let ECO_Q = null;          // открыт блок «Что такое…» (ключ из ECO.st.blocks)
 let ECO_ALL = false;       // журнал движений раскрыт целиком
@@ -3546,12 +3553,12 @@ function ecoWhat(keys) {          // блок «Что такое…» с сер
 const ecoTours = n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'тур' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'тура' : 'туров');
 function ecoHead(pill) { return `<div class="fhead"><h2>💶 Финансы</h2><span class="fpill">${esc(pill)}</span></div>`; }
 const ECO_WILL = ['💶 Касса клуба: деньги за каждый сыгранный тур — телеправа, спонсор, билеты, магазин; в конце сезона — призовые',
-  '💼 Зарплаты игроков и контракты на несколько сезонов', '📊 Правило 70%: на зарплаты — не больше 70% дохода', '🔄 Позже — трансферное окно и рынок игроков'];
+  '💼 Зарплаты игроков и контракты на несколько сезонов', '📊 Правило 70%: на зарплаты — не больше 70% дохода', '🔄 Трансферное окно после сезона: контракты и свободные агенты'];
 function ecoOfficial(h) {         // официальный клуб: экономика официальных лиг ещё в работе (макет «экран-11»)
   return ecoHead('официальный клуб') + `<div class="fwip"><div class="fbig">🛠</div><h3>Экономика официальных лиг — в процессе</h3>` +
     `<div class="note">Касса и контракты уже работают у своих клубов в <b>лигах друзей</b>, где экономику включил администратор. Для официальных лиг готовим то же самое — с поправкой на формат лиги.</div>` +
     `<div class="note" style="margin-top:8px">Пока ваш официальный клуб играет как сейчас: лига и кубок страны, без денег и рынка.</div></div>` +
-    `<div class="card fchk"><div>✅ Лиги друзей: касса, зарплаты и контракты</div><div>⏳ Трансферное окно и рынок — скоро</div><div>⏳ Официальные лиги — скоро</div></div>` +
+    `<div class="card fchk"><div>✅ Лиги друзей: касса, зарплаты и контракты</div><div>✅ Лиги друзей: трансферное окно и свободные агенты</div><div>⏳ Покупки и продажи между клубами — скоро</div><div>⏳ Официальные лиги — скоро</div></div>` +
     (h.other && !h.other_star ? `<button type="button" class="go main" data-switch>🔁 Переключиться на свой клуб «${esc(h.other)}»</button>` : '') +
     (H().create ? `<button type="button" class="go${h.other ? '' : ' main'}" data-panel="newclub">➕ Создать свой клуб</button>` : '');
 }
@@ -3577,14 +3584,15 @@ function ecoOn(st) {
   x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70']);
   const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
   x += ecoWindow(st.window || {}, qt);
-  x += ecoWhat(['window', 'agent']);
-  const ps = st.players || [], exp = ps.filter(p => p.status === 'expiring' || p.status === 'expired').length;
+  x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
+  x += ecoAgents(st);
+  const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;   // отпущенный досрочно — не «кончился»
   x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}</div>`;
   x += ecoWhat(['contract']);
   const TAG = {expiring: ['l', 'истекает в этом сезоне'], expired: ['no', 'контракт истёк'], last: ['l', 'кончается в следующем сезоне'], none: ['', 'контракт — со следующего тура']};
   const wopen = (st.window || {}).state === 'open';
   x += `<div class="card fpl"><div class="row"><span>${wopen ? 'Контракт кончился' : 'Истекают после этого сезона'}</span><b>${exp ? exp + ' игр.' : 'ни у кого'}</b></div>` + (ps.length ? ps.map(p => {
-    const t = p.renewed ? ['ok', '✅ продлён'] : p.decision === 'release' ? ['no', '👋 уйдёт после окна'] : TAG[p.status];
+    const t = p.signed ? ['ok', '🆓 подписан в окне'] : p.renewed ? ['ok', '✅ продлён'] : p.decision === 'release' ? ['no', '👋 уйдёт после окна'] : TAG[p.status];
     return `<div class="row"><div><b>№${p.number} ${esc(p.name)}</b><div class="sub">${years(p.age)} · сила ${num(p.strength)} · стоит ${ecoMoney(p.value)}</div>` +
       (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + `</div>` +
       `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>` +
@@ -3595,7 +3603,7 @@ function ecoOn(st) {
     `<div class="row"><div>${esc(j.title)}<div class="sub">${esc(j.note || '')}</div></div><b class="${j.amount > 0 ? 'fplus' : j.amount < 0 ? 'fminus' : ''}">${ecoMoney(j.amount, true)}</b></div>`).join('') +
     (J.length > 8 ? `<button type="button" class="go" data-ecoall>${ECO_ALL ? 'Свернуть' : `Показать все (${J.length})`}</button>` : '')
     : `<div class="note">Пока движений нет: деньги приходят за каждый сыгранный тур лиги.</div>`) + `</div>`;
-  x += `<div class="hint">${wopen ? 'В окне решаются контракты; покупки и продажи игроков появятся на следующем этапе.' : 'Тратить деньги можно будет, когда откроется рынок покупок (следующий этап).'}</div>`;
+  x += `<div class="hint">${wopen ? 'В окне решаются контракты и подписываются свободные агенты; покупки и продажи между клубами — следующий этап.' : 'Тратить деньги можно в трансферное окно: подписать свободных агентов (покупки между клубами — следующий этап).'}</div>`;
   return x;
 }
 const ECO_SEASONS = n => n + ' ' + (n === 1 ? 'сезон' : n < 5 ? 'сезона' : 'сезонов');
@@ -3611,6 +3619,7 @@ function ecoWindow(w, qt) {       // плашка трансферного ок�
 function ecoDecide(p) {           // окно: «Продлить» (срок и прогноз 70%) / «Отпустить» (с подтверждением) / имя новичку
   if (p.decision === 'release') return `<div class="fdec"><div class="sub">На его место после окна придёт новичок 18 лет${p.newcomer ? ': <b>' + esc(p.newcomer) + '</b>' : ' — дайте ему имя (иначе придумаем сами)'}.</div>` +
     `<div class="own"><input id="econame${p.pid}" maxlength="41" placeholder="Имя Фамилия новичка" value="${esc(p.newcomer || '')}"><button type="button" data-econame="${p.pid}">💾 Имя</button></div></div>`;
+  if (p.release_comp != null) return `<button type="button" class="frel" data-ecorelx="${p.pid}">👋 Отпустить досрочно · компенсация ${ecoMoney(p.release_comp)}</button>`;
   const r = p.renew; if (!r) return '';
   const cap = Math.round((ECO.st.cap70 || 0.7) * 100), pct = Math.round(r.share_after * 100);
   if (!ECO_R || ECO_R.pid !== p.pid) return `<div class="fdec"><div class="mrow2"><button type="button" class="go main" data-ecorenew="${p.pid}">✍️ Продлить</button>` +
@@ -3623,9 +3632,78 @@ function ecoDecide(p) {           // окно: «Продлить» (срок и
     (r.ok ? '' : `<div class="banner warn">⛔ ${esc(r.why)}</div>`) +
     `<div class="mrow2"><button type="button" class="go main" data-ecodo="${p.pid}"${r.ok ? '' : ' disabled'}>✅ Продлить на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecorx>Отмена</button></div></div>`;
 }
-const ECO_W = ['wrenew', 'wrelease', 'wname'];      // решения в окне — ответ бота несёт свежую кассу
+/* 🆓 свободные агенты (этап Г2, app/economy.py agents_view / sign_quote / sign): список — от бота, прогноз сделки
+   («затраты станут X%», подписные, компенсация, касса после) — тоже от бота запросом wquote; страница только показывает */
+let ECO_S = null;          // открыто подписание: {agent, out: кого заменит, seasons, q: прогноз бота, wait, err}
+let ECO_ST = 0;            // прогноз не пришёл за 10 секунд — ошибка с «Повторить»
+function ecoAgents(st) {
+  const A = st.agents; if (!A) return '';
+  const L = A.list || [], full = A.buys_used >= A.buys_max;
+  if (ECO_S && !L.some(a => a.pid === ECO_S.agent)) ECO_S = null;      // агента уже нет на рынке
+  let x = `<div class="lrow"><div class="label">🆓 Свободные агенты</div>${ecoQ('agent')}</div>`;
+  x += ecoWhat(['agent']);
+  x += `<div class="fagsub">Подписано в этом окне: <b>${A.buys_used} из ${A.buys_max}</b> · агент встаёт на место игрока, которого вы выберете, — в клубе всегда 10.</div>`;
+  if (!L.length) return x + `<div class="card"><div class="note">Сейчас на рынке никого нет: новые агенты появятся в следующее окно.</div></div>`;
+  x += `<div class="card fpl">` + L.map(a => `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}` +
+      `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
+      `<div class="sub">${a.origin === 'left' ? `ушёл из «${esc(a.from || '?')}» · ` : ''}на рынке ${esc(a.until)}</div></div>` +
+      `<div class="r"><b>${ecoMoney(a.fee)}</b>подписные<div class="sub">${ecoMoney(a.salary)} за сезон</div></div></div>` +
+      (ECO_S && ECO_S.agent === a.pid ? ecoSignCard(a, st)
+        : `<div class="fdec"><button type="button" class="go${full ? '' : ' main'}" data-ecosign="${a.pid}"${full ? ' disabled' : ''}>✍️ Подписать</button></div>`)).join('') + `</div>`;
+  if (full) x += `<div class="hint">Лимит окна исчерпан: следующие подписания — в новом окне.</div>`;
+  return x;
+}
+function ecoOutCost(p) {           // во что обойдётся замена игрока (только подпись; считает бот)
+  if (p.decision === 'release') return 'уже отпущен — бесплатно';
+  if (p.status === 'expired') return 'контракт кончился — бесплатно';
+  if (p.release_comp != null) return 'компенсация ' + ecoMoney(p.release_comp);
+  return p.salary ? ecoMoney(p.salary) + ' за сезон' : '';
+}
+function ecoSignCard(a, st) {
+  const s = ECO_S, n = s.seasons, cap = Math.round((st.cap70 || 0.7) * 100);
+  let x = `<div class="fdec fsign"><div class="sub">Кого заменит ${esc(a.name)}:</div><div class="fouts">` +
+    (st.players || []).map(p => `<button type="button" class="${s.out === p.pid ? 'on' : ''}" data-ecoout="${p.pid}"><b>№${p.number} ${esc(p.name)}</b>` +
+      `<span>сила ${num(p.strength)} · ${esc(ecoOutCost(p))}</span></button>`).join('') + `</div>` +
+    `<div class="sub">Срок контракта, сезонов:</div><div class="fterms">${[1, 2, 3, 4, 5].map(k => `<button type="button" class="${k === n ? 'on' : ''}" data-ecosterm="${k}">${k}</button>`).join('')}</div>`;
+  const q = s.q;
+  if (!s.out) x += `<div class="note">Выберите игрока — бот посчитает затраты на состав, подписные, компенсацию и кассу после сделки.</div>`;
+  else if (s.wait) x += `<div class="note fload">⏳ Считаю прогноз…</div>`;
+  else if (s.err) x += `<div class="banner warn">⚠️ ${esc(s.err)} <button type="button" class="go" data-ecoout="${s.out}">🔄 Повторить</button></div>`;
+  else if (q && q.salary == null) x += `<div class="banner warn">⛔ ${esc(q.why || 'Подписать нельзя')}</div>`;
+  else if (q) {
+    const pct = Math.round(q.share_after * 100);
+    x += `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за сезон · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+      `<div class="row"><span>Подписные</span><b class="fminus">${ecoMoney(-q.fee)}</b></div>` +
+      (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
+      `<div class="row"><span>Касса после сделки</span><b class="${q.cash_after < 0 ? 'fminus' : ''}">${ecoMoney(q.cash_after)}</b></div>` +
+      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+      `<div class="fbar${pct > cap ? ' over' : ''}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
+      `<div class="sub">Подписание ${q.buys_used + 1} из ${q.buys_max} в этом окне</div>` +
+      (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
+  }
+  const ok = q && q.ok && !s.wait && !s.err;
+  return x + `<div class="mrow2"><button type="button" class="go main" data-ecosdo="${a.pid}"${ok ? '' : ' disabled'}>✅ Подписать на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecosx>Отмена</button></div></div>`;
+}
+function ecoQuote() {
+  ECO_S.q = null; ECO_S.err = ''; ECO_S.wait = true;
+  clearTimeout(ECO_ST);
+  ECO_ST = setTimeout(() => { if (ECO_S && ECO_S.wait) { ECO_S.wait = false; ECO_S.err = 'Бот не ответил — проверьте связь.'; renderMoney(); } }, 10000);
+  send({a: 'wquote', agent: ECO_S.agent, out: ECO_S.out, key: ECO.key});
+}
+const ECO_W = ['wrenew', 'wrelease', 'wname', 'wquote', 'wsign'];      // решения в окне — ответ бота несёт свежую кассу
 function ecoWinClick(b, d) {       // нажатия в окне; true — обработано
   const P = id => (((ECO || {}).st || {}).players || []).find(x => x.pid === +id) || {name: ''};
+  const AG = id => ((((ECO || {}).st || {}).agents || {}).list || []).find(x => x.pid === +id) || {name: ''};
+  if (d.ecosign) { haptic(); ECO_S = {agent: +d.ecosign, out: null, seasons: 3, q: null, wait: false, err: ''}; ECO_R = null; renderMoney(); return true; }
+  if (d.ecoout && ECO_S) { haptic('soft'); ECO_S.out = +d.ecoout; ecoQuote(); renderMoney(); return true; }
+  if (d.ecosterm && ECO_S) { haptic('soft'); ECO_S.seasons = +d.ecosterm; renderMoney(); return true; }
+  if (b.hasAttribute('data-ecosx')) { ECO_S = null; renderMoney(); return true; }
+  if (d.ecosdo && ECO_S && ECO_S.q && ECO_S.q.ok) {
+    const a = AG(d.ecosdo), p = P(ECO_S.out), q = ECO_S.q, s = {...ECO_S}; haptic();
+    ask(`Подписать ${a.name} на ${ECO_SEASONS(s.seasons)} вместо №${p.number} ${p.name}? Сразу спишется ${ecoMoney(q.fee + q.comp)} (подписные${q.comp ? ' и компенсация' : ''}), №${p.number} ${p.name} уйдёт свободным агентом. Отменить нельзя.`,
+      () => send({a: 'wsign', agent: s.agent, out: s.out, seasons: s.seasons, sure: true, key: ECO.key})); return true; }
+  if (d.ecorelx) { const p = P(d.ecorelx); haptic(); ask(`Отпустить №${p.number} ${p.name} досрочно? Контракт ещё идёт: компенсация ${ecoMoney(p.release_comp)} спишется сразу. Когда окно закроется, он уйдёт свободным агентом, на его место придёт новичок 18 лет. Отменить нельзя.`,
+    () => send({a: 'wrelease', pid: +d.ecorelx, sure: true, key: ECO.key})); return true; }
   if (d.ecorenew) { haptic(); ECO_R = {pid: +d.ecorenew, seasons: 3}; renderMoney(); return true; }
   if (d.ecoterm) { haptic('soft'); if (ECO_R) ECO_R.seasons = +d.ecoterm; renderMoney(); return true; }
   if (b.hasAttribute('data-ecorx')) { ECO_R = null; renderMoney(); return true; }
@@ -3637,8 +3715,17 @@ function ecoWinClick(b, d) {       // нажатия в окне; true — об�
 }
 function ecoWinAck(m, act) {
   if (!ECO || act.key !== ECO.key) return;
+  if (act.a === 'wquote') {          // прогноз подписания — только для того выбора, что сейчас открыт
+    if (ECO_S && ECO_S.agent === act.agent && ECO_S.out === act.out) {
+      clearTimeout(ECO_ST); ECO_S.wait = false;
+      if (m.ok && m.quote) ECO_S.q = m.quote; else ECO_S.err = m.note || 'Не удалось посчитать прогноз';
+    }
+    renderMoney(); return;
+  }
   if (m.economy) ECO.st = m.economy;
   if (m.ok && act.a === 'wrenew') ECO_R = null;
+  if (m.ok && act.a === 'wsign') ECO_S = null;
+  else if (act.a === 'wsign' && ECO_S && ECO_S.out) { renderMoney(); if (ECO_S) ecoQuote(); }     // отказ — свежий прогноз с причиной
   renderMoney();
 }
 function renderMoney() {
@@ -4532,15 +4619,22 @@ function demoEconomy() {         // демо: касса — те же поля,
     value: sal[i] * 10, tours_left: [30, 30, 3, 30, 17, 30, 3, 30, 30, 30][i], seasons_left: 3, status: [2, 6].includes(i) ? 'expiring' : i === 4 ? 'last' : 'ok'}));
   const payroll = sal.reduce((a, b) => a + b, 0), inc = 2010, share = payroll / inc, kinds = [['tv', '📺 Телеправа', 93], ['brand', '🤝 Спонсор', 71], ['shop', '🛍 Магазин', 3], ['ticket', '🎟 Билеты', 22], ['upkeep', '🏟 Содержание клуба', -57], ['salary', '💼 Зарплаты', -Math.round(payroll / st)]];
   const journal = [5, 4, 3].flatMap(t => kinds.map(([kind, title, amount]) => ({kind, title, amount, note: 'тур ' + t, at: ''}))).concat([{kind: 'start', title: '💶 Стартовая касса', amount: 503, note: 'касса открыта', at: ''}]);
-  const cash = 503 + 3 * kinds.reduce((a, k) => a + k[2], 0), M = k => ecoMoney(k);
+  const cash = 503 + 3 * kinds.reduce((a, k) => a + k[2], 0) - DEMO_SPENT, M = k => ecoMoney(k);
   const win = Q.get('eco') === 'window';      // ?eco=window — открытое трансферное окно (решения хранятся в DEMO_WIN)
-  if (win) players.forEach((p, i) => { if (![2, 6].includes(i)) { p.status = 'ok'; return; }
+  if (win) players.forEach((p, i) => { if (![2, 6].includes(i)) { p.status = 'ok'; p.tours_left = 28; p.seasons_left = 2;
+      const g = DEMO_SIGN[p.pid], ag = g && DEMO_AGENTS.find(a => a.pid === g.agent);
+      if (ag) Object.assign(p, {name: ag.name, age: ag.age, strength: ag.strength, salary: ag.salary, per_tour: Math.round(ag.salary / st), value: ag.value, tours_left: g.seasons * 14, seasons_left: g.seasons, signed: true});
+      if ((DEMO_WIN[p.pid] || {}).early) { p.status = 'expired'; p.decision = 'release'; p.newcomer = DEMO_WIN[p.pid].name || null; }
+      else p.release_comp = Math.round(0.5 * p.salary * p.seasons_left);
+      return; }
     const d = DEMO_WIN[p.pid] || {}; p.tours_left = d.renew ? d.renew * 14 : 0; p.status = d.renew ? 'ok' : 'expired'; p.renewed = !!d.renew; p.decision = d.release ? 'release' : null; p.newcomer = d.name || null;
     if (!d.renew && !d.release) p.renew = i === 2 ? {salary: 205, per_tour: 15, share_after: Math.round((payroll - sal[i] + 205) / inc * 1000) / 1000, ok: true, why: null}
       : {salary: 760, per_tour: 54, share_after: Math.round((payroll - sal[i] + 760) / inc * 1000) / 1000, ok: (payroll - sal[i] + 760) / inc <= 0.7, why: 'После продления затраты на состав станут ' + Math.round((payroll - sal[i] + 760) / inc * 100) + '% — больше 70% дохода. Продлить нельзя: отпустите другого игрока или дождитесь, пока вырастет доход.'}; });
   const wnd = win ? {state: 'open', closes: '09.11 14:00', left: '3 дн. 21 ч', undecided: players.filter(p => p.renew).length, seasons: [1, 2, 3, 4, 5]}
     : {state: 'soon', tours: 9, note: 'Откроется само после последнего тура сезона (осталось туров: 9) на 4 дня.'};
-  return {status: 'on', window: wnd, market: true, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
+  const taken = Object.values(DEMO_SIGN).map(g => g.agent);
+  const agents = win ? {list: DEMO_AGENTS.filter(a => !taken.includes(a.pid)), buys_used: taken.length, buys_max: 3, seasons: [1, 2, 3, 4, 5]} : null;
+  return {status: 'on', window: wnd, market: true, agents, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
     payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
     blocks: {cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
       salary: {title: '💼 Что такое зарплата?', lead: 'Каждый игрок получает деньги за каждый сыгранный тур лиги.', points: ['Зарплата зависит от силы: чем сильнее игрок, тем дороже (за сезон — 10% его стоимости).', 'Пока лига стоит, зарплата не идёт — как и доход.'], now: `У вас сейчас: ${M(Math.round(payroll / st))} за тур, самый дорогой — Марк Жуков.`},
@@ -4551,9 +4645,33 @@ function demoEconomy() {         // демо: касса — те же поля,
       upkeep: {title: '🏟 Что такое содержание клуба?', lead: 'Расходы на персонал, поездки и поле — 30% каждого дохода.', points: ['Списывается сразу, вместе с доходом: в кассу приходит 70%.', 'Именно поэтому на зарплаты — не больше 70%.'], now: 'У вас сейчас: за сезон на содержание ушло 171 тыс. €.'}}};
 }
 let DEMO_WIN = {};       // демо окна: решения по контрактам (в игре их хранит бот, app/economy.py)
+let DEMO_SIGN = {}, DEMO_SPENT = 0;     // демо: подписанные агенты (кого заменили) и потраченное в окне
+const DEMO_AGENTS = [      // демо рынка свободных агентов — те же поля, что у бота (app/economy.py agents_view)
+  {pid: 101, name: 'Илья Кравец', age: 27, strength: 103.4, gk: false, value: 2350, salary: 235, fee: 118, origin: 'new', from: null, league: 'Лига друзей', until: 'до следующего окна вашей лиги'},
+  {pid: 102, name: 'Олег Фролов', age: 30, strength: 101.2, gk: true, value: 1640, salary: 219, fee: 110, origin: 'new', from: null, league: 'Лига друзей', until: 'до следующего окна вашей лиги'},
+  {pid: 103, name: 'Денис Мороз', age: 24, strength: 104.5, gk: false, value: 2900, salary: 241, fee: 1450, origin: 'left', from: 'Вторники ФК', league: 'Вторники', until: 'до окна лиги «Вторники» (≈ 21.11 18:00)'},
+  {pid: 104, name: 'Марат Сафин', age: 25, strength: 118.6, gk: false, value: 6400, salary: 640, fee: 320, origin: 'new', from: null, league: 'Лига друзей', until: 'до следующего окна вашей лиги'}];
+function demoQuote(act) {        // демо прогноза подписания (в игре считает бот: app/economy.py sign_quote)
+  const E = demoEconomy(), a = ((E.agents || {}).list || []).find(x => x.pid === act.agent), p = E.players.find(x => x.pid === act.out);
+  if (!a || !p) return {ok: false, why: 'Этого агента уже нет на рынке: его подписал другой клуб или он ушёл.'};
+  const comp = p.status === 'expired' ? 0 : p.release_comp || 0, junior = 100;
+  const base = E.players.reduce((s, x) => s + (x.decision === 'release' ? junior : x.salary), 0);
+  const share = (base - (p.decision === 'release' ? junior : p.salary) + a.salary) / E.income14, cashAfter = E.cash - a.fee - comp, used = E.agents.buys_used;
+  const why = used >= 3 ? 'За одно окно — не больше 3 покупок, а у вас уже 3. Следующие — в новом окне.'
+    : share > 0.7 ? `С этим агентом затраты на состав станут ${Math.round(share * 100)}% — больше 70% дохода. Подписать нельзя: замените игрока с большей зарплатой или выберите агента дешевле.`
+    : cashAfter < -0.15 * E.income14 ? `После подписных касса станет ${ecoMoney(cashAfter)} — ниже −15% дохода за 14 туров. Подписать нельзя.` : null;
+  return {agent: a.pid, out: p.pid, salary: a.salary, per_tour: Math.round(a.salary / 14), fee: a.fee, comp, cash: E.cash, cash_after: cashAfter,
+    share_after: Math.round(share * 1000) / 1000, buys_used: used, buys_max: 3, ok: !why, why};
+}
 function demoWin(act) {
+  if (act.a === 'wquote') return {ok: true, note: '', quote: demoQuote(act)};
+  if (act.a === 'wsign') { const q = demoQuote(act); if (!q.ok) return {ok: false, note: q.why, economy: demoEconomy()};
+    DEMO_SIGN[act.out] = {agent: act.agent, seasons: act.seasons}; DEMO_SPENT += q.fee + q.comp;
+    return {ok: true, note: `✅ Агент подписан на ${ECO_SEASONS(act.seasons)} (демо)`, economy: demoEconomy()}; }
   const d = DEMO_WIN[act.pid] = DEMO_WIN[act.pid] || {};
+  const pl = act.a === 'wrelease' ? demoEconomy().players.find(x => x.pid === act.pid) : null;
   if (act.a === 'wrenew') d.renew = act.seasons;
+  else if (pl && pl.release_comp != null) { d.early = true; DEMO_SPENT += pl.release_comp; return {ok: true, note: `👋 Отпущен досрочно: компенсация ${ecoMoney(pl.release_comp)} списана (демо)`, economy: demoEconomy()}; }
   else if (act.a === 'wrelease') d.release = true;
   else { const t = (act.text || '').trim().split(/\s+/); if (t.length !== 2) return {ok: false, note: 'Напишите имя и фамилию через пробел, например: Иван Петров'}; d.name = t.join(' '); }
   return {ok: true, note: act.a === 'wrenew' ? `✅ Контракт продлён на ${ECO_SEASONS(act.seasons)} (демо)` : act.a === 'wrelease' ? '👋 Игрок уйдёт, когда окно закроется (демо)' : '✍️ Имя новичка сохранено (демо)', economy: demoEconomy()};
