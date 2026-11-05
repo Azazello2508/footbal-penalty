@@ -3646,7 +3646,7 @@ function ecoDecide(p) {           // окно: «Продлить» (срок и
     `<div class="row"><span>Новая зарплата</span><b>${ecoMoney(r.salary)} за сезон · ${ecoMoney(r.per_tour)} за тур</b></div>` +
     `<div class="row"><span>Затраты на состав станут</span><b class="${r.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
     `<div class="fbar${r.ok ? '' : ' over'}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
-    (r.ok ? '' : `<div class="banner warn">⛔ ${esc(r.why)}</div>`) +
+    (r.note ? `<div class="sub">ℹ️ ${esc(r.note)}</div>` : '') + (r.ok ? '' : `<div class="banner warn">⛔ ${esc(r.why)}</div>`) +
     `<div class="mrow2"><button type="button" class="go main" data-ecodo="${p.pid}"${r.ok ? '' : ' disabled'}>✅ Продлить на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecorx>Отмена</button></div></div>`;
 }
 /* 🆓 свободные агенты (этап Г2, app/economy.py agents_view / sign_quote / sign): список — от бота, прогноз сделки
@@ -3696,7 +3696,7 @@ function ecoSignCard(a, st) {
       `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
       `<div class="fbar${pct > cap ? ' over' : ''}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
       `<div class="sub">Подписание ${q.buys_used + 1} из ${q.buys_max} в этом окне</div>` +
-      (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
+      (q.note ? `<div class="sub">ℹ️ ${esc(q.note)}</div>` : '') + (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
   }
   const ok = q && q.ok && !s.wait && !s.err;
   return x + `<div class="mrow2"><button type="button" class="go main" data-ecosdo="${a.pid}"${ok ? '' : ' disabled'}>✅ Подписать на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecosx>Отмена</button></div></div>`;
@@ -3824,7 +3824,7 @@ function ecoDealCard(a, st) {
       `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
       `<div class="fbar${pct > cap ? ' over' : ''}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
       `<div class="sub">Покупка ${q.buys_used + 1} из ${q.buys_max} в этом окне${offer ? ' · продавец ответит за 24 ч (не дольше вашего окна)' : ''}</div>` +
-      (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
+      (q.note ? `<div class="sub">ℹ️ ${esc(q.note)}</div>` : '') + (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
   }
   const ok = q && q.ok && !s.wait && !s.err;
   return x + `<div class="mrow2"><button type="button" class="go main" data-ecobdo="${a.id}"${ok ? '' : ' disabled'}>${offer ? '📨 Отправить предложение' : '✅ Купить за ' + ecoMoney(a.price)}</button><button type="button" class="go" data-ecobx>Отмена</button></div></div>`;
@@ -4818,7 +4818,7 @@ function demoSwitch() {      // демо: свой клуб ⇄ официаль
 function demoEconomy() {         // демо: касса — те же поля, что присылает бот (app/economy.py view); ?eco=off / ?eco=soon — другие экраны
   if (S.hub.home.star) return {status: 'official', note: 'Экономика официальных лиг — в процессе.'};
   if (Q.get('eco') === 'off') return {status: 'off', note: 'В вашей лиге экономика выключена: деньги, зарплаты и контракты не считаются.'};
-  if (Q.get('eco') === 'soon') return {status: 'soon', note: 'Экономика включена: касса откроется с началом следующего сезона лиги — стартовые 965 тыс. € и контракты всем игрокам на 3 сезона.'};
+  if (Q.get('eco') === 'soon') return {status: 'soon', note: 'Экономика включена: касса откроется с началом следующего сезона лиги — стартовые 1,75 млн € и контракты всем игрокам на 3 сезона.'};
   const over = Q.get('eco') === 'over', sal = [180, 95, 88, 120, 74, 210, 140, 60, 52, 40].map(v => over ? v * 2 : v), st = 14;
   const players = S.players.map((p, i) => ({slot: p.slot, pid: i + 1, number: p.number, name: p.name, age: p.age, strength: 100 + i % 4 * 1.5, salary: sal[i], per_tour: Math.round(sal[i] / st),
     value: sal[i] * 10, tours_left: [30, 30, 3, 30, 17, 30, 3, 30, 30, 30][i], seasons_left: 3, status: [2, 6].includes(i) ? 'expiring' : i === 4 ? 'last' : 'ok'}));
@@ -4844,7 +4844,7 @@ function demoEconomy() {         // демо: касса — те же поля,
     payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
     blocks: {cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
       salary: {title: '💼 Что такое зарплата?', lead: 'Каждый игрок получает деньги за каждый сыгранный тур лиги.', points: ['Зарплата зависит от силы: чем сильнее игрок, тем дороже (за сезон — 10% его стоимости).', 'Пока лига стоит, зарплата не идёт — как и доход.'], now: `У вас сейчас: ${M(Math.round(payroll / st))} за тур, самый дорогой — Марк Жуков.`},
-      rule70: {title: '📊 Что такое правило 70%?', lead: 'На зарплаты можно тратить не больше 70% дохода — так же, как в УЕФА.', points: ['Считаем от дохода за последние 14 туров.', 'Выше 70% нельзя покупать и продлевать контракты; прогноз виден до сделки (покупки появятся вместе с трансферным окном).', '70% зарплат + 30% содержания = клуб живёт в ноль.'], now: `У вас сейчас: ${Math.round(share * 100)}% из 70%.`},
+      rule70: {title: '📊 Что такое правило 70%?', lead: 'На зарплаты можно тратить не больше 70% дохода — так же, как в УЕФА.', points: ['Считаем от дохода за последние 14 туров.', 'Выше 70% можно только не увеличивая зарплаты: продлить с той же или меньшей зарплатой, заменить дорогого игрока дешёвым. Прогноз виден до сделки.', '70% зарплат + 30% содержания = клуб живёт в ноль.'], now: `У вас сейчас: ${Math.round(share * 100)}% из 70%.`},
       contract: {title: '📝 Что такое контракт?', lead: 'Срок, на который игрок остаётся в клубе: от 1 до 5 сезонов по 14 туров.', points: ['Контракт кончается в конце сезона, перед трансферным окном.', 'Не продлили — игрок уходит свободным агентом бесплатно.', 'В последний сезон контракта игрок стоит на 20% дешевле.'], now: 'У вас сейчас: у 2 игр. контракт кончается после этого сезона.'},
       window: {title: '🔄 Что такое трансферное окно?', lead: '4 дня после последнего матча сезона, когда можно покупать и продавать игроков.', points: ['Открывается само, по календарю вашей лиги; новый сезон начинается после него.', 'Игрока из другой лиги можно купить, если его выставили в их окно.', 'До 3 покупок за окно; в клубе всегда 10 игроков.'], now: 'У вас сейчас: трансферное окно появится на следующем этапе.'},
       agent: {title: '🆓 Кто такой свободный агент?', lead: 'Игрок без клуба: за него не нужно платить другому клубу.', points: ['Нужно только заплатить подписные — 50% его зарплаты за сезон.', 'Новые агенты появляются с каждым окном и уходят, если их никто не взял.', 'Игрок с закончившимся контрактом тоже становится свободным агентом.'], now: 'У вас сейчас: рынок свободных агентов откроется вместе с трансферным окном.'},
