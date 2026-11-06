@@ -2800,7 +2800,7 @@ function renderHome() {
   const cap = S.players && S.captain ? player(S.captain) : null;      // крупная футболка в шапке — с номером капитана
   const pat = (((hb.kit_edit || {}).design || {}).home || {}).p, num = cap ? cap.number : 10;
   let x = `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
-    `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}</small></h1></div>` +
+    `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}${h.stadium ? ` · 🏟 ${h.stadium.cap} мест${h.stadium.next ? ` (с нового сезона — ${h.stadium.next})` : ''}` : ''}</small></h1></div>` +
     (Array.isArray(h.kit) && h.kit.length > 1 ? `<button type="button" class="hshirt kflip${HERO_BACK ? ' bk' : ''}" data-heroflip aria-label="Перевернуть футболку"><div class="kfi">` +
       `<div class="kff">${shirtSvg(h.kit, num)}</div><div class="kfb">${shirtBackSvg(h.kit, cap ? shortName(cap) : '', num)}</div></div></button>` : '') + heroDay(h.next) + `</div>`;
   heroTick();
@@ -3612,6 +3612,7 @@ function ecoOn(st) {
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
   x += ecoAgents(st);
   x += ecoTrade(st);
+  x += ecoBuilds(st);
   const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;   // отпущенный досрочно — не «кончился»
   x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}${ecoQ('retire')}</div>`;
   x += ecoWhat(['contract', 'retire']);
@@ -3634,6 +3635,46 @@ function ecoOn(st) {
   return x;
 }
 const ECO_SEASONS = n => n + ' ' + (n === 1 ? 'сезон' : n < 5 ? 'сезона' : 'сезонов');
+/* 🏗 постройки (этап Д2, app/economy.py builds_view / build_quote): стадион и тренировочная база. Цена, содержание,
+   окупаемость, «останется в кассе» и правило 70% считает бот; страница показывает и отправляет заказ / отмену */
+function ecoBuilds(st) {
+  const B = st.builds; if (!B || !B.length) return '';
+  const cap = Math.round((st.cap70 || 0.7) * 100);
+  let x = `<div class="lrow"><div class="label">🏗 Постройки</div>${ecoQ('builds')}</div>` + ecoWhat(['builds']);
+  x += `<div class="card fpl">` + B.map(b => {
+    const lvl = b.kind === 'stadium' ? '' : b.level ? ` · ${b.level}-й уровень из ${b.levels}` : ' · нет';
+    let y = `<div class="row"><div><b>${esc(b.title)}</b><div class="sub">сейчас: ${esc(b.effect)}${lvl}${b.upkeep ? ' · содержание ' + ecoMoney(b.upkeep) + ' за тур' : ''}</div></div></div>`;
+    const o = b.ordered || (b.pending ? {level: b.pending} : null);
+    if (b.ordered) y += `<div class="fdec"><div class="sub">🕓 Заказано: <b>${esc(b.ordered.effect)}</b> за ${ecoMoney(b.ordered.cost)} — откроется со следующего сезона (содержание ${ecoMoney(b.ordered.upkeep)} за тур).</div>` +
+      (b.window ? `<button type="button" class="go" data-ecobcancel="${b.kind}">↩️ Отменить заказ — ${ecoMoney(b.ordered.cost)} вернутся</button>` : '') + `</div>`;
+    else if (b.pending) y += `<div class="fdec"><div class="sub">🕓 Построено в прошлом окне — откроется со следующего сезона.</div></div>`;
+    const q = b.quote, n = b.next;
+    if (q && q.next != null && !b.ordered) {
+      const pct = Math.round((q.share_after || 0) * 100);
+      y += `<div class="fdec"><div class="sub">Следующий уровень: <b>${esc(q.effect)}</b></div>` +
+        `<div class="row"><span>Цена</span><b class="fminus">${ecoMoney(-q.cost)}</b></div>` +
+        `<div class="row"><span>Содержание</span><b>${ecoMoney(q.upkeep)} за тур</b></div>` +
+        (q.payback ? `<div class="sub">📈 ${esc(q.payback)}</div>` : '') +
+        (q.cash_after != null ? ecoLeft(q, false) + `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` : '') +
+        (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why || 'Строить нельзя')}</div>`) +
+        `<button type="button" class="go${q.ok ? ' main' : ''}" data-ecobuild="${b.kind}"${q.ok ? '' : ' disabled'}>🏗 Построить за ${ecoMoney(q.cost)}</button></div>`;
+    } else if (n && !o) y += `<div class="fdec"><div class="sub">Следующий уровень: <b>${esc(n.effect)}</b> · ${ecoMoney(n.cost)} · содержание ${ecoMoney(n.upkeep)} за тур</div>` +
+      (n.payback ? `<div class="sub">📈 ${esc(n.payback)}</div>` : '') + `<div class="sub">Строить можно в трансферное окно вашей лиги.</div></div>`;
+    else if (!o && b.level >= b.levels) y += `<div class="sub">✅ Самый высокий уровень.</div>`;
+    return y;
+  }).join('') + `</div>`;
+  return x;
+}
+function ecoBuildClick(b, d) {       // 🏗 заказ и отмена — с подтверждением; true — обработано
+  const B = (((ECO || {}).st || {}).builds || []), it = k => B.find(x => x.kind === k) || {};
+  if (d.ecobuild) { const g = it(d.ecobuild), q = g.quote || {}; if (!q.ok) return true; haptic();
+    ask(`Построить: ${g.title} — ${q.effect}? Сразу спишется ${ecoMoney(q.cost)}, заработает со следующего сезона, содержание ${ecoMoney(q.upkeep)} за тур. Пока окно открыто, заказ можно отменить.`,
+      () => send({a: 'bbuild', kind: d.ecobuild, sure: true, key: ECO.key})); return true; }
+  if (d.ecobcancel) { const g = it(d.ecobcancel), o = g.ordered || {}; haptic();
+    ask(`Отменить заказ (${g.title} — ${o.effect})? ${ecoMoney(o.cost)} вернутся в кассу.`,
+      () => send({a: 'bcancel', kind: d.ecobcancel, sure: true, key: ECO.key})); return true; }
+  return false;
+}
 function ecoWindow(w, qt) {       // плашка трансферного окна (app/economy.py view → window)
   const q = `<div>${qt('window', 'Что такое окно')}${qt('agent', 'Свободный агент')}</div>`;
   if (w.state === 'open') return `<div class="card fwin"><span class="ic">🔄</span><div style="flex:1"><b>Трансферное окно открыто</b>` +
@@ -3712,13 +3753,13 @@ function ecoSignCard(a, st) {
   const ok = q && q.ok && !s.wait && !s.err;
   return x + `<div class="mrow2"><button type="button" class="go main" data-ecosdo="${a.pid}"${ok ? '' : ' disabled'}>✅ Подписать на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecosx>Отмена</button></div></div>`;
 }
-function ecoLeft(q) {             // прогноз «останется в кассе X, нужно не меньше Y» (запас после траты, этап Д1; считает бот)
+function ecoLeft(q, what = true) {   // прогноз «останется в кассе X, нужно не меньше Y» (запас после траты, этап Д1; считает бот); what=false — без «?» (постройки: пояснение в «Что такое постройки»)
   if (q.reserve == null) return `<div class="row"><span>Касса после сделки</span><b class="${q.cash_after < 0 ? 'fminus' : ''}">${ecoMoney(q.cash_after)}</b></div>`;
   const bad = q.cash_after < q.reserve, exact = ecoMoney(q.cash_after) === ecoMoney(q.reserve);     // «1,38 млн» = «1,38 млн» — точно, в тысячах
   const M = k => exact ? (k < 0 ? '−' : '') + String(Math.abs(Math.round(k))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' тыс. €' : ecoMoney(k);
-  return `<div class="row"><span>Останется в кассе${ecoQ('reserve')}</span><b class="${bad ? 'fminus' : ''}">${M(q.cash_after)}</b></div>` +
+  return `<div class="row"><span>Останется в кассе${what ? ecoQ('reserve') : ''}</span><b class="${bad ? 'fminus' : ''}">${M(q.cash_after)}</b></div>` +
     `<div class="sub${bad ? ' fminus' : ''}">${bad ? '⛔ ' : ''}нужно не меньше ${M(q.reserve)} — запас ${Math.round((((ECO || {}).st || {}).reserve_share || 0.4) * 100)}% дохода за ${ecoTours(14)}${bad ? '' : ' · сверх запаса ' + ecoMoney(q.cash_after - q.reserve)}</div>` +
-    ecoWhat(['reserve']);
+    (what ? ecoWhat(['reserve']) : '');
 }
 function ecoQuote() {
   ECO_S.q = null; ECO_S.err = ''; ECO_S.wait = true;
@@ -3727,9 +3768,10 @@ function ecoQuote() {
   send({a: 'wquote', agent: ECO_S.agent, out: ECO_S.out, key: ECO.key});
 }
 const ECO_W = ['wrenew', 'wrelease', 'wname', 'wquote', 'wsign',      // решения в окне — ответ бота несёт свежую кассу
-  'mlist', 'munlist', 'mbuy', 'moffer', 'maccept', 'mdecline', 'mrevoke', 'mname', 'mquote', 'msale'];      // и рынок игроков (этап Г3)
+  'mlist', 'munlist', 'mbuy', 'moffer', 'maccept', 'mdecline', 'mrevoke', 'mname', 'mquote', 'msale',      // и рынок игроков (этап Г3)
+  'bbuild', 'bcancel'];      // и постройки (этап Д2)
 function ecoWinClick(b, d) {       // нажатия в окне; true — обработано
-  if (ecoMarketClick(b, d)) return true;
+  if (ecoMarketClick(b, d) || ecoBuildClick(b, d)) return true;
   const P = id => (((ECO || {}).st || {}).players || []).find(x => x.pid === +id) || {name: ''};
   const AG = id => ((((ECO || {}).st || {}).agents || {}).list || []).find(x => x.pid === +id) || {name: ''};
   if (d.ecosign) { haptic(); ECO_S = {agent: +d.ecosign, out: null, seasons: 3, q: null, wait: false, err: ''}; ECO_R = null; renderMoney(); return true; }
@@ -4451,7 +4493,7 @@ function demoHub() {
   const kit_edit = {design: {home: {s: '#dc2626', sh: '#f8fafc'}, away: {s: '#f8fafc', sh: '#111827'}}, everyone: true, level: 1,
     prices: {2: 50, 3: 100, 4: 150, 5: 200, all: 450}, patches: ['league']};      // демо: уровни формы «покупаются» без оплаты
   return {club: 'Девятка', unseen: 2, daily, crest_edit, kit_edit,
-    home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240,
+    home: {club: 'Девятка', crest: DC['Девятка'], star: false, league: 'Лига друзей', official: false, owner: true, kit: ['#dc2626', '#f8fafc'], fans: 1240, stadium: {cap: 800, level: 0, next: null, base: 0},
       other: 'Мадрид Белые', other_star: true, place: 1, of: 4, points: 10, played: 4, form: ['В', 'В', 'Н', 'В'],
       next: matches[0], need: matches[0], last: {...matches[2], title: 'Дворовые Львы 1:4 Девятка', hero: '№9 Жуков — 2 гола'},
       press: {fx: 501, title: 'Девятка 3:2 Тройка', n: 3},
@@ -4861,6 +4903,7 @@ function demoEconomy() {         // демо: касса — те же поля,
   const agents = win ? {list: DEMO_AGENTS.filter(a => !taken.includes(a.pid)), buys_used: taken.length + (trade ? trade.bought : 0), buys_max: 3, seasons: [1, 2, 3, 4, 5]} : null;
   return {status: 'on', window: wnd, market: true, agents, trade, frozen: fz, cash_free: cash - fz, reserve: Math.round(0.4 * inc), reserve_share: 0.4, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
     payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
+    builds: demoBuilds(win, cash - fz, inc, payroll), capacity: 800, fans: S.hub.home.fans || 0, build_upkeep: 0,
     blocks: {cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
       salary: {title: '💼 Что такое зарплата?', lead: 'Каждый игрок получает деньги за каждый сыгранный тур лиги.', points: ['Зарплата зависит от силы: чем сильнее игрок, тем дороже (за сезон — 10% его стоимости).', 'Пока лига стоит, зарплата не идёт — как и доход.'], now: `У вас сейчас: ${M(Math.round(payroll / st))} за тур, самый дорогой — Марк Жуков.`},
       rule70: {title: '📊 Что такое правило 70%?', lead: 'На зарплаты можно тратить не больше 70% дохода — так же, как в УЕФА.', points: ['Считаем от дохода за последние 14 туров.', 'Выше 70% можно только не увеличивая зарплаты: продлить с той же или меньшей зарплатой, заменить дорогого игрока дешёвым. Прогноз виден до сделки.', '70% зарплат + 30% содержания = клуб живёт в ноль.'], now: `У вас сейчас: ${Math.round(share * 100)}% из 70%.`},
@@ -4869,7 +4912,25 @@ function demoEconomy() {         // демо: касса — те же поля,
       agent: {title: '🆓 Кто такой свободный агент?', lead: 'Игрок без клуба: за него не нужно платить другому клубу.', points: ['Нужно только заплатить подписные — 50% его зарплаты за сезон.', 'Новые агенты появляются с каждым окном и уходят, если их никто не взял.', 'Игрок с закончившимся контрактом тоже становится свободным агентом.'], now: 'У вас сейчас: рынок свободных агентов откроется вместе с трансферным окном.'},
       upkeep: {title: '🏟 Что такое содержание клуба?', lead: 'Расходы на персонал, поездки и поле — 30% каждого дохода.', points: ['Списывается сразу, вместе с доходом: в кассу приходит 70%.', 'Именно поэтому на зарплаты — не больше 70%.'], now: 'У вас сейчас: за сезон на содержание ушло 171 тыс. €.'},
       tour: {title: '🧾 Почему тур бывает в минусе?', lead: 'В итоге одного тура зарплаты могут съедать больше 70% дохода — это не нарушение правила.', points: ['Билеты приходят только с домашних матчей — в гостевом туре их нет.', 'Телеправа за место и посещаемость и призовые лиги приходят в конце сезона — почти треть дохода.', 'Поэтому правило 70% смотрит на доход за 14 туров, а не за один: внутри сезона касса понемногу тает, а в конце её пополняют призовые.'], now: `У вас сейчас: доход за последний тур 189 тыс. €, зарплаты за тур ${M(Math.round(payroll / st))}.`},
+      builds: {title: '🏗 Что такое постройки?', lead: 'Стадион и тренировочная база принадлежат клубу: их строят на деньги кассы.', points: ['Стадион: 800 → 1600 → 3000 → 5000 мест; цена 800 тыс. € / 1,6 млн € / 2,5 млн €, содержание 6 / 16 / 20 тыс. € за тур. Билеты, спонсор и телеправа за посещаемость считают зрителей не больше вместимости — больше мест приносит деньги, только если болельщиков больше, чем мест сейчас.', 'Тренировочная база, уровни 1–3: рост игроков за матч ×1,25 / ×1,5 / ×1,75; цена 1 млн € / 2 млн € / 3,5 млн €, содержание 4 / 8 / 14 тыс. € за тур.', 'Строят только в трансферное окно лиги, по одной ступени каждой постройки за окно. Работает со следующего сезона — с него же списывается содержание (каждый тур, отдельной строкой, сверх 30% содержания клуба).', 'Платите сразу: после оплаты в кассе остаётся запас 40% дохода за 14 туров; содержание построек (и заказанных) входит в правило 70%. Пока окно открыто, заказ можно отменить — деньги вернутся полностью.', 'Постройки остаются у клуба при смене менеджера. Если экономику лиги выключат, они сохранятся, но денег и роста давать не будут.'], now: 'У вас сейчас: стадион — 800 мест, тренировочная база — нет (демо).'},
       reserve: {title: '🛟 Что такое запас?', lead: 'После любой траты в трансферное окно в кассе должно остаться не меньше 40% дохода за 14 туров.', points: ['Касается каждой траты в окне: подписание свободного агента, покупка по цене, отправка предложения цены и его принятие продавцом.', 'Замороженные предложениями деньги считаются уже потраченными; когда продавец принимает предложение, запас проверяется заново.', 'Зачем: внутри сезона касса тает (зарплаты каждый тур, призовые — в конце). Запас не даёт клубу уйти ниже −15% и попасть под запрет сделок.', 'Карточка сделки заранее показывает, сколько останется в кассе и сколько нужно.'], now: `У вас сейчас: доход за 14 туров ${M(inc)} → запас ${M(Math.round(0.4 * inc))}; свободно для трат ${M(Math.max(0, cash - fz - Math.round(0.4 * inc)))}.`}}};
+}
+let DEMO_BUILD = {};     // демо: заказанные в окне постройки {kind: true} (в игре — app/economy.py club_builds)
+function demoBuilds(win, free, inc, payroll) {     // те же поля, что builds_view бота; числа окупаемости — как у бота при 1240 болельщиках
+  const D = [{kind: 'stadium', title: '🏟 Стадион', levels: 3, cost: 800, upkeep: 6, effect: '1600 мест', now: '800 мест',
+      payback: 'При ваших болельщиках (1240) уровень даёт +27 тыс. € за сезон — окупится за ~29 сезонов.'},
+    {kind: 'training_base', title: '🏋️ Тренировочная база', levels: 3, cost: 1000, upkeep: 4, effect: 'рост игроков за матч ×1,25', now: 'без бонуса', payback: null}];
+  const up = D.reduce((a, d) => a + (DEMO_BUILD[d.kind] ? d.upkeep : 0), 0);
+  return D.map(d => {
+    const o = DEMO_BUILD[d.kind], b = {kind: d.kind, title: d.title, level: 0, levels: d.levels, effect: d.now, upkeep: 0, pending: null, window: win,
+      ordered: o ? {level: 1, cost: d.cost, effect: d.effect, upkeep: d.upkeep} : null, quote: null};
+    if (!win) { b.next = {level: 1, cost: d.cost, upkeep: d.upkeep, effect: d.effect, payback: d.payback}; return b; }
+    const after = free - d.cost, need = Math.round(0.4 * inc), share = (payroll + (up + d.upkeep) * 14) / inc;
+    const why = o ? 'В этом окне эта постройка уже заказана: одна ступень за окно.' : share > 0.7 ? `С содержанием ${ecoMoney(d.upkeep)} за тур затраты станут ${Math.round(share * 100)}% — больше 70% дохода за 14 туров. Строить нельзя.`
+      : after < need ? `После оплаты стройки в кассе останется ${ecoMoney(after)}, а нужно не меньше ${ecoMoney(need)} — запас 40% дохода за 14 туров (${ecoMoney(inc)}). Строить нельзя.` : null;
+    b.quote = {kind: d.kind, level: 0, next: 1, cost: d.cost, upkeep: d.upkeep, effect: d.effect, payback: d.payback, cash_after: after, reserve: need, spare: after - need,
+      share_after: Math.round(share * 1000) / 1000, ok: !why, why};
+    return b; });
 }
 let DEMO_WIN = {};       // демо окна: решения по контрактам (в игре их хранит бот, app/economy.py)
 let DEMO_SIGN = {}, DEMO_SPENT = 0;     // демо: подписанные агенты (кого заменили) и потраченное в окне
@@ -4954,6 +5015,12 @@ function demoMarket(act) {       // демо: в игре всё это счит
 }
 function demoWin(act) {
   if (ECO_M.includes(act.a)) return demoMarket(act);
+  if (act.a === 'bbuild' || act.a === 'bcancel') {        // демо: постройки (в игре — app/economy.py build / cancel_build)
+    const b = (demoEconomy().builds || []).find(x => x.kind === act.kind) || {};
+    if (act.a === 'bbuild') { if (!b.quote || !b.quote.ok) return {ok: false, note: (b.quote || {}).why || 'Строить можно только в трансферное окно', economy: demoEconomy()};
+      DEMO_BUILD[act.kind] = true; DEMO_SPENT += b.quote.cost; return {ok: true, note: `🏗 Заказано: ${b.quote.effect} — заработает со следующего сезона (демо)`, economy: demoEconomy()}; }
+    if (!b.ordered) return {ok: false, note: 'Заказа в этом окне нет.', economy: demoEconomy()};
+    delete DEMO_BUILD[act.kind]; DEMO_SPENT -= b.ordered.cost; return {ok: true, note: `↩️ Заказ отменён: ${ecoMoney(b.ordered.cost)} вернулись в кассу (демо)`, economy: demoEconomy()}; }
   if (act.a === 'wquote') return {ok: true, note: '', quote: demoQuote(act)};
   if (act.a === 'wsign') { const q = demoQuote(act); if (!q.ok) return {ok: false, note: q.why, economy: demoEconomy()};
     DEMO_SIGN[act.out] = {agent: act.agent, seasons: act.seasons}; DEMO_SPENT += q.fee + q.comp;
