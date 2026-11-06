@@ -1135,8 +1135,13 @@ function shirtBackSvg(kit, name, number) {      // спина: фамилия н
     (nm ? `<text x="32" y="17" text-anchor="middle" font-size="${fs.toFixed(1)}" font-weight="800" fill="${ink(kit[0])}" font-family="Trebuchet MS,sans-serif">${esc(nm)}</text>` : '') +
     `<text x="32" y="38" text-anchor="middle" font-size="19" font-weight="800" fill="${ink(kit[0])}" font-family="Trebuchet MS,sans-serif">${number}</text></svg>`;
 }
-function ask(text, yes) {     // подтверждение: окно Telegram, а вне его — обычное
-  if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) { TG.showConfirm(text, ok => { if (ok) yes(); }); return; }
+// подтверждение: окно Telegram, а вне его — обычное. Окно Telegram берёт не больше 256 знаков (длиннее — бросает
+// ошибку, и кнопка «ничего не делает», так было с «Начать сезон» в лиге с экономикой) — длинный вопрос в обычном окне
+const ASK_MAX = 256;
+function ask(text, yes) {
+  if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2') && String(text).length <= ASK_MAX) {
+    try { TG.showConfirm(text, ok => { if (ok) yes(); }); return; } catch (e) { /* окно Telegram не открылось — обычное */ }
+  }
   if (confirm(text)) yes();
 }
 function openPanel(k) { open = null; MS = null; PANEL = {k, hist: []}; fitSheet(); $('veil').classList.remove('hidden'); $('sheet').classList.remove('hidden'); renderPanel();
