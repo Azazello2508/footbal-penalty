@@ -3613,6 +3613,7 @@ function ecoOn(st) {
   x += ecoAgents(st);
   x += ecoTrade(st);
   x += ecoBuilds(st);
+  x += ecoAcademy(st);
   const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;   // отпущенный досрочно — не «кончился»
   x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}${ecoQ('retire')}</div>`;
   x += ecoWhat(['contract', 'retire']);
@@ -3624,7 +3625,7 @@ function ecoOn(st) {
       (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + (p.listed ? ` <span class="ftag">🏷 на продаже · ${ecoMoney(p.listed.price)}</span>` : '') + ecoRetire(p.retire) + `</div>` +
       `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>` +
       (p.rename ? `<div class="fdec"><div class="sub">🐣 Новичок пришёл с именем по умолчанию — дайте ему своё:</div><div class="own"><input id="ecomname${p.pid}" maxlength="41" placeholder="Имя Фамилия новичка"><button type="button" data-ecomname="${p.pid}">💾 Имя</button></div></div>` : '') +
-      (wopen ? ecoDecide(p) : ''); }).join('')
+      (wopen ? ecoDecide(p) + ecoYouthPick(p, st) : ''); }).join('')
     : `<div class="note">Игроков пока нет.</div>`) + `</div>`;
   const J = st.journal || [], shown = ECO_ALL ? J : J.slice(0, 8);
   x += `<div class="label">Последние движения</div><div class="card fpl">` + (J.length ? shown.map(j =>
@@ -3638,10 +3639,15 @@ const ECO_SEASONS = n => n + ' ' + (n === 1 ? 'сезон' : n < 5 ? 'сезон
 /* 🏗 постройки (этап Д2, app/economy.py builds_view / build_quote): стадион и тренировочная база. Цена, содержание,
    окупаемость, «останется в кассе» и правило 70% считает бот; страница показывает и отправляет заказ / отмену */
 function ecoBuilds(st) {
-  const B = st.builds; if (!B || !B.length) return '';
+  const B = (st.builds || []).filter(b => b.kind !== 'academy');      // академия — в своём блоке «🎓 Академия»
+  if (!B.length) return '';
   const cap = Math.round((st.cap70 || 0.7) * 100);
   let x = `<div class="lrow"><div class="label">🏗 Постройки</div>${ecoQ('builds')}</div>` + ecoWhat(['builds']);
-  x += `<div class="card fpl">` + B.map(b => {
+  x += `<div class="card fpl">` + B.map(b => ecoBuildItem(b, cap)).join('') + `</div>`;
+  return x;
+}
+function ecoBuildItem(b, cap) {      // одна постройка: уровень, заказанное, следующий уровень с прогнозом бота и кнопкой
+  {
     const lvl = b.kind === 'stadium' ? '' : b.level ? ` · ${b.level}-й уровень из ${b.levels}` : ' · нет';
     let y = `<div class="row"><div><b>${esc(b.title)}</b><div class="sub">сейчас: ${esc(b.effect)}${lvl}${b.upkeep ? ' · содержание ' + ecoMoney(b.upkeep) + ' за тур' : ''}</div></div></div>`;
     const o = b.ordered || (b.pending ? {level: b.pending} : null);
@@ -3662,8 +3668,59 @@ function ecoBuilds(st) {
       (n.payback ? `<div class="sub">📈 ${esc(n.payback)}</div>` : '') + `<div class="sub">Строить можно в трансферное окно вашей лиги.</div></div>`;
     else if (!o && b.level >= b.levels) y += `<div class="sub">✅ Самый высокий уровень.</div>`;
     return y;
-  }).join('') + `</div>`;
+  }
+}
+/* 🎓 академия (этап Д3а, app/economy.py academy_view): уровень и его постройка, юниоры (возраст, позиция, оценки —
+   потенциал скрыт до селекционеров), последние матчи молодёжки и таблица молодёжной лиги. Всё считает бот */
+function ecoAcademy(st) {
+  const A = st.academy; if (!A) return '';
+  const cap = Math.round((st.cap70 || 0.7) * 100), Y = A.youth || [];
+  let x = `<div class="lrow"><div class="label">🎓 Академия</div>${ecoQ('academy')}</div>` + ecoWhat(['academy']);
+  x += `<div class="card fpl">` + (A.build ? ecoBuildItem(A.build, cap) : '') +
+    `<div class="sub">Юниоров ${Y.length} из ${A.size}, ${A.age[0]}–${A.age[1]} лет · не взятые в основу к ${A.out} уходят свободными агентами · потенциал ★/★★/★★★ скрыт — раскроют селекционеры</div>` +
+    ((A.left || []).length ? `<div class="sub">👋 В это окно ушли (${A.out} лет): ${esc(A.left.join(', '))}</div>` : '') +
+    (Y.length ? Y.map(y => `<div class="row"><div><b>${esc(y.name)}</b>${y.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}${y.picked ? ' <span class="ftag ok">🎓 выбран в основу</span>' : ''}` +
+      `<div class="sub">${years(y.age)} · ${y.gk ? 'вратарь' : 'полевой'} · ${y.games ? `матчей ${y.games}, голов ${y.goals}` : 'в этом сезоне не играл'}</div></div>` +
+      `<div class="r">${y.rating != null ? `<b>${num(y.rating)}</b>оценка` : '—'}</div></div>`).join('')
+      : `<div class="note">Академия откроется с первым сезоном экономики.</div>`) + `</div>`;
+  const Mt = A.matches || [], T = A.table || [];
+  if (Mt.length) x += `<div class="label">Молодёжка: последние матчи</div><div class="card fpl">` + Mt.map(m =>
+    `<div class="row"><span>Тур ${m.tour}: ${esc(m.home)} — ${esc(m.away)}</span><b>${m.hg}:${m.ag}</b></div>`).join('') + `</div>`;
+  if (T.length) x += `<div class="label">Таблица молодёжной лиги</div><div class="card fpl">` + T.map((r, i) =>
+    `<div class="row"><div>${r.mine ? '<b>' : ''}${i + 1}. ${esc(r.name)}${r.mine ? '</b>' : ''}<div class="sub">И ${r.played} · ${r.won}-${r.drawn}-${r.lost} · мячи ${r.gf}:${r.ga}</div></div><b>${r.points}</b></div>`).join('') + `</div>`;
+  else if (Y.length) x += `<div class="hint">Молодёжки играют сами вместе с туром лиги — теми же парами, без трансляции. Счёт и таблица появятся после первого тура.</div>`;
   return x;
+}
+let ECO_Y = null;          // открыт выбор юниора на место игрока (pid уходящего)
+function ecoYouthPick(p, st) {     // окно: на освободившееся место — новичок 18 лет или юниор из академии (бесплатно)
+  const Y = p.youth, A = st.academy; if (!Y || !A || !(A.youth || []).length) return '';
+  const cur = Y.pick ? A.youth.find(y => y.pid === Y.pick) : null;
+  const head = Y.mode === 'now' ? '🐣 Новичок пришёл на место проданного — его можно сразу заменить юниором из академии.'
+    : Y.mode === 'retire' ? '🎓 Если он завершит карьеру при закрытии окна, на его место:' : '🎓 На его место после окна:';
+  const now = cur ? `юниор <b>${esc(cur.name)}</b> (${years(cur.age)})` : `новичок 18 лет`;
+  if (ECO_Y !== p.pid) return `<div class="fdec"><div class="sub">${head}${Y.mode === 'now' ? '' : ' ' + now + '.'}</div>` +
+    `<button type="button" class="go" data-ecoyopen="${p.pid}">🎓 ${cur ? 'Выбрать другого' : 'Взять юниора из академии'}</button></div>`;
+  return `<div class="fdec"><div class="sub">${head}</div><div class="fouts">` +
+    (Y.mode === 'now' ? '' : `<button type="button" class="${cur ? '' : 'on'}" data-ecoynew="${p.pid}"><b>Новичок 18 лет</b><span>как обычно, имя дадите сами</span></button>`) +
+    A.youth.map(y => `<button type="button" class="${cur && cur.pid === y.pid ? 'on' : ''}" data-ecoypick="${p.pid}:${y.pid}"><b>${esc(y.name)}</b>` +
+      `<span>${years(y.age)} · ${y.gk ? 'вратарь' : 'полевой'}${y.rating != null ? ' · оценка ' + num(y.rating) : ''}${y.picked && y.picked !== p.pid ? ' · уже выбран на другое место' : ''}</span></button>`).join('') +
+    `</div><div class="sub">Бесплатно: 100 очков, как у новичка, плюс запас роста по потенциалу; контракт — как у новичка.</div>` +
+    `<button type="button" class="go" data-ecoyx>Отмена</button></div>`;
+}
+function ecoYouthClick(b, d) {     // 🎓 выбор юниора; замена новичка «сейчас» — с подтверждением; true — обработано
+  if (d.ecoyopen) { haptic('soft'); ECO_Y = +d.ecoyopen; ECO_R = null; renderMoney(); return true; }
+  if (b.hasAttribute('data-ecoyx')) { ECO_Y = null; renderMoney(); return true; }
+  if (d.ecoynew) { haptic(); send({a: 'ypick', out: +d.ecoynew, youth: null, key: ECO.key}); return true; }
+  if (d.ecoypick) {
+    const [out, yid] = d.ecoypick.split(':').map(Number), st = (ECO || {}).st || {};
+    const p = (st.players || []).find(x => x.pid === out) || {}, y = ((st.academy || {}).youth || []).find(x => x.pid === yid) || {};
+    haptic();
+    if ((p.youth || {}).mode === 'now') ask(`Заменить новичка №${p.number} ${p.name} юниором ${y.name}? Юниор сразу встанет в основу, новичок уйдёт. Отменить нельзя.`,
+      () => send({a: 'ypick', out, youth: yid, key: ECO.key}));
+    else send({a: 'ypick', out, youth: yid, key: ECO.key});
+    return true;
+  }
+  return false;
 }
 function ecoBuildClick(b, d) {       // 🏗 заказ и отмена — с подтверждением; true — обработано
   const B = (((ECO || {}).st || {}).builds || []), it = k => B.find(x => x.kind === k) || {};
@@ -3686,6 +3743,7 @@ function ecoWindow(w, qt) {       // плашка трансферного ок�
     `<div class="sub">${esc(w.note || '')}</div>${q}</div></div>`;
 }
 function ecoDecide(p) {           // окно: «Продлить» (срок и прогноз 70%) / «Отпустить» (с подтверждением) / имя новичку
+  if (p.decision === 'release' && p.youth && p.youth.pick) return '';      // на его место выбран юниор (ниже)
   if (p.decision === 'release') return `<div class="fdec"><div class="sub">На его место после окна придёт новичок 18 лет${p.newcomer ? ': <b>' + esc(p.newcomer) + '</b>' : ' — дайте ему имя (иначе придумаем сами)'}.</div>` +
     `<div class="own"><input id="econame${p.pid}" maxlength="41" placeholder="Имя Фамилия новичка" value="${esc(p.newcomer || '')}"><button type="button" data-econame="${p.pid}">💾 Имя</button></div></div>`;
   if (p.release_comp != null) return `<button type="button" class="frel" data-ecorelx="${p.pid}">👋 Отпустить досрочно · компенсация ${ecoMoney(p.release_comp)}</button>`;
@@ -3769,9 +3827,10 @@ function ecoQuote() {
 }
 const ECO_W = ['wrenew', 'wrelease', 'wname', 'wquote', 'wsign',      // решения в окне — ответ бота несёт свежую кассу
   'mlist', 'munlist', 'mbuy', 'moffer', 'maccept', 'mdecline', 'mrevoke', 'mname', 'mquote', 'msale',      // и рынок игроков (этап Г3)
-  'bbuild', 'bcancel'];      // и постройки (этап Д2)
+  'bbuild', 'bcancel',       // и постройки (этап Д2)
+  'ypick'];                  // и юниор из академии вместо новичка (этап Д3а)
 function ecoWinClick(b, d) {       // нажатия в окне; true — обработано
-  if (ecoMarketClick(b, d) || ecoBuildClick(b, d)) return true;
+  if (ecoMarketClick(b, d) || ecoBuildClick(b, d) || ecoYouthClick(b, d)) return true;
   const P = id => (((ECO || {}).st || {}).players || []).find(x => x.pid === +id) || {name: ''};
   const AG = id => ((((ECO || {}).st || {}).agents || {}).list || []).find(x => x.pid === +id) || {name: ''};
   if (d.ecosign) { haptic(); ECO_S = {agent: +d.ecosign, out: null, seasons: 3, q: null, wait: false, err: ''}; ECO_R = null; renderMoney(); return true; }
@@ -3805,6 +3864,7 @@ function ecoWinAck(m, act) {
   }
   if (m.economy) ECO.st = m.economy;
   if (m.ok && act.a === 'wrenew') ECO_R = null;
+  if (m.ok && act.a === 'ypick') ECO_Y = null;
   if (m.ok && act.a === 'wsign') ECO_S = null;
   else if (act.a === 'wsign' && ECO_S && ECO_S.out) { renderMoney(); if (ECO_S) ecoQuote(); }     // отказ — свежий прогноз с причиной
   if (m.ok && (act.a === 'mbuy' || act.a === 'moffer')) ECO_B = null;
@@ -4890,10 +4950,12 @@ function demoEconomy() {         // демо: касса — те же поля,
   if (win) players.forEach((p, i) => { if (![2, 6].includes(i)) { p.status = 'ok'; p.tours_left = 28; p.seasons_left = 2;
       const g = DEMO_SIGN[p.pid], ag = g && DEMO_AGENTS.find(a => a.pid === g.agent);
       if (ag) Object.assign(p, {name: ag.name, age: ag.age, strength: ag.strength, salary: ag.salary, per_tour: Math.round(ag.salary / st), value: ag.value, tours_left: g.seasons * 14, seasons_left: g.seasons, signed: true});
-      if ((DEMO_WIN[p.pid] || {}).early) { p.status = 'expired'; p.decision = 'release'; p.newcomer = DEMO_WIN[p.pid].name || null; }
+      if ((DEMO_WIN[p.pid] || {}).early) { p.status = 'expired'; p.decision = 'release'; p.newcomer = DEMO_WIN[p.pid].name || null; p.youth = {mode: 'close', pick: DEMO_YPICK[p.pid] || null}; }
       else p.release_comp = Math.round(0.5 * p.salary * p.seasons_left);
       return; }
-    const d = DEMO_WIN[p.pid] || {}; p.tours_left = d.renew ? d.renew * 14 : 0; p.status = d.renew ? 'ok' : 'expired'; p.renewed = !!d.renew; p.decision = d.release ? 'release' : null; p.newcomer = d.name || null;
+    const d = DEMO_WIN[p.pid] || {};
+    if (!d.renew) p.youth = {mode: 'close', pick: DEMO_YPICK[p.pid] || null};      // этап Д3а: место освобождается
+    p.tours_left = d.renew ? d.renew * 14 : 0; p.status = d.renew ? 'ok' : 'expired'; p.renewed = !!d.renew; p.decision = d.release ? 'release' : null; p.newcomer = d.name || null;
     if (!d.renew && !d.release) p.renew = i === 2 ? {salary: 205, per_tour: 15, share_after: Math.round((payroll - sal[i] + 205) / inc * 1000) / 1000, ok: true, why: null}
       : {salary: 760, per_tour: 54, share_after: Math.round((payroll - sal[i] + 760) / inc * 1000) / 1000, ok: (payroll - sal[i] + 760) / inc <= 0.7, why: 'После продления затраты на состав станут ' + Math.round((payroll - sal[i] + 760) / inc * 100) + '% — больше 70% дохода. Продлить нельзя: отпустите другого игрока или дождитесь, пока вырастет доход.'}; });
   const wnd = win ? {state: 'open', closes: '09.11 14:00', left: '3 дн. 21 ч', undecided: players.filter(p => p.renew).length, seasons: [1, 2, 3, 4, 5]}
@@ -4904,6 +4966,7 @@ function demoEconomy() {         // демо: касса — те же поля,
   return {status: 'on', window: wnd, market: true, agents, trade, frozen: fz, cash_free: cash - fz, reserve: Math.round(0.4 * inc), reserve_share: 0.4, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
     payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
     builds: demoBuilds(win, cash - fz, inc, payroll), capacity: 800, fans: S.hub.home.fans || 0, build_upkeep: 0,
+    academy: demoAcademy(win, demoBuilds(win, cash - fz, inc, payroll)),
     blocks: {cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
       salary: {title: '💼 Что такое зарплата?', lead: 'Каждый игрок получает деньги за каждый сыгранный тур лиги.', points: ['Зарплата зависит от силы: чем сильнее игрок, тем дороже (за сезон — 10% его стоимости).', 'Пока лига стоит, зарплата не идёт — как и доход.'], now: `У вас сейчас: ${M(Math.round(payroll / st))} за тур, самый дорогой — Марк Жуков.`},
       rule70: {title: '📊 Что такое правило 70%?', lead: 'На зарплаты можно тратить не больше 70% дохода — так же, как в УЕФА.', points: ['Считаем от дохода за последние 14 туров.', 'Выше 70% можно только не увеличивая зарплаты: продлить с той же или меньшей зарплатой, заменить дорогого игрока дешёвым. Прогноз виден до сделки.', '70% зарплат + 30% содержания = клуб живёт в ноль.'], now: `У вас сейчас: ${Math.round(share * 100)}% из 70%.`},
@@ -4913,13 +4976,15 @@ function demoEconomy() {         // демо: касса — те же поля,
       upkeep: {title: '🏟 Что такое содержание клуба?', lead: 'Расходы на персонал, поездки и поле — 30% каждого дохода.', points: ['Списывается сразу, вместе с доходом: в кассу приходит 70%.', 'Именно поэтому на зарплаты — не больше 70%.'], now: 'У вас сейчас: за сезон на содержание ушло 171 тыс. €.'},
       tour: {title: '🧾 Почему тур бывает в минусе?', lead: 'В итоге одного тура зарплаты могут съедать больше 70% дохода — это не нарушение правила.', points: ['Билеты приходят только с домашних матчей — в гостевом туре их нет.', 'Телеправа за место и посещаемость и призовые лиги приходят в конце сезона — почти треть дохода.', 'Поэтому правило 70% смотрит на доход за 14 туров, а не за один: внутри сезона касса понемногу тает, а в конце её пополняют призовые.'], now: `У вас сейчас: доход за последний тур 189 тыс. €, зарплаты за тур ${M(Math.round(payroll / st))}.`},
       builds: {title: '🏗 Что такое постройки?', lead: 'Стадион и тренировочная база принадлежат клубу: их строят на деньги кассы.', points: ['Стадион: 800 → 1600 → 3000 → 5000 мест; цена 800 тыс. € / 1,6 млн € / 2,5 млн €, содержание 6 / 16 / 20 тыс. € за тур. Билеты, спонсор и телеправа за посещаемость считают зрителей не больше вместимости — больше мест приносит деньги, только если болельщиков больше, чем мест сейчас.', 'Тренировочная база, уровни 1–3: рост игроков за матч ×1,25 / ×1,5 / ×1,75; цена 1 млн € / 2 млн € / 3,5 млн €, содержание 4 / 8 / 14 тыс. € за тур.', 'Строят только в трансферное окно лиги, по одной ступени каждой постройки за окно. Работает со следующего сезона — с него же списывается содержание (каждый тур, отдельной строкой, сверх 30% содержания клуба).', 'Платите сразу: после оплаты в кассе остаётся запас 40% дохода за 14 туров; содержание построек (и заказанных) входит в правило 70%. Пока окно открыто, заказ можно отменить — деньги вернутся полностью.', 'Постройки остаются у клуба при смене менеджера. Если экономику лиги выключат, они сохранятся, но денег и роста давать не будут.'], now: 'У вас сейчас: стадион — 800 мест, тренировочная база — нет (демо).'},
+      academy: {title: '🎓 Что такое академия?', lead: 'Молодёжная команда клуба: 10 юниоров 15–18 лет. Лучших можно бесплатно взять в основу вместо новичка.', points: ['Юниоры стареют вместе с клубом — на год за 57 сыгранных туров. Кого не взяли в основу к 19 годам, уходит свободным агентом, когда открывается окно; на его место тогда же приходит новый юниор 15 лет.', 'Молодёжки играют сами вместе с туром лиги — теми же парами, что основные команды, без трансляции. На основу, кассу и болельщиков эти матчи не влияют: видны счёт, таблица молодёжной лиги и оценки юниоров.', 'У каждого юниора скрытый потенциал ★, ★★ или ★★★ — раскрыть его смогут селекционеры (скоро). Пока видны только возраст, позиция и оценки за матчи.', 'Доли потенциала у новых юниоров зависят от уровня академии в момент их прихода (★/★★/★★★): 0 — 70/25/5%; 1 — 60/30/10%; 2 — 50/35/15%; 3 — 40/40/20%.', 'Взять юниора можно только в трансферное окно — на освободившееся место (игрок не продлён, отпущен, продан или может завершить карьеру), вместо новичка 18 лет. Бесплатно; контракт — как у новичка (3 сезона, зарплата 10% стоимости).', 'В основе юниор — 100 очков, как новичок, плюс запас роста по потенциалу (★ +5, ★★ +10, ★★★ +20 очков роста — вкладываете сами). Продаёт его клуб, как новичка: стартовая стоимость сгорает.', 'Уровень академии строят, как стадион: цена 800 тыс. € / 1,6 млн € / 2,8 млн €, содержание 3 / 6 / 9 тыс. € за тур; в окно, со следующего сезона, запас и правило 70% — как у построек.'], now: 'У вас сейчас: академия без уровня, юниоров — 10 из 10' + (win ? '. Окно открыто: юниора можно взять на освободившееся место (в «Контрактах»).' : '.')},
       reserve: {title: '🛟 Что такое запас?', lead: 'После любой траты в трансферное окно в кассе должно остаться не меньше 40% дохода за 14 туров.', points: ['Касается каждой траты в окне: подписание свободного агента, покупка по цене, отправка предложения цены и его принятие продавцом.', 'Замороженные предложениями деньги считаются уже потраченными; когда продавец принимает предложение, запас проверяется заново.', 'Зачем: внутри сезона касса тает (зарплаты каждый тур, призовые — в конце). Запас не даёт клубу уйти ниже −15% и попасть под запрет сделок.', 'Карточка сделки заранее показывает, сколько останется в кассе и сколько нужно.'], now: `У вас сейчас: доход за 14 туров ${M(inc)} → запас ${M(Math.round(0.4 * inc))}; свободно для трат ${M(Math.max(0, cash - fz - Math.round(0.4 * inc)))}.`}}};
 }
 let DEMO_BUILD = {};     // демо: заказанные в окне постройки {kind: true} (в игре — app/economy.py club_builds)
 function demoBuilds(win, free, inc, payroll) {     // те же поля, что builds_view бота; числа окупаемости — как у бота при 1240 болельщиках
   const D = [{kind: 'stadium', title: '🏟 Стадион', levels: 3, cost: 800, upkeep: 6, effect: '1600 мест', now: '800 мест',
       payback: 'При ваших болельщиках (1240) уровень даёт +27 тыс. € за сезон — окупится за ~29 сезонов.'},
-    {kind: 'training_base', title: '🏋️ Тренировочная база', levels: 3, cost: 1000, upkeep: 4, effect: 'рост игроков за матч ×1,25', now: 'без бонуса', payback: null}];
+    {kind: 'training_base', title: '🏋️ Тренировочная база', levels: 3, cost: 1000, upkeep: 4, effect: 'рост игроков за матч ×1,25', now: 'без бонуса', payback: null},
+    {kind: 'academy', title: '🎓 Академия', levels: 3, cost: 800, upkeep: 3, effect: 'потенциал новых юниоров ★/★★/★★★ — 60/30/10%', now: 'потенциал новых юниоров ★/★★/★★★ — 70/25/5%', payback: null}];
   const up = D.reduce((a, d) => a + (DEMO_BUILD[d.kind] ? d.upkeep : 0), 0);
   return D.map(d => {
     const o = DEMO_BUILD[d.kind], b = {kind: d.kind, title: d.title, level: 0, levels: d.levels, effect: d.now, upkeep: 0, pending: null, window: win,
@@ -4931,6 +4996,23 @@ function demoBuilds(win, free, inc, payroll) {     // те же поля, что
     b.quote = {kind: d.kind, level: 0, next: 1, cost: d.cost, upkeep: d.upkeep, effect: d.effect, payback: d.payback, cash_after: after, reserve: need, spare: after - need,
       share_after: Math.round(share * 1000) / 1000, ok: !why, why};
     return b; });
+}
+let DEMO_YPICK = {};     // демо: на чьё место выбран юниор {pid уходящего: pid юниора} (в игре — contracts.youth)
+const DEMO_YOUTH = [      // демо академии — те же поля, что у бота (app/economy.py academy_view); потенциал не приходит
+  {pid: 201, name: 'Артём Лапин', age: 18, gk: false, games: 9, rating: 7.4, goals: 6}, {pid: 202, name: 'Никита Жуков', age: 18, gk: true, games: 9, rating: 6.9, goals: 0},
+  {pid: 203, name: 'Матвей Соколов', age: 17, gk: false, games: 9, rating: 6.6, goals: 2}, {pid: 204, name: 'Егор Белов', age: 17, gk: false, games: 8, rating: 6.2, goals: 1},
+  {pid: 205, name: 'Тимофей Гусев', age: 16, gk: false, games: 7, rating: 6.4, goals: 1}, {pid: 206, name: 'Даниил Ершов', age: 16, gk: true, games: 0, rating: null, goals: 0},
+  {pid: 207, name: 'Иван Котов', age: 16, gk: false, games: 6, rating: 6.0, goals: 0}, {pid: 208, name: 'Савва Рябов', age: 15, gk: false, games: 3, rating: 5.8, goals: 0},
+  {pid: 209, name: 'Лев Шубин', age: 15, gk: false, games: 2, rating: 6.1, goals: 1}, {pid: 210, name: 'Марк Фомин', age: 15, gk: false, games: 0, rating: null, goals: 0}];
+function demoAcademy(win, builds) {
+  const picked = {}; Object.entries(DEMO_YPICK).forEach(([out, y]) => { picked[y] = +out; });
+  const me = S.hub.home.club || 'Мой клуб';
+  return {level: 0, levels: 3, pot: [70, 25, 5], build: builds.find(b => b.kind === 'academy') || null, size: 10, age: [15, 18], out: 19, reserve: {1: 5, 2: 10, 3: 20},
+    youth: DEMO_YOUTH.map(y => ({...y, picked: picked[y.pid] || null})), left: win ? ['Глеб Орлов'] : [],
+    matches: [{tour: 9, home: me, away: 'Вторники ФК', hg: 2, ag: 1, home_mine: true}, {tour: 8, home: 'Северный порт', away: me, hg: 0, ag: 0, home_mine: false},
+      {tour: 7, home: me, away: 'Дворовые', hg: 1, ag: 3, home_mine: true}],
+    table: [{name: 'Дворовые', played: 9, won: 6, drawn: 2, lost: 1, gf: 19, ga: 9, points: 20, mine: false}, {name: me, played: 9, won: 5, drawn: 2, lost: 2, gf: 16, ga: 11, points: 17, mine: true},
+      {name: 'Вторники ФК', played: 9, won: 3, drawn: 2, lost: 4, gf: 12, ga: 14, points: 11, mine: false}, {name: 'Северный порт', played: 9, won: 1, drawn: 2, lost: 6, gf: 7, ga: 20, points: 5, mine: false}]};
 }
 let DEMO_WIN = {};       // демо окна: решения по контрактам (в игре их хранит бот, app/economy.py)
 let DEMO_SIGN = {}, DEMO_SPENT = 0;     // демо: подписанные агенты (кого заменили) и потраченное в окне
@@ -5021,6 +5103,13 @@ function demoWin(act) {
       DEMO_BUILD[act.kind] = true; DEMO_SPENT += b.quote.cost; return {ok: true, note: `🏗 Заказано: ${b.quote.effect} — заработает со следующего сезона (демо)`, economy: demoEconomy()}; }
     if (!b.ordered) return {ok: false, note: 'Заказа в этом окне нет.', economy: demoEconomy()};
     delete DEMO_BUILD[act.kind]; DEMO_SPENT -= b.ordered.cost; return {ok: true, note: `↩️ Заказ отменён: ${ecoMoney(b.ordered.cost)} вернулись в кассу (демо)`, economy: demoEconomy()}; }
+  if (act.a === 'ypick') {        // демо: юниор вместо новичка (в игре — app/economy.py youth_pick)
+    const p = demoEconomy().players.find(x => x.pid === act.out);
+    if (!p || !p.youth) return {ok: false, note: 'Место этого игрока не освобождается.', economy: demoEconomy()};
+    Object.keys(DEMO_YPICK).forEach(k => { if (DEMO_YPICK[k] === act.youth) delete DEMO_YPICK[k]; });
+    if (act.youth == null) { delete DEMO_YPICK[act.out]; return {ok: true, note: 'На его место придёт новичок 18 лет (демо).', economy: demoEconomy()}; }
+    const y = DEMO_YOUTH.find(x => x.pid === act.youth); DEMO_YPICK[act.out] = act.youth;
+    return {ok: true, note: `🎓 Юниор ${y ? y.name : ''} займёт место №${p.number} ${p.name}, когда окно закроется (демо).`, economy: demoEconomy()}; }
   if (act.a === 'wquote') return {ok: true, note: '', quote: demoQuote(act)};
   if (act.a === 'wsign') { const q = demoQuote(act); if (!q.ok) return {ok: false, note: q.why, economy: demoEconomy()};
     DEMO_SIGN[act.out] = {agent: act.agent, seasons: act.seasons}; DEMO_SPENT += q.fee + q.comp;
