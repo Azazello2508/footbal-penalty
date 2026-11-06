@@ -2951,8 +2951,7 @@ function renderSquad() {
   $('problems').textContent = 'Что мешает: ' + S.problems.join('; ');
   const tips = S.tips || [];      // не мешает матчу: талант не выбран — клуб играет без его бонуса
   $('sqtips').classList.toggle('hidden', !tips.length);
-  $('sqtips').textContent = tips.map(t => '💡 ' + t).join('
-');
+  $('sqtips').textContent = tips.map(t => '💡 ' + t).join(' · ');
   const pw = S.promise_warn || [];
   $('promises').classList.toggle('hidden', !pw.length);
   $('promises').textContent = '🤝 ' + pw.join('; ') + (pw.length ? '. Нарушите — после матча настрой упадёт.' : '');
