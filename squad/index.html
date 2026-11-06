@@ -619,6 +619,7 @@ html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out i
     <header><div id="club"></div><div id="status"></div><button type="button" class="qbtn" data-tourq="squad" aria-label="Подсказки по составу">?</button></header>
     <div id="sqtip"></div>
     <div id="problems" class="banner warn hidden"></div>
+    <div id="sqtips" class="banner hidden" style="white-space:pre-line"></div>
     <div id="promises" class="banner warn hidden"></div>
     <button type="button" id="chem" class="chem hidden" data-chem></button>
     <div id="lock" class="banner warn hidden"></div>
@@ -2830,7 +2831,7 @@ function renderHome() {
     `<span class="score res-${h.last.res}">${h.last.res === 'В' ? 'победа' : h.last.res === 'П' ? 'поражение' : 'ничья'}</span></div>` + voteBlock(h.last.vote) +
     (h.press ? `<button type="button" class="go" data-panel="press">🎤 Пресс-конференция</button>` : '') + `</div>`;
   const ready = !h.problems.length;
-  x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` +
+  x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` + (h.tips || []).map(t => `<div class="sub">💡 ${esc(t)}</div>`).join('') +
     (h.tired || h.hurt ? `<div class="sub">${h.tired ? 'устали: ' + h.tired : ''}${h.tired && h.hurt ? ' · ' : ''}${h.hurt ? 'травмы: ' + h.hurt : ''}</div>` : '') +
     `<button type="button" class="go${ready ? '' : ' main'}" data-go="squad">📋 Открыть состав</button></div>`;
   if (h.can_train || h.growth.length) x += `<div class="card"><h3>Сегодня</h3>` +
@@ -2948,6 +2949,10 @@ function renderSquad() {
   $('status').className = ready ? 'ok' : 'bad';
   $('problems').classList.toggle('hidden', ready);
   $('problems').textContent = 'Что мешает: ' + S.problems.join('; ');
+  const tips = S.tips || [];      // не мешает матчу: талант не выбран — клуб играет без его бонуса
+  $('sqtips').classList.toggle('hidden', !tips.length);
+  $('sqtips').textContent = tips.map(t => '💡 ' + t).join('
+');
   const pw = S.promise_warn || [];
   $('promises').classList.toggle('hidden', !pw.length);
   $('promises').textContent = '🤝 ' + pw.join('; ') + (pw.length ? '. Нарушите — после матча настрой упадёт.' : '');
@@ -4736,13 +4741,13 @@ function demoRefresh() {     // линии и готовность — как с
   const pr = [], none = S.players.filter(p => !p.stats).length;
   if (S.players.length) {           // как lineup_problems у бота
     if (none) pr.push(`не распределены очки у ${none} игроков (/stats)`);
-    if (!S.talent) pr.push('не выбран талант (/talent)');
     if (!S.players.some(p => p.place === 'gk')) pr.push('не выбран вратарь (/lineup)');
     if (S.players.filter(p => p.place === 'bench').length < 3) pr.push('не выбраны все 3 запасных (/lineup)');
   }
   S.players.filter(p => p.injury && p.place !== 'bench').forEach(p => pr.push(`№${p.number} травмирован — отправьте его в запасные`));
   S.problems = pr;
-  if (S.hub && S.hub.home) S.hub.home.problems = pr;
+  S.tips = S.players.length && !S.talent ? ['талант не выбран — клуб играет без бонуса таланта (/talent)'] : [];   // как lineup_tips у бота
+  if (S.hub && S.hub.home) { S.hub.home.problems = pr; S.hub.home.tips = S.tips; }
 }
 function demoTrophies() {       // демо: полка трофеев — те же поля, что присылает бот (app/trophies.py shelf)
   return {club: S.club, count: {league: 1, cup: 1}, note: 'Места и трофеи — с первого сохранённого сезона; сброшенные сезоны в историю не попадают. Рекорд болельщиков ведётся с 27.10.2026.',
