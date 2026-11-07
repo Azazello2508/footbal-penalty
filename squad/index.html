@@ -401,6 +401,7 @@ details.admt>summary span{display:block;color:var(--muted);font-size:12px}detail
 .admp{display:grid;grid-template-columns:1fr 74px auto;gap:6px;align-items:center;margin-top:6px;font-size:13px}
 .admp input{min-width:0;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:7px;font:inherit;font-size:14px;text-align:center}
 .admp button{background:var(--accent);color:var(--on-acc);font-weight:700;border-radius:9px;padding:7px 10px}
+.admgl{font-size:13px;line-height:1.45;margin-top:6px;padding-left:10px;border-left:2px solid var(--line)}
 details.admin2{margin-top:6px}details.admin2>summary{list-style:none;cursor:pointer;color:var(--muted);font-size:13px;font-weight:700;padding:6px 0}
 .tpl{display:grid;grid-template-columns:auto minmax(0,1fr) 46px auto;align-items:center;gap:4px 8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:13px}
 .tpl b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tpl span{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
@@ -2502,11 +2503,38 @@ function admPrices(id, attr, P, names) {      // attr — data-crprice / data-ki
     `<input id="${id}${k}" inputmode="numeric" maxlength="5" value="${P[k] || ''}" aria-label="Цена, звёзд"><button type="button" ${attr}="${k}">💾</button></div>`).join('') +
     `<div class="sub" style="margin-top:6px">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (P[k] || 0), 0)} ⭐, набор — ${P.all || '?'} ⭐.</div>`;
 }
+const ADM_GUIDE = [      // памятка администратора: когда → что нажать (кнопки и правила — те же, что в блоках ниже)
+  ['👀 Как читать панель', [
+    'Красная цифра у блока — там что-то ждёт вашего решения. Начинайте с этих блоков.',
+    'Опасные кнопки сначала спрашивают «Точно?» — от одного случайного нажатия ничего не случится.',
+    'Не уверены, что кнопка нужна, — не нажимайте: всё работает и без вас, кроме того, что описано ниже.']],
+  ['📅 Каждый день — 1 минута', [
+    '<b>⚠️ Жалобы и баны</b> (если есть цифра). Название нормальное — «❌ Отклонить». Плохое — «✏️ Сменить»; в списке над кнопкой можно добавить запрет переименования на 1–30 дней.',
+    'Менеджер снова и снова ставит плохие названия — «🔒 Только запрет». Реклама, спам, злостно — «🚫 Забанить»: игра для него закроется, официальный клуб уйдёт боту. Ошиблись — «✅ Разбанить» там же.',
+    '<b>📝 Заявки на смену клуба</b> (если есть цифра). Менеджер ждёт ответа. Всё в порядке — «✅ Одобрить», иначе «❌ Отклонить». Заявка приходит и в чат с теми же кнопками.']],
+  ['🏁 Закончился сезон официальной лиги', [
+    'Новый сезон сам не начинается. <b>🏁 Официальные лиги</b> → «🏁 Начать сезон» у нужной страны или «Начать во всех лигах без сезона». Сезон — один круг, тур — 2 дня.',
+    'Кубок страны — «🏆 Начать кубок». Можно вместе с сезоном: раунд раз в 4 дня.',
+    '«🗑 Сбросить сезон» и «🗑 Сбросить кубок» — только если что-то сломалось: стирают расписание и результаты, отменить нельзя. Во время матча не сработают.']],
+  ['🌍 Бот написал «Пора запускать еврокубки»', [
+    'Это примерно раз в 28 дней. <b>🌍 Еврокубки</b> → «🌍 Запустить цикл». Нет кнопки — там написано почему (например, мало путёвок): просто ждите.',
+    '«🧪 Тестовый цикл» — только для проверки на тестовых лигах, настоящие клубы в нём не играют.']],
+  ['🔧 Редко, по ситуации', [
+    '<b>👤 Менеджеры официальных клубов</b> → «🚫 Снять менеджера», если менеджер пропал или нарушает. Клуб снова ведёт бот, место и игроки остаются. Перед матчем клуба и во время — нельзя.',
+    '<b>💶 Экономика</b> — только лиги друзей. «Включить экономику» у лиги — заработает со следующего сезона. Рынок: «⏸ Выключен», «🧪 Только тестовые» или «🔄 Включён везде». «🗑 Сброс экономики» обнуляет кассы, только между сезонами, отменить нельзя.',
+    '<b>🛍 Магазин</b> — открыть или закрыть продажу эмблем и формы за звёзды. Цена — в строке уровня, затем 💾.',
+    '<b>📊 Сводка</b> — просто посмотреть, как дела: сколько новичков, вернулись ли игроки. Нажмите на цифру — появится пояснение.']],
+  ['💬 Если игра не открывается', [
+    'Те же решения есть командами в чате с ботом: /summary — сводка, /reports — жалобы, /bans — баны, /requests — заявки, /officialseason — сезоны, /economy — экономика.']]];
+function admGuide() {
+  return ADM_GUIDE.map(([t, rows]) => `<div class="card"><b>${t}</b>` + rows.map(r => `<div class="admgl">${r}</div>`).join('') + `</div>`).join('');
+}
 function panelAdmin(m, P) {
   const A = H().admin;
   if (!A) return panelHead('🛠 Администратор') + `<div class="card note">Этот раздел — только для администратора.</div>`;
   let h = panelHead('🛠 Администратор', 'Нажмите на блок, чтобы открыть');
   const MD = A.mod || {queue: [], bans: []}, req = A.requests || [], seas = A.seasons || [], mg = A.managed || [];
+  h += admSec('help', '❓ Что и когда нажимать', 'короткая памятка: каждый день, после сезона, по ситуации', 0, admGuide(), false);
   if (A.summary && A.summary.length) h += admSec('sum', '📊 Сводка метрик', A.summary.slice(0, 2).map(r => esc(r.t.replace(/^\S+\s/, '')) + ': ' + esc(r.v)).join(' · '), 0, `<div class="admg">` + A.summary.map(r =>
     `<details class="admt${r.v.length > 12 ? " w" : ""}"><summary><b>${esc(r.v)}</b><span>${esc(r.t)}</span></summary><div class="sub">${esc(r.i)}</div></details>`).join('') + `</div><div class="sub" style="margin-top:6px">Нажмите на цифру — пояснение.</div>`, false);
   h += admSec('mod', '⚠️ Жалобы и баны', `жалоб ${MD.queue.length} · забанено ${(MD.bans || []).length}`, MD.queue.length, modBlock(A), MD.queue.length > 0);
