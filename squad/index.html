@@ -3620,9 +3620,12 @@ function ecoWhat(keys) {          // блок «Что такое…» с сер
     `<div class="note">${esc(b.lead)}</div><ul>${(b.points || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul><div class="now">${esc(b.now || '')}</div></div>`;
 }
 const ecoTours = n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'тур' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'тура' : 'туров');
+const ecoRules = () => (((ECO || {}).st || {}).rules || {});      // числа правил (R) с сервера — страница их не вписывает
+const ecoT14 = () => ecoTours(ecoRules().tours14 || 14);           // «за 14 туров» — внутренняя единица зарплаты и дохода
+const ecoBrand = v => '★'.repeat(Math.max(1, Math.floor(v || 1))) + ((v || 1) % 1 >= 0.5 ? '½' : '') + ' ' + String(Math.round((v || 1) * 100) / 100).replace('.', ',');
 function ecoHead(pill) { return `<div class="fhead"><h2>💶 Финансы</h2><span class="fpill">${esc(pill)}</span></div>`; }
 const ECO_WILL = ['💶 Касса клуба: деньги за каждый сыгранный тур — телеправа, спонсор, билеты, магазин; в конце сезона — призовые',
-  '💼 Зарплаты игроков и контракты на несколько сезонов', '📊 Правило 70%: на зарплаты — не больше 70% дохода', '🔄 Трансферное окно после сезона: контракты, свободные агенты, покупка и продажа игроков'];
+  '💼 Зарплаты игроков и контракты на несколько сезонов лиги', '📊 Правило 70%: затраты на состав — не больше 70% дохода', '🔄 Трансферное окно после сезона: контракты, свободные агенты, покупка и продажа игроков'];
 function ecoOfficial(h) {         // официальный клуб: экономика официальных лиг ещё в работе (макет «экран-11»)
   return ecoHead('официальный клуб') + `<div class="fwip"><div class="fbig">🛠</div><h3>Экономика официальных лиг — в процессе</h3>` +
     `<div class="note">Касса и контракты уже работают у своих клубов в <b>лигах друзей</b>, где экономику включил администратор. Для официальных лиг готовим то же самое — с поправкой на формат лиги.</div>` +
@@ -3649,11 +3652,14 @@ function ecoOn(st) {
     `<div class="row"><span>Итог последнего тура${ecoQ('upkeep')}</span><b class="${st.net_last_tour > 0 ? 'fplus' : st.net_last_tour < 0 ? 'fminus' : ''}">${ecoMoney(st.net_last_tour, true)}</b></div>` +
     `<div class="row"><span>Затраты на состав${ecoQ('rule70')}</span><b class="${st.over70 ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
     `<div class="fbar${st.over70 ? ' over' : ''}"><i style="width:${(pct * 100 / top).toFixed(1)}%"></i><u style="left:${(cap * 100 / top).toFixed(1)}%"></u></div>` +
-    `<div class="sub">${st.over70 ? `⚠️ Выше ${cap}%: зарплаты больше, чем позволяет доход. ` : ''}Доход за ${ecoTours(14)}: ${ecoMoney(st.income14)} · зарплаты за сезон: ${ecoMoney(st.payroll_season)}</div>` +
+    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход за последние ${ecoT14()}: ${ecoMoney(st.income14)} · зарплаты за сезон лиги (${ecoTours(st.season_tours || 14)}): ${ecoMoney(st.payroll_per_season != null ? st.payroll_per_season : st.payroll_season)}</div>` +
+    (st.brand != null ? `<div class="row"><span>Бренд${ecoQ('brand')}</span><b>${ecoBrand(st.brand)}</b></div>` : '') +
+    (st.surplus ? `<div class="row"><span>Налог на излишек${ecoQ('surplus')}</span><b class="${st.surplus.tax ? 'fminus' : ''}">${st.surplus.excess ? '≈' + ecoMoney(-st.surplus.tax) + ' за тур' : 'нет'}</b></div>` +
+      `<div class="sub">${st.surplus.excess ? `Излишек ${ecoMoney(st.surplus.excess)} сверх порога ${ecoMoney(st.surplus.free)}` : `Порог — ${ecoMoney(st.surplus.free)} в кассе`}</div>` : '') +
     (st.reserve != null ? `<div class="row"><span>Запас${ecoQ('reserve')}</span><b>не меньше ${ecoMoney(st.reserve)}</b></div>` +
-      `<div class="sub">${Math.round((st.reserve_share || 0.4) * 100)}% дохода за ${ecoTours(14)} остаётся в кассе после любой покупки (после покупки юниора — 20%) ·свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
+      `<div class="sub">${ecoPct(st.reserve_share)} дохода за последние ${ecoT14()} плюс обязательства остаётся в кассе после любой траты в окно${ecoRules().youth_reserve != null ? ` (после покупки юниора чужой академии — ${ecoPct(ecoRules().youth_reserve)})` : ''} · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
       (st.hold && st.hold.total ? `<div class="sub">В запасе — и обязательства клуба ${ecoMoney(st.hold.total)}: ${esc(st.hold.text)}</div>` : '') : '') + `</div>`;
-  x += ecoWhat(ECO_S || ECO_B ? ['cash', 'salary', 'upkeep', 'tour', 'rule70'] : ['cash', 'salary', 'upkeep', 'tour', 'rule70', 'reserve']);
+  x += ecoWhat(ECO_S || ECO_B ? ['cash', 'salary', 'upkeep', 'tour', 'rule70', 'brand', 'surplus'] : ['cash', 'salary', 'upkeep', 'tour', 'rule70', 'brand', 'surplus', 'reserve']);
   const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
   x += ecoWindow(st.window || {}, qt);
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
@@ -3671,7 +3677,7 @@ function ecoOn(st) {
     const t = p.bought ? ['ok', '🏷 куплен в окне'] : p.signed ? ['ok', '🆓 подписан в окне'] : p.renewed ? ['ok', '✅ продлён'] : p.decision === 'release' ? ['no', '👋 уйдёт после окна'] : TAG[p.status];
     return `<div class="row"><div><b>№${p.number} ${esc(p.name)}</b><div class="sub">${years(p.age)} · сила ${num(p.strength)} · стоит ${ecoMoney(p.value)}</div>` +
       (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + (p.listed ? ` <span class="ftag">🏷 на продаже · ${ecoMoney(p.listed.price)}</span>` : '') + ecoRetire(p.retire) + `</div>` +
-      `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>` +
+      `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур${p.per_season ? `<div class="sub">${ecoMoney(p.per_season)} за сезон</div>` : ''}` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>` +
       (p.rename ? `<div class="fdec"><div class="sub">🐣 Новичок пришёл с именем по умолчанию — дайте ему своё:</div><div class="own"><input id="ecomname${p.pid}" maxlength="41" placeholder="Имя Фамилия новичка"><button type="button" data-ecomname="${p.pid}">💾 Имя</button></div></div>` : '') +
       (wopen ? ecoDecide(p) + ecoYouthPick(p, st) : ''); }).join('')
     : `<div class="note">Игроков пока нет.</div>`) + `</div>`;
@@ -3687,8 +3693,12 @@ const ECO_SEASONS = n => n + ' ' + (n === 1 ? 'сезон' : n < 5 ? 'сезон
 /* 🤝 спонсор, 💼 инвестор, 🏦 кредит (этап Ж1, app/finance.py view): суммы, сроки, цели, доли и все проверки считает
    бот — страница показывает и отправляет решения (выбор спонсора — в окно, кредит и инвестор — с подтверждением) */
 const ecoPct = v => Math.round((v || 0) * 100) + '%';
-const ECO_SP_WHAT = {safe: '100% бренда фиксированно на 1 сезон', ambitious: '60% фиксированно + бонус до 80% за цели сезона',
-  long: '90% на 3 сезона, +5% каждый год; звёзды бренда закреплены на весь срок'};
+function ecoSpWhat(kind) {         // условия спонсора — из R с сервера (st.rules.sponsor)
+  const R = ecoRules(), k = (R.sponsor || {})[kind]; if (!k) return '';
+  if (kind === 'safe') return `${ecoPct(k.fixed)} бренда фиксированно на ${ECO_SEASONS(k.seasons)}`;
+  if (kind === 'ambitious') return `${ecoPct(k.fixed)} фиксированно + бонус до ${ecoPct(R.bonus_max)} бренда за цели сезона`;
+  return `${ecoPct(k.fixed)} на ${ECO_SEASONS(k.seasons)}, +${ecoPct(k.step)} каждый год; звёзды бренда заморожены на весь срок — от падения защищает, но и рост за титул не даёт`;
+}
 function ecoFinance(st) {
   const F = st.finance; if (!F) return '';
   return ecoSponsor(F.sponsor || {}) + ecoInvestor(F.investor || {}) + ecoLoan(F.loan || {});
@@ -3708,7 +3718,7 @@ function ecoSponsor(S) {
   if (S.offers) {
     x += `<div class="sub">🔄 Окно открыто: выберите спонсора на следующий сезон — не выберете, будет «🛡 Надёжный». До закрытия окна можно передумать.</div>` +
       S.offers.map(o => { const on = S.choice === o.kind;
-        return `<div class="fdec"><div class="row"><div><b>${esc(o.title)}</b>${on ? ' <span class="ftag ok">✅ выбран</span>' : ''}<div class="sub">${ECO_SP_WHAT[o.kind] || ''}</div></div>` +
+        return `<div class="fdec"><div class="row"><div><b>${esc(o.title)}</b>${on ? ' <span class="ftag ok">✅ выбран</span>' : ''}<div class="sub">${ecoSpWhat(o.kind)}</div></div>` +
           `<div class="r"><b>${o.kind === 'long' ? o.sums.map(s => ecoMoney(s)).join(' / ') : '≈' + ecoMoney(o.fixed)}</b>${o.kind === 'long' ? 'по сезонам' : 'за сезон'}</div></div>` +
           (o.goals ? `<div class="sub">До ${ecoMoney(o.max)} за сезон: ` + o.goals.map(g => `${esc(g.title)} +${ecoPct(g.share)} (≈${ecoMoney(g.sum)})`).join(' · ') + `</div>` : '') +
           (o.gap ? `<div class="sub">До конца сезона заплатит на ${ecoMoney(o.gap)} меньше «Надёжного» — эти деньги останутся в запасе окна (тратить можно меньше).</div>` : '') +
@@ -3723,11 +3733,11 @@ function ecoInvestor(I) {
   const o = I.offer, a = I.active;
   if (o) x += `<div class="row"><div><b>Предложение: ${ecoMoney(o.amount)} сейчас</b><div class="sub">повод — ${esc(o.reason)} · ответить до ${esc(o.until)}, потом сгорит</div></div></div>` +
     `<div class="row"><span>Забирает каждый тур</span><b>${ecoPct(o.share)} спонсора и магазина</b></div>` +
-    `<div class="row"><span>Срок</span><b>${ECO_SEASONS(o.seasons)} по 14 туров</b></div>` +
-    `<div class="row"><span>При нынешних доходах</span><b class="fminus">≈${ecoMoney(-o.per_season)} за сезон</b></div>` +
+    `<div class="row"><span>Срок</span><b>${ecoTours(o.tours)}</b></div>` +
+    `<div class="row"><span>При нынешних доходах</span><b class="fminus">≈${ecoMoney(-o.per_season)} за ${ecoT14()}</b></div>` +
     `<div class="row"><span>Всего заберёт, не больше</span><b class="fminus">${ecoMoney(-o.cap)} (+${ecoPct(o.extra)})</b></div>` +
     `<div class="row"><span>Касса после принятия</span><b>${ecoMoney(o.cash_after)}</b></div>` +
-    `<div class="sub">Деньги инвестора — не доход: правило 70% их не видит. Доля списывается каждый тур, даже если касса уйдёт в минус.</div>` +
+    `<div class="sub">Деньги инвестора — не доход в правиле 70%. Доля списывается каждый тур, даже если касса уйдёт в минус; доля за ближайшие ${ecoT14()} остаётся в запасе после трат.</div>` +
     `<div class="mrow2"><button type="button" class="go main" data-ecoinv="${o.id}">💼 Принять</button><button type="button" class="go" data-ecoinvno="${o.id}">✕ Отказаться</button></div>`;
   if (a) x += `<div class="row"><div><b>Договор: дал ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(a.share)} спонсора и магазина · туров ${a.tours_done} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.taken)}</b>из ${ecoMoney(a.cap)}</div></div>`;
   if (!o && !a) x += `<div class="note">Предложений нет. Инвестор приходит в конце сезона к клубам нижней половины лиги по доходу, когда есть повод: растёт посещаемость, финал кубка лиги, сильный сезон.</div>`;
@@ -3736,14 +3746,14 @@ function ecoInvestor(I) {
 function ecoLoan(L) {
   let x = `<div class="lrow"><div class="label">🏦 Кредит</div>${ecoQ('loan')}</div>` + ecoWhat(['loan']) + `<div class="card fpl">`;
   const a = L.active, dis = L.busy ? ' disabled' : '';
-  if (a) x += `<div class="row"><div><b>Кредит ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(L.rate)} за 14 туров · оплачено туров ${a.paid_tours} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.next)}</b>платёж за тур</div></div>` +
+  if (a) x += `<div class="row"><div><b>Кредит ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(L.rate)} за ${ecoTours(L.tours)} · оплачено туров ${a.paid_tours} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.next)}</b>платёж за тур</div></div>` +
     `<div class="row"><span>Осталось вернуть</span><b class="fminus">${ecoMoney(-(a.rest + a.rest_interest))}</b></div>` +
     `<div class="sub">Основной долг ${ecoMoney(a.rest)}, проценты ${ecoMoney(a.rest_interest)}. Досрочно — только остаток основного долга: проценты за оставшиеся туры не берутся.</div>` +
     `<button type="button" class="go" data-ecoloanx${dis}>🏦 Погасить досрочно — ${ecoMoney(a.rest)}</button>`;
   else x += `<div class="row"><span>Можно взять</span><b>до ${ecoMoney(L.limit)}</b></div>` +
-    `<div class="sub">${ecoPct(L.share)} дохода за 14 туров (${ecoMoney(L.income14)}) · ${ecoPct(L.rate)} за 14 туров · гасится каждый тур: при ${ecoMoney(L.limit)} — ≈${ecoMoney(L.per_tour_max)} за тур, проценты ${ecoMoney(L.interest_max)}</div>` +
-    (L.limit > 0 ? `<div class="own"><input id="ecoloan" type="number" inputmode="numeric" min="1" max="${L.limit}" value="${L.limit}" aria-label="Сумма кредита, тыс. €"><button type="button" data-ecoloan${dis}>🏦 Взять</button></div>` +
-      `<div class="sub">Сумма — в тысячах евро. Кредит не доход: правило 70% и запас его не видят; проценты входят в затраты на состав.</div>` : '');
+    `<div class="sub">${ecoPct(L.share)} дохода за последние ${ecoTours(L.tours)} (${ecoMoney(L.income14)}) · на ${ecoTours(L.tours)} под ${ecoPct(L.rate)} за ${ecoTours(L.tours)} · гасится каждый тур: при ${ecoMoney(L.limit)} — ≈${ecoMoney(L.per_tour_max)} за тур, проценты ${ecoMoney(L.interest_max)}</div>` +
+    (L.limit > 0 ? `<div class="own"><input id="ecoloan" type="number" inputmode="numeric" min="1" max="${L.limit}" value="${L.limit}" aria-label="Сумма кредита в тысячах евро" placeholder="в тысячах евро"><button type="button" data-ecoloan${dis}>🏦 Взять</button></div>` +
+      `<div class="sub">Сумма — в тысячах евро (${L.limit} = ${ecoMoney(L.limit)}). Кредит — не доход в правиле 70%, проценты входят в затраты на состав. После траты в окно в кассе должны остаться платежи на ближайшие ${ecoTours(ecoRules().loan_hold || 7)}.</div>` : '');
   if (L.busy) x += `<div class="sub">⏳ У клуба идёт матч — кредит после него.</div>`;
   return x + `</div>`;
 }
@@ -3758,9 +3768,9 @@ function ecoFinClick(b, d) {       // нажатия в блоках спонс�
     ask(`Погасить кредит досрочно? Спишется ${ecoMoney(a.rest)} основного долга, проценты за оставшиеся туры (${ecoMoney(a.rest_interest)}) не берутся.`,
       () => send({a: 'loanrepay', sure: true, key: ECO.key})); return true; }
   if (d.ecoinv) { haptic(); const o = (F.investor || {}).offer || {};
-    ask(`Принять ${ecoMoney(o.amount)} от инвестора? Он будет забирать ${ecoPct(o.share)} спонсора и магазина ${ECO_SEASONS(o.seasons)} по 14 туров — всего не больше ${ecoMoney(o.cap)}. Уйти из клуба, пока договор идёт, нельзя. Отменить нельзя.`,
+    ask(`Принять ${ecoMoney(o.amount)} от инвестора? Он будет забирать ${ecoPct(o.share)} спонсора и магазина ${ecoTours(o.tours)} — всего не больше ${ecoMoney(o.cap)}. Уйти из клуба, пока договор идёт, нельзя. Отменить нельзя.`,
       () => send({a: 'invaccept', deal: +d.ecoinv, sure: true, key: ECO.key})); return true; }
-  if (d.ecoinvno) { haptic(); ask('Отказаться от предложения инвестора? Следующее придёт не раньше чем через 28 сыгранных туров (2 сезона по 14), и только если будет повод.',
+  if (d.ecoinvno) { haptic(); ask(`Отказаться от предложения инвестора? Следующее придёт не раньше чем через ${ecoTours(ecoRules().investor_gap_tours || 28)} сыгранных, и только если будет повод.`,
       () => send({a: 'invdecline', deal: +d.ecoinvno, key: ECO.key})); return true; }
   return false;
 }
@@ -3831,7 +3841,7 @@ function ecoScouts(st) {
   const S = (st.academy || {}).scouts; if (!S) return '';
   const cap = Math.round((st.cap70 || 0.7) * 100), pct = Math.round((S.share_after || 0) * 100);
   let x = `<div class="lrow"><div class="label">🔭 Селекционеры</div>${ecoQ('scouts')}</div>` + ecoWhat(['scouts']);
-  x += `<div class="card fpl"><div class="row"><div><b>${S.n} из ${S.max}</b><div class="sub">${ecoMoney(S.salary)} за тур каждому · за ${ecoTours(14)} — ${ecoMoney(S.season)} каждому</div></div>` +
+  x += `<div class="card fpl"><div class="row"><div><b>${S.n} из ${S.max}</b><div class="sub">${ecoMoney(S.salary)} за тур каждому · за ${ecoT14()} — ${ecoMoney(S.season)} каждому</div></div>` +
     `<div class="r">${S.n ? `<b>${ecoMoney(S.n * S.salary)}</b>за тур` : '—'}</div></div>` +
     `<div class="sub">Каждый за тур раскрывает потенциал одного юниора: сначала своих, потом клубов вашей лиги, потом других лиг друзей. Раскрыто в этом сезоне: ${S.seen_season} · известно сейчас: ${S.seen_now}</div>`;
   if (S.n < S.max) x += `<div class="row"><span>С ещё одним затраты на состав станут</span><b class="${S.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
@@ -3878,7 +3888,7 @@ function ecoYDealCard(y, st) {    // карточка предложения з�
       `<div class="sub">из цены сгорят комиссия 10% (${ecoMoney(q.commission)}) и налог продавца 10% (${ecoMoney(q.tax)}); продавцу — ${ecoMoney(q.seller_get)}</div>` +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       `<div class="row"><span>Заморозится до ответа</span><b>${ecoMoney(q.price + q.comp)}</b></div>` +
-      `<div class="row"><span>Зарплата (как у новичка)</span><b>${ecoMoney(q.salary)} за сезон · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+      `<div class="row"><span>Зарплата (как у новичка)</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
       ecoLeft(q) +
       (q.frozen ? `<div class="sub">уже заморожено другими предложениями: ${ecoMoney(q.frozen)}</div>` : '') +
       `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
@@ -3985,7 +3995,7 @@ function ecoDecide(p) {           // окно: «Продлить» (срок и
     `<button type="button" class="go danger" data-ecorel="${p.pid}">👋 Отпустить</button></div></div>`;
   const n = ECO_R.seasons;
   return `<div class="fdec"><div class="sub">Срок продления, сезонов:</div><div class="fterms">${[1, 2, 3, 4, 5].map(k => `<button type="button" class="${k === n ? 'on' : ''}" data-ecoterm="${k}">${k}</button>`).join('')}</div>` +
-    `<div class="row"><span>Новая зарплата</span><b>${ecoMoney(r.salary)} за сезон · ${ecoMoney(r.per_tour)} за тур</b></div>` +
+    `<div class="row"><span>Новая зарплата</span><b>${ecoMoney(r.salary)} за ${ecoT14()} · ${ecoMoney(r.per_tour)} за тур</b></div>` +
     `<div class="row"><span>Затраты на состав станут</span><b class="${r.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
     `<div class="fbar${r.ok ? '' : ' over'}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
     (r.note ? `<div class="sub">ℹ️ ${esc(r.note)}</div>` : '') + (r.ok ? '' : `<div class="banner warn">⛔ ${esc(r.why)}</div>`) +
@@ -4006,7 +4016,7 @@ function ecoAgents(st) {
   x += `<div class="card fpl">` + L.map(a => `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}` +
       `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
       `<div class="sub">${a.origin === 'left' ? `ушёл из «${esc(a.from || '?')}» · ` : ''}на рынке ${esc(a.until)}</div></div>` +
-      `<div class="r"><b>${ecoMoney(a.fee)}</b>подписные<div class="sub">${ecoMoney(a.salary)} за сезон</div></div></div>` +
+      `<div class="r"><b>${ecoMoney(a.fee)}</b>подписные<div class="sub">${ecoMoney(a.salary)} за ${ecoT14()}</div></div></div>` +
       (ECO_S && ECO_S.agent === a.pid ? ecoSignCard(a, st)
         : `<div class="fdec"><button type="button" class="go${full ? '' : ' main'}" data-ecosign="${a.pid}"${full ? ' disabled' : ''}>✍️ Подписать</button></div>`)).join('') + `</div>`;
   if (full) x += `<div class="hint">Лимит окна исчерпан: следующие подписания — в новом окне.</div>`;
@@ -4016,7 +4026,7 @@ function ecoOutCost(p) {           // во что обойдётся замен�
   if (p.decision === 'release') return 'уже отпущен — бесплатно';
   if (p.status === 'expired') return 'контракт кончился — бесплатно';
   if (p.release_comp != null) return 'компенсация ' + ecoMoney(p.release_comp);
-  return p.salary ? ecoMoney(p.salary) + ' за сезон' : '';
+  return p.salary ? ecoMoney(p.salary) + ' за ' + ecoT14() : '';
 }
 function ecoSignCard(a, st) {
   const s = ECO_S, n = s.seasons, cap = Math.round((st.cap70 || 0.7) * 100);
@@ -4031,7 +4041,7 @@ function ecoSignCard(a, st) {
   else if (q && q.salary == null) x += `<div class="banner warn">⛔ ${esc(q.why || 'Подписать нельзя')}</div>`;
   else if (q) {
     const pct = Math.round(q.share_after * 100);
-    x += `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за сезон · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+    x += `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
       `<div class="row"><span>Подписные</span><b class="fminus">${ecoMoney(-q.fee)}</b></div>` +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       ecoLeft(q) +
@@ -4048,7 +4058,7 @@ function ecoLeft(q, what = true) {   // прогноз «останется в �
   const bad = q.cash_after < q.reserve, exact = ecoMoney(q.cash_after) === ecoMoney(q.reserve);     // «1,38 млн» = «1,38 млн» — точно, в тысячах
   const M = k => exact ? (k < 0 ? '−' : '') + String(Math.abs(Math.round(k))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' тыс. €' : ecoMoney(k);
   return `<div class="row"><span>Останется в кассе${what ? ecoQ('reserve') : ''}</span><b class="${bad ? 'fminus' : ''}">${M(q.cash_after)}</b></div>` +
-    `<div class="sub${bad ? ' fminus' : ''}">${bad ? '⛔ ' : ''}нужно не меньше ${M(q.reserve)} — запас ${Math.round((q.reserve_share || ((ECO || {}).st || {}).reserve_share || 0.4) * 100)}% дохода за ${ecoTours(14)}${bad ? '' : ' · сверх запаса ' + ecoMoney(q.cash_after - q.reserve)}</div>` +
+    `<div class="sub${bad ? ' fminus' : ''}">${bad ? '⛔ ' : ''}нужно не меньше ${M(q.reserve)} — запас ${Math.round((q.reserve_share || ((ECO || {}).st || {}).reserve_share || 0.4) * 100)}% дохода за последние ${ecoT14()}${bad ? '' : ' · сверх запаса ' + ecoMoney(q.cash_after - q.reserve)}</div>` +
     (what ? ecoWhat(['reserve']) : '');
 }
 function ecoQuote() {
@@ -4156,7 +4166,7 @@ function ecoBuyList(st, T) {
   const full = T.buys_used >= T.buys_max;
   return x + `<div class="card fpl">` + L.map(a => `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}${ecoRetire(a.retire)}` +
     `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
-    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoMoney(a.salary)} за сезон</div></div>` +
+    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoMoney(a.salary)} за ${ecoT14()}</div></div>` +
     `<div class="r"><b>${ecoMoney(a.price)}</b>цена</div></div>` +
     (ECO_B && ECO_B.listing === a.id ? ecoDealCard(a, st)
       : a.mine_offer ? `<div class="fdec"><div class="sub">📨 Ваше предложение ${ecoMoney(a.mine_offer[1])} ждёт ответа продавца (вкладка «Предложения»).</div></div>`
@@ -4183,7 +4193,7 @@ function ecoDealCard(a, st) {
     x += `<div class="row"><span>${offer ? 'Ваше предложение' : 'Цена'}</span><b class="fminus">${ecoMoney(-q.price)}</b></div>` +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       (offer ? `<div class="row"><span>Заморозится до ответа</span><b>${ecoMoney(q.price + q.comp)}</b></div>` : '') +
-      `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за сезон · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+      `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
       ecoLeft(q) +
       (q.frozen ? `<div class="sub">уже заморожено другими предложениями: ${ecoMoney(q.frozen)}</div>` : '') +
       `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
@@ -5230,7 +5240,10 @@ function demoEconomy() {         // демо: касса — те же поля,
   const trade = win ? demoTrade(players) : null, fz = trade ? trade.frozen : 0;      // этап Г3: рынок игроков (демо)
   const agents = win ? {list: DEMO_AGENTS.filter(a => !taken.includes(a.pid)), buys_used: taken.length + (trade ? trade.bought : 0), buys_max: 3, seasons: [1, 2, 3, 4, 5]} : null;
   return {status: 'on', window: wnd, market: true, agents, trade, frozen: fz, cash_free: cash - fz, reserve: Math.round(0.4 * inc), reserve_share: 0.4, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
-    payroll_season: payroll, income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
+    payroll_season: payroll, payroll_per_season: payroll, season_tours: 14, surplus: {free: Math.round(3 * inc), excess: 0, tax: 0},
+    rules: {tours14: 14, reserve: 0.4, youth_reserve: 0.2, loan_hold: 7, investor_gap_tours: 28, bonus_max: 0.8, brand_max: 3,      // демо: как R на сервере
+      sponsor: {safe: {fixed: 1, step: 0, seasons: 1}, ambitious: {fixed: 0.6, step: 0, seasons: 1}, long: {fixed: 0.9, step: 0.05, seasons: 3}}},
+    income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
     builds: demoBuilds(win, cash - fz, inc, payroll), capacity: 800, fans: S.hub.home.fans || 0, build_upkeep: 0,
     academy: demoAcademy(win, demoBuilds(win, cash - fz, inc, payroll)), finance: demoFinance(win, cash, inc), hold: demoHold(),
     blocks: {...DEMO_FIN_BLOCKS, cash: {title: '💶 Что такое касса?', lead: 'Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.', points: ['Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые.', '30% каждого дохода сразу уходит на содержание клуба.', 'Товарищеские матчи и мини-игры денег не дают.'], now: `У вас сейчас: касса ${M(cash)}, доход за тур 189 тыс. €.`},
@@ -5300,7 +5313,7 @@ function demoFin(act) {          // демо: в игре — app/finance.py (ch
 let DEMO_BUILD = {};     // демо: заказанные в окне постройки {kind: true} (в игре — app/economy.py club_builds)
 function demoBuilds(win, free, inc, payroll) {     // те же поля, что builds_view бота; числа окупаемости — как у бота при 1240 болельщиках
   const D = [{kind: 'stadium', title: '🏟 Стадион', levels: 3, cost: 800, upkeep: 6, effect: '1600 мест', now: '800 мест',
-      payback: 'При ваших болельщиках (1240) уровень даёт +27 тыс. € за сезон — окупится за ~29 сезонов.'},
+      payback: 'При ваших болельщиках (1240) уровень даёт +27 тыс. € за 14 туров — окупится за ~406 туров.'},
     {kind: 'training_base', title: '🏋️ Тренировочная база', levels: 3, cost: 1000, upkeep: 4, effect: 'рост игроков за матч ×1,25', now: 'без бонуса', payback: null},
     {kind: 'academy', title: '🎓 Академия', levels: 3, cost: 800, upkeep: 3, effect: 'потенциал новых юниоров ★/★★/★★★ — 60/30/10%', now: 'потенциал новых юниоров ★/★★/★★★ — 70/25/5%', payback: null}];
   const up = D.reduce((a, d) => a + (DEMO_BUILD[d.kind] ? d.upkeep : 0), 0);
