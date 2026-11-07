@@ -381,6 +381,27 @@ details.tall,details.trules{margin-top:10px}
 details.tall>summary,details.trules>summary{list-style:none;cursor:pointer;text-align:center;color:var(--muted);font-size:13px;font-weight:700;padding:8px}
 details.tall>summary::-webkit-details-marker,details.trules>summary::-webkit-details-marker{display:none}
 details.tall[open]>summary .tw{display:inline-block;transform:rotate(180deg)}
+/* раздел администратора: сворачиваемые блоки, в заголовке — короткая сводка; содержимое и кнопки прежние */
+details.adm{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:8px 0}
+details.adm>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px}
+details.adm>summary::-webkit-details-marker,details.admt>summary::-webkit-details-marker,details.admin2>summary::-webkit-details-marker{display:none}
+details.adm>summary b{flex:1;font-size:15px}details.adm>summary small{display:block;color:var(--muted);font-size:12px;font-weight:400;margin-top:2px}
+details.adm>summary .admn{background:var(--accent);color:var(--on-acc);font-weight:800;font-size:12px;border-radius:9px;padding:2px 8px;flex:none}
+details.adm>summary .tw{color:var(--muted);flex:none;transition:transform .15s}details.adm[open]>summary .tw{transform:rotate(180deg)}
+details.adm>.admb{padding:0 10px 10px}
+.admb .card{margin:6px 0;padding:10px;background:var(--card2)}.admb .label{margin:10px 0 4px}
+.admb .go{padding:8px;font-size:13px;margin-top:6px}.admb .mrow2 .go{margin-top:6px}.admb .note{font-size:13px}
+.admb .own input,.admb .own select{padding:8px;font-size:14px}
+details[data-adm=eco]>.admb>.label:first-child,details[data-adm=euro]>.admb>.label:first-child{display:none}     /* то же название — уже в заголовке блока */
+.admg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+details.admt{background:var(--card2);border-radius:11px;padding:8px 10px;min-width:0}
+details.admt[open],details.admt.w{grid-column:1/-1}
+details.admt>summary{list-style:none;cursor:pointer}details.admt>summary b{display:block;font-size:17px;overflow-wrap:anywhere}
+details.admt>summary span{display:block;color:var(--muted);font-size:12px}details.admt .sub{margin-top:5px}
+.admp{display:grid;grid-template-columns:1fr 74px auto;gap:6px;align-items:center;margin-top:6px;font-size:13px}
+.admp input{min-width:0;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:7px;font:inherit;font-size:14px;text-align:center}
+.admp button{background:var(--accent);color:var(--on-acc);font-weight:700;border-radius:9px;padding:7px 10px}
+details.admin2{margin-top:6px}details.admin2>summary{list-style:none;cursor:pointer;color:var(--muted);font-size:13px;font-weight:700;padding:6px 0}
 .tpl{display:grid;grid-template-columns:auto minmax(0,1fr) 46px auto;align-items:center;gap:4px 8px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 12px;font-size:13px}
 .tpl b{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tpl span{color:var(--muted);font-size:12px;text-align:right;white-space:nowrap}
 .tpl .n{color:var(--muted);font-size:12px}.tpl .tbar{margin:0}
@@ -2440,10 +2461,10 @@ function ecoAdmin(E, P) {      // раздел администратора: э�
   h += `<div class="card"><div class="row"><div><b>🔄 Рынок: трансферное окно и контракты</b><div class="sub">${esc(ECO_MARKET_NOTE[MK])}</div></div></div>` +
     `<div class="fterms fmk">${Object.entries(ECO_MARKET).map(([k, t]) => `<button type="button" class="${k === MK ? 'on' : ''}" data-ecomarket="${k}">${t}</button>`).join('')}</div></div>`;
   const DL = E.deals || [];        // этап Г3: последние сделки между клубами — сговор не ограничиваем, но он виден здесь
-  h += `<div class="card fpl"><div class="row"><div><b>🏷 Последние сделки</b><div class="sub">кто, кому, за сколько, когда; продавцу — после комиссии и налога</div></div></div>` +
+  h += `<details class="admin2" data-adm="deals"${admOpen('deals', false) ? ' open' : ''}><summary>🏷 Последние сделки (${DL.length}) ▾</summary><div class="card fpl"><div class="sub">кто, кому, за сколько, когда; продавцу — после комиссии и налога</div>` +
     (DL.length ? DL.slice(0, 15).map(t => `<div class="row"><div><b>${esc(t.player)}</b><div class="sub">«${esc(t.seller)}» → «${esc(t.buyer)}» · ${esc(t.kind)} · ${esc(t.at)}</div>` +
       `<div class="sub">продавцу ${ecoMoney(t.get)} · сгорело ${ecoMoney(t.burned)}${t.junior ? ` (из них стартовая стоимость новичка ${ecoMoney(t.junior)})` : ''}</div></div><div class="r"><b>${ecoMoney(t.price)}</b></div></div>`).join('')
-      : `<div class="note">Сделок пока не было.</div>`) + `</div>`;
+      : `<div class="note">Сделок пока не было.</div>`) + `</div></details>`;
   if (!E.leagues.length) return h + `<div class="card note">Лиг друзей пока нет.</div>`;
   return h + E.leagues.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">клубов: ${L.clubs} · экономика: ${ECO_WORD[L.economy] || L.economy}${L.test ? ' · 🧪 тестовая' : ''}${L.season ? ' · сезон идёт' : ''}${L.window ? ' · 🔄 окно до ' + esc(L.window) : ''}${L.cup ? ' · 🏆 кубок: ' + esc(L.cup) : ''}</div></div></div>` +
     (L.cup ? `<button type="button" class="go danger" data-fcupadm="${L.id}">🗑 Сбросить кубок лиги</button>` : '') +
@@ -2470,41 +2491,54 @@ function euroAdmin(U) {
     (U.test_running ? `<button type="button" class="go danger" data-euroadm="euroreset">🗑 Сбросить тестовый цикл</button>` : '') + `</div>`;
   return h;
 }
+const ADM_OPEN = {};      // какие блоки раздела администратора открыты — переживает перерисовку после действия
+const admOpen = (k, dflt) => k in ADM_OPEN ? ADM_OPEN[k] : dflt;
+function admSec(k, title, sub, n, body, dflt) {     // блок: заголовок со сводкой и счётчиком того, что ждёт решения
+  return `<details class="adm" data-adm="${k}"${admOpen(k, dflt) ? ' open' : ''}><summary><b>${title}${sub ? `<small>${sub}</small>` : ''}</b>` +
+    (n ? `<span class="admn">${n}</span>` : '') + `<span class="tw">▾</span></summary><div class="admb">${body}</div></details>`;
+}
+function admPrices(id, attr, P, names) {      // attr — data-crprice / data-kitprice, как у прежних кнопок; цены уровней: строка «уровень — цена — 💾»; те же поля и кнопки, что раньше
+  return [2, 3, 4, 5, 'all'].map(k => `<div class="admp"><span>${k === 'all' ? '🎁 Все уровни сразу' : `Ур. ${k} «${esc(names[k])}»`}</span>` +
+    `<input id="${id}${k}" inputmode="numeric" maxlength="5" value="${P[k] || ''}" aria-label="Цена, звёзд"><button type="button" ${attr}="${k}">💾</button></div>`).join('') +
+    `<div class="sub" style="margin-top:6px">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (P[k] || 0), 0)} ⭐, набор — ${P.all || '?'} ⭐.</div>`;
+}
 function panelAdmin(m, P) {
   const A = H().admin;
   if (!A) return panelHead('🛠 Администратор') + `<div class="card note">Этот раздел — только для администратора.</div>`;
-  let h = panelHead('🛠 Администратор');
-  if (A.summary && A.summary.length) h += `<div class="label">📊 Сводка метрик</div><div class="card">` + A.summary.map(r =>
-    `<div class="row"><div><b>${esc(r.t)}</b><div class="sub">${esc(r.i)}</div></div><b style="white-space:nowrap">${esc(r.v)}</b></div>`).join('') + `</div>`;
-  h += modBlock(A);
-  h += `<div class="label">📝 Заявки на смену клуба</div>`;
-  h += A.requests.length ? A.requests.map(r => `<div class="card"><div class="note">${esc(r.text)}</div><div class="mrow2">` +
+  let h = panelHead('🛠 Администратор', 'Нажмите на блок, чтобы открыть');
+  const MD = A.mod || {queue: [], bans: []}, req = A.requests || [], seas = A.seasons || [], mg = A.managed || [];
+  if (A.summary && A.summary.length) h += admSec('sum', '📊 Сводка метрик', A.summary.slice(0, 2).map(r => esc(r.t.replace(/^\S+\s/, '')) + ': ' + esc(r.v)).join(' · '), 0, `<div class="admg">` + A.summary.map(r =>
+    `<details class="admt${r.v.length > 12 ? " w" : ""}"><summary><b>${esc(r.v)}</b><span>${esc(r.t)}</span></summary><div class="sub">${esc(r.i)}</div></details>`).join('') + `</div><div class="sub" style="margin-top:6px">Нажмите на цифру — пояснение.</div>`, false);
+  h += admSec('mod', '⚠️ Жалобы и баны', `жалоб ${MD.queue.length} · забанено ${(MD.bans || []).length}`, MD.queue.length, modBlock(A), MD.queue.length > 0);
+  h += admSec('req', '📝 Заявки на смену клуба', req.length ? '' : 'открытых заявок нет', req.length, req.length ? req.map(r => `<div class="card"><div class="note">${esc(r.text)}</div><div class="mrow2">` +
     `<button type="button" class="go main" data-creq="${r.rid}" data-v="ok">✅ Одобрить</button><button type="button" class="go danger" data-creq="${r.rid}" data-v="no">❌ Отклонить</button></div></div>`).join('')
-    : `<div class="card note">Открытых заявок на смену клуба нет.</div>`;
-  h += `<div class="label">🏁 Сезоны официальных лиг</div>` + A.seasons.map(r => `<div class="card"><div class="row"><div><b>${esc(r.title)}</b>` +
-    `<div class="sub">${r.active ? `идёт: сыграно ${r.done} из ${r.total}` : 'не начат'} · менеджеров ${r.people}</div></div></div>` +
+    : `<div class="card note">Открытых заявок на смену клуба нет.</div>`, req.length > 0);
+  const act = seas.filter(r => r.active).length, cups = seas.filter(r => r.cup).length;
+  h += admSec('ofl', '🏁 Официальные лиги: сезон и кубок', `сезон идёт в ${act} из ${seas.length} · кубок — в ${cups}`, 0, seas.map(r => `<div class="card"><b>${esc(r.title)}</b>` +
+    `<div class="sub">⚽ ${r.active ? `сезон идёт: сыграно ${r.done} из ${r.total}` : 'сезон не начат'} · менеджеров ${r.people}</div><div class="sub">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div><div class="mrow2">` +
     (r.active ? `<button type="button" class="go danger" data-ofreset="${r.key}">🗑 Сбросить сезон</button>` : `<button type="button" class="go main" data-ofstart="${r.key}">🏁 Начать сезон</button>`) +
-    `<div class="sub" style="margin-top:8px">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div>` +
-    (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
-  if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
-  h += ecoAdmin(A.economy, P);      // 💶 экономика лиг друзей (app/economy.py admin_act)
-  h += euroAdmin(A.euro);           // 🌍 еврокубки лиг друзей (app/euro.py admin_act, этап Е1)
-  const CP = A.crest_prices || {}, LN = CREST_EDITOR.level_names;
-  h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
+    (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div></div>`).join('') +
+    (seas.filter(r => !r.active).length > 1 ? `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>` : ''), false);
+  h += admSec('mgr', '👤 Менеджеры официальных клубов', mg.length ? `клубов с менеджером: ${mg.length}` : 'официальные клубы пока никто не ведёт', 0,
+    mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b><div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div>` +
+      `<button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('') : `<div class="card note">Официальные клубы пока никто не ведёт.</div>`, false);
+  const E = A.economy, EL = (E && E.leagues) || [];
+  if (E) h += admSec('eco', '💶 Экономика', `рынок: ${ECO_MARKET[E.market || 'off']} · с экономикой ${EL.filter(L => L.economy !== 'off').length} из ${EL.length} лиг`, 0,
+    ecoAdmin(A.economy, P), P.ecoreset != null);      // app/economy.py admin_act — логика и кнопки прежние
+  const U = A.euro;
+  if (U) h += admSec('euro', '🌍 Еврокубки', `следующий цикл ${esc(U.next)} · идёт турниров: ${(U.running || []).length}`, U.can_start ? '!' : 0,
+    euroAdmin(U), false);      // app/euro.py admin_act, этап Е1
+  h += admSec('shop', '🛍 Магазин: эмблемы и форма', `эмблемы — ${A.crest_editor ? 'продажа открыта' : 'закрыто'} · форма — ${A.kit_editor ? 'продажа открыта' : 'закрыто'}`, 0,
+    `<div class="card"><b>🎨 Конструктор эмблем</b><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
-    [2, 3, 4, 5, 'all'].map(k => `<div class="label">${k === 'all' ? '🎁 Набор «Все уровни сразу»' : `Уровень ${k} — «${LN[k]}»`}, ⭐</div><div class="own"><input id="crprice${k}" inputmode="numeric" maxlength="5" value="${CP[k] || ''}"><button type="button" data-crprice="${k}">💾 Сохранить</button></div>`).join('') +
-    `<div class="sub">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (CP[k] || 0), 0)} ⭐, набор — ${CP.all || '?'} ⭐.</div></div>`;
-  const KP = A.kit_prices || {}, KN = KIT_EDITOR.level_names;
-  h += `<div class="label">👕 Уровни формы</div><div class="card"><div class="note">${A.kit_editor ? 'Продажа открыта: менеджеры покупают уровни формы за звёзды (по порядку или набором), а меняют форму в пределах уровня бесплатно.' : 'Продажа закрыта: у всех — базовая форма (9 цветов) и уже купленные уровни; купить новый уровень нельзя. У администраторов — все уровни бесплатно.'}</div>` +
+    `<details class="admin2" data-adm="crp"${admOpen('crp', false) ? ' open' : ''}><summary>⭐ Цены уровней эмблемы ▾</summary>${admPrices('crprice', 'data-crprice', A.crest_prices || {}, CREST_EDITOR.level_names)}</details></div>` +
+    `<div class="card"><b>👕 Уровни формы</b><div class="note">${A.kit_editor ? 'Продажа открыта: менеджеры покупают уровни формы за звёзды (по порядку или набором), а меняют форму в пределах уровня бесплатно.' : 'Продажа закрыта: у всех — базовая форма (9 цветов) и уже купленные уровни; купить новый уровень нельзя. У администраторов — все уровни бесплатно.'}</div>` +
     `<button type="button" class="go${A.kit_editor ? ' danger' : ' main'}" data-kitopen="${A.kit_editor ? 0 : 1}">${A.kit_editor ? '🔒 Закрыть продажу формы' : '🔓 Открыть продажу формы'}</button>` +
-    [2, 3, 4, 5, 'all'].map(k => `<div class="label">${k === 'all' ? '🎁 Набор «Все уровни сразу»' : `Уровень ${k} — «${KN[k]}»`}, ⭐</div><div class="own"><input id="kitprice${k}" inputmode="numeric" maxlength="5" value="${KP[k] || ''}"><button type="button" data-kitprice="${k}">💾 Сохранить</button></div>`).join('') +
-    `<div class="sub">По отдельности уровни 2–5 стоят ${[2, 3, 4, 5].reduce((a, k) => a + (KP[k] || 0), 0)} ⭐, набор — ${KP.all || '?'} ⭐.</div></div>`;
-  const mg = A.managed || [];     // клубы официальных лиг с менеджером: снять — клуб снова ведёт бот
-  h += `<div class="label">👤 Менеджеры официальных клубов</div>` + (mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b>` +
-    `<div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div><button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('')
-    : `<div class="card note">Официальные клубы пока никто не ведёт.</div>`);
+    `<details class="admin2" data-adm="kitp"${admOpen('kitp', false) ? ' open' : ''}><summary>⭐ Цены уровней формы ▾</summary>${admPrices('kitprice', 'data-kitprice', A.kit_prices || {}, KIT_EDITOR.level_names)}</details></div>`, false);
   return h;
 }
+// открыт ли блок раздела администратора — запоминаем, чтобы перерисовка после действия его не сворачивала
+document.addEventListener('toggle', e => { const k = e.target && e.target.dataset && e.target.dataset.adm; if (k) ADM_OPEN[k] = e.target.open; }, true);
 function panelNewClub(m, P) {
   const C = H().create, O = H().official || {};
   if (!C) return panelHead('⚽ Новый клуб') + `<div class="card note">Свой клуб у вас уже есть.</div>`;
