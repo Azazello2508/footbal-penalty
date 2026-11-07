@@ -1916,8 +1916,8 @@ function betweenClick(b) {       // нажатия в окнах пресс-ко
   return false;
 }
 function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
-  const r = P.which === 'cup' ? (H().cup || {}).rules : (H().table || {}).rules;
-  return panelHead(P.which === 'cup' ? '📜 Правила кубка' : '📜 Правила лиги') + (r ? `<div class="report">${esc(r)}</div>` : `<div class="note">Правил пока нет.</div>`);
+  const r = P.which === 'cup' ? (H().cup || {}).rules : P.which === 'euro' ? (H().euro || {}).rules : (H().table || {}).rules;
+  return panelHead(P.which === 'cup' ? '📜 Правила кубка' : P.which === 'euro' ? '📜 Правила еврокубков' : '📜 Правила лиги') +(r ? `<div class="report">${esc(r)}</div>` : `<div class="note">Правил пока нет.</div>`);
 }
 function panelHelp(m, P) {
   const toc = H().help || [];
@@ -2454,6 +2454,22 @@ function ecoAdmin(E, P) {      // раздел администратора: э�
       `<div class="mrow2"><button type="button" class="go danger" data-ecoreset2="${L.id}">🗑 Да, сбросить</button><button type="button" class="go" data-ecoresetx>Отмена</button></div>`
       : `<button type="button" class="go danger" data-ecoreset="${L.id}">🗑 Сброс экономики лиги…</button>`) + `</div>`).join('');
 }
+function euroFc(F, test) {      // прогноз путёвок: кто и где сыграет, если запустить сейчас; нет цикла — причина числами
+  if (!F) return '';
+  if (!F.ok) return `<div class="note">${esc(F.why)}</div>`;
+  return `<div class="note">${esc(F.note)}</div>` + F.comps.map(c => `<div class="sub" style="margin-top:6px"><b>${esc(c.title)}${test ? ' (тест)' : ''}</b>: ${c.clubs.map(esc).join('; ')}</div>`).join('');
+}
+function euroAdmin(U) {
+  if (!U) return '';
+  let h = `<div class="label">🌍 Еврокубки лиг друзей</div><div class="card"><div class="row"><div><b>Следующий цикл: ${esc(U.next)}</b><div class="sub">раз в ${U.every} дней; запускает администратор, автозапуска нет · путёвок: ЛЧ ${U.forecast.ucl}, ЛЕ ${U.forecast.uel}</div></div></div>` +
+    euroFc(U.forecast, false) +
+    (U.can_start ? `<button type="button" class="go main" data-euroadm="eurostart">🌍 Запустить цикл</button>` : `<div class="banner">${esc(U.start_why || 'Запустить пока нельзя')}</div>`) + `</div>`;
+  if (U.running && U.running.length) h += `<div class="card">` + U.running.map(r => `<div class="row"><div><b>${esc(r.title)}</b><div class="sub">клубов ${r.clubs} · ${esc(r.stage)} · несыгранных матчей ${r.left}</div></div></div>`).join('') + `</div>`;
+  h += `<div class="card"><div class="row"><div><b>🧪 Тестовый цикл</b><div class="sub">все клубы тестовых лиг, от 4; в настоящий цикл не попадают; деньги теста откатывает сброс тестовой лиги</div></div></div>` + euroFc(U.test_forecast, true) +
+    (U.can_test ? `<button type="button" class="go" data-euroadm="eurotest">🧪 Запустить тестовый цикл</button>` : `<div class="banner">${esc(U.test_why || '')}</div>`) +
+    (U.test_running ? `<button type="button" class="go danger" data-euroadm="euroreset">🗑 Сбросить тестовый цикл</button>` : '') + `</div>`;
+  return h;
+}
 function panelAdmin(m, P) {
   const A = H().admin;
   if (!A) return panelHead('🛠 Администратор') + `<div class="card note">Этот раздел — только для администратора.</div>`;
@@ -2472,6 +2488,7 @@ function panelAdmin(m, P) {
     (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div>`).join('');
   if (A.seasons.filter(r => !r.active).length > 1) h += `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>`;
   h += ecoAdmin(A.economy, P);      // 💶 экономика лиг друзей (app/economy.py admin_act)
+  h += euroAdmin(A.euro);           // 🌍 еврокубки лиг друзей (app/euro.py admin_act, этап Е1)
   const CP = A.crest_prices || {}, LN = CREST_EDITOR.level_names;
   h += `<div class="label">🎨 Конструктор эмблем</div><div class="card"><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
@@ -2857,14 +2874,43 @@ function cupBlock(c) {          // кубок страны и кубок лиг�
     `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.when)}</span></div>`).join('') + `</div>`;
   return x;
 }
+function euroRows(ms) {        // матчи еврокубка — те же строки, что у кубка (свой матч подсвечен, сумма двух матчей)
+  return ms.map(m => `<div class="row cupm${m.mine ? ' me' : ''}"><div>${m.leg || m.stage ? `<div class="sub">${esc(m.leg || m.stage)}</div>` : ''}<span class="${m.win === 'home' ? 'w' : ''}">${esc(m.home)}</span> — <span class="${m.win === 'away' ? 'w' : ''}">${esc(m.away)}</span>` +
+    `${m.pens ? `<div class="sub">пенальти ${esc(m.pens)}</div>` : ''}${m.agg ? `<div class="sub"><b>${esc(m.agg)}</b></div>` : ''}</div><b style="white-space:nowrap">${esc(m.score || m.when || '')}</b></div>`).join('');
+}
+function euroBlock(e) {         // 🌍 еврокубки лиг друзей (этап Е1): участники, группы, плей-офф, призовые — всё считает бот
+  let x = `<div class="card"><h3>🌍 Еврокубки</h3><div class="note">Лига чемпионов и Лига Европы — общий цикл для всех лиг друзей. Путёвки — по местам в последнем законченном сезоне лиги. Группы по 4, из группы выходят двое; плей-офф — два матча, финал — на нейтральном стадионе.</div>` +
+    (e.next ? `<div class="sub" style="margin-top:6px">Следующий цикл — ${esc(e.next)} (запускает администратор)</div>` : '') + `</div>`;
+  if (e.note) x += `<div class="card note">${esc(e.note)}</div>`;
+  (e.tournaments || []).forEach(T => {
+    x += `<div class="label">${esc(T.title)}${T.cycle ? ` · цикл №${T.cycle}` : ''}</div><div class="card"><div class="note">${T.active ? (T.mine ? 'Идёт. Ваш клуб участвует.' : 'Идёт.') : T.winner ? `Разыгран. Обладатель — «${esc(T.winner)}» 🏆` : 'Завершён.'}</div>` +
+      `<div class="sub" style="margin-top:6px">Участники (${T.clubs.length}): ${T.clubs.map(c => `${c.mine ? '<b>' : ''}${esc(c.name)}${c.mine ? '</b>' : ''}${c.league ? ` (${esc(c.league)}${c.place ? `, ${c.place[0]}-е из ${c.place[1]}` : ''})` : ''}`).join(', ')}</div></div>`;
+    (T.groups || []).forEach(G => {
+      x += `<div class="label">${esc(G.name)}</div><div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
+        G.rows.map((r, i) => `<tr class="${r.mine ? 'me' : ''}"><td>${i + 1}${r.through ? '✓' : ''}</td><td class="n">${esc(r.name)}${r.league ? `<div class="sub">${esc(r.league)}</div>` : ''}</td><td>${r.p}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
+        `</table>${G.matches.length ? `<div style="margin-top:6px">${euroRows(G.matches)}</div>` : ''}</div>`;
+    });
+    (T.stages || []).forEach(st => { x += `<div class="label">${esc(st.title)}</div><div class="card" style="padding:4px 10px">${euroRows(st.matches)}</div>`; });
+    x += `<div class="card"><div class="row"><div><b>💶 Призовые за стадию</b><div class="sub">${T.eco ? 'ваш клуб получает: в лиге работает экономика' : 'только клубам лиг с экономикой; с каждого дохода 30% — на содержание'}</div></div></div>` +
+      T.prizes.map(p => `<div class="row"><div>${esc(p.t)}</div><b style="white-space:nowrap">${esc(p.v)}</b></div>`).join('') + `</div>`;
+  });
+  if (e.rules) x += `<button type="button" class="go" data-rules="euro">📜 Правила еврокубков</button>`;
+  if (e.past && e.past.length) x += `<div class="label">Обладатели</div><div class="card">` + e.past.map(p =>
+    `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.title)}, цикл №${p.cycle}</span></div>`).join('') + `</div>`;
+  return x;
+}
 function renderLeague() {
   const hb = H(), t = hb.table;
   if (!t) { $('t-league').innerHTML = ''; return; }
   if (SEG === 'cup' && !hb.cup) SEG = 'table';
-  let x = tipBlock('league') + `<div class="lrow"><div class="label">${esc(t.title || 'Лига')}</div><button type="button" class="qbtn" data-tourq="league" aria-label="Подсказки по лиге">?</button></div><div class="seg" style="grid-template-columns:repeat(${hb.cup ? 3 : 2},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
+  if (SEG === 'euro' && !hb.euro) SEG = 'table';
+  const nseg = 2 + (hb.cup ? 1 : 0) + (hb.euro ? 1 : 0);
+  let x = tipBlock('league') + `<div class="lrow"><div class="label">${esc(t.title || 'Лига')}</div><button type="button" class="qbtn" data-tourq="league" aria-label="Подсказки по лиге">?</button></div><div class="seg" style="grid-template-columns:repeat(${nseg},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
     `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button>` +
-    (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') + `</div>`;
+    (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') +
+    (hb.euro ? `<button type="button" data-seg="euro" class="${SEG === 'euro' ? 'on' : ''}">🌍 Евро</button>` : '') + `</div>`;
   if (SEG === 'cup') x += cupBlock(hb.cup);
+  else if (SEG === 'euro') x += euroBlock(hb.euro);
   else if (SEG === 'table') {
     if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
     if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
@@ -4349,6 +4395,11 @@ function ecoAdminClick(b, d, P) {      // 💶 экономика лиг дру�
   if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
   if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
   if (d.ecotest) { haptic(); send({a: 'ecotest', league: +d.ecotest, on: d.v === '1'}); return true; }
+  if (d.euroadm) { const a = d.euroadm; haptic();     // еврокубки (этап Е1): права и правила проверяет бот
+    ask({eurostart: 'Запустить цикл еврокубков? Жеребьёвка по путёвкам из прогноза, всем клубам придёт уведомление. Отменить нельзя.',
+      eurotest: 'Запустить тестовый цикл из клубов тестовых лиг? Его можно сбросить.',
+      euroreset: 'Сбросить тестовый цикл? Матчи стираются, обладателя не будет. Деньги теста откатывает сброс экономики тестовой лиги.'}[a] || 'Подтвердить?',
+    () => send({a, sure: true})); return true; }
   if (d.fcupadm) { const id = +d.fcupadm; haptic(); ask(`🗑 Сбросить Кубок лиги «${L(id).name}»? Сетка и матчи кубка стираются, обладателя не будет, в этом сезоне лиги кубка больше не будет. Деньги за сыгранные матчи остаются. Отменить нельзя.`, () => send({a: 'fcupreset', league: id, sure: true})); return true; }
   if (d.ecomarket) { const mode = d.ecomarket; haptic(); if ((H().admin.economy || {}).market === mode) return true;
     ask(`Рынок: «${ECO_MARKET[mode]}»? ${ECO_MARKET_NOTE[mode]}${mode === 'off' ? ' Идущие окна закроются без ухода игроков.' : ''}`, () => send({a: 'ecomarket', mode})); return true; }
@@ -4517,6 +4568,7 @@ function onAck(m) {
   if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
   if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
+  if (m.euro && act && ['eurostart', 'eurotest', 'euroreset'].includes(act.a) && H().admin) { H().admin.euro = m.euro; if (PANEL && PANEL.k === 'admin') renderPanel(); }
   if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
@@ -4683,6 +4735,16 @@ function demoHub() {
       stages: [{title: 'отборочный раунд', matches: [{home: 'Девятка', away: 'Бернли', mine: true, score: '1:1', pens: '4:3', win: 'home'},
         {home: 'Лутон', away: 'Шеффилд', mine: false, score: '0:2', pens: null, win: 'away'}]},
         {title: '1/8 финала', matches: [{home: 'Девятка', away: 'Арсенал', mine: true, when: 'до 31.10 23:59'}, {home: 'Челси', away: 'Шеффилд', mine: false, when: '29.10 20:00'}]}]},
+    euro: {title: '🌍 Еврокубки', next: '05.12.2026', note: null, rules: '📜 ПРАВИЛА ЕВРОКУБКОВ (ЛИГИ ДРУЗЕЙ)\n\n1. Общий цикл для всех лиг друзей раз в 28 дней.\n2. Путёвки — по местам в последнем законченном сезоне.\n(демо: в Telegram — полный текст)',
+      past: [], tournaments: [{title: 'Лига чемпионов', comp: 'ucl', cycle: 1, test: false, active: true, reset: false, winner: null, eco: true, mine: true,     // те же поля, что euro.tournament_view
+        clubs: [{name: 'Девятка', league: 'Лига друзей', place: [1, 6], mine: true}, {name: 'Вторники ФК', league: 'Вторники', place: [1, 8], mine: false},
+          {name: 'Северяне', league: 'Лига Бори', place: [1, 6], mine: false}, {name: 'Торпедо', league: 'Вторники', place: [2, 8], mine: false}],
+        groups: [{name: 'Группа A', rows: [{name: 'Девятка', league: 'Лига друзей', p: 2, w: 1, d: 1, l: 0, gf: 3, ga: 2, pts: 4, mine: true, through: false},
+          {name: 'Вторники ФК', league: 'Вторники', p: 2, w: 1, d: 0, l: 1, gf: 2, ga: 2, pts: 3, mine: false, through: false},
+          {name: 'Северяне', league: 'Лига Бори', p: 2, w: 0, d: 1, l: 1, gf: 1, ga: 2, pts: 1, mine: false, through: false}],
+          matches: [{home: 'Девятка', away: 'Северяне', mine: true, score: '1:1', pens: null, stage: 'групповой этап, 1-й тур'}, {home: 'Вторники ФК', away: 'Девятка', mine: true, when: 'до 12.11 23:59', stage: 'групповой этап, 3-й тур'}]}],
+        stages: [], prizes: [{t: 'Участие в групповом этапе', v: '150 тыс. €'}, {t: 'Победа в группе', v: '50 тыс. €'}, {t: 'Ничья в группе', v: '16 тыс. €'},
+          {t: 'Выход в плей-офф', v: '100 тыс. €'}, {t: 'Выход в полуфинал', v: '150 тыс. €'}, {t: 'Выход в финал', v: '200 тыс. €'}, {t: 'Трофей', v: '200 тыс. €'}]}]},
     friendly: {note: null, rivals: [{id: 2, name: 'Северный Ветер', manager: 'Боря'}, {id: 3, name: 'Торпедо Пресни', manager: 'Вика'}]},
     news: [{at: '20.10 21:10', text: '«Девятка» разгромила «Дворовых Львов» 4:1 — Жуков оформил дубль.'}],
     star: '⭐ Звезда недели: №9 Марк Жуков («Девятка») — 3 гола за неделю',
@@ -4712,6 +4774,11 @@ function demoHub() {
         {id: 1, player: 'Глеб Орлов', seller: 'Девятка', buyer: 'Торпедо', price: 1150, get: 920, burned: 230, junior: 0, kind: 'по цене', at: '05.11 21:40'}],
         leagues: [{id: 7, name: 'Лига друзей', clubs: 4, test: true, economy: 'on', season: true},
         {id: 9, name: 'Лига Бори', clubs: 6, test: false, economy: 'off', season: false}, {id: 12, name: 'Вторники', clubs: 2, test: true, economy: 'next', season: false}]},
+      euro: {next: '05.12.2026', due: false, every: 28, can_start: false, start_why: 'Следующий цикл — 05.12.2026.', can_test: false,     // те же поля, что euro.admin_view
+        test_why: 'В тестовых лигах 2 клуб(ов) вне идущих еврокубков, а тестовому циклу нужно не меньше 4.', test_running: false,
+        forecast: {ok: false, why: 'Путёвок: ЛЧ — 2, ЛЕ — 3, всего 5, а нужно не меньше 8 — в этом цикле еврокубков нет.', note: '', ucl: 2, uel: 3, comps: []},
+        test_forecast: {ok: false, why: 'В тестовых лигах 2 клуб(ов) вне идущих еврокубков, а тестовому циклу нужно не меньше 4.', note: '', ucl: 2, uel: 0, comps: []},
+        running: [{title: 'Лига чемпионов', test: false, clubs: 8, stage: 'групповой этап', left: 7}]},
       mod: {days: [1, 3, 7, 30], queue: [{rep: 5, kind: 'club', name: 'Скачай-бонус.ру', now: 'Скачай-бонус.ру', club: 'Скачай-бонус.ру', owner: 'Гена', mid: 4, count: 3,
         reasons: 'реклама или ссылки ×2, другое ×1', top: 'ads', top_text: 'реклама или ссылки', banned: false, blocked: false},
         {rep: 8, kind: 'player', name: 'Очень Грубый', now: 'Очень Грубый', club: 'Торпедо Пресни', owner: 'Вика', mid: 3, count: 1, reasons: 'оскорбление ×1', top: 'insult',
@@ -4815,7 +4882,7 @@ function demoLeagueAct(act) {   // демо: лига меняется толь�
     return {ok: true, note: `🎉 Лига «${act.text}» создана! Вы её создатель.`};
   }
   if (act.a === 'ofcard') return {ok: true, note: '', key: act.key, card: 'Демо: в Telegram здесь состав клуба — 9 игроков с позициями и силой.', numbers: [1, 2, 4, 5, 7, 8, 9, 10, 11]};
-  if (['lgjoin', 'lgseason', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset', 'fcupstart', 'fcupreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
+  if (['lgjoin', 'lgseason', 'ofreq', 'creq', 'ofstart', 'ofreset', 'ofkick', 'cupstart', 'cupreset', 'fcupstart', 'fcupreset', 'eurostart', 'eurotest', 'euroreset'].includes(act.a)) return {ok: false, note: 'Демо: это работает только в Telegram'};
   return null;
 }
 function demoManage(kitAll) {   // раздел «Клуб» из демо-состава — те же поля, что присылает бот (hub.club_state)
