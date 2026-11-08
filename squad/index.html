@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru" data-theme="club">
+<html lang="ru" data-theme="glass">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -624,8 +624,59 @@ html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out i
 @keyframes hlive{to{opacity:.35}}@keyframes wpulse{50%{box-shadow:0 0 0 6px var(--acc-soft),0 6px 18px var(--acc-soft);transform:scale(1.015)}}
 @media (prefers-reduced-motion:reduce){html[data-theme="club"] .hero .hlive,html[data-theme="club"] .go.main[data-watch]{animation:none}html[data-theme="club"] .hero .hshirt .kfi{transition:none}}
 @media (max-width:370px){html[data-theme="club"] .hero .hshirt{width:64px}html[data-theme="club"] .hero .crest svg.crbig{width:62px;height:71px}html[data-theme="club"] .hero .crest h1{font-size:21px}}
+
+/* 🎨 «Стекло в цвете клуба» (по умолчанию с 08.11): тёмная основа в оттенке клуба, фото стадиона в цвете клуба на «Главной»,
+   стеклянные карточка матча и плавающее меню. --club-* ставит clubTheme(): --club-lt — цвет клуба, читаемый на тёмном */
+html[data-theme="glass"]{--bg:var(--club-bg,#0e0a0c);--card:var(--club-card,#1d1619);--card2:var(--club-card2,#2a2124);--line:var(--club-line,#3a3034);
+  --text:#f6f1f2;--muted:#b5aaae;--accent:var(--club-lt,#ff6b72);--panel:var(--club-card,#1d1619);--on-acc:#14080a;
+  --acc-soft:var(--club-lt-soft,rgba(255,107,114,.16));--acc-soft1:var(--acc-soft);--acc-soft2:var(--club-lt-soft2,rgba(255,107,114,.09));--acc-text:var(--club-lt,#ff6b72);
+  --veil:rgba(0,0,0,.62);--shadow:rgba(0,0,0,.55);--tglow:0 0 0 4px var(--acc-soft),0 0 18px var(--acc-soft)}
+html[data-theme="glass"] body{background:radial-gradient(130% 55% at 50% 0%,var(--club-bg2,#2a0d12),var(--club-bg,#0e0a0c) 62%) fixed var(--club-bg,#0e0a0c);
+  padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+html[data-theme="glass"] .card,html[data-theme="glass"] .menu button,html[data-theme="glass"] .stats3 div{border:1px solid var(--line)}
+html[data-theme="glass"] .go.main{background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,0)) var(--club,#c81e2a);color:#fff;font-weight:700}
+html[data-theme="glass"] .seg button.on{background:var(--club,#c81e2a);color:#fff}
+/* нижнее меню — стеклянная плавающая панель; открытая вкладка — цветной значок и белая подпись, остальные приглушены */
+html[data-theme="glass"] #nav{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:540px;margin:0 auto;padding:7px 4px;border-radius:22px;
+  background:rgba(28,22,25,.74);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.07)}
+html[data-theme="glass"] #nav button{color:#9d9296;background:transparent}
+html[data-theme="glass"] #nav button i{filter:grayscale(1);opacity:.6;transition:filter .2s,opacity .2s}
+html[data-theme="glass"] #nav button.on{color:#fff;font-weight:700;background:transparent}html[data-theme="glass"] #nav button.on i{filter:none;opacity:1}
+/* «Главная»: фото стадиона в цвете клуба (чёрно-белое фото + цвет клуба, режим luminosity) */
+.gstage{position:relative;margin:calc(-10px - env(safe-area-inset-top)) -16px 0;padding:calc(14px + env(safe-area-inset-top)) 16px 72px;color:#fff;
+  background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,.08) 34%,rgba(0,0,0,.25) 62%,var(--bg) 100%),url(stadium.jpg) 42% 40%/cover var(--club-lt,#ff6b72);
+  background-blend-mode:normal,luminosity;min-height:330px}
+.gstage .gtop{display:flex;align-items:center;gap:10px}
+.gcr{width:40px!important;height:46px!important;margin:0!important;flex:none}.badge.gcr{font-size:15px;border-radius:9px 9px 20px 20px}
+.gstage .gname{min-width:0}.gstage .gname b{display:block;font-family:var(--sport);font-style:italic;font-weight:800;font-size:22px;line-height:1.05;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gstage .gname small{display:block;font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gstage .gfans{margin-left:auto;text-align:right;font-size:11px;color:rgba(255,255,255,.8);flex:none}.gstage .gfans b{display:block;font-size:18px;color:#fff;font-family:var(--sport);font-style:italic}
+.gstage .gcap{margin-top:104px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;color:rgba(255,255,255,.88);text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.gstage .gcap:before{content:"";width:18px;height:2px;background:var(--club-lt,#ff6b72);flex:none}
+.gstage .gh1{margin:6px 0 0;font-family:var(--sport);font-style:italic;font-weight:800;font-size:32px;line-height:1.02;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 2px 14px rgba(0,0,0,.55)}
+.gstage .gh1 i{font-size:.62em;font-weight:700;opacity:.85;text-transform:lowercase}
+.gmc{position:relative;z-index:2;margin:-58px 0 12px;padding:14px;border-radius:22px;background:rgba(30,23,27,.7);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 30px rgba(0,0,0,.4)}
+.gvs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px}
+.gtm{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;text-align:center;font-weight:700;font-size:14px;line-height:1.15}
+.gtm .gcr{width:44px!important;height:51px!important}.gtm span{max-width:100%;overflow-wrap:anywhere}.gtm small{font-weight:400;font-size:11.5px;color:var(--muted)}
+.gmid{text-align:center;padding:0 4px}.gmid b{display:block;font-family:var(--sport);font-style:italic;font-weight:800;font-size:34px;line-height:1;letter-spacing:.5px}
+.gmid small{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-top:4px}
+.gmid .glive{display:inline-block;color:#ff6b6b;font-size:11px;font-weight:800;letter-spacing:.08em;animation:hlive 1.2s steps(2,start) infinite}
+.gnone{font-size:14px;color:var(--muted);text-align:center;padding:4px 6px}
+.gbts{display:flex;gap:8px;margin-top:12px}
+.gbts button{flex:1;height:46px;border-radius:14px;background:rgba(255,255,255,.09);font-weight:700;font-size:14px}
+.gbts button.p{background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,0)) var(--club,#c81e2a);color:#fff;box-shadow:0 6px 18px var(--club-lt-soft,rgba(255,80,90,.3))}
+.glbl{margin:18px 2px 8px;font-size:15px;font-weight:800}
+.gli{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.gli .gic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:18px;background:var(--acc-soft);flex:none}.gli .gic.w{background:rgba(245,158,11,.18)}
+.gli .gtx{min-width:0}.gli b{display:block;font-size:14px}.gli small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gli .gch{margin-left:auto;color:var(--muted);font-size:20px}
+@media (max-width:370px){.gstage .gh1{font-size:27px}.gmid b{font-size:28px}}
+@media (prefers-reduced-motion:reduce){.gmid .glive{animation:none}}
 </style>
-<script>try { if (localStorage.getItem('ui_theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) { /* без хранилища — в цветах клуба */ }</script>
+<script>try { const t = localStorage.getItem('ui_theme'); if (t === 'dark' || t === 'club') document.documentElement.dataset.theme = t; } catch (e) { /* без хранилища — «Стекло в цвете клуба» */ }</script>
 </head>
 <body>
 <main>
@@ -673,8 +724,10 @@ html[data-theme="club"] .go.main[data-watch]{animation:wpulse 1.8s ease-in-out i
 <script>
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 if (TG) { TG.ready(); TG.expand(); }
-/* 🎨 оформление: «в цветах клуба» (светлое, акцент — цвет формы активного клуба) или тёмное, как раньше; выбор — в localStorage */
-let THEME = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'club', THEME_TG = '', THEME_CLUB = '';
+/* 🎨 оформление (выбор — в localStorage, только на этом телефоне): «стекло в цвете клуба» (по умолчанию с 08.11: тёмное, фото
+   стадиона и акцент — цвет формы активного клуба), «в цветах клуба» (светлое) или тёмное, как раньше */
+const THEMES = ['glass', 'club', 'dark'];
+let THEME = THEMES.includes(document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'glass', THEME_TG = '', THEME_CLUB = '';
 const rgbOf = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
 const hexOf = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
 function lumOf(h) { const f = v => (v /= 255) <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4), [r, g, b] = rgbOf(h); return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); }
@@ -697,6 +750,12 @@ function clubTone(kit) {      // цвет клуба: футболка; свет
   if (chromaOf(a) < 30) return ok(b) && chromaOf(b) >= 40 ? toneFit(b) : '#1e293b';
   return toneFit(a);
 }
+function toneLight(h) {      // тот же оттенок светлее: на фоне и карточках «Стекла» (оттенок клуба) контраст ≥ 4.5:1
+  const [r0, g0, b0] = rgbOf(h), card = hexOf([r0, g0, b0].map(v => v * .14 + 8).map(v => v + (255 - v) * .11)), lc = lumOf(card);
+  let out = h;
+  for (let k = 0; k <= 1.0001 && (lumOf(out) + .05) / (lc + .05) < 4.6; k += .02) out = hexOf([r0, g0, b0].map(v => v + (255 - v) * k));
+  return out;
+}
 const heroShade = c => { const [r, g, b] = rgbOf(c); return hexOf(lumOf(c) < .04 ? [r, g, b].map(v => v + (255 - v) * .14) : [r, g, b].map(v => v * .8)); };      // второй оттенок узора шапки
 const HERO_PATS = ['stripes', 'hoops', 'halves', 'quarters', 'sash', 'sleeves', 'chevron', 'fade', 'camo'];      // узоры формы, которые повторяет шапка; остальное — тонкие полосы
 function clubTheme() {      // при каждой отрисовке: тема, цвет активного клуба (нет клуба — синий), цвета окна Telegram
@@ -704,12 +763,17 @@ function clubTheme() {      // при каждой отрисовке: тема,
   R.dataset.theme = THEME;
   if (c !== THEME_CLUB) { THEME_CLUB = c; const [r, g, b] = rgbOf(c);
     R.style.setProperty('--club', c); R.style.setProperty('--club-hi', heroShade(c));
-    R.style.setProperty('--club-soft', `rgba(${r},${g},${b},.1)`); R.style.setProperty('--club-soft2', `rgba(${r},${g},${b},.06)`); }
-  const bg = THEME === 'dark' ? '#0b1220' : '#f7f8fa';
+    R.style.setProperty('--club-soft', `rgba(${r},${g},${b},.1)`); R.style.setProperty('--club-soft2', `rgba(${r},${g},${b},.06)`);
+    const lt = toneLight(c), [lr, lg, lb] = rgbOf(lt);      // «Стекло»: акцент светлее, фон — почти чёрный с оттенком клуба
+    R.style.setProperty('--club-lt', lt); R.style.setProperty('--club-lt-soft', `rgba(${lr},${lg},${lb},.16)`); R.style.setProperty('--club-lt-soft2', `rgba(${lr},${lg},${lb},.09)`);
+    const gb = [r, g, b].map(v => v * .14 + 8), mix = k => hexOf(gb.map(v => v + (255 - v) * k));
+    R.style.setProperty('--club-bg', hexOf(gb)); R.style.setProperty('--club-bg2', hexOf([r, g, b].map(v => v * .3 + 10)));
+    R.style.setProperty('--club-card', mix(.065)); R.style.setProperty('--club-card2', mix(.11)); R.style.setProperty('--club-line', mix(.16)); }
+  const bg = THEME === 'dark' ? '#0b1220' : THEME === 'glass' ? hexOf(rgbOf(c).map(v => v * .14 + 8)) : '#f7f8fa';
   if (TG && bg !== THEME_TG) { THEME_TG = bg; try { TG.setHeaderColor(bg); TG.setBackgroundColor(bg); } catch (e) { /* старый Telegram */ } }
 }
-function setTheme(t) { THEME = t === 'dark' ? 'dark' : 'club'; try { localStorage.setItem('ui_theme', THEME); } catch (e) { /* без хранилища — до закрытия */ } clubTheme(); }
-if (TG) { THEME_TG = THEME === 'dark' ? '#0b1220' : '#f7f8fa'; try { TG.setHeaderColor(THEME_TG); TG.setBackgroundColor(THEME_TG); } catch (e) { /* старый Telegram */ } }
+function setTheme(t) { THEME = THEMES.includes(t) ? t : 'glass'; try { localStorage.setItem('ui_theme', THEME); } catch (e) { /* без хранилища — до закрытия */ } clubTheme(); }
+if (TG) { THEME_TG = THEME === 'dark' ? '#0b1220' : THEME === 'glass' ? '#0e0a0c' : '#f7f8fa'; try { TG.setHeaderColor(THEME_TG); TG.setBackgroundColor(THEME_TG); } catch (e) { /* старый Telegram */ } }
 // высота окон (карточка игрока, матч, раздел «Клуб») — от видимой области Telegram, а не от vh: в Telegram на iPhone
 // vh бывает неверным, и окно выезжало узкой полоской (так же сделано на экране матча — webapp/match, fit)
 function fitSheet() { const vh = (TG && TG.viewportStableHeight) || innerHeight; if (vh > 100) document.documentElement.style.setProperty('--sheet-h', Math.round(vh * .88) + 'px'); }
@@ -2864,6 +2928,44 @@ function heroTick() {      // раз в минуту, за последние 10
   const left = HERO_AT - Date.now(); if (left <= 0) return;      // свисток: дальше статус «идёт» придёт от бота
   HERO_T = setTimeout(heroTick, left < 601e3 ? 1000 - Date.now() % 1000 + 5 : Math.min(left - 600e3, 60e3 - Date.now() % 60e3) + 5);
 }
+function myBadge(h, cls) {      // своя эмблема; нет эмблемы — значок из цветов формы с буквами клуба
+  return h.crest ? crestSvg(h.crest, cls) : `<div class="badge${cls ? ' ' + cls : ''}" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`;
+}
+function glassHome(h) {      // «Стекло в цвете клуба» (08.11): фото стадиона в цвете клуба, ближайший матч, «Сегодня в клубе»
+  const m = h.next, place = h.place ? `${h.place}-е место` : (h.league ? 'сезон не идёт' : 'вне лиги');
+  let x = `<div class="gstage"><div class="gtop">${myBadge(h, 'gcr')}<div class="gname"><b>${esc(h.club)}${h.star ? ' ⭐' : ''}</b>` +
+    `<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · ${place}</small></div><div class="gfans"><b>${h.fans}</b>болельщиков</div></div>` +
+    `<div class="gcap">Стадион «${esc(h.club)}»${h.stadium ? ` · ${h.stadium.cap} мест` : ''}</div>` +
+    `<h1 class="gh1">${m ? `${esc(h.club)} <i>против</i> ${esc(m.opp)}` : esc(h.club)}</h1></div>`;
+  x += glassMatch(h, m);
+  const todo = [];      // дела на сегодня — только то, что правда можно сделать сейчас (данные от бота)
+  if (h.problems && h.problems.length) todo.push(['⚠️', 'Состав не готов', h.problems[0].replace(/\s*\(\/\w+\)/g, ''), 'data-go="squad"', 1]);
+  if (h.can_train) todo.push(['🏋️', 'Тренировка не проведена', 'сегодня ещё не было', 'data-panel="training"']);
+  if (h.growth && h.growth.length) todo.push(['📈', 'Вложить очки роста', h.growth.join(', '), 'data-panel="growth"']);
+  if (h.hurt) todo.push(['🩹', 'Травмы в составе', 'травмированных: ' + h.hurt, 'data-go="squad"', 1]);
+  if (todo.length) x += `<div class="glbl">Сегодня в клубе</div><div class="gtodo">` + todo.map(([i, t, s, a, w]) =>
+    `<button type="button" class="gli" ${a}><span class="gic${w ? ' w' : ''}">${i}</span><span class="gtx"><b>${esc(t)}</b><small>${esc(s)}</small></span><span class="gch">›</span></button>`).join('') + `</div>`;
+  return x;
+}
+function glassMatch(h, m) {      // карточка матча: две эмблемы, время (сегодня — отсчёт, идёт — LIVE и счёт), главная кнопка
+  HERO_AT = 0;
+  if (!m) return `<div class="gmc"><div class="gnone">Ближайшего матча нет — найдите соперника или позовите друга из лиги.</div>` +
+    `<div class="gbts"><button type="button" class="p" data-go="league">🏆 Матчи и соперники</button></div></div>`;
+  const opp = crestOf(m), oppB = opp ? crestSvg(opp, 'gcr') : `<div class="badge gcr">${esc(initials(m.opp || '?'))}</div>`;
+  const me = `<div class="gtm">${myBadge(h, 'gcr')}<span>${esc(h.club)}</span><small>${m.home ? 'дома' : 'в гостях'}</small></div>`;
+  const them = `<div class="gtm">${oppB}<span>${esc(m.opp)}</span><small>${esc(m.label || '')}</small></div>`;
+  let mid;
+  if (m.status === 'live') mid = `<span class="glive">● LIVE</span><b>${esc(m.score || '0:0')}</b>`;
+  else {
+    const t = m.status === 'scheduled' ? heroWhen(m.when) : 0, today = t && t - Date.now() < 864e5 && t - Date.now() > -36e5;
+    if (today) HERO_AT = t;
+    const dt = /^(\d\d\.\d\d) (\d\d:\d\d)$/.exec(m.when || '');      // назначено «23.10 20:30»; иначе «до 24.10 23:00» — время ещё выбирают
+    mid = today ? `<b class="hcount">${heroLeft()}</b><small>до свистка</small>` : dt ? `<b>${dt[2]}</b><small>${dt[1]}</small>` : `<b>VS</b><small>${esc(m.when || 'время не выбрано')}</small>`;
+  }
+  const go = m.watch ? `<button type="button" class="p" data-watch="${m.id}">📺 Смотреть матч</button>`
+    : `<button type="button" class="p" data-go="squad">📋 Состав</button><button type="button" data-go="league">🏆 Матчи</button>`;
+  return `<div class="gmc"><div class="gvs">${m.home ? me : them}<div class="gmid">${mid}</div>${m.home ? them : me}</div><div class="gbts">${go}</div></div>`;
+}
 function renderHome() {
   const hb = H(), h = hb.home;
   if (!h) {
@@ -2878,7 +2980,7 @@ function renderHome() {
   }
   const cap = S.players && S.captain ? player(S.captain) : null;      // крупная футболка в шапке — с номером капитана
   const pat = (((hb.kit_edit || {}).design || {}).home || {}).p, num = cap ? cap.number : 10;
-  let x = `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
+  let x = THEME === 'glass' ? glassHome(h) : `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}${h.stadium ? ` · 🏟 ${h.stadium.cap} мест${h.stadium.next ? ` (с нового сезона — ${h.stadium.next})` : ''}` : ''}</small></h1></div>` +
     (Array.isArray(h.kit) && h.kit.length > 1 ? `<button type="button" class="hshirt kflip${HERO_BACK ? ' bk' : ''}" data-heroflip aria-label="Перевернуть футболку"><div class="kfi">` +
       `<div class="kff">${shirtSvg(h.kit, num)}</div><div class="kfb">${shirtBackSvg(h.kit, cap ? shortName(cap) : '', num)}</div></div></button>` : '') + heroDay(h.next) + `</div>`;
@@ -2913,7 +3015,7 @@ function renderHome() {
   x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` + (h.tips || []).map(t => `<div class="sub">💡 ${esc(t)}</div>`).join('') +
     (h.tired || h.hurt ? `<div class="sub">${h.tired ? 'устали: ' + h.tired : ''}${h.tired && h.hurt ? ' · ' : ''}${h.hurt ? 'травмы: ' + h.hurt : ''}</div>` : '') +
     `<button type="button" class="go${ready ? '' : ' main'}" data-go="squad">📋 Открыть состав</button></div>`;
-  if (h.can_train || h.growth.length) x += `<div class="card"><h3>Сегодня</h3>` +
+  if ((h.can_train || h.growth.length) && THEME !== 'glass') x += `<div class="card"><h3>Сегодня</h3>` +
     (h.can_train ? `<button type="button" class="go" data-panel="training">🏋️ Тренировка — сегодня ещё не было</button>` : '') +
     (h.growth.length ? `<button type="button" class="go" data-panel="growth">📈 Вложить очки роста: ${esc(h.growth.join(', '))}</button>` : '') + `</div>`;
   if (hb.star) x += `<div class="card note">${esc(hb.star)}</div>`;
@@ -3003,7 +3105,8 @@ function renderMore() {
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
   x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-tab="learn">🎓 Обучение<span>подсказки прямо на экранах: что нажать и что ввести; учебный матч</span></button>` +      // «Обучение» — не в нижнем меню (там «💶 Финансы»)
     (hb.help && hb.help.length ? `<button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button>` : '') + `</div>`;
-  const themeBtn = `<button type="button" data-theme-set="${THEME === 'dark' ? 'club' : 'dark'}">🎨 Оформление: ${THEME === 'dark' ? 'тёмное (как раньше)' : 'в цветах клуба'}<span>нажмите — ${THEME === 'dark' ? 'светлое в цветах клуба' : 'тёмное (как раньше)'}</span></button>`;
+  const TN = {glass: 'стекло в цвете клуба', club: 'светлое в цветах клуба', dark: 'тёмное (как раньше)'}, nextT = THEMES[(THEMES.indexOf(THEME) + 1) % THEMES.length];
+  const themeBtn = `<button type="button" data-theme-set="${nextT}">🎨 Оформление: ${TN[THEME]}<span>нажмите — ${TN[nextT]}</span></button>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
     x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button>${themeBtn}</div>`; }
   else x += `<div class="label">Настройки</div><div class="menu app">${themeBtn}</div>`;
