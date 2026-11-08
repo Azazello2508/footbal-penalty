@@ -2512,7 +2512,7 @@ function modClick(d) {
   if (d.munban) { const mid = +d.munban; ask('Разбанить менеджера? Доступ к игре вернётся, официальный клуб — нет.', () => send({a: 'modunban', mid, sure: true})); return true; }
   return false;
 }
-const ECO_ADMIN = ['ecoon', 'ecotest', 'ecodefault', 'ecoreset', 'ecomarket'];      // действия администратора с экономикой (права проверяет бот)
+const ECO_ADMIN = ['ecoon', 'ecotest', 'ecodefault', 'ecoreset', 'ecomarket', 'ecoadmin'];      // действия администратора с экономикой (права проверяет бот)
 const ECO_WORD = {off: 'выключена', next: 'со следующего сезона', on: 'работает'};
 const ECO_MARKET = {off: '⏸ Выключен', test: '🧪 Только тестовые', all: '🔄 Включён везде'};
 const ECO_MARKET_NOTE = {off: 'Выключен во всех лигах: окна нет, контракты не кончаются и не уменьшаются, никто не уходит. Доходы и зарплаты идут как обычно.',
@@ -2630,8 +2630,12 @@ function panelAdmin(m, P) {
     mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b><div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div>` +
       `<button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('') : `<div class="card note">Официальные клубы пока никто не ведёт.</div>`, false);
   const E = A.economy, EL = (E && E.leagues) || [];
-  if (E) h += admSec('eco', '💶 Экономика', `рынок: ${ECO_MARKET[E.market || 'off']} · с экономикой ${EL.filter(L => L.economy !== 'off').length} из ${EL.length} лиг`, 0,
-    ecoAdmin(A.economy, P), P.ecoreset != null);      // app/economy.py admin_act — логика и кнопки прежние
+  if (!E && admOpen('eco', false) && !ECO_ADM.wait && !ECO_ADM.err) setTimeout(ecoAdmLoad, 0);      // состояние обновилось, раздел открыт — грузим снова
+  h += E ? admSec('eco', '💶 Экономика', `рынок: ${ECO_MARKET[E.market || 'off']} · с экономикой ${EL.filter(L => L.economy !== 'off').length} из ${EL.length} лиг`, 0,
+    ecoAdmin(A.economy, P), P.ecoreset != null)      // app/economy.py admin_act — логика и кнопки прежние
+    : admSec('eco', '💶 Экономика', 'откройте раздел — данные загрузятся', 0, ECO_ADM.err
+      ? `<div class="card note">${esc(ECO_ADM.err)}<button type="button" class="go" data-ecoadmload="1">🔄 Ещё раз</button></div>`
+      : `<div class="card note">Загружается…</div>`, false);      // экономика не лежит в состоянии: приходит по запросу «ecoadmin»
   const U = A.euro;
   if (U) h += admSec('euro', '🌍 Еврокубки', `следующий цикл ${esc(U.next)} · идёт турниров: ${(U.running || []).length}`, U.can_start ? '!' : 0,
     euroAdmin(U), false);      // app/euro.py admin_act, этап Е1
@@ -2645,7 +2649,20 @@ function panelAdmin(m, P) {
   return h;
 }
 // открыт ли блок раздела администратора — запоминаем, чтобы перерисовка после действия его не сворачивала
-document.addEventListener('toggle', e => { const k = e.target && e.target.dataset && e.target.dataset.adm; if (k) ADM_OPEN[k] = e.target.open; }, true);
+const ECO_ADM = {wait: false, err: ''}, ECO_ADM_T = {t: 0};      // раздел «Экономика» администратора грузится по запросу
+function ecoAdmLoad() {
+  const A = H().admin;
+  if (!A || A.economy || ECO_ADM.wait) return;
+  ECO_ADM.wait = true; ECO_ADM.err = '';
+  clearTimeout(ECO_ADM_T.t); ECO_ADM_T.t = setTimeout(() => ecoAdmFail('Не удалось загрузить'), 15000);
+  if (ROOM && (!ws || ws.readyState !== 1)) { ecoAdmFail('Не удалось загрузить'); return; }
+  send({a: 'ecoadmin'});
+}
+function ecoAdmFail(note) {
+  clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = note || 'Не удалось загрузить';
+  if (PANEL && PANEL.k === 'admin') renderPanel();
+}
+document.addEventListener('toggle', e => { const k = e.target && e.target.dataset && e.target.dataset.adm; if (k) { ADM_OPEN[k] = e.target.open; if (k === 'eco' && e.target.open) ecoAdmLoad(); } }, true);
 function panelNewClub(m, P) {
   const C = H().create, O = H().official || {};
   if (!C) return panelHead('⚽ Новый клуб') + `<div class="card note">Свой клуб у вас уже есть.</div>`;
@@ -4700,6 +4717,7 @@ document.addEventListener('click', e => {
 });
 function val(id) { return (($(id) || {}).value || '').trim(); }
 function ecoAdminClick(b, d, P) {      // 💶 экономика лиг друзей в разделе администратора
+  if (d.ecoadmload) { haptic(); ecoAdmLoad(); if (PANEL && PANEL.k === 'admin') renderPanel(); return true; }
   const E = H().admin.economy || {}, L = id => (E.leagues || []).concat(E.official || []).find(x => x.id === +id) || {name: ''};
   if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
   if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
@@ -4876,6 +4894,7 @@ function onAck(m) {
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
   if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
+  if (act && act.a === 'ecoadmin') { if (m.ok && m.economy) { clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = ''; } else ecoAdmFail(m.note || 'Не удалось загрузить'); }
   if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.euro && act && ['eurostart', 'eurotest', 'euroreset'].includes(act.a) && H().admin) { H().admin.euro = m.euro; if (PANEL && PANEL.k === 'admin') renderPanel(); }
   if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
