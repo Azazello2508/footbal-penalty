@@ -3954,6 +3954,7 @@ function ecoAck(m, act) {
   if (!ECO || act.key !== ECO.key) return;              // ответ про клуб, который уже не активен
   clearTimeout(ECO_T);
   ECO = {key: act.key, st: m.ok && m.economy ? m.economy : ECO.st, err: m.ok ? '' : (m.note || 'Не удалось загрузить кассу'), wait: false};
+  if (m.ok && m.economy) ECO_BL = {};            // О4-2: числа в «у вас сейчас» могли измениться
   if (ECO_Q && !(((ECO.st || {}).blocks || {})[ECO_Q])) ECO_Q = null;
   renderMoney();
 }
@@ -3962,10 +3963,34 @@ function ecoMoney(k, plus) {      // тысячи евро — как money() у
   return sign + (v >= 1000 ? (v / 1000).toFixed(2).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',') + ' млн €' : Math.round(v) + ' тыс. €');
 }
 const ecoQ = k => ((((ECO || {}).st || {}).blocks || {})[k] ? `<button type="button" class="fq${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}" aria-label="Что это?">?</button>` : '');
+/* О4-2: у официального клуба в ответе «Финансы» вместо текстов блоков — пометки true; текст — по нажатию «?»
+   ({a: 'ecoblock', which}), кэш до следующего ответа «Финансы»; нет ответа 10 с — «Не удалось загрузить» и «Ещё раз» */
+let ECO_BL = {};           // 'клуб:блок' → {b, wait, err}
+function ecoBlock(k) {
+  const b = (((ECO || {}).st || {}).blocks || {})[k];
+  if (b !== true) return b ? {b} : null;
+  const id = ECO.key + ':' + k;
+  let s = ECO_BL[id];
+  if (!s) {
+    s = ECO_BL[id] = {wait: true};
+    setTimeout(() => { if (s.wait) { s.wait = false; s.err = 'Бот не ответил — проверьте связь.'; renderMoney(); } }, 10000);
+    send({a: 'ecoblock', which: k, key: ECO.key});
+  }
+  return s;
+}
+function ecoBlockAck(m, act) {
+  const s = ECO_BL[act.key + ':' + act.which] || (ECO_BL[act.key + ':' + act.which] = {});
+  s.wait = false; s.b = m.ok ? m.block : null; s.err = m.ok && m.block ? '' : (m.note || 'пояснения нет');
+  renderMoney();
+}
 function ecoWhat(keys) {          // блок «Что такое…» с сервера — под той карточкой, где нажали «?»
   if (!ECO_Q || !keys.includes(ECO_Q)) return '';
-  const b = ECO.st.blocks[ECO_Q];
-  return `<div class="card fwhat"><h3><span>${esc(b.title)}</span><button type="button" class="fq" data-ecoq="${ECO_Q}" aria-label="Закрыть">✕</button></h3>` +
+  const s = ecoBlock(ECO_Q); if (!s) return '';
+  const top = t => `<div class="card fwhat"><h3><span>${esc(t)}</span><button type="button" class="fq" data-ecoq="${ECO_Q}" aria-label="Закрыть">✕</button></h3>`;
+  if (s.wait) return top('Что это?') + `<div class="note fload">⏳ Загружается…</div></div>`;
+  if (s.err || !s.b) return top('Что это?') + `<div class="banner warn">⚠️ Не удалось загрузить: ${esc(s.err || '')}</div><button type="button" class="go" data-ecoblockretry="${esc(ECO_Q)}">🔄 Ещё раз</button></div>`;
+  const b = s.b;
+  return top(b.title) +
     `<div class="note">${esc(b.lead)}</div><ul>${(b.points || []).map(p => `<li>${esc(p)}</li>`).join('')}</ul><div class="now">${esc(b.now || '')}</div></div>`;
 }
 const ecoTours = n => n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'тур' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'тура' : 'туров');
@@ -3996,7 +4021,8 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
     (st.surplus ? `<div class="row"><span>Налог на излишек${ecoQ('surplus')}</span><b class="${st.surplus.tax ? 'fminus' : ''}">${st.surplus.excess ? '≈' + ecoMoney(-st.surplus.tax) + ' за тур' : 'нет'}</b></div>` +
       `<div class="sub">${st.surplus.excess ? `Излишек ${ecoMoney(st.surplus.excess)} сверх порога ${ecoMoney(st.surplus.free)}` : `Порог — ${ecoMoney(st.surplus.free)} в кассе`}</div>` : '') +
     (st.reserve != null ? `<div class="row"><span>Запас${ecoQ('reserve')}</span><b>не меньше ${ecoMoney(st.reserve)}</b></div>` +
-      `<div class="sub">${ecoPct(st.reserve_share)} дохода за ${ecoT14()} остаётся в кассе после подписания агента · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` : '') + `</div>`;
+      `<div class="sub">${ecoPct(st.reserve_share)} дохода за ${ecoT14()} остаётся в кассе после подписания агента · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
+      (st.hold && st.hold.total ? `<div class="sub">В запасе — и обязательства клуба ${ecoMoney(st.hold.total)}: ${esc(st.hold.text)}</div>` : '') : '') + `</div>`;
   x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70', 'surplus', 'reserve']);
   x += `<div class="lrow"><div class="label">Класс клуба</div>${ecoQ('klass')}</div><div class="card fin">` +
     `<div class="row"><span>Класс — множитель дохода</span><b>${esc(st.klass_text || '')}</b></div>` +
@@ -4010,6 +4036,7 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
   x += ecoAgents(st);        // этап О2: общий рынок свободных агентов официальных лиг (в общее окно, О3)
   x += ecoTrade(st);         // этап О3: рынок игроков официальных лиг — менеджеры и клубы бота (список — по запросу)
+  x += ecoFinance(st);       // этап О4-2: спонсор, инвестор, кредит — как у лиг друзей, суммы × класс клуба
   x += ecoBuilds(st);        // этап О4-1: стадион (+% к доходу) и тренировочная база — экраны лиг друзей, суммы × класс
   x += ecoAcademy(st);       // этап О4-1: академия, селекционеры, юниоры клубов менеджеров официальных лиг
   const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;
@@ -4097,6 +4124,7 @@ function ecoSpWhat(kind) {         // условия спонсора — из R
   const R = ecoRules(), k = (R.sponsor || {})[kind]; if (!k) return '';
   if (kind === 'safe') return `${ecoPct(k.fixed)} бренда фиксированно на ${ECO_SEASONS(k.seasons)}`;
   if (kind === 'ambitious') return `${ecoPct(k.fixed)} фиксированно + бонус до ${ecoPct(R.bonus_max)} бренда за цели сезона`;
+  if ((ECO.st || {}).official) return `${ecoPct(k.fixed)} на ${ECO_SEASONS(k.seasons)}, +${ecoPct(k.step)} каждый год; класс клуба для спонсора закреплён на весь срок — от падения класса защищает, но и рост не даёт`;
   return `${ecoPct(k.fixed)} на ${ECO_SEASONS(k.seasons)}, +${ecoPct(k.step)} каждый год; звёзды бренда заморожены на весь срок — от падения защищает, но и рост за титул не даёт`;
 }
 function ecoFinance(st) {
@@ -4113,7 +4141,7 @@ function ecoSponsor(S) {
       c.goals.map(g => `<div class="row"><span>${g.met ? '✅' : '▫️'} ${esc(g.title)}</span><b>+${ecoPct(g.share)}</b></div>`).join('');
     if (c.marks) x += `<div class="banner warn">⚠️ Моральная оговорка: нарушений в сезоне — ${c.marks}, выплата сезона −${ecoPct(c.fine_share)}</div>`;
     if (c.result) x += `<div class="sub">Итог сезона: выплачено ${ecoMoney(c.result.paid)}${c.result.bonus ? `, бонус за цели ${ecoMoney(c.result.bonus, true)}` : ''}${c.result.fine ? `, оговорка ${ecoMoney(-c.result.fine)}` : ''}</div>`;
-  } else x += `<div class="note">Договор начнётся с первым туром сезона: «🛡 Надёжный» — 100% бренда.</div>`;
+  } else x += `<div class="note">Договор начнётся с первым туром сезона: «🛡 Надёжный» — 100% бренда${S.official ? ' (бренд — часть дохода клуба, × класс)' : ''}.</div>`;
   if (S.long_left) x += `<div class="sub">⏳ «Долгий» действует ещё ${ECO_SEASONS(S.long_left)} — новых предложений до конца срока нет.</div>`;
   if (S.offers) {
     x += `<div class="sub">🔄 Окно открыто: выберите спонсора на следующий сезон — не выберете, будет «🛡 Надёжный». До закрытия окна можно передумать.</div>` +
@@ -4125,7 +4153,7 @@ function ecoSponsor(S) {
           (o.ok === false && !on ? `<div class="banner warn">⛔ ${esc(o.why || 'Выбрать нельзя')}</div>` : '') +
           (on ? '' : `<button type="button" class="go${o.kind === 'safe' && !S.choice ? ' main' : ''}" data-ecosp="${o.kind}"${o.ok === false ? ' disabled' : ''}>🤝 Выбрать «${esc(o.title)}»</button>`) + `</div>`; }).join('') +
       `<div class="sub">Моральная оговорка во всех договорах: каждая драка или массовое удаление — −${ecoPct(S.moral)} выплаты сезона.</div>`;
-  } else if (!S.long_left) x += `<div class="sub">Новые предложения спонсоров — в трансферное окно вашей лиги.</div>`;
+  } else if (!S.long_left) x += `<div class="sub">Новые предложения спонсоров — в ${S.official ? 'общее трансферное окно официальных лиг' : 'трансферное окно вашей лиги'}.</div>`;
   return x + `</div>`;
 }
 function ecoInvestor(I) {
@@ -4140,7 +4168,7 @@ function ecoInvestor(I) {
     `<div class="sub">Деньги инвестора — не доход в правиле 70%. Доля списывается каждый тур, даже если касса уйдёт в минус; доля за ближайшие ${ecoT14()} остаётся в запасе после трат.</div>` +
     `<div class="mrow2"><button type="button" class="go main" data-ecoinv="${o.id}">💼 Принять</button><button type="button" class="go" data-ecoinvno="${o.id}">✕ Отказаться</button></div>`;
   if (a) x += `<div class="row"><div><b>Договор: дал ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(a.share)} спонсора и магазина · туров ${a.tours_done} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.taken)}</b>из ${ecoMoney(a.cap)}</div></div>`;
-  if (!o && !a) x += `<div class="note">Предложений нет. Инвестор приходит в конце сезона к клубам нижней половины лиги по доходу, когда есть повод: растёт посещаемость, финал кубка лиги, сильный сезон.</div>`;
+  if (!o && !a) x += `<div class="note">${(ECO.st || {}).official ? 'Предложений нет. Инвестор приходит в конце сезона к клубам менеджеров, чей класс — в нижней половине лиги среди всех клубов (и ботов), когда есть повод: финал кубка страны или сильный сезон.' : 'Предложений нет. Инвестор приходит в конце сезона к клубам нижней половины лиги по доходу, когда есть повод: растёт посещаемость, финал кубка лиги, сильный сезон.'}</div>`;
   return x + `</div>`;
 }
 function ecoLoan(L) {
@@ -4514,7 +4542,7 @@ function ecoWinAck(m, act) {
     }
     renderMoney(); return;
   }
-  if (m.economy) ECO.st = m.economy;
+  if (m.economy) { ECO.st = m.economy; ECO_BL = {}; }      // О4-2: тексты блоков — заново по «?»
   if (m.ok && act.a === 'wrenew') ECO_R = null;
   if (m.ok && act.a === 'ypick') ECO_Y = null;
   if (m.ok && act.a === 'yoffer') ECO_YB = null;
@@ -4851,6 +4879,7 @@ document.addEventListener('click', e => {
   if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
   if (b.dataset.ecoq) { haptic(); ECO_Q = ECO_Q === b.dataset.ecoq ? null : b.dataset.ecoq; renderMoney(); return; }      // «Финансы»: блок «Что такое…»
+  if (b.dataset.ecoblockretry) { haptic(); delete ECO_BL[((ECO || {}).key || '') + ':' + b.dataset.ecoblockretry]; renderMoney(); return; }      // О4-2: «Ещё раз»
   if (b.hasAttribute('data-ecoall')) { haptic(); ECO_ALL = !ECO_ALL; renderMoney(); return; }
   if (b.hasAttribute('data-ecoload')) { haptic(); ecoLoad(true); renderMoney(); return; }
   if (TAB === 'money' && !PANEL && ecoWinClick(b, b.dataset)) return;      // трансферное окно: продлить / отпустить / имя
@@ -5113,6 +5142,7 @@ function onAck(m) {
   if (m.note && !(m.ok && act && act.a === 'daily')) { haptic(m.ok ? 'ok' : 'bad'); toast(m.note, !m.ok); }
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
   if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
+  if (act && act.a === 'ecoblock') ecoBlockAck(m, act);      // О4-2: блок «Что такое…» официального клуба
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
   if (act && DISP_ACTS.includes(act.a)) dispAck(m, act);      // «🔥 Спорные вопросы» администратора
   if (act && act.a === 'ecoadmin') { if (m.ok && m.economy) { clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = ''; } else ecoAdmFail(m.note || 'Не удалось загрузить'); }
