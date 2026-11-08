@@ -2728,8 +2728,58 @@ function panelAdmin(m, P) {
     `<div class="card"><b>👕 Уровни формы</b><div class="note">${A.kit_editor ? 'Продажа открыта: менеджеры покупают уровни формы за звёзды (по порядку или набором), а меняют форму в пределах уровня бесплатно.' : 'Продажа закрыта: у всех — базовая форма (9 цветов) и уже купленные уровни; купить новый уровень нельзя. У администраторов — все уровни бесплатно.'}</div>` +
     `<button type="button" class="go${A.kit_editor ? ' danger' : ' main'}" data-kitopen="${A.kit_editor ? 0 : 1}">${A.kit_editor ? '🔒 Закрыть продажу формы' : '🔓 Открыть продажу формы'}</button>` +
     `<details class="admin2" data-adm="kitp"${admOpen('kitp', false) ? ' open' : ''}><summary>⭐ Цены уровней формы ▾</summary>${admPrices('kitprice', 'data-kitprice', A.kit_prices || {}, KIT_EDITOR.level_names)}</details></div>`, false);
+  const DS = A.disputes || {n: 0, when: ''};
+  h += admSec('disp', '🔥 Спорные вопросы', `в очереди ${DS.n} · следующий опрос ${esc(DS.when)}`, 0, dispAdmin(), false);
   return h;
 }
+// «🔥 Спорные вопросы» группы сообщества (app/community_disputes.py): очередь грузится по запросу «dispadmin»,
+// добавляют вставкой «Вопрос | вариант | вариант» — проверяет и решает бот
+const DISP = {data: null, wait: false, err: '', draft: '', errors: []}, DISP_ACTS = ['dispadmin', 'dispadd', 'dispdel'];
+function dispAdmin() {
+  const D = DISP.data;
+  let h = `<div class="card"><div class="note">Раз в два дня в 21:00 бот задаёт опрос в теме «🔥 Спорный вопрос» группы сообщества. Сначала — вопросы из очереди (по порядку), очередь пуста — «вечный спор» из готового списка.</div>` +
+    `<textarea id="dispin" class="prown" rows="5" maxlength="6000" placeholder="По строке на вопрос:&#10;Вопрос | вариант | вариант | …">${esc(DISP.draft)}</textarea>` +
+    `<div class="sub" style="margin-top:6px">Вопрос — до 300 знаков, вариантов 2–10 по 100 знаков. Пустые строки и /spor пропускаются, ссылки отбрасываются.</div>` +
+    (DISP.errors.length ? `<div class="banner warn" style="margin-top:9px">${DISP.errors.map(esc).join('<br>')}</div>` : '') +
+    `<button type="button" class="go main" data-dispadd="1">➕ Добавить</button></div>`;
+  if (!D) return h + (DISP.err ? `<div class="card note">${esc(DISP.err)}<button type="button" class="go" data-dispload="1">🔄 Ещё раз</button></div>`
+    : `<div class="card note">Загружается…</div>`);
+  h += `<div class="card"><div class="row"><div><b>Следующий опрос: ${esc(D.when)}</b><div class="sub">${esc(D.from)}: «${esc(D.next)}»</div>` +
+    (D.group ? '' : `<div class="sub">⚠️ Группа сообщества не назначена — опросов не будет (/community в группе).</div>`) + `</div></div>` +
+    `<button type="button" class="go" data-dispload="1">🔄 Обновить</button></div>`;
+  h += `<div class="label">Очередь: ${D.queue.length} из ${D.max}</div>` + (D.queue.length ? D.queue.map((x, i) => `<div class="card"><div class="row"><div><b>${i + 1}. ${esc(x.q)}</b><div class="sub">${esc(x.opts)}</div></div></div>` +
+    `<button type="button" class="go danger" data-dispdel="${x.id}">🗑 Удалить</button></div>`).join('')
+    : `<div class="card note">Очередь пуста — выйдет вечный спор (их в списке ${D.eternal}).</div>`);
+  return h;
+}
+function dispLoad() {
+  if (DISP.wait) return;
+  DISP.wait = true; DISP.err = ''; setTimeout(() => { if (DISP.wait) dispFail('Не удалось загрузить'); }, 15000);
+  if (ROOM && (!ws || ws.readyState !== 1)) { dispFail('Не удалось загрузить'); return; }
+  send({a: 'dispadmin'});
+}
+function dispFail(note) {
+  DISP.wait = false; DISP.err = note || 'Не удалось загрузить';
+  if (PANEL && PANEL.k === 'admin') renderPanel();
+}
+function dispAck(m, act) {
+  DISP.wait = false;
+  if (m.disputes) { DISP.data = m.disputes; DISP.err = ''; }
+  else if (act.a === 'dispadmin') { dispFail(m.note); return; }
+  if (act.a === 'dispadd' && m.errors) { DISP.errors = m.errors; if (m.rest !== undefined) DISP.draft = m.rest; }
+  if (PANEL && PANEL.k === 'admin') renderPanel();
+}
+function dispClick(b, d) {
+  if (d.dispload) { haptic(); dispLoad(); renderPanel(); return true; }
+  if (d.dispadd) { const t = ($('dispin') || {}).value || ''; DISP.draft = t;
+    if (!t.trim()) { toast('Вставьте вопросы: по строке «Вопрос | вариант | вариант»', true); return true; }
+    haptic(); send({a: 'dispadd', text: t}); return true; }
+  if (d.dispdel) { const did = +d.dispdel, x = ((DISP.data || {}).queue || []).find(q => q.id === did);
+    ask(`Удалить из очереди вопрос «${x ? x.q.slice(0, 80) : ''}»?`, () => send({a: 'dispdel', did})); return true; }
+  return false;
+}
+document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.adm === 'disp' && t.open && !DISP.data && !DISP.err) dispLoad(); }, true);
+document.addEventListener('input', e => { if (e.target && e.target.id === 'dispin') DISP.draft = e.target.value; });
 // открыт ли блок раздела администратора — запоминаем, чтобы перерисовка после действия его не сворачивала
 const ECO_ADM = {wait: false, err: ''}, ECO_ADM_T = {t: 0};      // раздел «Экономика» администратора грузится по запросу
 function ecoAdmLoad() {
@@ -4889,6 +4939,7 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (P.k === 'crest' && crestClick(b)) return true;
   if (P.k === 'admin' && modClick(d)) return true;
   if (P.k === 'admin' && ecoAdminClick(b, d, P)) return true;
+  if (P.k === 'admin' && dispClick(b, d)) return true;
   if (P.k === 'report') {
     if (d.rept !== undefined) { P.slot = +d.rept; haptic(); renderPanel(); return true; }
     if (d.repr) { P.reason = d.repr; haptic(); renderPanel(); return true; }
@@ -5041,6 +5092,7 @@ function onAck(m) {
   if (m.ok && m.learn && S && S.hub) { S.hub.learn = m.learn; renderLearn(); }
   if (act && act.a === 'economy') ecoAck(m, act);      // «💶 Финансы»: касса клуба
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
+  if (act && DISP_ACTS.includes(act.a)) dispAck(m, act);      // «🔥 Спорные вопросы» администратора
   if (act && act.a === 'ecoadmin') { if (m.ok && m.economy) { clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = ''; } else ecoAdmFail(m.note || 'Не удалось загрузить'); }
   if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.euro && act && ['eurostart', 'eurotest', 'euroreset'].includes(act.a) && H().admin) { H().admin.euro = m.euro; if (PANEL && PANEL.k === 'admin') renderPanel(); }
