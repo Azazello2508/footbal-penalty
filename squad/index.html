@@ -2530,6 +2530,7 @@ function ecoAdmin(E, P) {      // раздел администратора: э�
     (DL.length ? DL.slice(0, 15).map(t => `<div class="row"><div><b>${esc(t.player)}</b><div class="sub">«${esc(t.seller)}» → «${esc(t.buyer)}» · ${esc(t.kind)} · ${esc(t.at)}</div>` +
       `<div class="sub">продавцу ${ecoMoney(t.get)} · сгорело ${ecoMoney(t.burned)}${t.junior ? ` (из них стартовая стоимость новичка ${ecoMoney(t.junior)})` : ''}</div></div><div class="r"><b>${ecoMoney(t.price)}</b></div></div>`).join('')
       : `<div class="note">Сделок пока не было.</div>`) + `</div></details>`;
+  h += ecoAdminOfficial(E.official || [], P);
   if (!E.leagues.length) return h + `<div class="card note">Лиг друзей пока нет.</div>`;
   return h + E.leagues.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">клубов: ${L.clubs} · экономика: ${ECO_WORD[L.economy] || L.economy}${L.test ? ' · 🧪 тестовая' : ''}${L.season ? ' · сезон идёт' : ''}${L.window ? ' · 🔄 окно до ' + esc(L.window) : ''}${L.cup ? ' · 🏆 кубок: ' + esc(L.cup) : ''}</div></div></div>` +
     (L.cup ? `<button type="button" class="go danger" data-fcupadm="${L.id}">🗑 Сбросить кубок лиги</button>` : '') +
@@ -2539,6 +2540,20 @@ function ecoAdmin(E, P) {      // раздел администратора: э�
     (P.ecoreset === L.id ? `<div class="banner warn" style="margin-top:9px">Шаг 2 из 2. Сбросить экономику лиги «${esc(L.name)}»? Кассы, журнал движений и контракты её клубов обнулятся${L.test ? ', а состав вернётся к тому, что был до первого окна: ушедшие игроки — на свои места, новички окна уберутся' : ''}. Отменить нельзя. Можно только между сезонами.</div>` +
       `<div class="mrow2"><button type="button" class="go danger" data-ecoreset2="${L.id}">🗑 Да, сбросить</button><button type="button" class="go" data-ecoresetx>Отмена</button></div>`
       : `<button type="button" class="go danger" data-ecoreset="${L.id}">🗑 Сброс экономики лиги…</button>`) + `</div>`).join('');
+}
+function ecoAdminOfficial(OL, P) {      // этап О1: экономика официальных лиг — переключатель, классы клубов и мест, сброс в два шага
+  if (!OL.length) return '';
+  const k = v => '×' + String(v).replace('.', ',');
+  return `<div class="label">💶 Экономика официальных лиг</div><div class="note">Включается со следующего сезона лиги. Касса — только у клубов менеджеров; класс клуба — множитель дохода (считается при открытии кассы, после сезона сдвигается к классу занятого места).</div>` +
+    OL.map(L => `<div class="card"><div class="row"><div><b>${esc(L.name)}</b><div class="sub">${L.clubs != null ? `клубов: ${L.clubs} · менеджеров: ${L.people} · ` : ''}экономика: ${ECO_WORD[L.economy] || L.economy}${L.season ? ' · сезон идёт' : ''}</div></div></div>` +
+      (L.places && L.places.length ? `<div class="sub">Классы мест по силе: ${L.places.map(k).join(' · ')}</div>` : '') +
+      (L.classes && L.classes.length ? `<details class="admin2"><summary>🏅 Классы клубов с кассой (${L.classes.length}) ▾</summary><div class="card fpl">` +
+        L.classes.map(c => `<div class="row"><div><b>${esc(c.name)}</b><div class="sub">${c.bot ? '🤖 у бота — касса стоит' : 'менеджер'} · касса ${ecoMoney(c.cash)}</div></div><div class="r"><b>${k(c.k)}</b></div></div>`).join('') + `</div></details>` : '') +
+      `<div class="mrow2">` + (L.economy === 'off' ? `<button type="button" class="go main" data-ecoon="${L.id}" data-v="1">💶 Включить экономику<br><small>со следующего сезона</small></button>`
+        : `<button type="button" class="go" data-ecoon="${L.id}" data-v="0">⏸ Выключить экономику<br><small>${L.economy === 'on' ? 'после конца сезона' : 'пока не началась'}</small></button>`) + `</div>` +
+      (P.ecoreset === L.id ? `<div class="banner warn" style="margin-top:9px">Шаг 2 из 2. Сбросить экономику официальной лиги «${esc(L.name)}»? Кассы, классы, журнал движений и контракты её клубов обнулятся, классы мест посчитаются заново. Отменить нельзя. Можно только между сезонами.</div>` +
+        `<div class="mrow2"><button type="button" class="go danger" data-ecoreset2="${L.id}">🗑 Да, сбросить</button><button type="button" class="go" data-ecoresetx>Отмена</button></div>`
+        : `<button type="button" class="go danger" data-ecoreset="${L.id}">🗑 Сброс экономики лиги…</button>`) + `</div>`).join('');
 }
 function euroFc(F, test) {      // прогноз путёвок: кто и где сыграет, если запустить сейчас; нет цикла — причина числами
   if (!F) return '';
@@ -3758,7 +3773,7 @@ let ECO_T = 0;             // нет ответа за 10 секунд — по�
 const ecoKey = () => (H().home || {}).club || '';
 function ecoLoad(force) {
   const h = H().home;
-  if (!h || h.star) return;                              // нет клуба или официальный клуб — запрашивать нечего
+  if (!h) return;                                        // нет клуба — запрашивать нечего (официальный — тоже спрашиваем, этап О1)
   if (!force && ECO && ECO.key === ecoKey() && (ECO.st || ECO.wait || ECO.err)) return;
   const keep = ECO && ECO.key === ecoKey() ? ECO.st : null;      // старые числа видны, пока идёт новый ответ
   ECO = {key: ecoKey(), st: keep, err: '', wait: true};
@@ -3791,17 +3806,54 @@ const ecoBrand = v => '★'.repeat(Math.max(1, Math.floor(v || 1))) + ((v || 1) 
 function ecoHead(pill) { return `<div class="fhead"><h2>💶 Финансы</h2><span class="fpill">${esc(pill)}</span></div>`; }
 const ECO_WILL = ['💶 Касса клуба: деньги за каждый сыгранный тур — телеправа, спонсор, билеты, магазин; в конце сезона — призовые',
   '💼 Зарплаты игроков и контракты на несколько сезонов лиги', '📊 Правило 70%: затраты на состав — не больше 70% дохода', '🔄 Трансферное окно после сезона: контракты, свободные агенты, покупка и продажа игроков'];
-function ecoOfficial(h) {         // официальный клуб: экономика официальных лиг ещё в работе (макет «экран-11»)
-  return ecoHead('официальный клуб') + `<div class="fwip"><div class="fbig">🛠</div><h3>Экономика официальных лиг — в процессе</h3>` +
-    `<div class="note">Касса и контракты уже работают у своих клубов в <b>лигах друзей</b>, где экономику включил администратор. Для официальных лиг готовим то же самое — с поправкой на формат лиги.</div>` +
-    `<div class="note" style="margin-top:8px">Пока ваш официальный клуб играет как сейчас: лига и кубок страны, без денег и рынка.</div></div>` +
-    `<div class="card fchk"><div>✅ Лиги друзей: касса, зарплаты и контракты</div><div>✅ Лиги друзей: трансферное окно и свободные агенты</div><div>✅ Лиги друзей: покупка и продажа игроков между клубами</div><div>⏳ Официальные лиги — скоро</div></div>` +
+function ecoOfficial(h, st) {     // официальный клуб, в лиге которого экономику ещё не включили (этап О1)
+  return ecoHead('официальный клуб') + `<div class="fwip"><div class="fbig">💤</div><h3>Экономика вашей официальной лиги пока не включена</h3>` +
+    `<div class="note">${esc((st || {}).note || 'Касса и контракты работают в лигах друзей и в официальных лигах, где экономику включил администратор.')}</div></div>` +
+    `<div class="card fchk"><div>✅ Лиги друзей: касса, контракты, трансферное окно, покупка и продажа игроков</div><div>✅ Официальные лиги: касса, класс клуба и контракты — где экономику включил администратор</div><div>⏳ Официальные лиги: трансферное окно и рынок — скоро</div></div>` +
     (h.other && !h.other_star ? `<button type="button" class="go main" data-switch>🔁 Переключиться на свой клуб «${esc(h.other)}»</button>` : '') +
     (H().create ? `<button type="button" class="go${h.other ? '' : ' main'}" data-panel="newclub">➕ Создать свой клуб</button>` : '');
 }
+function ecoOfficialOn(st) {      // официальный клуб с кассой (этап О1, app/official_economy.py view): касса, класс, контракты — только смотреть
+  const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct), P = st.place || {};
+  const SRC = {now: 'сейчас', last: 'в прошлом сезоне', expected: 'ожидаемое по силе'};
+  let x = ecoHead('официальный клуб');
+  x += `<div class="card fin"><div class="row"><span>Касса${ecoQ('cash')}</span></div><div class="cash">${esc(st.cash_text || ecoMoney(st.cash))}</div>` +
+    `<div class="row"><span>Доход за последний тур${ecoQ('klass')}</span><b class="${st.income_last_tour > 0 ? 'fplus' : ''}">${ecoMoney(st.income_last_tour, true)}</b></div>` +
+    `<div class="row"><span>Зарплаты за тур${ecoQ('salary')}</span><b class="${st.salary_per_tour ? 'fminus' : ''}">${ecoMoney(-st.salary_per_tour)}</b></div>` +
+    `<div class="row"><span>Итог последнего тура${ecoQ('upkeep')}</span><b class="${st.net_last_tour > 0 ? 'fplus' : st.net_last_tour < 0 ? 'fminus' : ''}">${ecoMoney(st.net_last_tour, true)}</b></div>` +
+    `<div class="row"><span>Затраты на состав${ecoQ('rule70')}</span><b class="${st.over70 ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+    `<div class="fbar${st.over70 ? ' over' : ''}"><i style="width:${(pct * 100 / top).toFixed(1)}%"></i><u style="left:${(cap * 100 / top).toFixed(1)}%"></u></div>` +
+    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход за ${ecoT14()} на нынешнем месте: ${ecoMoney(st.income14)} · зарплаты за сезон лиги (${ecoTours(st.season_tours || 19)}): ${ecoMoney(st.payroll_per_season)}</div></div>`;
+  x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70']);
+  x += `<div class="lrow"><div class="label">Класс клуба</div>${ecoQ('klass')}</div><div class="card fin">` +
+    `<div class="row"><span>Класс — множитель дохода</span><b>${esc(st.klass_text || '')}</b></div>` +
+    (P.pos ? `<div class="row"><span>Место ${esc(SRC[P.src] || '')}</span><b>${P.pos}-е из ${P.of}</b></div>` : '') +
+    (P.klass != null ? `<div class="row"><span>Класс этого места</span><b>×${String(P.klass).replace('.', ',')}</b></div>` +
+      `<div class="sub">После сезона класс сдвинется на ${ecoPct(ecoRules().drift)} к классу занятого места: сейчас — к ≈×${String(P.after).replace('.', ',')}</div>` : '') +
+    `<div class="sub">Доход за тур сейчас: ${ecoMoney(st.income_tour)} — класс × доход клуба лиги друзей на этом месте</div></div>`;
+  x += ecoWhat(['klass']);
+  x += ecoWindow(st.window || {}, () => '');
+  const ps = st.players || [], exp = ps.filter(p => p.status === 'expiring' || p.status === 'expired').length;
+  x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}</div>`;
+  x += ecoWhat(['contract']);
+  const TAG = {expiring: ['l', 'истекает в этом сезоне'], expired: ['no', 'контракт истёк — решение в окне (скоро)'], last: ['l', 'кончается в следующем сезоне'], none: ['', 'контракт — со следующего тура']};
+  x += `<div class="card fpl"><div class="row"><span>Истекают после этого сезона</span><b>${exp ? exp + ' игр.' : 'ни у кого'}</b></div>` + (ps.length ? ps.map(p => {
+    const t = TAG[p.status];
+    return `<div class="row"><div><b>№${p.number} ${esc(p.name)}</b><div class="sub">${years(p.age)} · сила ${num(p.strength)} · стоит ${ecoMoney(p.value)}</div>` +
+      (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + `</div>` +
+      `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур${p.per_season ? `<div class="sub">${ecoMoney(p.per_season)} за сезон</div>` : ''}` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>`; }).join('')
+    : `<div class="note">Игроков пока нет.</div>`) + `</div>`;
+  const J = st.journal || [], shown = ECO_ALL ? J : J.slice(0, 8);
+  x += `<div class="label">Последние движения</div><div class="card fpl">` + (J.length ? shown.map(j =>
+    `<div class="row"><div>${esc(j.title)}<div class="sub">${esc(j.note || '')}</div></div><b class="${j.amount > 0 ? 'fplus' : j.amount < 0 ? 'fminus' : ''}">${ecoMoney(j.amount, true)}</b></div>`).join('') +
+    (J.length > 8 ? `<button type="button" class="go" data-ecoall>${ECO_ALL ? 'Свернуть' : `Показать все (${J.length})`}</button>` : '')
+    : `<div class="note">Пока движений нет: деньги приходят за каждый сыгранный тур лиги.</div>`) + `</div>`;
+  x += `<div class="hint">Касса официального клуба пока только копится и видна: трансферное окно, покупки и свободные агенты в официальных лигах появятся на следующих этапах.</div>`;
+  return x;
+}
 function ecoNotYet(st, h) {       // свой клуб, где экономики нет или она начнётся со следующего сезона
   const soon = st.status === 'soon';
-  return ecoHead('свой клуб') + `<div class="fwip"><div class="fbig">${soon ? '⏳' : '💤'}</div>` +
+  return ecoHead(st.official ? 'официальный клуб' : 'свой клуб') + `<div class="fwip"><div class="fbig">${soon ? '⏳' : '💤'}</div>` +
     `<h3>${soon ? 'Экономика начнётся со следующего сезона' : 'Экономика в вашей лиге выключена'}</h3><div class="note">${esc(st.note || '')}</div></div>` +
     `<div class="label">Что это будет</div><div class="card fchk">${ECO_WILL.map(t => `<div>${esc(t)}</div>`).join('')}</div>` +
     `<div class="hint">${soon ? 'Ничего делать не нужно: касса откроется сама, когда начнётся новый сезон лиги.' :
@@ -4473,12 +4525,11 @@ function renderMoney() {
   const h = H().home;
   if (!h) { el.innerHTML = ecoHead('нет клуба') + `<div class="card"><div class="note">Касса и контракты — у своего клуба в лиге друзей. Сначала создайте клуб.</div>` +
     `<button type="button" class="go main" data-panel="newclub">⚽ Создать клуб</button></div>`; return; }
-  if (h.star) { el.innerHTML = ecoOfficial(h); return; }
   if (TAB === 'money') ecoLoad(false);
   const st = ECO && ECO.key === ecoKey() ? ECO.st : null;
-  if (!st) { el.innerHTML = ecoHead('свой клуб') + (ECO && ECO.err ? `<div class="card"><div class="note">⚠️ ${esc(ECO.err)}</div><button type="button" class="go main" data-ecoload>🔄 Повторить</button></div>`
+  if (!st) { el.innerHTML = ecoHead(h.star ? 'официальный клуб' : 'свой клуб') + (ECO && ECO.err ? `<div class="card"><div class="note">⚠️ ${esc(ECO.err)}</div><button type="button" class="go main" data-ecoload>🔄 Повторить</button></div>`
     : `<div class="card fload"><div class="note">⏳ Загружаю кассу клуба…</div></div>`); return; }
-  let x = st.status === 'official' ? ecoOfficial(h) : st.status === 'on' ? ecoOn(st) : ecoNotYet(st, h);
+  let x = st.status === 'official' ? ecoOfficial(h, st) : st.status === 'on' ? (st.official ? ecoOfficialOn(st) : ecoOn(st)) : ecoNotYet(st, h);
   if (ECO.err) x = `<div class="banner warn">⚠️ ${esc(ECO.err)}<button type="button" class="go" data-ecoload>🔄 Повторить</button></div>` + x;
   el.innerHTML = x;
 }
@@ -4649,7 +4700,7 @@ document.addEventListener('click', e => {
 });
 function val(id) { return (($(id) || {}).value || '').trim(); }
 function ecoAdminClick(b, d, P) {      // 💶 экономика лиг друзей в разделе администратора
-  const L = id => ((H().admin.economy || {}).leagues || []).find(x => x.id === +id) || {name: ''};
+  const E = H().admin.economy || {}, L = id => (E.leagues || []).concat(E.official || []).find(x => x.id === +id) || {name: ''};
   if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
   if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
   if (d.ecotest) { haptic(); send({a: 'ecotest', league: +d.ecotest, on: d.v === '1'}); return true; }
@@ -5378,7 +5429,7 @@ function demoSwitch() {      // демо: свой клуб ⇄ официаль
   return {ok: true, note: `🔁 Теперь активен «${nx.club}» (демо)`};
 }
 function demoEconomy() {         // демо: касса — те же поля, что присылает бот (app/economy.py view); ?eco=off / ?eco=soon — другие экраны
-  if (S.hub.home.star) return {status: 'official', note: 'Экономика официальных лиг — в процессе.'};
+  if (S.hub.home.star) return {status: 'official', note: 'Экономику вашей официальной лиги пока не включил администратор (демо).'};
   if (Q.get('eco') === 'off') return {status: 'off', note: 'В вашей лиге экономика выключена: деньги, зарплаты и контракты не считаются.'};
   if (Q.get('eco') === 'soon') return {status: 'soon', note: 'Экономика включена: касса откроется с началом следующего сезона лиги — стартовые 1,75 млн € и контракты игрокам на 2, 3 или 4 сезона (по месту в составе).'};
   const over = Q.get('eco') === 'over', sal = [260, 190, 176, 240, 148, 420, 280, 120, 104, 80].map(v => over ? v * 2 : v), st = 14, ss = [2, 3, 1, 4, 2, 3, 1, 2, 4, 3];      // ss — сезонов контракта (старт: 2 / 3 / 4)
