@@ -37,6 +37,7 @@ canvas{display:block}
   padding:6px 12px;border-radius:12px;font-weight:800;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .25s;pointer-events:none;
   max-width:92%;overflow:hidden;text-overflow:ellipsis}
 #label.on{opacity:1}
+#label.wide{top:52px;white-space:normal;text-align:center;width:max-content;max-width:82%;line-height:1.3}
 #var{position:absolute;left:50%;top:14%;transform:translate(-50%,-8px) scale(.96);opacity:0;pointer-events:none;z-index:3;
   transition:opacity .25s,transform .25s;text-align:center;font-family:"Trebuchet MS",sans-serif}
 #var.on{opacity:1;transform:translate(-50%,0) scale(1)}
@@ -679,7 +680,7 @@ function haptic(kind) { try { if (TG && TG.HapticFeedback) kind === 'goal' ? TG.
 
 /* ---------------- эпизоды: событие минуты → шаги анимации ---------------- */
 function label(text, ms) {
-  const el = $('label'); el.textContent = text; el.classList.add('on');
+  const el = $('label'); el.textContent = text; el.classList.add('on'); el.classList.remove('wide');
   clearTimeout(label.tm); label.tm = setTimeout(() => el.classList.remove('on'), ms || 1400);
 }
 function goalFlash(team, text) {
@@ -1107,7 +1108,7 @@ function acquireTick(now) {
   if (A.f && A.f !== sk) delete focus[A.f];
   A.f = sk; focus[sk] = {x: tgt.x, y: tgt.y};                     // ближайший идёт отбирать или подбирать
   if (dd(st, tgt) < (hp ? 15 : 13)) {
-    if (hp) { const sl = Math.random() < .4; pose(st, sl ? 'slide' : 'kick', 450); if (sl) divot(st); kick(); }
+    if (hp) { const sl = Math.random() < .4; pose(st, sl ? 'slide' : 'poke', 450); if (sl) divot(st); kick(); }
     delete focus[sk]; A.f = null; giveBall(st);
   }
 }
@@ -1176,7 +1177,7 @@ function passTo(p, speed, kind) {         // пас в ноги с упрежд�
 function nearestTo(pt, list) { let best = null, bd = 1e9; for (const q of list) { const d = dd(q, pt); if (d < bd) { bd = d; best = q; } } return best; }
 function near(p, r) { return {x: clamp(p.x + rnd(-r, r), M + 8, W - M - 8), y: clamp(p.y + rnd(-r, r), M + 8, H - M - 8)}; }
 function shooter(a) { return P(a.t, a.s) || teamPlayers(a.t, true)[0]; }
-function pose(p, k, ms, dir) { if (p) p.pose = {k, until: performance.now() + ms, dir: dir || 0}; }
+function pose(p, k, ms, dir) { if (p) { const now = performance.now(); p.pose = {k, t0: now, until: now + ms, dir: dir || 0}; } }   // t0 — поза идёт по фазам (замах → удар → доводка)
 function goalMouth(t, y) { const g = goalOf(t); return {x: g.x, y: g.y + (t === 0 ? y : -y)}; }
 function approach(a) {                     // бьющий получает мяч (пас, подбор или отбор) и выходит на удар
   const rnd = epr(a, 'appr');
@@ -1559,7 +1560,7 @@ const LEADS = {
       if (!sh || holder !== kOf(sh)) return;
       const side = sh.x < W / 2 ? 1 : -1, now = performance.now();
       sh.feint = {until: now + 300, dir: side};
-      if (dfn) { const sl = rnd() < .5; pose(dfn, sl ? 'slide' : 'kick', 520); if (sl) divot(dfn); dfn.beaten = now + 1400; delete focus[kOf(dfn)]; }
+      if (dfn) { const sl = rnd() < .5; pose(dfn, sl ? 'slide' : 'poke', 520); if (sl) divot(dfn); dfn.beaten = now + 1400; delete focus[kOf(dfn)]; }
       const go = at(a.t, rnd(.8, .84), clamp(xfOf(sh.x) + side * .12, .25, .75));
       F(sh, {...go, sp: 'sprint'});
       if (cov) F(cov, {...lerpPt(go, goalOf(a.t), .35), sp: 'sprint'});   // страхующий смещается наперерез — на шаг позже
@@ -2231,7 +2232,7 @@ function build(a) {
       // затем штрафной с места нарушения (freeKickSteps) — а не встал и побежал дальше с мячом
       if (a.adv) {                                         // преимущество (решил бот): сбитый спотыкается, но остаётся на ногах и с мячом;
         steps.push({d: 700, poss: 1 - a.t, run: () => {   // свистка нет, судья руками вперёд — «играем», атака идёт дальше
-          if (f && v) { pose(f, rnd() < .5 ? 'slide' : 'kick', 560, 0); kick(); }
+          if (f && v) { pose(f, rnd() < .5 ? 'slide' : 'poke', 560, 0); kick(); }
           if (v) { v.feint = {until: performance.now() + 380, dir: v.x < W / 2 ? 1 : -1}; v.ux = (v.ux || 0) * .4; v.uy = (v.uy || 0) * .4; }
           refSig('adv', 1600, atkDir(1 - a.t)); label('▶️ Фол · ' + tag(a.t, a.s) + ' · преимущество', 1600);
         }});
@@ -2337,7 +2338,7 @@ function build(a) {
         if (p && !mine()) {
           const hp = holderP();
           if (play === 'shoulder' && hp) shoulder(p, hp);                          // корпусом — мяч его
-          else if (play === 'stand' || play === 'intercept') pose(p, 'kick', 380);  // стоя, в ноги
+          else if (play === 'stand' || play === 'intercept') pose(p, 'poke', 380);  // стоя, в ноги: выпад ногой
           else { pose(p, 'slide', 600); divot(p); }
           kick(); giveBall(p);
         }
@@ -3198,7 +3199,7 @@ function brainCross(hp, now) {             // навес из глубины ф�
 }
 function shoulder(pr, hp) {                // силовой приём плечом: отбирающий наваливается корпусом, владелец отлетает в сторону
   const d = dd(pr, hp) || 1, nx = (hp.x - pr.x) / d, ny = (hp.y - pr.y) / d, now = performance.now();
-  pr.face = {a: Math.atan2(ny, nx), until: now + 400}; pose(pr, 'push', 420);
+  pr.face = {a: Math.atan2(ny, nx), until: now + 400}; pose(pr, 'shoulder', 420);
   hp.ux = (hp.ux || 0) * .3 + nx * 90; hp.uy = (hp.uy || 0) * .3 + ny * 90; pose(hp, 'plant', 320, 0);
   hp.beaten = now + 900;
 }
@@ -3291,7 +3292,7 @@ function director(now) {
                              + (lv(pr, 'df') - 1) * .1 - (lv(hp, 'pa') - 1) * .08 - (tired(pr) ? .08 : 0) + (tired(hp) ? .08 : 0), .12, .8);
       if (Math.random() < win) {                                   // отбор: подкат или в ноги, мяч отскакивает или у него
         if (lv(pr, 'df') === 2 && Math.random() < .5) { shoulder(pr, hp); kick(); giveBall(pr); poss = pr.t; dribbleUntil = 0; return; }   // корпусом — мяч его
-        const slide = Math.random() < .4; pose(pr, slide ? 'slide' : 'kick', slide ? 560 : 380); if (slide) divot(pr); kick();
+        const slide = Math.random() < .4; pose(pr, slide ? 'slide' : 'poke', slide ? 560 : 380); if (slide) divot(pr); kick();
         if (Math.random() < (lv(pr, 'df') === 2 ? .65 : lv(pr, 'df') === 0 ? .3 : .45)) giveBall(pr);
         else { const a = Math.atan2(hp.y - pr.y, hp.x - pr.x) + rnd(-1.1, 1.1), r = rnd(18, 36);
                moveBall({x: clamp(ball.x + Math.cos(a) * r, M + 8, W - M - 8), y: clamp(ball.y + Math.sin(a) * r, M + 8, H - M - 8)}, rnd(260, 380), rnd(2, 7), 'out'); }
@@ -3302,7 +3303,7 @@ function director(now) {
         if (tech(hp) && flair()) {               // технарь — финтом: ложный замах или убрал мяч под себя, защитник проваливается
           const fake = Math.random() < .5;
           if (fake) pose(hp, 'plant', 200, 0); else hp.feint = {until: now + 260, dir: side};
-          pose(pr, Math.random() < .5 ? 'slide' : 'kick', 520); pr.beaten = now + 1400;
+          pose(pr, Math.random() < .5 ? 'slide' : 'poke', 520); pr.beaten = now + 1400;
         } else if (Math.random() < .3) pose(pr, 'slide', 520);
         dribbleUntil = now + 800;
       }
@@ -4099,7 +4100,7 @@ function decRefit() {                              // после перерис�
 if (window.MutationObserver) new MutationObserver(decRefit).observe($('dec'), {childList: true, subtree: true, characterData: true});
 if (window.ResizeObserver) new ResizeObserver(decRefit).observe($('dec'));
 function drawPitch(pw, ph) {
-  const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+  const c = document.createElement('canvas'); c.width = pw; c.height = ph; drawPitch.sky = skyNow() + lightNow();
   const x = c.getContext('2d'); x.setTransform(pw / TW, 0, 0, ph / TH, ST * pw / TW, ST * ph / TH);
   drawStadium(x);
   x.fillStyle = '#188a42'; x.fillRect(0, 0, W, H);        // газон: полосы стрижки вдоль поля с мягкими краями, мелкая фактура, пятна
@@ -4123,9 +4124,10 @@ function drawPitch(pw, ph) {
   for (const y0 of [M, H - M]) { wear(W / 2, y0 + (y0 === M ? 10 : -10), 46, 20, .45); wear(W / 2, y0 + (y0 === M ? 92 : -92), 12, 10, .4); }
   wear(W / 2, H / 2, 16, 12, .25);
   for (let i = 0; i < 40; i++) wear(rn() * W, rn() * H, 4 + rn() * 6, 3 + rn() * 4, .12);
-  x.globalCompositeOperation = 'lighter';                  // мягкий свет четырёх прожекторов по углам (крупный, тёплый, без резких границ)
-  for (const [cx, cy] of [[0, 0], [W, 0], [W, H], [0, H]]) {
-    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, 520); gl.addColorStop(0, 'rgba(255,248,205,.15)'); gl.addColorStop(.45, 'rgba(255,248,205,.06)'); gl.addColorStop(1, 'rgba(255,248,205,0)');
+  x.globalCompositeOperation = 'lighter';                  // мягкий свет четырёх прожекторов по углам (крупный, тёплый, без резких границ); днём прожекторы не горят
+  const fl = lightNow() === 'day' ? 0 : lightNow() === 'dusk' ? .6 : 1;
+  for (const [cx, cy] of fl ? [[0, 0], [W, 0], [W, H], [0, H]] : []) {
+    const gl = x.createRadialGradient(cx, cy, 0, cx, cy, 520); gl.addColorStop(0, `rgba(255,248,205,${.15 * fl})`); gl.addColorStop(.45, `rgba(255,248,205,${.06 * fl})`); gl.addColorStop(1, 'rgba(255,248,205,0)');
     x.fillStyle = gl; x.fillRect(0, 0, W, H);
   }
   x.globalCompositeOperation = 'source-over';
@@ -4137,7 +4139,7 @@ function drawPitch(pw, ph) {
   const sh2 = x.createLinearGradient(0, 0, 0, 90);           // и полоса от козырька северной трибуны
   sh2.addColorStop(0, 'rgba(2,10,6,.22)'); sh2.addColorStop(1, 'rgba(2,10,6,0)');
   x.fillStyle = sh2; x.fillRect(0, 0, W, 90);
-  if (S && (S.weather === 'rain' || S.weather === 'snow')) { x.fillStyle = S.weather === 'rain' ? 'rgba(30,64,120,.16)' : 'rgba(255,255,255,.13)'; x.fillRect(0, 0, W, H); }
+  pitchWeather(x);                                          // мокрый блеск или снег на газоне (только картинка)
   x.strokeStyle = 'rgba(255,255,255,.88)'; x.lineWidth = 3; x.shadowColor = 'rgba(255,255,255,.35)'; x.shadowBlur = 2;
   x.strokeRect(M, M, W - 2 * M, H - 2 * M);
   x.beginPath(); x.moveTo(M, H / 2); x.lineTo(W - M, H / 2); x.stroke();
@@ -4183,16 +4185,118 @@ function drawGoal(x, y0, top) {
   for (const gx of [gx0, gx1]) { x.fillStyle = '#f8fafc'; x.beginPath(); x.arc(gx, y0, 3.4, 0, 7); x.fill(); x.strokeStyle = '#94a3b8'; x.lineWidth = 1; x.stroke(); }
   x.restore();
 }
-let sky = [];                                  // дождь / снег поверх всего
-function drawWeather(now) {
-  const w = S && S.weather;
-  if (w !== 'rain' && w !== 'snow') return;
-  while (sky.length < (w === 'rain' ? 70 : 55)) sky.push({x: rnd(-ST, W + ST), y: rnd(-ST, H + ST), v: rnd(.7, 1.3)});
-  g.strokeStyle = 'rgba(200,220,255,.45)'; g.fillStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.2;
-  for (const d of sky) {
-    if (w === 'rain') { d.y += 14 * d.v; d.x += 2; g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x - 3, d.y - 14); g.stroke(); }
-    else { d.y += 1.6 * d.v; d.x += Math.sin(now / 700 + d.v * 9) * .8; g.beginPath(); g.arc(d.x, d.y, 2 * d.v, 0, 6.29); g.fill(); }
-    if (d.y > H + ST) { d.y = -ST; d.x = rnd(-ST, W + ST); }
+/* ---------------- свет и погода на картинке — только украшение: на игру и исход не влияет ----------------
+   Погода сцены — от погоды матча у бота (S.weather: одна на матч, от зерна матча — у обоих менеджеров одинаковая).
+   Дождь и снег у бота настоящие (влияют на пасы и удары) — их и рисуем. В пасмурный день — иногда туман, ясно/ветер/жара —
+   ясно: выбор от данных матча (названия команд), у обоих менеджеров одинаково. Погоды от бота нет (демо, учебный) —
+   от тех же данных: ясно 70%, дождь 15%, туман 8%, снег 7% (только ноябрь–март, летом его доля — ясно).
+   Время суток — S.light от бота (по времени начала матча). Демо и проверка: ?wx=rain|snow|fog|clear&tod=night|dusk|day.
+   Частицы — своя случайность (не трогают Math.random сцены). Слабый телефон (perf.lite) — меньше частиц, одна тень, без бликов;
+   📝 «Только текст» — кадр не рисуется вовсе, погоды нет. */
+const SKYQ = new URLSearchParams(location.search);
+const WXQ = ['rain', 'snow', 'fog', 'clear'].includes(SKYQ.get('wx')) ? SKYQ.get('wx') : null;
+const TODQ = {night: 'night', day: 'day', dusk: 'dusk'}[SKYQ.get('tod')] || null;
+let skyKey = null, skyW = 'clear', skyReal = false;
+function skyNow() {
+  if (WXQ) return WXQ;
+  if (!S) return 'clear';
+  const names = (S.teams || []).map(t => t.name).join('|'), k = (S.weather || '') + '|' + names;
+  if (k !== skyKey) {
+    skyKey = k; skyReal = false;
+    const r = hashStr('wx|' + names) % 1000 / 1000, mo = new Date().getMonth(), winter = mo >= 10 || mo <= 2;
+    if (S.weather === 'rain' || S.weather === 'snow') { skyW = S.weather; skyReal = true; }
+    else if (S.weather) skyW = S.weather === 'cloudy' && r < .3 ? 'fog' : 'clear';     // пасмурно 26% × 0,3 ≈ 8% матчей в тумане
+    else skyW = r < .15 ? 'rain' : r < .23 ? 'fog' : r < .30 && winter ? 'snow' : 'clear';
+  }
+  return skyW;
+}
+function pitchWeather(x) {                        // газон под погоду: в дождь — темнее, лужицы и блеск прожекторов; в снег — светлее, присыпан
+  const w = skyNow(), L = lightNow();
+  if (w === 'rain') {
+    x.fillStyle = 'rgba(24,52,100,.16)'; x.fillRect(0, 0, W, H);
+    const rn = seeded(613);
+    for (let i = 0; i < 26; i++) {
+      const cx = rn() * W, cy = rn() * H, rx = 10 + rn() * 26, ry = rx * (.35 + rn() * .3);
+      const gp = x.createRadialGradient(0, 0, 0, 0, 0, rx); gp.addColorStop(0, 'rgba(170,200,235,.12)'); gp.addColorStop(1, 'rgba(170,200,235,0)');
+      x.save(); x.translate(cx, cy); x.scale(1, ry / rx); x.fillStyle = gp; x.beginPath(); x.arc(0, 0, rx, 0, 7); x.fill(); x.restore();
+    }
+    x.globalCompositeOperation = 'lighter';      // мокрый блеск: ночью — отражения четырёх мачт, днём — широкий от солнца
+    const pts = L === 'day' ? [[W * .72, H * .28, 520, .09]]
+      : [[0, 0], [W, 0], [W, H], [0, H]].map(([a, b]) => [a + (W / 2 - a) * .3, b + (H / 2 - b) * .3, 280, L === 'dusk' ? .07 : .11]);
+    for (const [cx, cy, r, a] of pts) {
+      const gs = x.createRadialGradient(cx, cy, 0, cx, cy, r); gs.addColorStop(0, `rgba(220,235,255,${a})`); gs.addColorStop(1, 'rgba(220,235,255,0)');
+      x.fillStyle = gs; x.fillRect(cx - r, cy - r, 2 * r, 2 * r);
+    }
+    x.globalCompositeOperation = 'source-over';
+  } else if (w === 'snow') {
+    x.fillStyle = 'rgba(235,242,250,.2)'; x.fillRect(0, 0, W, H);
+    const rn = seeded(911), n = perf.lite ? 1500 : 4000; x.fillStyle = 'rgba(255,255,255,.5)';
+    for (let i = 0; i < n; i++) { const s = .8 + rn() * 1.6; x.fillRect(rn() * W, rn() * H, s, s); }
+    const ed = x.createLinearGradient(0, 0, W, 0);  // у бровок снега больше — там не бегают
+    ed.addColorStop(0, 'rgba(255,255,255,.24)'); ed.addColorStop(.08, 'rgba(255,255,255,0)'); ed.addColorStop(.92, 'rgba(255,255,255,0)'); ed.addColorStop(1, 'rgba(255,255,255,.24)');
+    x.fillStyle = ed; x.fillRect(0, 0, W, H);
+  }
+}
+let sky = [], splash = [], skyT = 0;              // капли и хлопья, брызги
+const skyR = seeded(97), sr = (a, b) => a + skyR() * (b - a), spray = {x: 0, y: 0};
+const MASTS = [[-ST + 9, -ST + 9], [W + ST - 9, -ST + 9], [W + ST - 9, H + ST - 9], [-ST + 9, H + ST - 9]];
+function glareSprite() {
+  if (glareSprite.c) return glareSprite.c;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,250,228,.6)'); gr.addColorStop(.18, 'rgba(255,246,214,.24)'); gr.addColorStop(1, 'rgba(255,246,214,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  return (glareSprite.c = c);
+}
+function floodGlare() {                           // блики прожекторов на мачтах (в дождь и туман свет «расплывается» шире)
+  const w = skyNow(), sp = glareSprite(), k = lightNow() === 'dusk' ? .5 : 1, wet = w === 'fog' ? 1.6 : w === 'rain' ? 1.25 : 1, r = 170 * wet;
+  g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = Math.min(1, .5 * k * (w === 'fog' ? 1.3 : 1));
+  for (const [cx, cy] of MASTS) g.drawImage(sp, cx - r, cy - r, 2 * r, 2 * r);
+  g.restore();
+}
+function newDrop(d) { d.ly = sr(-ST * .5, H + ST * .5); d.y = d.ly - sr(60, 300); d.x = sr(-ST - 40, W + ST); return d; }
+function drawWeather(now) {                       // в координатах поля, поверх всего: блики мачт, дождь (с брызгами) или снег
+  const w = skyNow(), lite = perf.lite, out = cam.z < .995 || cam.tl > .02;
+  const dt = clamp((now - (skyT || now)) / 16.7, 0, 3); skyT = now;
+  if (!out && !lite && lightNow() !== 'day') floodGlare();
+  if (w !== 'rain' && w !== 'snow') { sky.length = 0; splash.length = 0; return; }
+  const N = w === 'rain' ? (lite ? 36 : 110) : (lite ? 28 : 80);
+  if (sky.length > N) sky.length = N;
+  while (sky.length < N) { const d = newDrop({v: sr(.6, 1.35), ph: sr(0, 7)}); d.y = d.ly - sr(0, 300); sky.push(d); }
+  if (w === 'rain') {
+    const wind = 3.2;
+    for (const near of [false, true]) {             // дальние капли тоньше и бледнее, ближние — ярче
+      g.strokeStyle = near ? 'rgba(215,228,255,.62)' : 'rgba(190,210,245,.36)'; g.lineWidth = near ? 1.6 : 1; g.beginPath();
+      for (const d of sky) if ((d.v > 1) === near) { g.moveTo(d.x, d.y); g.lineTo(d.x - wind * 1.3 * d.v, d.y - 16 * d.v); }
+      g.stroke();
+    }
+    for (const d of sky) {
+      d.y += 15 * d.v * dt; d.x += wind * d.v * dt;
+      if (d.y >= d.ly) { if (!lite && splash.length < 60 && d.y > 0 && d.y < H && d.x > 0 && d.x < W) splash.push({x: d.x, y: d.ly, t0: now}); newDrop(d); }
+    }
+    if (!lite) {                                    // мяч катится по мокрому газону — брызги
+      const bs = Math.hypot(ball.x - spray.x, ball.y - spray.y) / Math.max(dt, .3); spray.x = ball.x; spray.y = ball.y;
+      if (ball.h < 3 && bs > 2.2 && bs < 60 && splash.length < 80) for (let i = 0; i < 2; i++) splash.push({x: ball.x + sr(-5, 5), y: ball.y + sr(-4, 4), t0: now, big: 1});
+    }
+    splash = splash.filter(s => now - s.t0 < 320 && now >= s.t0);   // часы назад (не бывает, но) — без отрицательного радиуса
+    g.strokeStyle = 'rgba(225,238,255,.6)'; g.lineWidth = 1;
+    for (const young of [true, false]) {
+      g.globalAlpha = young ? .9 : .4; g.beginPath();
+      for (const s of splash) {
+        const k = (now - s.t0) / 320; if ((k < .5) !== young) continue;
+        const r = (s.big ? 3 : 1.4) + k * (s.big ? 7 : 4); g.moveTo(s.x + r, s.y); g.ellipse(s.x, s.y, r, r * .55, 0, 0, 7);
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+  } else {
+    g.fillStyle = 'rgba(255,255,255,.88)'; g.beginPath();
+    for (const d of sky) {
+      d.y += 1.5 * d.v * dt; d.x += (Math.sin(now / 900 + d.ph) * .7 + .25) * dt;
+      if (d.y >= d.ly) newDrop(d);
+      const r = 1.1 + d.v * 1.3; g.moveTo(d.x + r, d.y); g.arc(d.x, d.y, r, 0, 6.29);
+    }
+    g.fill();
   }
 }
 const SKIN = ['#f1c7a5', '#e0ac85', '#c68863', '#8d5a3b', '#5c3a24'];
@@ -4205,21 +4309,83 @@ const LIGHTS = [Math.PI / 4, 3 * Math.PI / 4, 5 * Math.PI / 4, 7 * Math.PI / 4];
 const SHADOWS = {night: LIGHTS.map(a => ({a, k: 1, o: 1})),
   dusk: [{a: .35, k: 2.5, o: 1.6}, ...LIGHTS.map(a => ({a, k: 1, o: .45}))],
   day: [{a: .95, k: 1.3, o: 1.9}]};
-function lightNow() { return S && SHADOWS[S.light] ? S.light : 'night'; }
-let lightSaid = false;
-function drawGrade() {                              // поверх кадра: днём ярче, на закате — оранжевый отсвет сверху (от солнца за дальней трибуной)
-  const L = lightNow(); if (L === 'night') return;
-  if (!lightSaid && S.phase !== 'final') { lightSaid = true; label(L === 'dusk' ? '🌇 Вечерний матч' : '☀️ Дневной матч', 3200); }
+const SHADOWS_LITE = {night: [{a: Math.PI / 2, k: 1, o: 1.4}], dusk: [SHADOWS.dusk[0]], day: SHADOWS.day};   // слабый телефон — одна тень
+function lightNow() { return TODQ || (S && SHADOWS[S.light] ? S.light : 'night'); }
+function shadowsNow() { return (perf.lite ? SHADOWS_LITE : SHADOWS)[lightNow()]; }
+function ballShadows(h) {                         // тени мяча — от тех же источников, что у игроков; выше мяч — тени дальше, меньше и бледнее
+  const set = shadowsNow(), n = set.length, sk = Math.max(.55, 1 - h * .008);
+  let first = null;
+  for (const sh of set) {
+    const len = 3.5 + h * .3 * sh.k, sa = clamp((.4 - h * .0055) * (n > 1 ? .32 : 1) * Math.min(1.2, sh.o), .04, .4);
+    const sx = ball.x + Math.cos(sh.a) * len, sy = ball.y + Math.sin(sh.a) * len;
+    g.fillStyle = `rgba(0,0,0,${sa.toFixed(3)})`; g.beginPath(); g.ellipse(sx, sy, Math.max(4, 7.2 * sk) * Math.min(1.6, sh.k), Math.max(2.2, 3.8 * sk), sh.a, 0, 7); g.fill();
+    if (!first) first = {x: sx, y: sy};
+  }
+  return first;
+}
+let lightSaid = false, skySeen = 0;
+function skyCaption(L, w) {                       // одна подпись в начале матча: погода или вечер под прожекторами; ясный день — без подписи
+  if (lightSaid || !S || S.phase === 'final') return;
+  const now = performance.now(); if (!skySeen) skySeen = now; if (now - skySeen < 1500) return;
+  lightSaid = true;
+  const T = {rain: '🌧 Дождь', snow: '❄️ Снег', fog: '🌫 Туман'}[w];
+  const t = T ? (skyReal && !WXQ ? T + ' на стадионе' : T + ' — только для красоты, на игру не влияет')
+    : L === 'night' ? '🌙 Вечерний матч под прожекторами' : L === 'dusk' ? '🌇 Вечерний матч на закате' : '';
+  if (!t) return;
+  label(t, 3800); $('label').classList.add('wide');       // пониже кнопок и в две строки, если не помещается (следующая подпись — снова обычная)
+}
+function vignette() {                             // ночью края кадра темнее — свет прожекторов собран на поле
+  const k = cv.width + 'x' + cv.height;
+  if (vignette.k !== k) {
+    vignette.k = k; const w = cv.width, h = cv.height, gr = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .38, w / 2, h / 2, Math.hypot(w, h) * .56);
+    gr.addColorStop(0, 'rgba(2,6,18,0)'); gr.addColorStop(1, 'rgba(2,6,18,.34)'); vignette.g = gr;
+  }
+  return vignette.g;
+}
+function fogSprite() {
+  if (fogSprite.c) return fogSprite.c;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.5, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  return (fogSprite.c = c);
+}
+function drawFog(now, air) {                      // туман: дымка, к краям (трибуны) и вверху кадра (дальняя трибуна) гуще; медленные клочья
+  const w = cv.width, h = cv.height, L = lightNow(), col = L === 'day' ? '214,222,230' : L === 'dusk' ? '205,185,180' : '150,166,188', k = w + 'x' + h + col;
+  if (drawFog.k !== k) {
+    drawFog.k = k;
+    const r = g.createRadialGradient(w / 2, h * .55, Math.min(w, h) * .12, w / 2, h * .55, Math.hypot(w, h) * .55);
+    r.addColorStop(0, `rgba(${col},.12)`); r.addColorStop(.6, `rgba(${col},.32)`); r.addColorStop(1, `rgba(${col},.6)`);
+    const t = g.createLinearGradient(0, 0, 0, h); t.addColorStop(0, `rgba(${col},.32)`); t.addColorStop(.4, `rgba(${col},0)`);
+    drawFog.r = r; drawFog.t = t;
+  }
+  g.globalAlpha = air; g.fillStyle = drawFog.r; g.fillRect(0, 0, w, h); g.fillStyle = drawFog.t; g.fillRect(0, 0, w, h);
+  if (!perf.lite) {
+    const sp = fogSprite(), s = w * .8;
+    g.globalAlpha = .13 * air;
+    for (let i = 0; i < 6; i++) {
+      const u = ((i * .37 + now / 70000 * (.6 + i * .12)) % 1.6) - .3;
+      g.drawImage(sp, u * w - s / 2, (.1 + i * .16) * h - s * .3, s, s * .6);
+    }
+  }
+  g.globalAlpha = 1;
+}
+function drawGrade() {                              // поверх кадра: днём ярче, на закате — оранжевый отсвет сверху; ночью — виньетка; туман
+  const L = lightNow(), w = skyNow();
+  skyCaption(L, w);
+  if (L === 'night' && w !== 'fog' && perf.lite) return;
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
   const air = cam.z < .995 || cam.tl > .02 ? .45 : 1;   // с дрона в перерыве — слабее: стадион на земле, а не в белёсом «облаке»
   if (L === 'day') {                               // солнце: светлее и чуть теплее, тени чёткие
-    g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(255,246,220,${(.7 * air).toFixed(3)})`; g.fillRect(0, 0, cv.width, cv.height);
-  } else {
+    g.globalCompositeOperation = 'soft-light'; g.fillStyle = `rgba(255,246,220,${(.7 * air * (w === 'clear' ? 1 : .5)).toFixed(3)})`; g.fillRect(0, 0, cv.width, cv.height);
+  } else if (L === 'dusk') {
     const gr = g.createLinearGradient(0, 0, 0, cv.height); gr.addColorStop(0, 'rgba(255,105,35,.85)'); gr.addColorStop(1, 'rgba(255,150,70,.45)');
     g.globalCompositeOperation = 'soft-light'; g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height);
     const gl = g.createLinearGradient(0, 0, 0, cv.height); gl.addColorStop(0, `rgba(255,120,50,${(.16 * air).toFixed(3)})`); gl.addColorStop(.5, 'rgba(255,140,70,.05)'); gl.addColorStop(1, 'rgba(60,30,90,.10)');
     g.globalCompositeOperation = 'source-over'; g.fillStyle = gl; g.fillRect(0, 0, cv.width, cv.height);   // сверху — отсвет заката, снизу — лиловые сумерки
-  }
+  } else if (!perf.lite) { g.fillStyle = vignette(); g.globalAlpha = air; g.fillRect(0, 0, cv.width, cv.height); g.globalAlpha = 1; }
+  g.globalCompositeOperation = 'source-over';
+  if (w === 'fog') drawFog(performance.now(), air);
   g.restore();
 }
 function looks(p) { const h = (p.t * 7 + p.s * 13 + (p.n || 0) * 3) % 30; return {skin: SKIN[h % SKIN.length], hair: HAIR[(h * 7) % HAIR.length], bald: h % 11 === 0}; }
@@ -4256,8 +4422,8 @@ function drawPlayer(p, now) {
     if (p.bp) want = ab;
   } else p.bp = false;
   p.ang = p.ang === undefined ? want : turn(p.ang, want, facing ? .3 : v > .25 ? .14 : .05);
-  p.stride = (p.stride || 0) + Math.min(v, 4) * .2;
-  const sw = v > .12 ? Math.sin(p.stride) : 0, L = looks(p);
+  gait(p, v, now);
+  const L = looks(p);
   let pz = p.pose && now < p.pose.until ? p.pose.k : null;        // подкат, прыжок вратаря, празднование
   // выдохся (< 35% сил): в остановке игры стоит, упёршись руками в колени
   if (!pz && !down && !p.gk && v < .15 && tired(p) && (stopped || S.phase !== 'play' || restart || throwIn)) pz = 'knees';
@@ -4266,7 +4432,7 @@ function drawPlayer(p, now) {
     drawPlayer.sg = g.createLinearGradient(0, 0, 22, 0); drawPlayer.sg.addColorStop(0, 'rgba(0,0,0,.32)'); drawPlayer.sg.addColorStop(1, 'rgba(0,0,0,0)');
     drawPlayer.cg = g.createRadialGradient(0, 1, 2, 0, 1, 12); drawPlayer.cg.addColorStop(0, 'rgba(0,0,0,.38)'); drawPlayer.cg.addColorStop(1, 'rgba(0,0,0,0)');
   }
-  for (const sh of SHADOWS[lightNow()]) {                          // тени: ночью — от четырёх мачт, днём — от солнца, на закате — длинная от солнца и бледные от мачт
+  for (const sh of shadowsNow()) {                       // тени: ночью — от четырёх мачт, днём — от солнца, на закате — длинная от солнца и бледные от мачт
     g.save(); g.rotate(sh.a); g.scale(sh.k, 1); g.globalAlpha = Math.min(1, sh.o / 2); g.fillStyle = drawPlayer.sg; g.beginPath(); g.ellipse(10, 0, 12, 4.6, 0, 0, 7); g.fill(); g.restore();
   }
   g.fillStyle = drawPlayer.cg; g.beginPath(); g.ellipse(0, 0, 9, 5.5, 0, 0, 7); g.fill();     // тень под ногами — плотная в центре
@@ -4293,6 +4459,21 @@ function kf(k, pts) {                      // ключевые кадры [[до
   if (k <= pts[0][0]) return pts[0][1];
   for (let i = 1; i < pts.length; i++) if (k <= pts[i][0]) { const [k0, v0] = pts[i - 1], [k1, v1] = pts[i]; return v0 + (v1 - v0) * ease((k - k0) / (k1 - k0)); }
   return pts[pts.length - 1][1];
+}
+/* Бег игрока: частота шагов растёт медленнее скорости (на рывке шаг и длиннее, и чаще; шагом — редко и коротко), фаза у
+   каждого своя (не в ногу) и считается по часам, а не по кадрам (на 120 Гц не семенит). gA — размах шага, меняется плавно:
+   остановился — ноги сходятся в стойку, а не замирают на полушаге. gTr — скорость поворота: на дуге корпус клонится внутрь.
+   Манера (частота) — от номера и слота: у двух менеджеров одинаково. */
+function gait(p, v, now) {
+  const dt = p.gT === undefined ? 1 : clamp((now - p.gT) / 16.7, 0, 3); p.gT = now;
+  const st = ((p.t || 0) * 7 + (p.s || 0) * 13 + (p.n || 0) * 5) % 10 / 10;
+  if (p.stride === undefined) p.stride = st * 6.28 + (p.t || 0) * 1.9;
+  if (v > .12) p.stride += .21 * Math.pow(Math.min(v, 4), .6) * (.93 + .14 * st) * dt;
+  const tgt = v > .12 ? Math.min(1.15, v / 2.6) : 0;
+  p.gA = p.gA === undefined ? tgt : p.gA + (tgt - p.gA) * (1 - Math.exp(-dt * .2));
+  if (!tgt && p.gA < .01) p.gA = 0;
+  const da = p.gAng === undefined ? 0 : Math.atan2(Math.sin(p.ang - p.gAng), Math.cos(p.ang - p.gAng)); p.gAng = p.ang;
+  if (dt > 0) p.gTr = (p.gTr || 0) * .85 + da / dt * .15;
 }
 /* Удар через себя ('bike') и рыбкой головой ('fish') — тело в воздухе, рисуется отдельно (как прыжок вратаря): +x — к воротам
    на экране, туловище — эллипс вдоль оси, голова на конце, ноги из бёдер под углом. Камера смотрит вдоль ворот (вид сверху) —
@@ -4337,10 +4518,30 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   const side = Math.abs(sx) > .62, back = !side && sy < 0, face = sx >= 0 ? 1 : -1;
   const shorts = kit ? kit.sh : p.gk ? '#1f2937' : tm.shorts, sock = kit ? kit.so : p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : mix(tm.shorts, -.12), boot = '#0b0f19';
   const pw = clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1), run = v > .12;
-  const amp = run && pz !== 'kneel' && pz !== 'flip' ? Math.min(1, v / 2.6) * (.7 + .3 * pw) : 0, ph = p.stride, sw = Math.sin(ph) * amp;   // на коленях — едет, не шагает
-  const hop = run ? Math.abs(Math.cos(ph)) * 1.4 * amp : 0;              // тело чуть подпрыгивает на шаге
+  const g0 = p.gA !== undefined ? p.gA : run ? Math.min(1, v / 2.6) : 0;   // размах шага: у игроков — плавный (gait), у остальных — по скорости
+  const amp = g0 > .01 && pz !== 'kneel' && pz !== 'flip' ? g0 * (.7 + .3 * pw) : 0, ph = p.stride || 0, sw = Math.sin(ph) * amp;   // на коленях — едет, не шагает
+  const hop = amp ? Math.abs(Math.cos(ph)) * (.5 + 1.3 * amp) * amp : 0;   // подскок на шаге: на рывке — фаза полёта, шагом — почти нет
+  // доля позы с фазами (удар, подкат, прыжок вратаря, удар головой): −1 — поза без фаз (жест, повтор старой записи)
+  const pk = pz && p.pose && (p.pose.at !== undefined || p.pose.t0 !== undefined) ? poseK(p, now) : -1;
+  if (pz === 'slide' && !down && pk > .78) pz = 'rise';                  // после подката — встаёт
+  if (pz === 'dive' && pk >= 0 && (pk < .08 || pk > .8)) pz = pk < .08 ? 'crouch' : 'rise';   // вратарь: присел и оттолкнулся / встаёт с газона
   g.save(); g.translate(p.x, p.y); g.scale(PS, PS); g.lineCap = 'round'; g.lineJoin = 'round';
-  if (down || pz === 'slide') {                                         // лежит / подкат: тело вдоль газона
+  if (pz === 'slide' && !down) {                                        // подкат: скользит ногами вперёд — ведущая нога вытянута к мячу, вторая подогнута, корпус откинут, рука в газон
+    const kk = pk < 0 ? .4 : pk, dir = sx >= 0 ? 1 : -1;
+    g.scale(dir, 1); g.translate(0, -kf(kk, [[0, 3], [.15, 0], [.65, 0], [.78, 2]]));
+    const reach = kf(kk, [[0, 10], [.15, 16], [.6, 15], [.78, 10]]);
+    g.strokeStyle = mix(L.skin, -.2); g.lineWidth = 3.8; g.beginPath(); g.moveTo(-2, -5); g.lineTo(4, -10); g.stroke();   // подогнутая: колено вверх
+    g.strokeStyle = mix(sock, -.2); g.lineWidth = 3.6; g.beginPath(); g.moveTo(4, -10); g.lineTo(7.5, -5.5); g.stroke(); blob(8.5, -5, 2.8, 2, boot);
+    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-2, -3); g.lineTo(reach, -2.5); g.stroke(); blob(reach + 1.2, -2.5, 3.2, 2.2, boot);
+    shaded(-3, -4, 5, 4, shorts);
+    g.save(); g.translate(-3, -5); g.rotate(kf(kk, [[0, .75], [.18, .38], [.65, .45], [.78, .8]]));   // корпус откинут над газоном: сначала падает, потом приподнимается
+    g.strokeStyle = mix(L.skin, -.2); g.lineWidth = 3; g.beginPath(); g.moveTo(-12, 3); g.lineTo(-13, 10); g.stroke();   // рука — в газон
+    if (kit) kitLying(kit, -8, 0, 8.5, 5.2, -1); else shaded(-8, 0, 8.5, 5.2, shirt);
+    shaded(-18, -1, 4.6, 4.6, L.skin); if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(-19, -2.2, 4.4, Math.PI * .9, Math.PI * 1.9); g.fill(); }
+    g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(-12, -3); g.lineTo(-7, -11); g.stroke();             // вторая — вверх, для равновесия
+    g.restore(); g.restore(); return;
+  }
+  if (down || pz === 'slide') {                                       // лежит / подкат: тело вдоль газона
     const dir = down ? face : (sx >= 0 ? 1 : -1);
     g.scale(dir, 1);
     const roll = down === 'roll' ? Math.sin(now / 230 + (p.s || 0)) : 0;
@@ -4357,14 +4558,18 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     g.restore(); return;
   }
   if (pz === 'dive') {                                                  // вратарь в полёте: вытянут к мячу, над газоном
-    const dir = p.pose.dir || face, lift = 9;
-    g.scale(dir, 1); g.translate(0, -lift); g.rotate(-.25);
-    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-6, 0); g.lineTo(-18, 3); g.moveTo(-6, -3); g.lineTo(-17, -5); g.stroke();
-    blob(-19, 3, 3, 2, boot); blob(-18, -5, 3, 2, boot);
+    // по фазам: толчок (корпус ещё наклонён), полёт струной — выше, если мяч летит высоко, руки к мячу; падение на бок, подобрался
+    const kk = pk < 0 ? .35 : pk, dir = p.pose.dir || face, hi = clamp((ball.h || 0) / 30, 0, 1);
+    const lift = kf(kk, [[.08, 3], [.26, 11 + hi * 5], [.46, 8], [.58, 0]]), rot = kf(kk, [[.08, -.85], [.26, -.25 - hi * .22], [.46, -.08], [.58, .05]]);
+    const ln = kf(kk, [[.08, .55], [.24, 1], [.55, 1], [.72, .7]]), sc = Math.sin(kk * 18) * (kk > .2 && kk < .55 ? 1.2 : 0);   // вытянут: в полёте — струной, ноги чуть «ножницами»
+    g.scale(dir, 1); g.translate(0, -lift); g.rotate(rot);
+    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-6, 0); g.lineTo(-6 - 12 * ln, 3 + sc); g.moveTo(-6, -3); g.lineTo(-5 - 12 * ln, -5 - sc); g.stroke();
+    blob(-7 - 12 * ln, 3 + sc, 3, 2, boot); blob(-6 - 12 * ln, -5 - sc, 3, 2, boot);
     shaded(-4, -2, 5, 4.2, shorts); if (kit) kitLying(kit, 5, -4, 9, 5.5, 1); else shaded(5, -4, 9, 5.5, shirt);
     shaded(15, -6, 4.4, 4.4, L.skin);
-    g.strokeStyle = kit && kit.p === 'sleeves' ? kit.c2 : shirt; g.lineWidth = 3.4; g.beginPath(); g.moveTo(9, -7); g.lineTo(22, -12); g.moveTo(9, -3); g.lineTo(22, -4); g.stroke();
-    shaded(23, -12, 2.8, 2.6, '#e5e7eb'); shaded(23, -4, 2.8, 2.6, '#e5e7eb');
+    const ax = 9 + 13 * ln, ay0 = -7 - 5 * ln - hi * 4, ay1 = -4 - hi * 3;
+    g.strokeStyle = kit && kit.p === 'sleeves' ? kit.c2 : shirt; g.lineWidth = 3.4; g.beginPath(); g.moveTo(9, -7); g.lineTo(ax, ay0); g.moveTo(9, -3); g.lineTo(ax, ay1); g.stroke();
+    for (const ay of [ay0, ay1]) { g.save(); g.translate(ax + 1, ay); shaded(0, 0, 2.8, 2.6, '#e5e7eb'); g.restore(); }   // перчатки: объём из кэша, хоть руки и двигаются
     g.restore(); return;
   }
   if (pz === 'bike' || pz === 'fish') { airFig(p, now, pz, L, shirt, shorts, sock, boot, kit, face); g.restore(); return; }   // через себя, рыбкой
@@ -4373,27 +4578,52 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     const k = Math.min(1, (now % 1100) / 800);
     g.translate(0, -12 - Math.sin(k * Math.PI) * 7); g.rotate(ease(k) * Math.PI * 2 * face); g.translate(0, 12);
   }
-  const jumpy = pz === 'cele' || pz === 'hug' || pz === 'dance';      // празднуют — подпрыгивают (каждый в своём ритме)
-  const lift = pz === 'head' ? 11 : pz === 'reach' ? 10 : pz === 'volley' ? 3 : jumpy ? Math.max(0, Math.sin(now / 150 + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : pz === 'dance' ? 2 : 5) : 0;
-  const lean = (side ? face * ((run ? .09 * amp : 0) + (pz === 'kick' ? .1 : 0) + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (pz === 'butt' ? .38 : pz === 'chest' ? .12 : pz === 'grab' ? .1 : 0) + (knees ? .3 : 0) + (pz === 'volley' ? -.32 : 0)) : 0)
+  // празднуют по-разному (от слота и счёта — у обоих менеджеров одинаково): 0 — прыжки, руки вверх; 1 — кулак вверх; 2 — руки в стороны
+  const celV = pz === 'cele' ? ((p.s || 0) * 5 + (p.t || 0) * 3 + (shown && shown.teams ? shown.teams[0].score + shown.teams[1].score : 0)) % 3 : 0;
+  const jumpy = (pz === 'cele' && amp < .4) || pz === 'hug' || pz === 'dance';   // празднуют — подпрыгивают (каждый в своём ритме); на бегу — бегут
+  const lift = pz === 'head' ? (pk < 0 ? 11 : kf(pk, [[0, 1], [.3, 12], [.55, 11], [.85, 2], [1, 0]])) : pz === 'reach' ? 10 : pz === 'volley' ? 3
+    : jumpy ? Math.max(0, Math.sin(now / (celV === 1 ? 190 : 150) + (p.s || 0) * 1.3)) * (pz === 'hug' ? 3 : pz === 'dance' ? 2 : celV === 0 ? 5 : celV === 1 ? 3 : 2) : 0;
+  // корпус: вперёд по скорости (трусцой — чуть, на рывке — заметно); над мячом в ударе, в выпаде, плечом в соперника; головой — прогиб и кивок
+  const kLean = pz === 'kick' ? (pk < 0 ? .1 : kf(pk, [[0, .16], [.3, .05], [1, 0]])) : pz === 'plant' ? .06 : pz === 'poke' ? .24 : pz === 'shoulder' ? .3 : pz === 'rise' ? .22
+    : pz === 'head' && pk >= 0 ? kf(pk, [[0, -.1], [.36, -.08], [.48, .2], [.75, .04]]) : 0;
+  const lean = (side ? face * ((.06 * amp + .1 * amp * amp) + kLean + (pz === 'push' || pz === 'punch' ? .16 : 0) + (pz === 'hold' ? -.1 : 0) + (pz === 'butt' ? .38 : pz === 'chest' ? .12 : pz === 'grab' ? .1 : 0) + (knees ? .3 : 0) + (pz === 'volley' ? -.32 : 0)) : 0)
              + (pz === 'plane' ? .32 + Math.sin(now / 260 + (p.s || 0)) * .12 : 0)    // «самолётик» — заложил вираж, покачивает крыльями
              + (pz === 'dance' ? Math.sin(now / 210) * .34 : 0) + (kneel ? (side ? -face * .2 : 0) : 0)   // танец — качается; на коленях — откинулся
-             + (pz === 'shh' ? Math.sin(now / 420) * .06 : 0);
+             + (pz === 'shh' ? Math.sin(now / 420) * .06 : 0)
+             + (!side && amp ? clamp(-sy * (p.gTr || 0) * 2.5, -.22, .22) * Math.min(1, amp * 1.5) : 0)   // на повороте — внутрь дуги
+             + (!side && pz === 'shoulder' ? ((p.s || 0) % 2 ? .14 : -.14) : 0)                           // плечом: корпус навалился в сторону
+             + (pz === 'crouch' ? (p.pose && p.pose.dir || face) * .16 : 0);                              // вратарь перед прыжком — уже клонится в сторону мяча
   if (pz === 'dance') g.translate(Math.sin(now / 210) * 3.5, 0);            // и бёдра в сторону
   const celLift = pz === 'fans' ? Math.abs(Math.sin(now / 190)) * 10 : pz === 'flex' ? Math.abs(Math.sin(now / 300)) * 2 : 0;   // к трибунам — прыгает
   if (celLift) g.translate(0, -celLift);
   g.translate(0, -lift); g.rotate(lean);
-  const hip = -15 - hop * .5 + (knees ? 1.5 : 0) + (kneel ? 6 : 0), shoulder = hip - (knees ? 10 : 13), neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже
+  const low = pz === 'poke' ? 3 : pz === 'crouch' ? 3.5 : pz === 'rise' ? 4.5 : pz === 'shoulder' ? 1.5 : pz === 'plant' ? 1 : pz === 'kick' && pk >= 0 && pk < .35 ? 1 : 0;   // присел: выпад, стойка, встаёт
+  const hip = -15 - hop * .5 + (knees ? 1.5 : 0) + (kneel ? 6 : 0) + low, shoulder = hip - (knees || pz === 'rise' ? 10 : 13) + (side ? .4 : 1.2) * amp * amp, neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже; на рывке наклон — корпус короче
   // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса
   for (const i of [-1, 1]) {
     const far = side ? (i === face ? 0 : 1) : 0;                       // дальняя нога в профиль — темнее
-    let fx = i * 3.1, fy = 0, kx, ky;
-    if (pz === 'kick' && i === 1) { if (side) { fx = face * 11; fy = -6; } else { fy = -4; fx = i * 2.4; } }
+    let fx = i * 3.1, fy = 0, kx, ky, bend = 0;                          // bend — колено вперёд (нога согнута)
+    if (pz === 'kick' && i === 1) {                                     // удар: нога проходит через мяч → доводка вверх-вперёд → опускается (замах — поза plant)
+      if (pk < 0) { if (side) { fx = face * 11; fy = -6; } else { fy = -4; fx = i * 2.4; } }
+      else if (side) { fx = face * kf(pk, [[0, 3], [.18, 12], [.5, 10], [1, 3]]); fy = kf(pk, [[0, -3], [.18, -7], [.5, -5], [1, -1]]); bend = kf(pk, [[0, 1], [.2, 0], [1, 1]]); }
+      else { fx = i * 2.4; fy = kf(pk, [[0, -3], [.18, -6], [.5, -4], [1, -.5]]); }
+    }
+    else if (pz === 'kick' && side) { fx = -face * .8; bend = 1.5; }                // опорная — рядом с мячом, чуть согнута
     else if (pz === 'volley' && i === 1) { if (side) { fx = face * 14; fy = -13; } else { fy = -11; fx = i * 3; } }   // с лёта: нога на уровне пояса
-    else if (pz === 'plant') { if (side) fx = (i === 1 ? -face * 4 : face * 2); }
-    else if (side) { fx = i * .8 + face * sw * i * 7; fy = -Math.max(0, -sw * i) * 3.5; }
-    else { fy = -Math.max(0, sw * i) * 4; }
-    kx = (i * 3.1 + fx) / 2 + (side ? face * 1.6 * amp : 0); ky = (hip + fy) / 2 + (side ? 0 : -1);
+    else if (pz === 'plant') { if (side) { fx = i === 1 ? -face * 6 : face * 2.5; fy = i === 1 ? -4 : 0; bend = i === 1 ? -2 : 1.5; } else if (i === 1) fy = -2.5; }   // замах: бьющая нога отведена назад, опорная — у мяча
+    else if (pz === 'poke') {                                           // отбор стоя: выпад — нога к мячу вдоль газона, опорная согнута
+      if (i === 1) { if (side) { fx = face * 13; fy = -1.5; } else { fx = i * 4.5; fy = -2.5; } }
+      else { if (side) fx = -face * 3; bend = 3; }
+    }
+    else if (pz === 'shoulder') { fx = side ? i * 1 + face * (i === face ? 4 : -4) : i * 4.6; bend = 1.5; }   // плечом: широкая стойка, упирается
+    else if (pz === 'head' && pk >= 0) { const t = kf(pk, [[0, 0], [.3, 4], [.6, 3], [1, 0]]); fy = -t; bend = t * .6; if (side) fx = i * .8 - face * t * (i === 1 ? .6 : -.2); }   // в прыжке ноги поджаты
+    else if (pz === 'crouch' || pz === 'rise') { fx = side ? (i === 1 ? face * 3.5 : -face * 3) : i * 4.4; bend = 3; }   // стойка вратаря / встаёт: колени согнуты
+    else if (side) {                                                    // бег: на махе вперёд стопа отрывается и колено выходит вперёд (на рывке — выше)
+      const fl = Math.max(0, Math.cos(ph) * i) * (1.2 + 4.2 * amp) * amp;
+      fx = i * .8 + face * sw * i * 7; fy = -fl; bend = 1.6 * amp + fl * .55;
+    }
+    else { fy = -Math.max(0, Math.cos(ph) * i) * (1.5 + 3.5 * amp) * amp; }
+    kx = (i * 3.1 + fx) / 2 + (side ? face * bend : 0); ky = (hip + fy) / 2 + (side ? 0 : -1 - bend * .3);
     const thigh = opt.trousers || L.skin, shin = opt.trousers || sock;
     g.strokeStyle = far ? mix(thigh, -.25) : thigh; g.lineWidth = opt.trousers ? 4.2 : 3.8; g.beginPath(); g.moveTo(i * 3, hip + 2); g.lineTo(kx, ky); g.stroke();
     g.strokeStyle = far ? mix(shin, -.25) : shin; g.lineWidth = opt.trousers ? 4 : 3.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy - 1.5); g.stroke();
@@ -4410,9 +4640,23 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   const gd = p.pose && p.pose.dir !== undefined ? p.pose.dir + cam.r : 0, gx = Math.cos(gd), gy = Math.sin(gd);
   const arm = (i, behind) => {
     const sh = {x: i * (side ? 1.5 : 6.2), y: shoulder + 1.5};
-    let hx = sh.x + (side ? face * armSw * i * 1.2 : i * 1.5), hy = hip - 1 + (side ? 0 : armSw * i * .5);
+    // бег: руки в противофазе ногам; та, что идёт вперёд, на рывке сгибается и поднимается (работают руками)
+    const fw = Math.max(0, -Math.sin(ph) * i);
+    let hx = sh.x + (side ? face * armSw * i * 1.2 : i * 1.5), hy = hip - 1 + (side ? 0 : armSw * i * .5) - amp * amp * (.6 + 2.6 * fw);
     if (up) { hx = sh.x + i * (pz === 'cele' ? 6 : 2.5); hy = shoulder - (pz === 'cele' ? 10 : 12); }
-    if (pz === 'kick') { hx = sh.x + i * 6; hy = shoulder + 4; }
+    if (pz === 'cele' && (celV === 1 || amp >= .4)) {                   // кулак вверх (качает) — другая согнута у пояса; на бегу — руки широко вверх
+      if (celV === 1 && i === 1) { hx = sh.x + 2; hy = shoulder - 10 - Math.abs(Math.sin(now / 190 + (p.s || 0))) * 3; }
+      else if (celV === 1) { hx = sh.x + i * 4; hy = shoulder + 5; }
+      else { hx = sh.x + i * 10; hy = shoulder - 8; }
+    } else if (pz === 'cele' && celV === 2) { hx = sh.x + i * 12; hy = shoulder - 5 + Math.sin(now / 240 + (p.s || 0)) * 1.5; }   // руки в стороны: «вот он я!»
+    if (pz === 'kick') {                                                // удар: рука против бьющей ноги — в сторону и вперёд (равновесие), вторая — назад
+      if (pk < 0) { hx = sh.x + i * 6; hy = shoulder + 4; } else if (i === -1) { hx = sh.x + i * 8; hy = shoulder + 1; } else { hx = sh.x + i * 5; hy = shoulder + 5; }
+    }
+    if (pz === 'plant' || pz === 'poke') { hx = sh.x + i * (pz === 'poke' ? 9 : 7); hy = shoulder + (pz === 'poke' ? 2 : 3); }   // замах, выпад — руки в стороны
+    if (pz === 'shoulder') { hx = side ? sh.x + face * 3 : sh.x + i * .8; hy = shoulder + 6; }                                // плечом: руки прижаты
+    if (pz === 'head' && pk >= 0) { hx = sh.x + i * kf(pk, [[0, 4], [.3, 7], [.5, 8], [1, 5]]); hy = shoulder + kf(pk, [[0, 4], [.28, -6], [.5, 2], [1, 4]]); }   // толчок руками вверх, в ударе — вниз
+    if (pz === 'crouch') { hx = sh.x + i * 7.5; hy = hip - 2; }                                                              // вратарь в стойке: руки вперёд-в стороны
+    if (pz === 'rise') { if (i === 1) { hx = side ? sh.x + face * 5 : i * 3.4; hy = hip + 6.5; } else { hx = sh.x + i * 5; hy = hip + 10.5; } }   // встаёт: рука на колене, другой упёрся в газон
     if (pz === 'volley') { hx = sh.x + i * 10; hy = shoulder - 2; }                              // с лёта: руки в стороны, для равновесия
     if (pz === 'carry') { hx = side ? sh.x + face * 6 : sh.x * .35; hy = shoulder + 6; }                // мяч в руках перед собой
     if (oneUp && i === 1) { hx = sh.x + 2.5; hy = shoulder - 12; }
@@ -4579,8 +4823,7 @@ function drawBall() {
   const sp = bprev ? Math.hypot(bx - bprev.x, by - bprev.y) : 0;
   spin += sp * .09;
   // тень на газоне — там, где мяч над землёй: чем выше мяч, тем она дальше, меньше и бледнее (видно, что он в воздухе)
-  const sa = clamp(.4 - h * .0055, .08, .4), sx = ball.x + 2.5 + h * .3, sy = ball.y + 3.5 + h * .22, sk = Math.max(.55, 1 - h * .008);   // как от прожекторов: смещается вправо-вниз
-  g.fillStyle = `rgba(0,0,0,${sa})`; g.beginPath(); g.ellipse(sx, sy, Math.max(4, 7.2 * sk), Math.max(2.2, 3.8 * sk), 0, 0, 7); g.fill();
+  const {x: sx, y: sy} = ballShadows(h);                     // ночью — от четырёх мачт, днём — от солнца
   if (h > 12 && !perf.lite) { g.strokeStyle = 'rgba(255,255,255,.13)'; g.lineWidth = 1; g.beginPath(); g.moveTo(sx, sy); g.lineTo(bx, by); g.stroke(); }   // тонкая «нить» высоты
   ballTrail(bx, by, r, sp);                                  // след в полёте
   bprev = {x: bx, y: by};
@@ -6142,9 +6385,9 @@ function perfTick(now) {
   const d = perf.last ? now - perf.last : 0; perf.last = now;
   if (d <= 0 || d > 250) return;                         // страницу сворачивали — не кадр, а перерыв
   perf.buf.push(d);
-  if (!perf.checked && perf.buf.length >= 240) {
+  if (!perf.checked && (perf.buf.length >= 240 || Q.get('lite') === '1')) {    // ?lite=1 — облегчённый режим сразу (проверка)
     perf.checked = true;
-    if (perfStats(perf.buf).fps < 36 && Q.get('lite') !== '0') { perf.lite = true; HQ = 1.15; fit(); }
+    if ((Q.get('lite') === '1' || perfStats(perf.buf).fps < 36) && Q.get('lite') !== '0') { perf.lite = true; HQ = 1.15; fit(); }
   }
   if (perf.buf.length >= 600 && now - perf.sent > 120000) {
     const st = perfStats(perf.buf);
@@ -6172,7 +6415,7 @@ function frame(now) {
   if (out) { drawOutside(now); g.save(); ringPath(g, ST); g.clip(); g.drawImage(pitchImg, -ST, -ST, TW, TH); g.restore(); }
   else { g.fillStyle = '#060b16'; g.fillRect(-ST - 2, -ST - 2, TW + 4, TH + 4); g.drawImage(pitchImg, -ST, -ST, TW, TH); }
   if (S) {
-    if (buildStands()) { pitchImg = drawPitch(HQW(), HQH()); }       // цвета команд пришли — кресла и скамейки в их цвет
+    if (buildStands() || drawPitch.sky !== skyNow() + lightNow()) { pitchImg = drawPitch(HQW(), HQH()); }   // и погода/свет пришли — газон под них       // цвета команд пришли — кресла и скамейки в их цвет
     drawStands(now);
     drawBanners(now);
     crowdFlashes(now);
