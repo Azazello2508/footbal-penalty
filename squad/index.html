@@ -791,12 +791,15 @@ function haptic(kind) { try { if (!TG || !TG.HapticFeedback || (TG.isVersionAtLe
    По умолчанию выключена; включает менеджер в «Ещё → Настройки», выбор хранится на этом телефоне (fm_music).
    Файл качается только когда музыка включена. До первого касания экрана браузер звук не даёт — тогда ждём касания.
    Свернули приложение — пауза; ушли в сцену матча — страница сменилась, музыка стихла сама (там свой стадион).
-   Громкость — через GainNode: на iPhone у <audio> громкость не меняется. Сигналы (победа, трофей, покупка) —
-   короткие ноты кодом, без файлов, и звучат только при включённой музыке. */
+   Громкость (08.11, «очень громко на максимуме»): тише заложено в самом файле (−12 дБ, около −33 LUFS — заметно тише
+   гула стадиона в матче) и ещё GainNode. Играем через Web Audio (буфер по кругу), не через <audio>: громкость <audio>
+   на iPhone не меняется, а буфер слушается GainNode везде. Совсем отвязать от громкости телефона нельзя — её
+   страница не видит и не меняет. Сигналы (победа, трофей, покупка) — короткие ноты кодом, без файлов,
+   и звучат только при включённой музыке. */
 const MUSIC_CREDIT = 'Вивальди, «Лето. Гроза» — The Modena Chamber Orchestra (Musopen)';
-const MUSIC = {on: false, el: null, ac: null, gain: null, want: false};
+const MUSIC = {on: false, ac: null, gain: null, buf: null, src: null, loading: false, playing: false};
 try { MUSIC.on = localStorage.getItem('fm_music') === '1'; } catch (e) {}
-const MUSIC_VOL = .22;
+const MUSIC_VOL = .7;
 function musicCtx() {
   if (!MUSIC.ac) { try { MUSIC.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
   if (MUSIC.ac.state === 'suspended') MUSIC.ac.resume().catch(() => {});
@@ -805,29 +808,31 @@ function musicCtx() {
 function musicPlay() {
   if (!MUSIC.on || document.hidden) return;
   const ac = musicCtx(); if (!ac) return;
-  if (!MUSIC.el) {
-    const el = new Audio(); el.src = 'sounds/menu.mp3'; el.loop = true; el.preload = 'auto';
-    el.setAttribute('playsinline', ''); el.crossOrigin = 'anonymous';
-    try { const src = ac.createMediaElementSource(el); MUSIC.gain = ac.createGain(); MUSIC.gain.gain.value = 0; src.connect(MUSIC.gain); MUSIC.gain.connect(ac.destination); }
-    catch (e) { MUSIC.gain = null; el.volume = MUSIC_VOL; }
-    MUSIC.el = el;
+  if (!MUSIC.gain) { MUSIC.gain = ac.createGain(); MUSIC.gain.gain.value = 0; MUSIC.gain.connect(ac.destination); }
+  if (!MUSIC.buf) {      // файл качаем один раз и только когда музыку включили
+    if (!MUSIC.loading) { MUSIC.loading = true;
+      fetch('sounds/menu.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+        .then(raw => new Promise((ok, bad) => ac.decodeAudioData(raw, ok, bad)))
+        .then(buf => { MUSIC.buf = buf; MUSIC.loading = false; musicPlay(); })
+        .catch(() => { MUSIC.loading = false; }); }
+    return;
   }
-  const p = MUSIC.el.play();
-  if (p && p.catch) p.catch(() => { MUSIC.want = true; });      // браузер не дал — заиграет с ближайшим касанием
-  if (MUSIC.gain) { const g = MUSIC.gain.gain, t = ac.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(MUSIC_VOL, t + 1.5); }
+  if (!MUSIC.src) { const s = ac.createBufferSource(); s.buffer = MUSIC.buf; s.loop = true; s.connect(MUSIC.gain); s.start(); MUSIC.src = s; }
+  MUSIC.playing = true;
+  const g = MUSIC.gain.gain, t = ac.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(MUSIC_VOL, t + 1.5);
 }
 function musicPause(fade) {
-  if (!MUSIC.el) return;
-  if (MUSIC.gain && MUSIC.ac && fade) { const g = MUSIC.gain.gain, t = MUSIC.ac.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + .6);
-    setTimeout(() => { if (!MUSIC.on || document.hidden) MUSIC.el.pause(); }, 650); }
-  else { if (MUSIC.gain) MUSIC.gain.gain.value = 0; MUSIC.el.pause(); }
+  const ac = MUSIC.ac; if (!ac || !MUSIC.gain) return;
+  MUSIC.playing = false;
+  const g = MUSIC.gain.gain, t = ac.currentTime, d = fade ? .6 : .05; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + d);
+  setTimeout(() => { if (!MUSIC.playing && ac.state === 'running') ac.suspend().catch(() => {}); }, d * 1000 + 80);      // стоп — без работы в фоне
 }
 function musicSet(on) {
   MUSIC.on = on; try { localStorage.setItem('fm_music', on ? '1' : '0'); } catch (e) {}
   if (on) { musicPlay(); toast('🎵 ' + MUSIC_CREDIT); } else musicPause(true);
 }
-addEventListener('pointerdown', () => { if (MUSIC.on && (MUSIC.want || !MUSIC.el || MUSIC.el.paused)) { MUSIC.want = false; musicPlay(); } }, true);
-document.addEventListener('visibilitychange', () => { if (document.hidden) musicPause(false); else if (MUSIC.on && MUSIC.el) musicPlay(); });
+addEventListener('pointerdown', () => { if (MUSIC.on && (!MUSIC.playing || !MUSIC.ac || MUSIC.ac.state !== 'running')) musicPlay(); }, true);      // до касания браузер звук не даёт
+document.addEventListener('visibilitychange', () => { if (document.hidden) musicPause(false); else if (MUSIC.on && MUSIC.buf) musicPlay(); });
 addEventListener('pagehide', () => musicPause(false));
 function chime(kind) {      // короткий сигнал: победа — три ноты вверх, трофей — фанфара, покупка — «дзынь-дзынь»
   if (!MUSIC.on) return;
@@ -838,7 +843,7 @@ function chime(kind) {      // короткий сигнал: победа — �
   const t0 = ac.currentTime + .02;
   for (const [f, at, len] of N) {
     const o = ac.createOscillator(), g = ac.createGain(); o.type = kind === 'buy' ? 'sine' : 'triangle'; o.frequency.value = f;
-    g.gain.setValueAtTime(0, t0 + at); g.gain.linearRampToValueAtTime(.16, t0 + at + .015); g.gain.exponentialRampToValueAtTime(.001, t0 + at + len);
+    g.gain.setValueAtTime(0, t0 + at); g.gain.linearRampToValueAtTime(.1, t0 + at + .015); g.gain.exponentialRampToValueAtTime(.001, t0 + at + len);
     o.connect(g); g.connect(ac.destination); o.start(t0 + at); o.stop(t0 + at + len + .02);
   }
 }
@@ -2699,10 +2704,10 @@ function panelAdmin(m, P) {
     : `<div class="card note">Открытых заявок на смену клуба нет.</div>`, req.length > 0);
   const act = seas.filter(r => r.active).length, cups = seas.filter(r => r.cup).length;
   h += admSec('ofl', '🏁 Официальные лиги: сезон и кубок', `сезон идёт в ${act} из ${seas.length} · кубок — в ${cups}`, 0, seas.map(r => `<div class="card"><b>${esc(r.title)}</b>` +
-    `<div class="sub">⚽ ${r.active ? `сезон идёт: сыграно ${r.done} из ${r.total}` : r.window ? `🔄 трансферное окно до ${esc(r.window)} — новый сезон после него` : 'сезон не начат'} · менеджеров ${r.people}</div><div class="sub">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div><div class="mrow2">` +
-    (r.active ? `<button type="button" class="go danger" data-ofreset="${r.key}">🗑 Сбросить сезон</button>` : r.window ? '' : `<button type="button" class="go main" data-ofstart="${r.key}">🏁 Начать сезон</button>`) +
+    `<div class="sub">⚽ ${r.active ? `сезон идёт: сыграно ${r.done} из ${r.total}` : r.window ? `🔄 общее трансферное окно до ${esc(r.window)} — новый сезон после него` : r.wait ? '⏳ сезон сыгран — ждёт общего трансферного окна официальных лиг' : 'сезон не начат'} · менеджеров ${r.people}</div><div class="sub">🏆 Кубок: ${r.cup ? 'идёт, ' + esc(r.cup) : 'не идёт'}</div><div class="mrow2">` +
+    (r.active ? `<button type="button" class="go danger" data-ofreset="${r.key}">🗑 Сбросить сезон</button>` : r.window || r.wait ? '' : `<button type="button" class="go main" data-ofstart="${r.key}">🏁 Начать сезон</button>`) +
     (r.cup ? `<button type="button" class="go danger" data-cupreset="${r.key}">🗑 Сбросить кубок</button>` : `<button type="button" class="go" data-cupstart="${r.key}">🏆 Начать кубок</button>`) + `</div></div>`).join('') +
-    (seas.filter(r => !r.active && !r.window).length > 1 ? `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>` : ''), false);
+    (seas.filter(r => !r.active && !r.window && !r.wait).length > 1 ? `<button type="button" class="go" data-ofstart="all">🏁 Начать во всех лигах без сезона</button>` : ''), false);
   h += admSec('mgr', '👤 Менеджеры официальных клубов', mg.length ? `клубов с менеджером: ${mg.length}` : 'официальные клубы пока никто не ведёт', 0,
     mg.length ? mg.map(c => `<div class="card"><div class="row"><div><b>${esc(c.name)}</b><div class="sub">${esc(c.league)} · ведёт ${esc(c.who)}</div></div></div>` +
       `<button type="button" class="go danger" data-ofkick="${c.key}">🚫 Снять менеджера</button></div>`).join('') : `<div class="card note">Официальные клубы пока никто не ведёт.</div>`, false);
@@ -3934,7 +3939,8 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
   const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
   x += ecoWindow(st.window || {}, qt);
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
-  x += ecoAgents(st);        // этап О2: общий рынок свободных агентов официальных лиг (в окно своей лиги)
+  x += ecoAgents(st);        // этап О2: общий рынок свободных агентов официальных лиг (в общее окно, О3)
+  x += ecoTrade(st);         // этап О3: рынок игроков официальных лиг — менеджеры и клубы бота (список — по запросу)
   const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;
   const wopen = (st.window || {}).state === 'open';
   x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}${ecoQ('retire')}</div>`;
@@ -3953,7 +3959,7 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
     `<div class="row"><div>${esc(j.title)}<div class="sub">${esc(j.note || '')}</div></div><b class="${j.amount > 0 ? 'fplus' : j.amount < 0 ? 'fminus' : ''}">${ecoMoney(j.amount, true)}</b></div>`).join('') +
     (J.length > 8 ? `<button type="button" class="go" data-ecoall>${ECO_ALL ? 'Свернуть' : `Показать все (${J.length})`}</button>` : '')
     : `<div class="note">Пока движений нет: деньги приходят за каждый сыгранный тур лиги.</div>`) + `</div>`;
-  x += `<div class="hint">${st.market ? (wopen ? 'В окне решаются контракты и подписываются свободные агенты общего рынка официальных лиг. Покупок у других клубов пока нет — следующий этап.' : 'Тратить деньги можно в трансферное окно вашей лиги: продление контрактов и свободные агенты.')
+  x += `<div class="hint">${st.market ? (wopen ? 'В общем окне решаются контракты, подписываются свободные агенты и покупаются игроки у менеджеров и клубов бота всех официальных лиг.' : 'Тратить деньги можно в общее трансферное окно официальных лиг: продление контрактов, свободные агенты, покупка и продажа игроков.')
     : 'Касса официального клуба пока только копится и видна: трансферное окно и свободные агенты работают, когда администратор включит рынок официальных лиг.'}</div>`;
   return x;
 }
@@ -4392,6 +4398,7 @@ function ecoQuote() {
 }
 const ECO_W = ['wrenew', 'wrelease', 'wname', 'wquote', 'wsign',      // решения в окне — ответ бота несёт свежую кассу
   'mlist', 'munlist', 'mbuy', 'moffer', 'maccept', 'mdecline', 'mrevoke', 'mname', 'mquote', 'msale',      // и рынок игроков (этап Г3)
+  'omarket',                 // и список рынка официальных лиг по запросу (этап О3)
   'bbuild', 'bcancel',       // и постройки (этап Д2)
   'ypick',                   // и юниор из академии вместо новичка (этап Д3а)
   'scouts', 'yquote', 'yoffer',       // и селекционеры, предложение за чужого юниора (этап Д3б)
@@ -4444,6 +4451,7 @@ function ecoWinAck(m, act) {
   if (m.ok && act.a === 'wsign') ECO_S = null;
   else if (act.a === 'wsign' && ECO_S && ECO_S.out) { renderMoney(); if (ECO_S) ecoQuote(); }     // отказ — свежий прогноз с причиной
   if (m.ok && (act.a === 'mbuy' || act.a === 'moffer')) ECO_B = null;
+  if (m.ok && ['mbuy', 'moffer', 'mlist', 'munlist', 'maccept', 'mrevoke', 'wsign'].includes(act.a)) ECO_OM = null;     // этап О3: список рынка — заново
   else if ((act.a === 'mbuy' || act.a === 'moffer') && ECO_B && ECO_B.out) { renderMoney(); if (ECO_B) ecoDealQuote(); }
   if (m.ok && act.a === 'mlist') { ECO_L = null; ECO_MT = 'mine'; }
   renderMoney();
@@ -4457,6 +4465,10 @@ let ECO_F = {pos: 'все', str: 0, price: 0};       // фильтры объя�
 let ECO_B = null;          // открыта сделка: {listing, mode: 'buy' | 'offer', out, seasons, price, q, wait, err}
 let ECO_L = null;          // выставление: {pid, price, q, wait, err}
 let ECO_BT = 0;
+let ECO_OF = {league: 0, pos: 'все', who: 'all', sort: 'str'};     // этап О3: фильтры рынка официальных лиг (считает бот)
+let ECO_OM = null;         // этап О3: список рынка официальных лиг по запросу omarket: {key, f, list, total, leagues, wait, err}
+let ECO_OMT = 0;
+const ecoMList = T => T.remote ? ((ECO_OM || {}).list || []) : (T.list || []);      // объявления: у официального клуба — из запроса
 const ECO_M = ['mlist', 'munlist', 'mbuy', 'moffer', 'maccept', 'mdecline', 'mrevoke', 'mname', 'mquote', 'msale'];
 const ecoRetire = n => n ? ` <span class="ftag l">⚠️ может завершить карьеру · ${n}%</span>` : '';
 const ecoR10 = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v / 10) * 10));
@@ -4476,7 +4488,44 @@ function ecoTrade(st) {
   else x += ecoMyOffers(T);
   return x;
 }
+function ecoOMLoad() {             // этап О3: список рынка официальных лиг — запросом, с фильтрами (в состоянии его нет)
+  const old = ECO_OM && ECO_OM.key === ECO.key ? ECO_OM : {};
+  ECO_OM = {key: ECO.key, f: {...ECO_OF}, list: old.list || [], total: old.total || 0, leagues: old.leagues || [], wait: true, err: ''};
+  clearTimeout(ECO_OMT);
+  ECO_OMT = setTimeout(() => { if (ECO_OM && ECO_OM.wait) { ECO_OM.wait = false; ECO_OM.err = 'Бот не ответил — проверьте связь.'; renderMoney(); } }, 10000);
+  send({a: 'omarket', league: ECO_OF.league, pos: ECO_OF.pos, who: ECO_OF.who, sort: ECO_OF.sort, key: ECO.key});
+}
+function ecoBuyRow(a, st, T, full) {     // строка игрока на продажу: объявление менеджера или игрок клуба бота (этап О3)
+  return `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}${a.bot ? ' <span class="ftag">🤖 клуб бота</span>' : ''}${ecoRetire(a.retire)}` +
+    `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
+    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoMoney(a.salary)} за ${ecoT14()}</div></div>` +
+    `<div class="r"><b>${ecoMoney(a.price)}</b>${a.bot ? 'с комиссией' : 'цена'}</div></div>` +
+    (ECO_B && ECO_B.listing === a.id ? ecoDealCard(a, st)
+      : a.mine_offer ? `<div class="fdec"><div class="sub">📨 Ваше предложение ${ecoMoney(a.mine_offer[1])} ждёт ответа продавца (вкладка «Предложения»).</div></div>`
+      : a.bot ? `<div class="fdec"><button type="button" class="go${full ? '' : ' main'}" data-ecobuy="${a.id}"${full ? ' disabled' : ''}>🛒 Купить у клуба бота</button></div>`
+      : `<div class="fdec"><div class="mrow2"><button type="button" class="go${full ? '' : ' main'}" data-ecobuy="${a.id}"${full ? ' disabled' : ''}>🛒 Купить по цене</button>` +
+        `<button type="button" class="go" data-ecooffer="${a.id}"${full || T.offers_open >= T.offers_max ? ' disabled' : ''}>📨 Предложить цену</button></div></div>`);
+}
+function ecoOMList(st, T) {        // этап О3: рынок официальных лиг — фильтр по лиге, амплуа, продавцу; сортировка — у бота
+  if (!ECO_OM || ECO_OM.key !== ECO.key) ecoOMLoad();
+  const O = ECO_OM, F = ECO_OF;
+  if (ECO_B && !O.wait && !O.list.some(a => a.id === ECO_B.listing)) ECO_B = null;      // продан или снят
+  const chip = (k, v, t) => `<button type="button" class="${F[k] === v ? 'on' : ''}" data-ecoof="${k}" data-v="${v}">${esc(t)}</button>`;
+  let x = `<div class="fflt">${chip('league', 0, 'Все лиги')}${(O.leagues || []).map(L => chip('league', L.id, L.name)).join('')}</div>` +
+    `<div class="fflt">${T.positions.map(p => chip('pos', p, p[0].toUpperCase() + p.slice(1))).join('')}</div>` +
+    `<div class="fflt">${chip('who', 'all', 'Все продавцы')}${chip('who', 'people', 'Менеджеры')}${chip('who', 'bots', 'Клубы бота')}</div>` +
+    `<div class="fflt">${chip('sort', 'str', 'Сначала сильные')}${chip('sort', 'price', 'Сначала дешёвые')}</div>`;
+  x += `<div class="fagsub">Покупок в этом окне: <b>${T.buys_used} из ${T.buys_max}</b> · открытых предложений: <b>${T.offers_open} из ${T.offers_max}</b> · у клуба бота — полная стоимость с комиссией (деньги сгорают), не больше одного игрока с клуба за окно.</div>`;
+  if (O.err) return x + `<div class="banner warn">⚠️ ${esc(O.err)} <button type="button" class="go" data-ecoomr>🔄 Повторить</button></div>`;
+  if (O.wait && !O.list.length) return x + `<div class="card fload"><div class="note">⏳ Загружаю рынок…</div></div>`;
+  if (!O.list.length) return x + `<div class="card"><div class="note">Под эти фильтры никто не подходит.</div></div>`;
+  const full = T.buys_used >= T.buys_max;
+  return x + (O.wait ? `<div class="note fload">⏳ Обновляю список…</div>` : '') + `<div class="card fpl">` + O.list.map(a => ecoBuyRow(a, st, T, full)).join('') + `</div>` +
+    (O.total > O.list.length ? `<div class="hint">Показаны ${O.list.length} из ${O.total} — уточните фильтр.</div>` : '') +
+    (full ? `<div class="hint">Лимит окна исчерпан: следующие покупки — в новом окне.</div>` : '');
+}
 function ecoBuyList(st, T) {
+  if (T.remote) return ecoOMList(st, T);
   const F = ECO_F, L = T.list.filter(a => (F.pos === 'все' || (F.pos === 'вратари') === !!a.gk) && a.strength >= F.str && (!F.price || a.price <= F.price));
   if (ECO_B && !T.list.some(a => a.id === ECO_B.listing)) ECO_B = null;      // объявление уже снято или продано
   const chip = (k, v, t) => `<button type="button" class="${ECO_F[k] === v ? 'on' : ''}" data-ecof="${k}" data-v="${v}">${t}</button>`;
@@ -4487,14 +4536,7 @@ function ecoBuyList(st, T) {
   if (!T.list.length) return x + `<div class="card"><div class="note">Пока никто не выставил игроков. Объявления клубов лиг друзей вашего пула появятся здесь.</div></div>`;
   if (!L.length) return x + `<div class="card"><div class="note">Под эти фильтры никто не подходит.</div></div>`;
   const full = T.buys_used >= T.buys_max;
-  return x + `<div class="card fpl">` + L.map(a => `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}${ecoRetire(a.retire)}` +
-    `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
-    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoMoney(a.salary)} за ${ecoT14()}</div></div>` +
-    `<div class="r"><b>${ecoMoney(a.price)}</b>цена</div></div>` +
-    (ECO_B && ECO_B.listing === a.id ? ecoDealCard(a, st)
-      : a.mine_offer ? `<div class="fdec"><div class="sub">📨 Ваше предложение ${ecoMoney(a.mine_offer[1])} ждёт ответа продавца (вкладка «Предложения»).</div></div>`
-      : `<div class="fdec"><div class="mrow2"><button type="button" class="go${full ? '' : ' main'}" data-ecobuy="${a.id}"${full ? ' disabled' : ''}>🛒 Купить по цене</button>` +
-        `<button type="button" class="go" data-ecooffer="${a.id}"${full || T.offers_open >= T.offers_max ? ' disabled' : ''}>📨 Предложить цену</button></div></div>`)).join('') + `</div>` +
+  return x + `<div class="card fpl">` + L.map(a => ecoBuyRow(a, st, T, full)).join('') + `</div>` +
     (full ? `<div class="hint">Лимит окна исчерпан: следующие покупки — в новом окне.</div>` : '');
 }
 function ecoDealCard(a, st) {
@@ -4513,7 +4555,8 @@ function ecoDealCard(a, st) {
   else if (q && q.salary == null) x += `<div class="banner warn">⛔ ${esc(q.why || 'Купить нельзя')}</div>`;
   else if (q) {
     const pct = Math.round(q.share_after * 100);
-    x += `<div class="row"><span>${offer ? 'Ваше предложение' : 'Цена'}</span><b class="fminus">${ecoMoney(-q.price)}</b></div>` +
+    x += `<div class="row"><span>${offer ? 'Ваше предложение' : q.bot ? 'Стоимость с комиссией' : 'Цена'}</span><b class="fminus">${ecoMoney(-q.price)}</b></div>` +
+      (q.bot ? `<div class="sub fburn">стоимость ${ecoMoney(q.value)} + комиссия ${ecoMoney(q.commission)} — у клуба бота кассы нет, деньги сгорают</div>` : '') +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       (offer ? `<div class="row"><span>Заморозится до ответа</span><b>${ecoMoney(q.price + q.comp)}</b></div>` : '') +
       `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
@@ -4536,7 +4579,7 @@ function ecoMine(st, T, wopen) {
   let x = '';
   if (wopen) {
     const can = (st.players || []).filter(p => p.sell);
-    x += `<div class="card"><div class="row"><div><b>Выставить игрока</b><div class="sub">цена — от 50% до 200% его стоимости; объявление висит до следующего окна вашей лиги</div></div></div>`;
+    x += `<div class="card"><div class="row"><div><b>Выставить игрока</b><div class="sub">цена — от 50% до 200% его стоимости; объявление висит ${T.remote ? 'до конца общего окна (не продан — остаётся в клубе)' : 'до следующего окна вашей лиги'}</div></div></div>`;
     if (!can.length) x += `<div class="note">Сейчас выставить некого: у игроков кончился контракт или они уже на продаже.</div>`;
     else x += `<div class="fouts">${can.map(p => `<button type="button" class="${ECO_L && ECO_L.pid === p.pid ? 'on' : ''}" data-ecolp="${p.pid}"><b>№${p.number} ${esc(p.name)}</b><span>${years(p.age)} · стоит ${ecoMoney(p.sell.value)}${p.junior ? ' · 🐣 новичок' : ''}</span></button>`).join('')}</div>`;
     const p = ECO_L && can.find(c => c.pid === ECO_L.pid);
@@ -4583,16 +4626,20 @@ function ecoMarketClick(b, d) {   // нажатия на рынке; true — о
   if (b.hasAttribute('data-ecomk')) { haptic(); ECO_MK = !ECO_MK; if (ECO_MK) ECO_MT = 'buy'; renderMoney(); if (ECO_MK) { const el = $('ecomarket'); if (el && el.scrollIntoView) el.scrollIntoView({behavior: 'smooth', block: 'start'}); } return true; }
   if (d.ecomt) { haptic('soft'); ECO_MT = d.ecomt; renderMoney(); return true; }
   if (d.ecof) { haptic('soft'); ECO_F[d.ecof] = d.ecof === 'pos' ? d.v : +d.v; renderMoney(); return true; }
-  if (d.ecobuy || d.ecooffer) { haptic(); const a = T.list.find(x => x.id === +(d.ecobuy || d.ecooffer)); if (!a) return true;
-    ECO_B = {listing: a.id, mode: d.ecobuy ? 'buy' : 'offer', out: null, seasons: 3, price: ecoR10(a.value * 0.75, a.min, a.max), q: null, wait: false, err: ''}; renderMoney(); return true; }
+  if (d.ecoof) { haptic('soft'); ECO_OF[d.ecoof] = d.ecoof === 'league' ? +d.v : d.v; ECO_B = null; ecoOMLoad(); renderMoney(); return true; }      // этап О3: фильтр — бот считает заново
+  if (b.hasAttribute('data-ecoomr')) { haptic('soft'); ecoOMLoad(); renderMoney(); return true; }
+  if (d.ecobuy || d.ecooffer) { haptic(); const a = ecoMList(T).find(x => x.id === +(d.ecobuy || d.ecooffer)); if (!a) return true;
+    ECO_B = {listing: a.id, mode: d.ecobuy ? 'buy' : 'offer', out: null, seasons: 3, price: a.bot ? a.price : ecoR10(a.value * 0.75, a.min, a.max), q: null, wait: false, err: ''}; renderMoney(); return true; }
   if (d.ecobout && ECO_B) { haptic('soft'); ECO_B.out = +d.ecobout; ecoDealQuote(); renderMoney(); return true; }
   if (d.ecobterm && ECO_B) { haptic('soft'); ECO_B.seasons = +d.ecobterm; renderMoney(); return true; }
   if (d.ecobp && ECO_B) { haptic('soft'); ECO_B.price = +d.ecobp; if (ECO_B.out) ecoDealQuote(); renderMoney(); return true; }
   if (b.hasAttribute('data-ecobcalc') && ECO_B) { haptic('soft'); const v = parseInt(val('ecobprice'), 10); if (v) ECO_B.price = v; if (ECO_B.out) ecoDealQuote(); renderMoney(); return true; }
   if (b.hasAttribute('data-ecobx')) { ECO_B = null; renderMoney(); return true; }
   if (d.ecobdo && ECO_B && ECO_B.q && ECO_B.q.ok) {
-    const s = {...ECO_B}, a = T.list.find(x => x.id === s.listing) || {name: ''}, p = P(s.out), q = s.q; haptic();
-    if (s.mode === 'buy') ask(`Купить ${a.name} у «${a.club}» за ${ecoMoney(q.price)} на ${ECO_SEASONS(s.seasons)} вместо №${p.number} ${p.name}? Сразу спишется ${ecoMoney(q.price + q.comp)}${q.comp ? ' (с компенсацией уходящему)' : ''}. Отменить нельзя.`,
+    const s = {...ECO_B}, a = ecoMList(T).find(x => x.id === s.listing) || {name: ''}, p = P(s.out), q = s.q; haptic();
+    if (s.mode === 'buy' && a.bot) ask(`Купить ${a.name} у клуба бота «${a.club}» за ${ecoMoney(q.price)} (стоимость ${ecoMoney(q.value)} + комиссия ${ecoMoney(q.commission)}) на ${ECO_SEASONS(s.seasons)} вместо №${p.number} ${p.name}? Сразу спишется ${ecoMoney(q.price + q.comp)}${q.comp ? ' (с компенсацией уходящему)' : ''}; у бота кассы нет — деньги сгорят. Отменить нельзя.`,
+      () => send({a: 'mbuy', listing: s.listing, out: s.out, seasons: s.seasons, sure: true, key: ECO.key}));
+    else if (s.mode === 'buy') ask(`Купить ${a.name} у «${a.club}» за ${ecoMoney(q.price)} на ${ECO_SEASONS(s.seasons)} вместо №${p.number} ${p.name}? Сразу спишется ${ecoMoney(q.price + q.comp)}${q.comp ? ' (с компенсацией уходящему)' : ''}. Отменить нельзя.`,
       () => send({a: 'mbuy', listing: s.listing, out: s.out, seasons: s.seasons, sure: true, key: ECO.key}));
     else ask(`Предложить ${ecoMoney(s.price)} за ${a.name}? До ответа продавца заморозится ${ecoMoney(q.price + q.comp)}; если он примет, №${p.number} ${p.name} уйдёт, а сделка пройдёт сразу.`,
       () => send({a: 'moffer', listing: s.listing, out: s.out, seasons: s.seasons, price: s.price, sure: true, key: ECO.key}));
@@ -4613,6 +4660,14 @@ function ecoMarketClick(b, d) {   // нажатия на рынке; true — о
   return false;
 }
 function ecoMarketAck(m, act) {   // прогнозы рынка — только для того выбора, что сейчас открыт; true — обработано
+  if (act.a === 'omarket') {         // этап О3: список рынка официальных лиг — только для тех фильтров, что сейчас выбраны
+    if (ECO_OM && ECO_OM.wait && ['league', 'pos', 'who', 'sort'].every(k => ECO_OM.f[k] === act[k])) {
+      clearTimeout(ECO_OMT); ECO_OM.wait = false; const R = m.omarket || {};
+      if (m.ok && R.ok) Object.assign(ECO_OM, {list: R.list || [], total: R.total || 0, leagues: R.leagues || []});
+      else { ECO_OM.err = R.why || m.note || 'Не удалось загрузить рынок'; ECO_OM.list = []; }
+    }
+    renderMoney(); return true;
+  }
   if (act.a === 'mquote') {
     if (ECO_B && ECO_B.listing === act.listing && ECO_B.out === act.out && (act.price == null || act.price === ECO_B.price)) {
       clearTimeout(ECO_BT); ECO_B.wait = false;
