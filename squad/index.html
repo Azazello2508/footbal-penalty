@@ -4129,7 +4129,26 @@ function ecoSpWhat(kind) {         // условия спонсора — из R
 }
 function ecoFinance(st) {
   const F = st.finance; if (!F) return '';
-  return ecoSponsor(F.sponsor || {}) + ecoInvestor(F.investor || {}) + ecoLoan(F.loan || {});
+  return ecoOwner(F.owner) + ecoSponsor(F.sponsor || {}) + ecoInvestor(F.investor || {}) + ecoLoan(F.loan || {});
+}
+/* 👔 владелец и 🎯 цель правления официального клуба (этап О4-3, official_economy.owner_view): тип, цель сезона и итог
+   считает бот — страница только показывает */
+function ecoOwner(O) {
+  if (!O) return '';
+  const what = {people: `стадион ×${String(O.people[0]).replace('.', ',')} и +${ecoPct(O.people[1])} дохода`,
+    patron: `+${ecoPct(O.patron)} дохода сезона за выполненную цель`,
+    fund: `забирает ${ecoPct(O.take)} прибыли сезона · кредит до ${ecoPct(O.loan_share)} под ${ecoPct(O.loan_rate)}`}[O.type] || '';
+  let x = `<div class="lrow"><div class="label">👔 Владелец</div>${ecoQ('owner')}</div>` + ecoWhat(['owner', 'goal']) + `<div class="card fpl">` +
+    `<div class="row"><div><b>${esc(O.title)}</b><div class="sub">${esc(what)}</div></div></div>`;
+  const g = O.goal;
+  x += `<div class="lrow"><span>🎯 Цель правления</span>${ecoQ('goal')}</div>`;
+  if (g) x += `<div class="row"><div><b>${esc(g.text)}</b><div class="sub">класс клуба — ${g.rank}-й из ${g.n} в лиге</div></div>` +
+    `<div class="r">${g.pos ? `<b>${g.ok ? '✅' : '▫️'} ${g.pos}-е</b>сейчас` : '<b>—</b>сезон впереди'}</div></div>`;
+  else x += `<div class="sub">Цель ставится на старт сезона — по месту класса клуба в лиге.</div>`;
+  if (O.last) x += `<div class="sub">Прошлый сезон: ${esc(O.last.text)} — ${O.last.met ? 'выполнена' : 'не выполнена'} (${O.last.place}-е)${O.last.bonus ? `, бонус мецената ${ecoMoney(O.last.bonus, true)}` : ''}${O.last.take ? `, доля фонда ${ecoMoney(-O.last.take)}` : ''}</div>`;
+  if (O.cut) x += `<div class="banner warn">⚠️ Цель провалена ${O.fails} сезона подряд — спонсоры предлагают на ${ecoPct(O.cut_share)} меньше, пока цель не будет выполнена.</div>`;
+  else if (O.fails) x += `<div class="sub">Провалов подряд: ${O.fails}. Ещё один — и спонсоры предложат на ${ecoPct(O.cut_share)} меньше.</div>`;
+  return x + `</div>`;
 }
 function ecoSponsor(S) {
   let x = `<div class="lrow"><div class="label">🤝 Спонсор</div>${ecoQ('sponsor')}</div>` + ecoWhat(['sponsor']) + `<div class="card fpl">`;
