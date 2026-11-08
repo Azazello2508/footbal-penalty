@@ -2077,9 +2077,28 @@ function betweenClick(b) {       // нажатия в окнах пресс-ко
   if (d.pdsave) { const fx = +d.pdsave, v = PRED_DRAFT[fx]; if (!v) return true; haptic(); send({a: 'pred', fx, hg: v[0], ag: v[1]}); return true; }
   return false;
 }
+/* правила лиги и кубка — по запросу {a: 'rules', which} (08.11: в полном состоянии только пометка, текст ≈10 КБ);
+   кэш — по клубу и виду; нет ответа 10 с — «Не удалось загрузить» и «Ещё раз» */
+const RULES = {};          // 'league:Клуб' → {text, wait, err}
+let RULES_T = 0;
+const rulesKey = w => w + ':' + ((H().home || {}).club || '');
+function rulesLoad(w) {
+  const k = rulesKey(w); RULES[k] = {text: '', wait: true, err: ''};
+  clearTimeout(RULES_T);
+  RULES_T = setTimeout(() => { const s = RULES[k]; if (s && s.wait) { s.wait = false; s.err = 'Бот не ответил — проверьте связь.'; if (PANEL && PANEL.k === 'rules') renderPanel(); } }, 10000);
+  send({a: 'rules', which: w});
+}
 function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
-  const r = P.which === 'cup' ? (H().cup || {}).rules : P.which === 'euro' ? (H().euro || {}).rules : (H().table || {}).rules;
-  return panelHead(P.which === 'cup' ? '📜 Правила кубка' : P.which === 'euro' ? '📜 Правила еврокубков' : '📜 Правила лиги') +(r ? `<div class="report">${esc(r)}</div>` : `<div class="note">Правил пока нет.</div>`);
+  const head = panelHead(P.which === 'cup' ? '📜 Правила кубка' : P.which === 'euro' ? '📜 Правила еврокубков' : '📜 Правила лиги');
+  let r = P.which === 'cup' ? (H().cup || {}).rules : P.which === 'euro' ? (H().euro || {}).rules : (H().table || {}).rules;
+  if (r === true) {               // текст — по запросу
+    const s = RULES[rulesKey(P.which)];
+    if (!s) { rulesLoad(P.which); return head + `<div class="note fload">⏳ Загружается…</div>`; }
+    if (s.wait) return head + `<div class="note fload">⏳ Загружается…</div>`;
+    if (s.err) return head + `<div class="banner warn">⚠️ Не удалось загрузить: ${esc(s.err)}</div><button type="button" class="go" data-rulesretry="${esc(P.which)}">🔄 Ещё раз</button>`;
+    r = s.text;
+  }
+  return head + (r ? `<div class="report">${esc(r)}</div>` : `<div class="note">Правил пока нет.</div>`);
 }
 function panelHelp(m, P) {
   const toc = H().help || [];
@@ -3991,6 +4010,8 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
   x += ecoAgents(st);        // этап О2: общий рынок свободных агентов официальных лиг (в общее окно, О3)
   x += ecoTrade(st);         // этап О3: рынок игроков официальных лиг — менеджеры и клубы бота (список — по запросу)
+  x += ecoBuilds(st);        // этап О4-1: стадион (+% к доходу) и тренировочная база — экраны лиг друзей, суммы × класс
+  x += ecoAcademy(st);       // этап О4-1: академия, селекционеры, юниоры клубов менеджеров официальных лиг
   const ps = st.players || [], exp = ps.filter(p => (p.status === 'expiring' || p.status === 'expired') && !(p.status === 'expired' && p.seasons_left > 0)).length;
   const wopen = (st.window || {}).state === 'open';
   x += `<div class="lrow"><div class="label">Контракты</div>${ecoQ('contract')}${ecoQ('retire')}</div>`;
@@ -4002,7 +4023,7 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
       (t ? `<span class="ftag ${t[0]}">${t[1]}</span>` : '') + ecoRetire(p.retire) + `</div>` +
       `<div class="r">${p.salary ? `<b>${ecoMoney(p.per_tour)}</b>за тур${p.per_season ? `<div class="sub">${ecoMoney(p.per_season)} за сезон</div>` : ''}` : '—'}${p.tours_left != null && p.status !== 'expired' ? `<div class="sub">ещё ${ecoTours(p.tours_left)}</div>` : ''}</div></div>` +
       (p.rename ? `<div class="fdec"><div class="sub">🐣 Новичок пришёл с именем по умолчанию — дайте ему своё:</div><div class="own"><input id="ecomname${p.pid}" maxlength="41" placeholder="Имя Фамилия новичка"><button type="button" data-ecomname="${p.pid}">💾 Имя</button></div></div>` : '') +
-      (wopen ? ecoDecide(p) : ''); }).join('')
+      (wopen ? ecoDecide(p) + ecoYouthPick(p, st) : ''); }).join('')
     : `<div class="note">Игроков пока нет.</div>`) + `</div>`;
   const J = st.journal || [], shown = ECO_ALL ? J : J.slice(0, 8);
   x += `<div class="label">Последние движения</div><div class="card fpl">` + (J.length ? shown.map(j =>
@@ -4165,7 +4186,7 @@ function ecoBuilds(st) {
 }
 function ecoBuildItem(b, cap) {      // одна постройка: уровень, заказанное, следующий уровень с прогнозом бота и кнопкой
   {
-    const lvl = b.kind === 'stadium' ? '' : b.level ? ` · ${b.level}-й уровень из ${b.levels}` : ' · нет';
+    const lvl = b.kind === 'stadium' && !b.official ? '' : b.level ? ` · ${b.level}-й уровень из ${b.levels}` : ' · нет';
     let y = `<div class="row"><div><b>${esc(b.title)}</b><div class="sub">сейчас: ${esc(b.effect)}${lvl}${b.upkeep ? ' · содержание ' + ecoMoney(b.upkeep) + ' за тур' : ''}</div></div></div>`;
     const o = b.ordered || (b.pending ? {level: b.pending} : null);
     if (b.ordered) y += `<div class="fdec"><div class="sub">🕓 Заказано: <b>${esc(b.ordered.effect)}</b> за ${ecoMoney(b.ordered.cost)} — откроется со следующего сезона (содержание ${ecoMoney(b.ordered.upkeep)} за тур).</div>` +
@@ -4182,7 +4203,7 @@ function ecoBuildItem(b, cap) {      // одна постройка: урове�
         (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why || 'Строить нельзя')}</div>`) +
         `<button type="button" class="go${q.ok ? ' main' : ''}" data-ecobuild="${b.kind}"${q.ok ? '' : ' disabled'}>🏗 Построить за ${ecoMoney(q.cost)}</button></div>`;
     } else if (n && !o) y += `<div class="fdec"><div class="sub">Следующий уровень: <b>${esc(n.effect)}</b> · ${ecoMoney(n.cost)} · содержание ${ecoMoney(n.upkeep)} за тур</div>` +
-      (n.payback ? `<div class="sub">📈 ${esc(n.payback)}</div>` : '') + `<div class="sub">Строить можно в трансферное окно вашей лиги.</div></div>`;
+      (n.payback ? `<div class="sub">📈 ${esc(n.payback)}</div>` : '') + `<div class="sub">${b.official ? 'Строить можно в общее трансферное окно официальных лиг (цена — × класс клуба в момент оплаты).' : 'Строить можно в трансферное окно вашей лиги.'}</div></div>`;
     else if (!o && b.level >= b.levels) y += `<div class="sub">✅ Самый высокий уровень.</div>`;
     return y;
   }
@@ -4222,7 +4243,7 @@ function ecoScouts(st) {
   let x = `<div class="lrow"><div class="label">🔭 Селекционеры</div>${ecoQ('scouts')}</div>` + ecoWhat(['scouts']);
   x += `<div class="card fpl"><div class="row"><div><b>${S.n} из ${S.max}</b><div class="sub">${ecoMoney(S.salary)} за тур каждому · за ${ecoT14()} — ${ecoMoney(S.season)} каждому</div></div>` +
     `<div class="r">${S.n ? `<b>${ecoMoney(S.n * S.salary)}</b>за тур` : '—'}</div></div>` +
-    `<div class="sub">Каждый за тур раскрывает потенциал одного юниора: сначала своих, потом клубов вашей лиги, потом других лиг друзей. Раскрыто в этом сезоне: ${S.seen_season} · известно сейчас: ${S.seen_now}</div>`;
+    `<div class="sub">Каждый за тур раскрывает потенциал одного юниора: сначала своих, потом клубов вашей лиги, потом ${S.official ? 'клубов менеджеров других официальных лиг' : 'других лиг друзей'}. Раскрыто в этом сезоне: ${S.seen_season} · известно сейчас: ${S.seen_now}</div>`;
   if (S.n < S.max) x += `<div class="row"><span>С ещё одним затраты на состав станут</span><b class="${S.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
     (S.ok ? '' : `<div class="banner warn">⛔ ${esc(S.why || 'Нанять нельзя')}</div>`);
   x += `<div class="mrow2">` + (S.n < S.max ? `<button type="button" class="go${S.ok ? ' main' : ''}" data-ecoscout="${S.n + 1}"${S.ok ? '' : ' disabled'}>🔭 Нанять · ${ecoMoney(S.salary)} за тур</button>` : '') +
@@ -4234,7 +4255,7 @@ function ecoOthers(st) {         // «Юниоры других клубов»: 
   const L = O.list || [], wopen = !!O.window, full = O.buys_used >= O.buys_max || O.offers_open >= O.offers_max;
   if (ECO_YB && !L.some(y => y.pid === ECO_YB.youth)) ECO_YB = null;      // юниора уже нет в академии
   let x = `<div class="lrow"><div class="label">🎓 Юниоры других клубов</div>${ecoQ('scouts')}</div>`;
-  x += `<div class="fagsub">Клубы вашей лиги и раскрытые вашими селекционерами в других лигах · ${wopen ? `купить — предложением цены, продавец решит · покупок в окне: <b>${O.buys_used} из ${O.buys_max}</b>, открытых предложений: <b>${O.offers_open} из ${O.offers_max}</b>` : 'купить можно в трансферное окно вашей лиги'}</div>`;
+  x += `<div class="fagsub">Клубы вашей лиги и раскрытые вашими селекционерами в других лигах · ${wopen ? `купить — предложением цены, продавец решит · покупок в окне: <b>${O.buys_used} из ${O.buys_max}</b>, открытых предложений: <b>${O.offers_open} из ${O.offers_max}</b>` : O.official ? 'купить можно в общее трансферное окно официальных лиг, только у клубов менеджеров' : 'купить можно в трансферное окно вашей лиги'}</div>`;
   if (!L.length) return x + `<div class="card"><div class="note">Пока никого: юниоры других клубов вашей лиги и раскрытые селекционерами появятся здесь.</div></div>`;
   const shown = ECO_YALL ? L : L.slice(0, 8);
   x += `<div class="card fpl">` + shown.map(y => `<div class="row"><div><b>${esc(y.name)}</b>${y.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}` +
@@ -4881,6 +4902,7 @@ document.addEventListener('click', e => {
   if (betweenClick(b)) return;
   if (b.dataset.panel) { haptic(); openPanel(b.dataset.panel); return; }
   if (b.dataset.rules) { haptic(); openPanel('rules'); PANEL.which = b.dataset.rules; renderPanel(); return; }
+  if (b.dataset.rulesretry) { haptic(); rulesLoad(b.dataset.rulesretry); renderPanel(); return; }
   if (b.hasAttribute('data-fcupstart')) { haptic(); const K = (H().cup || {}).ctl || {}; ask((K.start || {}).text || 'Начать Кубок лиги?', () => send({a: 'fcupstart', sure: true})); return; }
   if (PANEL && panelClick(b)) return;
   if (b.dataset.slotnow) { send({a: 'propose', fx: +b.dataset.slotnow, now: true}); return; }
@@ -5114,6 +5136,10 @@ function onAck(m) {
   if (m.ok && act && act.a === 'ofcard') { CARDS[m.key] = {card: m.card, numbers: m.numbers}; if (PANEL) renderPanel(); }
   if (m.ok && act && act.a === 'nudges' && S && S.hub) { S.hub.nudges = m.nudges; renderMore(); }
   if (m.ok && m.help) { HELPS[m.help.key] = m.help; if (PANEL) renderPanel(); }
+  if (act && act.a === 'rules') {      // правила лиги / кубка по запросу: ответ или понятная ошибка
+    const k = act.which + ':' + ((m.rules || {}).club || (H().home || {}).club || ''), s = RULES[k] || (RULES[k] = {});
+    clearTimeout(RULES_T); s.wait = false; s.text = (m.rules || {}).text || ''; s.err = m.ok ? '' : (m.note || 'правил пока нет');
+    if (PANEL && PANEL.k === 'rules') renderPanel(); }
   if (m.ok && m.rep) { REP = m.rep; if (PANEL && PANEL.k === 'report') renderPanel(); }
   if (act && PANEL && PANEL.k === 'report' && ((act.a === 'repinfo' && !m.ok) || (act.a === 'report' && m.ok))) closeSheet();
   if (m.ok && m.trophies) { TROPHIES = m.trophies; if (PANEL && PANEL.k === 'trophies') renderPanel(); }
