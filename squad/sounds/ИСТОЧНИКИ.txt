@@ -1,0 +1,10 @@
+Музыка меню Mini App (webapp/squad/index.html, блок «музыка в меню»).
+
+menu.mp3 — Антонио Вивальди, «Времена года», концерт «Лето» RV 315, III. Presto («Гроза»).
+  Исполняет The Modena Chamber Orchestra, запись Musopen (некоммерческая организация, США).
+  Лицензия: Public Domain Mark — владелец записи отдал её в общественное достояние, указывать автора не обязательно
+  (всё равно указываем: в «Ещё → Настройки» и при включении музыки).
+  Файл: https://commons.wikimedia.org/wiki/File:The_Modena_Chamber_Orchestra_-_Vivaldi%27s_Summer,_RV_315_-_III._Presto.ogg
+  Источник Musopen: https://musopen.org/music/14910-the-four-seasons-op-8/
+  Вырезано 0,4–90,5 с (вступление «грозы» и начало сольного эпизода), плавное затухание 2,5 с в конце,
+  mp3 96 кбит/с стерео, 1,08 МБ.
