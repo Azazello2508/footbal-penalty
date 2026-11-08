@@ -784,6 +784,77 @@ addEventListener('error', e => { try { toast('Ошибка страницы: ' +
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 function haptic(kind) { try { if (!TG || !TG.HapticFeedback || (TG.isVersionAtLeast && !TG.isVersionAtLeast('6.1'))) return; if (kind === 'ok' || kind === 'bad') TG.HapticFeedback.notificationOccurred(kind === 'ok' ? 'success' : 'error'); else TG.HapticFeedback.impactOccurred(['medium', 'soft', 'heavy', 'rigid'].includes(kind) ? kind : 'light'); } catch (e) { /* нет вибро */ } }
+
+/* ---------------- музыка в меню (08.11) ----------------
+   Вивальди, «Лето», III. Presto («Гроза»): The Modena Chamber Orchestra, Musopen — владелец отдал запись в общественное
+   достояние (Public Domain Mark), источник — squad/sounds/ИСТОЧНИКИ.txt. Кусок 90 с по кругу, тихо.
+   По умолчанию выключена; включает менеджер в «Ещё → Настройки», выбор хранится на этом телефоне (fm_music).
+   Файл качается только когда музыка включена. До первого касания экрана браузер звук не даёт — тогда ждём касания.
+   Свернули приложение — пауза; ушли в сцену матча — страница сменилась, музыка стихла сама (там свой стадион).
+   Громкость — через GainNode: на iPhone у <audio> громкость не меняется. Сигналы (победа, трофей, покупка) —
+   короткие ноты кодом, без файлов, и звучат только при включённой музыке. */
+const MUSIC_CREDIT = 'Вивальди, «Лето. Гроза» — The Modena Chamber Orchestra (Musopen)';
+const MUSIC = {on: false, el: null, ac: null, gain: null, want: false};
+try { MUSIC.on = localStorage.getItem('fm_music') === '1'; } catch (e) {}
+const MUSIC_VOL = .22;
+function musicCtx() {
+  if (!MUSIC.ac) { try { MUSIC.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (MUSIC.ac.state === 'suspended') MUSIC.ac.resume().catch(() => {});
+  return MUSIC.ac;
+}
+function musicPlay() {
+  if (!MUSIC.on || document.hidden) return;
+  const ac = musicCtx(); if (!ac) return;
+  if (!MUSIC.el) {
+    const el = new Audio(); el.src = 'sounds/menu.mp3'; el.loop = true; el.preload = 'auto';
+    el.setAttribute('playsinline', ''); el.crossOrigin = 'anonymous';
+    try { const src = ac.createMediaElementSource(el); MUSIC.gain = ac.createGain(); MUSIC.gain.gain.value = 0; src.connect(MUSIC.gain); MUSIC.gain.connect(ac.destination); }
+    catch (e) { MUSIC.gain = null; el.volume = MUSIC_VOL; }
+    MUSIC.el = el;
+  }
+  const p = MUSIC.el.play();
+  if (p && p.catch) p.catch(() => { MUSIC.want = true; });      // браузер не дал — заиграет с ближайшим касанием
+  if (MUSIC.gain) { const g = MUSIC.gain.gain, t = ac.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(MUSIC_VOL, t + 1.5); }
+}
+function musicPause(fade) {
+  if (!MUSIC.el) return;
+  if (MUSIC.gain && MUSIC.ac && fade) { const g = MUSIC.gain.gain, t = MUSIC.ac.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + .6);
+    setTimeout(() => { if (!MUSIC.on || document.hidden) MUSIC.el.pause(); }, 650); }
+  else { if (MUSIC.gain) MUSIC.gain.gain.value = 0; MUSIC.el.pause(); }
+}
+function musicSet(on) {
+  MUSIC.on = on; try { localStorage.setItem('fm_music', on ? '1' : '0'); } catch (e) {}
+  if (on) { musicPlay(); toast('🎵 ' + MUSIC_CREDIT); } else musicPause(true);
+}
+addEventListener('pointerdown', () => { if (MUSIC.on && (MUSIC.want || !MUSIC.el || MUSIC.el.paused)) { MUSIC.want = false; musicPlay(); } }, true);
+document.addEventListener('visibilitychange', () => { if (document.hidden) musicPause(false); else if (MUSIC.on && MUSIC.el) musicPlay(); });
+addEventListener('pagehide', () => musicPause(false));
+function chime(kind) {      // короткий сигнал: победа — три ноты вверх, трофей — фанфара, покупка — «дзынь-дзынь»
+  if (!MUSIC.on) return;
+  const ac = musicCtx(); if (!ac) return;
+  const N = {win: [[523, 0, .16], [659, .13, .16], [784, .26, .38]], trophy: [[392, 0, .14], [523, .12, .14], [659, .24, .14], [784, .36, .5], [1047, .36, .5]],
+    buy: [[1319, 0, .12], [1760, .09, .3]]}[kind];
+  if (!N) return;
+  const t0 = ac.currentTime + .02;
+  for (const [f, at, len] of N) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = kind === 'buy' ? 'sine' : 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, t0 + at); g.gain.linearRampToValueAtTime(.16, t0 + at + .015); g.gain.exponentialRampToValueAtTime(.001, t0 + at + len);
+    o.connect(g); g.connect(ac.destination); o.start(t0 + at); o.stop(t0 + at + len + .02);
+  }
+}
+/* Победа и новый трофей — по состоянию от бота: последний сыгранный матч с победой, число звёзд за трофеи.
+   В первый заход на этом телефоне только запоминаем, что уже было, — звучит лишь новое. */
+function chimeState(hb) {
+  const h = hb && hb.home; if (!h) return;
+  let mem = {}; try { mem = JSON.parse(localStorage.getItem('fm_chime') || '{}') || {}; } catch (e) {}
+  const club = String(h.club || ''), fresh = mem.club !== club;
+  const won = (hb.matches || []).filter(m => m.res === 'В').reduce((a, m) => Math.max(a, +m.id || 0), 0);
+  const tr = +((h.crest || {}).t) || 0;
+  let kind = '';
+  if (!fresh && tr > (+mem.tr || 0)) kind = 'trophy'; else if (!fresh && won > (+mem.won || 0)) kind = 'win';
+  if (fresh || won !== mem.won || tr !== mem.tr) { try { localStorage.setItem('fm_chime', JSON.stringify({club, won, tr})); } catch (e) {} }
+  if (kind) chime(kind);
+}
 let toastT = 0;
 function toast(text, bad) {
   const t = $('toast'); t.textContent = text; t.className = 'show' + (bad ? ' bad' : '');
@@ -1731,7 +1802,7 @@ function kitDuel(m) {      // перед матчем: в какой форме 
 function kitPay(link) {       // счёт в звёздах: уровень поднимает бот, когда придёт оплата
   if (!TG || !TG.openInvoice) { SHOP_PREV = null; toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
-    if (st === 'paid') { haptic('ok'); toast('⭐ Оплачено — открываем уровень формы'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'kits', check: true}), ms)); }
+    if (st === 'paid') { haptic('ok'); chime('buy'); toast('⭐ Оплачено — открываем уровень формы'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'kits', check: true}), ms)); }
     else { SHOP_PREV = null; KIT_PREV_LV = 0; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
 }
@@ -2393,7 +2464,7 @@ function crestPay(link) {       // счёт в звёздах: уровень п
   if (!TG || !TG.openInvoice) { SHOP_PREV = null; toast('Оплата работает только в Telegram', true); return; }
   TG.openInvoice(link, st => {
     if (st === 'paid') {
-      haptic('ok'); toast('⭐ Оплачено — открываем уровень');
+      haptic('ok'); chime('buy'); toast('⭐ Оплачено — открываем уровень');
       [1500, 4000].forEach(ms => setTimeout(() => { CREST_READY_HTML = null; send({a: 'crest', check: true}); }, ms));
     } else { CREST_PREV = null; SHOP_PREV = null; if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true); }      // отмена — распаковки не будет
   });
@@ -3144,7 +3215,8 @@ function renderMore() {
   x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-tab="learn">🎓 Обучение<span>подсказки прямо на экранах: что нажать и что ввести; учебный матч</span></button>` +      // «Обучение» — не в нижнем меню (там «💶 Финансы»)
     (hb.help && hb.help.length ? `<button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button>` : '') + `</div>`;
   const TN = {glass: 'стекло в цвете клуба', club: 'светлое в цветах клуба', dark: 'тёмное (как раньше)'}, nextT = THEMES[(THEMES.indexOf(THEME) + 1) % THEMES.length];
-  const themeBtn = `<button type="button" data-theme-set="${nextT}">🎨 Оформление: ${TN[THEME]}<span>нажмите — ${TN[nextT]}</span></button>`;
+  const themeBtn = `<button type="button" data-theme-set="${nextT}">🎨 Оформление: ${TN[THEME]}<span>нажмите — ${TN[nextT]}</span></button>` +
+    `<button type="button" data-music>🎵 Музыка в меню: ${MUSIC.on ? 'вкл' : 'выкл'}<span>${MUSIC_CREDIT} · только на этом телефоне</span></button>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
     x += `<div class="label">Настройки</div><div class="menu app"><button type="button" data-nudges="${on ? 0 : 1}">🔔 Напоминания: ${on ? 'вкл' : 'выкл'}<span>серия, обошли в таблице, давно не заходили — до 2 в сутки, не ночью</span></button>${themeBtn}</div>`; }
   else x += `<div class="label">Настройки</div><div class="menu app">${themeBtn}</div>`;
@@ -4663,7 +4735,8 @@ document.addEventListener('click', e => {
   if (b.dataset.ngo) { haptic(); SEG = b.dataset.ngo === 'matches' ? 'matches' : 'table'; renderLeague(); showTab('league'); return; }
   if (b.hasAttribute('data-erase')) { haptic(); ask('Удалить ваше имя, личные записи и свой клуб? Официальный клуб вернётся боту. Это нельзя отменить.', () => send({a: 'erase', sure: true})); return; }
   if (b.dataset.nudges) { haptic(); send({a: 'nudges', on: b.dataset.nudges === '1'}); return; }
-  if (b.dataset.themeSet) { haptic(); setTheme(b.dataset.themeSet); renderMore(); return; }      // оформление — только на этом телефоне, бот не знает
+  if (b.dataset.themeSet) { haptic(); setTheme(b.dataset.themeSet); renderMore(); return; }
+  if (b.hasAttribute('data-music')) { haptic(); musicSet(!MUSIC.on); renderMore(); return; }      // музыка — только на этом телефоне, бот не знает      // оформление — только на этом телефоне, бот не знает
   if (b.hasAttribute('data-nall')) { haptic(); NOTICES_ALL = !NOTICES_ALL; renderMore(); return; }
   if (b.dataset.watch) {       // трансляция матча — та же страница и комната, что у кнопки в чате (пускает бот по подписи)
     const m = matchById(+b.dataset.watch); haptic('medium');
@@ -4959,6 +5032,7 @@ function onState(m) {
   S = m;
   if (open !== null && !player(open)) closeSheet();
   render();
+  chimeState(S.hub);
   if (PANEL_AFTER && S.hub && S.hub.manage) { const k = PANEL_AFTER; PANEL_AFTER = null; openPanel(k); }
   const ln = S.hub && S.hub.learn;   // новый менеджер без клуба: «Создание клуба» открывается само, один раз
   if (ln && ln.auto && !TOUR && !TOUR_AUTO) { TOUR_AUTO = true; tourStart(ln.auto); }
