@@ -2942,7 +2942,11 @@ function dispClick(b, d) {
 document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.adm === 'disp' && t.open && !DISP.data && !DISP.err) dispLoad(); }, true);
 document.addEventListener('input', e => { if (e.target && e.target.id === 'dispin') DISP.draft = e.target.value; });
 // открыт ли блок раздела администратора — запоминаем, чтобы перерисовка после действия его не сворачивала
-const ECO_ADM = {wait: false, err: ''}, ECO_ADM_T = {t: 0};      // раздел «Экономика» администратора грузится по запросу
+// раздел «Экономика» администратора грузится по запросу; data — последний ответ бота. Каждое действие бот подтверждает
+// ответом и сразу шлёт свежее состояние без экономики: без своей копии раздел снова пустел и грузился по кругу
+// («Загружается…» навсегда, 09.11) — onState возвращает копию в состояние
+const ECO_ADM = {wait: false, err: '', data: null}, ECO_ADM_T = {t: 0};
+function ecoAdmKeep() { const A = S && S.hub && S.hub.admin; if (A && !A.economy && ECO_ADM.data) A.economy = ECO_ADM.data; }
 function ecoAdmLoad() {
   const A = H().admin;
   if (!A || A.economy || ECO_ADM.wait) return;
@@ -5330,7 +5334,7 @@ function onAck(m) {
   if (act && ECO_W.includes(act.a)) ecoWinAck(m, act);      // решение в трансферном окне — касса и контракты заново
   if (act && DISP_ACTS.includes(act.a)) dispAck(m, act);      // «🔥 Спорные вопросы» администратора
   if (act && act.a === 'ecoadmin') { if (m.ok && m.economy) { clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = ''; } else ecoAdmFail(m.note || 'Не удалось загрузить'); }
-  if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
+  if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = ECO_ADM.data = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.euro && act && ['eurostart', 'eurotest', 'euroreset'].includes(act.a) && H().admin) { H().admin.euro = m.euro; if (PANEL && PANEL.k === 'admin') renderPanel(); }
   if (act && act.a === 'oeuro') { clearTimeout(OEURO.t); OEURO.wait = false; if (m.ok && m.oeuro) { OEURO.data = m.oeuro; OEURO.err = ''; } else OEURO.err = m.note || 'Не удалось загрузить'; if (S && S.hub) renderLeague(); }
   if (act && OEU_ACTS.includes(act.a)) { clearTimeout(OEU_ADM.t); OEU_ADM.wait = false; if (m.oeuro) { OEU_ADM.data = m.oeuro; OEU_ADM.err = ''; } else if (act.a === 'oeuroadmin') OEU_ADM.err = m.note || 'Не удалось загрузить';
@@ -5380,6 +5384,7 @@ function onAck(m) {
 function onState(m) {
   if (m.hub && m.hub.banned) { stop(m.hub.banned); return; }      // бан (app/moderation.py): игра закрыта
   S = m;
+  ecoAdmKeep();      // раздел «Экономика» администратора: загруженное по запросу не стирается свежим состоянием
   if (open !== null && !player(open)) closeSheet();
   render();
   chimeState(S.hub);
