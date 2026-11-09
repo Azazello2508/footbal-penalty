@@ -7,6 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@1,700;1,800&amp;subset=cyrillic&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&amp;family=Rubik+Mono+One&amp;family=Manrope:wght@400;600;800&amp;family=Unbounded:wght@700;900&amp;subset=cyrillic&amp;display=swap">      <!-- шрифты стилей «Спортивная манга» и «Ретро 80-х»: файлы качаются, только когда стиль выбран -->
 <style>
 :root{--bg:#0b1220;--card:#131c31;--card2:#1b2742;--line:#26344f;--text:#e8eefc;--muted:#93a3c3;--accent:#facc15;
   --ok:#22c55e;--bad:#f87171;--pitch:#166534;--pitch2:#15803d;
@@ -675,8 +676,122 @@ html[data-theme="glass"] #nav button.on{color:#fff;font-weight:700;background:tr
 .gli .gch{margin-left:auto;color:var(--muted);font-size:20px}
 @media (max-width:370px){.gstage .gh1{font-size:27px}.gmid b{font-size:28px}}
 @media (prefers-reduced-motion:reduce){.gmid .glive{animation:none}}
+/* 🎨 «Спортивная манга» (09.11): белый лист с лучами скорости и точечным растром (один fixed слой под контентом), чёрные
+   толстые рамки и жёсткие тени, наклонные заголовки Rubik Mono One; красный — цвет клуба --club (clubTone: читается на белом
+   и белый текст на нём ≥ 4.5:1), второй акцент — жёлтый под чёрный текст. Всегда светлая; «Главная» — раскладка «Стекла» */
+html[data-theme="manga"]{--bg:#fff;--card:#fff;--card2:#f1f1f1;--line:#d4d4d4;--text:#111;--muted:#474747;--accent:var(--club,#c81e2a);
+  --panel:#fff;--on-acc:#fff;--acc-soft:var(--club-soft,rgba(200,30,42,.1));--acc-soft1:var(--acc-soft);--acc-soft2:var(--club-soft2,rgba(200,30,42,.06));--acc-text:var(--club,#c81e2a);
+  --warnl:#111;--warnt:#7a3d00;--warnbg:#fff4c2;--needbg:#fff4c2;--sbtn:rgba(0,0,0,.08);--veil:rgba(0,0,0,.5);--shadow:rgba(0,0,0,.25);
+  --okt:#15803d;--okt2:#15803d;--badt:#b91c1c;--badt2:#b91c1c;--strong:#111;--bar0:#dcdcdc;
+  --okbg:#dcfce7;--okfg:#166534;--nobg:#fee2e2;--nofg:#991b1b;--wonbg:#bbf7d0;--lostbg:#fecaca;--drawbg:#e5e7eb;--place2bg:#dcfce7;
+  --skyt:#0369a1;--viot:#6d28d9;--shclosed:linear-gradient(135deg,#fff,#ededed);--shclosedb:#111;
+  --promo-bg:linear-gradient(135deg,#ffe14d,#fff 62%);--croff:linear-gradient(135deg,#fff4c2,#ffe14d);--crofft:#111;
+  --ktryb:#111;--ktrybg:#f1f1f1;--swatch:rgba(0,0,0,.3);--tglow:0 0 0 3px #ffe14d,0 0 0 6px #111;--soft:none;
+  --sport:"Rubik","Trebuchet MS",sans-serif;--mono:"Rubik Mono One","Rubik",sans-serif}
+html[data-theme="manga"],html[data-theme="manga"] body{font-family:"Rubik","Trebuchet MS",system-ui,sans-serif}
+html[data-theme="manga"] body{background:transparent;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+html[data-theme="manga"] body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg at 50% 16%,#0000 0 4deg,#0000000e 4deg 5deg),radial-gradient(#0000001c 1px,#0000 1.6px) 0 0/7px 7px #fff}
+html[data-theme="manga"] .card,html[data-theme="manga"] .menu button,html[data-theme="manga"] .lrn,html[data-theme="manga"] .shit,html[data-theme="manga"] .banner,
+html[data-theme="manga"] #bench,html[data-theme="manga"] .gli,html[data-theme="manga"] .comm,html[data-theme="manga"] .crbase{border:3px solid #111;border-radius:6px;box-shadow:4px 4px 0 #111}
+html[data-theme="manga"] .stats3 div,html[data-theme="manga"] .chip,html[data-theme="manga"] .seg,html[data-theme="manga"] .pcard,html[data-theme="manga"] .tk{border:2px solid #111;border-radius:6px}
+html[data-theme="manga"] .card h3,html[data-theme="manga"] .label,html[data-theme="manga"] .sh-top h2,html[data-theme="manga"] .fhead h2,html[data-theme="manga"] #club,
+html[data-theme="manga"] .crest h1,html[data-theme="manga"] .glbl{font-family:var(--mono);font-style:italic;font-weight:400;color:#111;letter-spacing:0;overflow-wrap:anywhere}
+html[data-theme="manga"] .card h3{font-size:12.5px;line-height:1.3}html[data-theme="manga"] .label{font-size:12px}html[data-theme="manga"] .sh-top h2,html[data-theme="manga"] .fhead h2{font-size:17px;line-height:1.2}
+html[data-theme="manga"] .stats3 b,html[data-theme="manga"] .pstats b,html[data-theme="manga"] .score,html[data-theme="manga"] .tb td.pts{font-family:var(--mono);font-weight:400}
+html[data-theme="manga"] .go,html[data-theme="manga"] .big{border:3px solid #111;border-radius:4px;background:#fff;font-weight:800;color:#111}
+html[data-theme="manga"] .go.main,html[data-theme="manga"] .big{background:var(--accent);color:#fff;box-shadow:3px 3px 0 #111}
+html[data-theme="manga"] .big:disabled{background:#ededed;color:#555;box-shadow:none}
+html[data-theme="manga"] .go.danger{color:#b91c1c}html[data-theme="manga"] .go{min-height:44px}html[data-theme="manga"] .chip b{font-weight:800}
+html[data-theme="manga"] .fq,html[data-theme="manga"] .fqt{background:#fff;border:2px solid #111}html[data-theme="manga"] .fq.on,html[data-theme="manga"] .fqt.on{background:var(--accent)}
+html[data-theme="manga"] .seg button.on{background:#111;color:#ffe14d}
+html[data-theme="manga"] .tb th{color:#111;font-weight:800}html[data-theme="manga"] .tb tr.me td{background:#ffe14d;color:#111}
+html[data-theme="manga"] .x{background:#ffe14d;border:2px solid #111;color:#111}
+html[data-theme="manga"] #pitch{border:3px solid #111}
+html[data-theme="manga"] .tk{background:var(--card)}
+html[data-theme="manga"] .banner.warn,html[data-theme="manga"] .card.warnc,html[data-theme="manga"] .card.need{background:var(--warnbg)}
+html[data-theme="manga"] #pitch .pl{color:#fff}
+html[data-theme="manga"] #bench .pl .shirt{border-color:#dfe3ea;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+html[data-theme="manga"] .pcard .top .shirt{box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+html[data-theme="manga"] .pcard .top{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+html[data-theme="manga"] svg.cr,html[data-theme="manga"] .crt svg,html[data-theme="manga"] .shbc svg,html[data-theme="manga"] .crbase svg,html[data-theme="manga"] .kdn svg{filter:drop-shadow(0 0 .6px rgba(0,0,0,.7))}
+html[data-theme="manga"] #sheet{border:4px solid #111;border-bottom:0;border-radius:10px 10px 0 0;box-shadow:0 -6px 0 rgba(0,0,0,.12)}
+html[data-theme="manga"] #toast{border:3px solid #111;border-radius:4px;box-shadow:4px 4px 0 #111;font-weight:700}html[data-theme="manga"] #toast.bad{border-color:#b91c1c;box-shadow:4px 4px 0 #b91c1c}
+html[data-theme="manga"] #nav{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:540px;margin:0 auto;padding:7px 4px;border:3px solid #111;border-radius:4px;box-shadow:4px 4px 0 #111}
+html[data-theme="manga"] #nav button{color:#3d3d3d;font-weight:700}html[data-theme="manga"] #nav button.on{color:var(--accent);background:transparent;font-weight:800}
+/* «Главная» в манге: без фото стадиона — имя, болельщики, панель матча с «VS», реплики-пузыри «Сегодня в клубе» */
+html[data-theme="manga"] .gstage{background:none;color:#111;min-height:0;padding-bottom:6px}
+html[data-theme="manga"] .gstage .gcap,html[data-theme="manga"] .gstage .gh1,html[data-theme="retro80"] .gstage .gcap,html[data-theme="retro80"] .gstage .gh1{display:none}
+html[data-theme="manga"] .gstage .gtop .gcr{transform:rotate(-6deg);filter:drop-shadow(3px 3px 0 var(--accent))}
+html[data-theme="manga"] .gstage .gname b{font-family:var(--mono);font-weight:400;font-size:19px;text-transform:none}
+html[data-theme="manga"] .gstage .gname small,html[data-theme="manga"] .gstage .gfans{color:#111;font-weight:600}
+html[data-theme="manga"] .gstage .gfans b{font-family:var(--mono);font-style:normal;color:var(--accent);font-size:19px}
+html[data-theme="manga"] .gmc{margin:10px 0 14px;background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none;border:4px solid #111;border-radius:0;
+  box-shadow:6px 6px 0 #111;transform:rotate(-.6deg)}
+html[data-theme="manga"] .gmid b{font-family:var(--mono);font-weight:400;font-style:normal;color:#ffe14d;-webkit-text-stroke:2px #111;paint-order:stroke fill;transform:rotate(-6deg)}
+html[data-theme="manga"] .gmid small,html[data-theme="manga"] .gtm small{color:#111}
+html[data-theme="manga"] .gbts button{border:3px solid #111;border-radius:0;background:#fff;color:#111;font-family:var(--mono);font-weight:400;font-size:13px;transform:skewX(-8deg);box-shadow:none}
+html[data-theme="manga"] .gbts button.p{background:var(--accent);color:#fff;box-shadow:3px 3px 0 #111}
+html[data-theme="manga"] .glbl{font-size:16px;margin-top:20px}
+html[data-theme="manga"] .gli{border-radius:22px 22px 22px 4px;background:#fff}html[data-theme="manga"] .gli b{font-weight:800}
+html[data-theme="manga"] .gli .gic{background:#ffe14d;border:2px solid #111}html[data-theme="manga"] .gli .gch{color:#111}
+@media (max-width:370px){html[data-theme="manga"] .gstage .gname b{font-size:17px}html[data-theme="manga"] .gbts button{font-size:11.5px}}
+
+/* 🎨 «Ретро 80-х» (09.11): закат — небо, солнце в полосах и неоновая сетка-горизонт одной картинкой (один fixed слой под
+   контентом), карточки — на плотной тёмно-фиолетовой подложке, неон розовый/бирюзовый/жёлтый, заголовки — Unbounded курсивом.
+   Всегда тёмная; «Главная» — раскладка «Стекла» */
+html[data-theme="retro80"]{--bg:#1b0b3a;--card:#22104a;--card2:#2e1760;--line:#4b2a7a;--text:#fdeaff;--muted:#d2b4ff;--accent:#ff6bb5;--panel:#1d0c40;--on-acc:#1b0b3a;
+  --acc-soft:#3d1660;--acc-soft1:#38155c;--acc-soft2:#2c1257;--acc-text:#ff8cc6;
+  --veil:rgba(10,3,25,.7);--shadow:rgba(0,0,0,.6);--tglow:0 0 0 3px #33e1ff,0 0 16px rgba(51,225,255,.7);
+  --ktrybg:#2e1760;--sport:"Unbounded","Trebuchet MS",sans-serif;--neon:#ff4fa3;--cyan:#33e1ff;--sun:#ffe259}
+html[data-theme="retro80"],html[data-theme="retro80"] body{font-family:"Manrope","Trebuchet MS",system-ui,sans-serif}
+html[data-theme="retro80"] body{background:transparent;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+html[data-theme="retro80"] body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:#1b0b3a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 800' preserveAspectRatio='xMidYMax slice'%3E%3Cdefs%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%231b0b3a'/%3E%3Cstop offset='.42' stop-color='%233b0f5c'/%3E%3Cstop offset='.66' stop-color='%23a8327f'/%3E%3Cstop offset='.725' stop-color='%23ff9a6b'/%3E%3C/linearGradient%3E%3ClinearGradient id='u' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffe259'/%3E%3Cstop offset='1' stop-color='%23ff4fa3'/%3E%3C/linearGradient%3E%3Cmask id='m'%3E%3Crect width='400' height='580' fill='%23fff'/%3E%3Cg fill='%23000'%3E%3Crect y='488' width='400' height='3'/%3E%3Crect y='508' width='400' height='5'/%3E%3Crect y='528' width='400' height='7'/%3E%3Crect y='548' width='400' height='9'/%3E%3Crect y='566' width='400' height='14'/%3E%3C/g%3E%3C/mask%3E%3C/defs%3E%3Crect width='400' height='580' fill='url(%23s)'/%3E%3Ccircle cx='200' cy='500' r='115' fill='url(%23u)' opacity='.5' mask='url(%23m)'/%3E%3Crect y='580' width='400' height='220' fill='%231b0b3a'/%3E%3Cg stroke='%23ff4fa3' stroke-width='2' opacity='.55' fill='none'%3E%3Cpath d='M0 580H400M0 588H400M0 600H400M0 617H400M0 640H400M0 671H400M0 712H400M0 765H400'/%3E%3Cpath d='M200 580V800M180 580L40 800M160 580L-120 800M140 580L-280 800M120 580L-440 800M220 580L360 800M240 580L520 800M260 580L680 800M280 580L840 800'/%3E%3C/g%3E%3C/svg%3E") center bottom/cover no-repeat}
+html[data-theme="retro80"] .card,html[data-theme="retro80"] .menu button,html[data-theme="retro80"] .lrn,html[data-theme="retro80"] .shit,html[data-theme="retro80"] .banner,
+html[data-theme="retro80"] #bench,html[data-theme="retro80"] .gli,html[data-theme="retro80"] .comm,html[data-theme="retro80"] .stats3 div,html[data-theme="retro80"] .chip,
+html[data-theme="retro80"] .seg,html[data-theme="retro80"] .crbase{border:1px solid rgba(255,79,163,.42);border-radius:10px}
+html[data-theme="retro80"] .card h3,html[data-theme="retro80"] .label,html[data-theme="retro80"] .glbl{font-family:"Unbounded",sans-serif;font-style:italic;font-weight:700;color:var(--cyan);letter-spacing:.02em;text-shadow:0 0 8px rgba(51,225,255,.55)}
+html[data-theme="retro80"] .label,html[data-theme="retro80"] .glbl{display:inline-block;background:rgba(27,11,58,.9);padding:3px 8px;border-radius:6px}
+html[data-theme="retro80"] .card h3{font-size:12px}
+html[data-theme="retro80"] .sh-top h2,html[data-theme="retro80"] .fhead h2,html[data-theme="retro80"] #club,html[data-theme="retro80"] .crest h1{font-family:"Unbounded",sans-serif;font-style:italic;font-weight:700;letter-spacing:0}
+html[data-theme="retro80"] .sh-top h2,html[data-theme="retro80"] .fhead h2{font-size:17px;line-height:1.2}
+html[data-theme="manga"] .sh-top h2 small,html[data-theme="manga"] .crest h1 small,html[data-theme="retro80"] .sh-top h2 small,html[data-theme="retro80"] .crest h1 small{font-style:normal;letter-spacing:0}
+html[data-theme="manga"] .sh-top h2 small,html[data-theme="manga"] .crest h1 small{font-family:"Rubik",sans-serif}html[data-theme="retro80"] .sh-top h2 small,html[data-theme="retro80"] .crest h1 small{font-family:"Manrope",sans-serif}
+html[data-theme="retro80"] .stats3 b,html[data-theme="retro80"] .chip b,html[data-theme="retro80"] .pstats b,html[data-theme="retro80"] .score{font-family:var(--sport);font-style:italic;font-weight:700}
+html[data-theme="retro80"] .stats3 b,html[data-theme="retro80"] .tb td.pts{color:var(--sun)}
+html[data-theme="retro80"] .fin .cash{font-size:28px;color:var(--sun);text-shadow:0 0 12px rgba(255,226,89,.35)}
+html[data-theme="retro80"] .go{background:var(--card2);border:1px solid var(--line);border-radius:8px;min-height:44px}
+/* текст вне карточек и полупрозрачные подложки — на плотной тёмной основе, чтобы закат и сетка не мешали читать */
+html[data-theme="retro80"] .ask,html[data-theme="retro80"] .daily,html[data-theme="retro80"] .obs,html[data-theme="retro80"] .wnew,html[data-theme="retro80"] .lrn.main,html[data-theme="retro80"] .tip{background-color:var(--card)}
+html[data-theme="retro80"] .hint,html[data-theme="retro80"] .sublabel,html[data-theme="retro80"] #left,html[data-theme="retro80"] .shsub,html[data-theme="retro80"] .shsec,html[data-theme="retro80"] .fagsub,
+html[data-theme="retro80"] #t-home>.sub{background:rgba(27,11,58,.9);border-radius:8px;padding:4px 8px}html[data-theme="retro80"] .fsoon{opacity:1}html[data-theme="retro80"] #status.ok{background:#16324a}html[data-theme="retro80"] #status.bad{background:#3d1640}
+html[data-theme="retro80"] .go.main,html[data-theme="retro80"] .big{background:linear-gradient(90deg,#ff4fa3,#ffb35c);color:#1b0b3a;font-weight:800;font-style:italic;border:0;border-radius:8px}
+html[data-theme="retro80"] .big:disabled{background:var(--card2);color:var(--muted)}
+html[data-theme="retro80"] .seg button.on{background:var(--cyan);color:#1b0b3a}
+html[data-theme="retro80"] .tb tr.me td{background:rgba(255,226,89,.1);color:var(--sun)}
+html[data-theme="retro80"] .x{background:var(--card2);border:1px solid var(--cyan);color:var(--cyan)}
+html[data-theme="retro80"] #pitch{box-shadow:0 0 0 2px var(--neon),0 0 18px rgba(255,79,163,.4)}
+html[data-theme="retro80"] #sheet{background:#1d0c40;border-top:2px solid var(--neon);box-shadow:0 -6px 24px rgba(255,79,163,.3)}
+html[data-theme="retro80"] #toast{background:#1d0c40;border:1px solid var(--cyan);box-shadow:0 0 16px rgba(51,225,255,.4)}
+html[data-theme="retro80"] #toast.bad{border-color:#ff4f6d;box-shadow:0 0 16px rgba(255,79,109,.45)}
+html[data-theme="retro80"] #nav{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:540px;margin:0 auto;padding:7px 4px;
+  background:rgba(27,11,58,.95);border:2px solid var(--neon);border-radius:14px;box-shadow:0 0 18px rgba(255,79,163,.4)}
+html[data-theme="retro80"] #nav button{color:var(--muted);background:transparent}html[data-theme="retro80"] #nav button.on{color:var(--sun);background:transparent;font-weight:800}
+/* «Главная» в ретро: имя клуба закатным градиентом, неоновая панель матча, «Сегодня в клубе» на тёмных плашках */
+html[data-theme="retro80"] .gstage{background:none;min-height:0;padding-bottom:6px}
+html[data-theme="retro80"] .gstage .gtop .gcr{filter:drop-shadow(0 0 6px rgba(51,225,255,.8))}
+html[data-theme="retro80"] .gstage .gname b{font-family:"Unbounded",sans-serif;font-weight:900;font-size:20px;text-transform:none;
+  background:linear-gradient(#fff 30%,#ff8cc6 55%,#ffe259 80%);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-theme="retro80"] .gstage .gname small,html[data-theme="retro80"] .gstage .gfans{color:var(--muted)}
+html[data-theme="retro80"] .gstage .gfans b{font-family:"Unbounded",sans-serif;font-style:normal;color:var(--cyan);text-shadow:0 0 10px rgba(51,225,255,.7)}
+html[data-theme="retro80"] .gmc{margin:10px 0 14px;background:rgba(27,11,58,.94);-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid var(--neon);border-radius:12px;box-shadow:0 0 22px rgba(255,79,163,.45)}
+html[data-theme="retro80"] .gmid b{font-family:"Unbounded",sans-serif;font-weight:900;font-style:italic;background:linear-gradient(#ffe259,#ff6bb5);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-theme="retro80"] .gbts button{border-radius:8px;background:transparent;border:2px solid var(--cyan);color:var(--cyan);font-weight:800;font-style:italic;text-transform:uppercase;box-shadow:none}
+html[data-theme="retro80"] .gbts button.p{background:linear-gradient(90deg,#ff4fa3,#ffb35c);color:#1b0b3a;border:0}
+html[data-theme="retro80"] .gli{background:var(--card)}html[data-theme="retro80"] .gli .gic{background:rgba(51,225,255,.14)}
+@media (max-width:370px){html[data-theme="retro80"] .gstage .gname b{font-size:18px}}
 </style>
-<script>try { const t = localStorage.getItem('ui_theme'); if (t === 'dark' || t === 'club') document.documentElement.dataset.theme = t; } catch (e) { /* без хранилища — «Стекло в цвете клуба» */ }</script>
+<script>try { const t = localStorage.getItem('ui_theme'); if (['dark', 'club', 'manga', 'retro80'].includes(t)) document.documentElement.dataset.theme = t; } catch (e) { /* без хранилища — «Стекло в цвете клуба» */ }</script>
 </head>
 <body>
 <main>
@@ -725,8 +840,11 @@ html[data-theme="glass"] #nav button.on{color:#fff;font-weight:700;background:tr
 const TG = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined ? Telegram.WebApp : null;
 if (TG) { TG.ready(); TG.expand(); }
 /* 🎨 оформление (выбор — в localStorage, только на этом телефоне): «стекло в цвете клуба» (по умолчанию с 08.11: тёмное, фото
-   стадиона и акцент — цвет формы активного клуба), «в цветах клуба» (светлое) или тёмное, как раньше */
-const THEMES = ['glass', 'club', 'dark'];
+   стадиона и акцент — цвет формы активного клуба), «в цветах клуба» (светлое), тёмное, как раньше, и с 09.11 —
+   «спортивная манга» (светлая, акцент — цвет клуба) и «ретро 80-х» (тёмная, неон); у двух последних «Главная» — как у «Стекла» */
+const THEMES = ['glass', 'club', 'dark', 'manga', 'retro80'];
+const THEME_BG = {dark: '#0b1220', club: '#f7f8fa', manga: '#ffffff', retro80: '#1b0b3a'};      // цвет шапки окна Telegram; «Стекло» — по клубу
+const glassLike = () => THEME === 'glass' || THEME === 'manga' || THEME === 'retro80';      // «Главная» в раскладке «Стекла»
 let THEME = THEMES.includes(document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'glass', THEME_TG = '', THEME_CLUB = '';
 const rgbOf = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
 const hexOf = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
@@ -769,11 +887,11 @@ function clubTheme() {      // при каждой отрисовке: тема,
     const gb = [r, g, b].map(v => v * .14 + 8), mix = k => hexOf(gb.map(v => v + (255 - v) * k));
     R.style.setProperty('--club-bg', hexOf(gb)); R.style.setProperty('--club-bg2', hexOf([r, g, b].map(v => v * .3 + 10)));
     R.style.setProperty('--club-card', mix(.065)); R.style.setProperty('--club-card2', mix(.11)); R.style.setProperty('--club-line', mix(.16)); }
-  const bg = THEME === 'dark' ? '#0b1220' : THEME === 'glass' ? hexOf(rgbOf(c).map(v => v * .14 + 8)) : '#f7f8fa';
+  const bg = THEME === 'glass' ? hexOf(rgbOf(c).map(v => v * .14 + 8)) : THEME_BG[THEME];
   if (TG && bg !== THEME_TG) { THEME_TG = bg; try { TG.setHeaderColor(bg); TG.setBackgroundColor(bg); } catch (e) { /* старый Telegram */ } }
 }
 function setTheme(t) { THEME = THEMES.includes(t) ? t : 'glass'; try { localStorage.setItem('ui_theme', THEME); } catch (e) { /* без хранилища — до закрытия */ } clubTheme(); }
-if (TG) { THEME_TG = THEME === 'dark' ? '#0b1220' : THEME === 'glass' ? '#0e0a0c' : '#f7f8fa'; try { TG.setHeaderColor(THEME_TG); TG.setBackgroundColor(THEME_TG); } catch (e) { /* старый Telegram */ } }
+if (TG) { THEME_TG = THEME_BG[THEME] || '#0e0a0c'; try { TG.setHeaderColor(THEME_TG); TG.setBackgroundColor(THEME_TG); } catch (e) { /* старый Telegram */ } }
 // высота окон (карточка игрока, матч, раздел «Клуб») — от видимой области Telegram, а не от vh: в Telegram на iPhone
 // vh бывает неверным, и окно выезжало узкой полоской (так же сделано на экране матча — webapp/match, fit)
 function fitSheet() { const vh = (TG && TG.viewportStableHeight) || innerHeight; if (vh > 100) document.documentElement.style.setProperty('--sheet-h', Math.round(vh * .88) + 'px'); }
@@ -2090,7 +2208,7 @@ function rulesLoad(w) {
 }
 function panelRules(m, P) {     // правила лиги или кубка — текст присылает бот (те же цифры, что в игре)
   const head = panelHead(P.which === 'cup' ? '📜 Правила кубка' : P.which === 'euro' ? '📜 Правила еврокубков' : '📜 Правила лиги');
-  let r = P.which === 'cup' ? (H().cup || {}).rules : P.which === 'euro' ? (H().euro || {}).rules : (H().table || {}).rules;
+  let r = P.which === 'cup' ? (H().cup || {}).rules : P.which === 'euro' ? (H().euro || OEURO.data || {}).rules : (H().table || {}).rules;
   if (r === true) {               // текст — по запросу
     const s = RULES[rulesKey(P.which)];
     if (!s) { rulesLoad(P.which); return head + `<div class="note fload">⏳ Загружается…</div>`; }
@@ -2661,6 +2779,26 @@ function euroFc(F, test) {      // прогноз путёвок: кто и гд
   if (!F.ok) return `<div class="note">${esc(F.why)}</div>`;
   return `<div class="note">${esc(F.note)}</div>` + F.comps.map(c => `<div class="sub" style="margin-top:6px"><b>${esc(c.title)}${test ? ' (тест)' : ''}</b>: ${c.clubs.map(esc).join('; ')}</div>`).join('');
 }
+const OEU_ADM = {data: null, wait: false, err: '', t: 0}, OEU_ACTS = ['oeuroadmin', 'oeurostart', 'oeuroreset'];
+function oeuAdmLoad() {
+  if (OEU_ADM.wait) return;
+  OEU_ADM.wait = true; OEU_ADM.err = '';
+  clearTimeout(OEU_ADM.t); OEU_ADM.t = setTimeout(() => { OEU_ADM.wait = false; OEU_ADM.err = 'Не удалось загрузить'; if (PANEL && PANEL.k === 'admin') renderPanel(); }, 15000);
+  send({a: 'oeuroadmin'});
+}
+function oeuAdmin(U) {         // ЛЧ/ЛЕ официальных лиг (этап О5): прогноз путёвок, запуск, сброс — правила проверяет бот
+  if (!U) return OEU_ADM.err ? `<div class="card note">${esc(OEU_ADM.err)}<button type="button" class="go" data-oeuadmload="1">🔄 Ещё раз</button></div>`
+    : `<div class="card note">Загружается…</div>`;
+  const F = U.forecast;
+  let h = `<div class="card"><div class="row"><div><b>Прогноз путёвок</b><div class="sub">по последнему законченному сезону пяти лиг · ЛЧ ${F.ucl}, ЛЕ ${F.uel} · розыгрыш ${U.days} дн.${U.until ? ` · запустить можно до ${esc(U.until)} включительно` : ''}</div></div></div>` +
+    (F.ok && F.missing && F.missing.length ? `<div class="sub" style="margin-top:6px">Без путёвок: ${F.missing.map(esc).join('; ')}</div>` : '') +
+    (F.comps.length ? F.comps.map(c => `<div class="sub" style="margin-top:6px"><b>${esc(c.title)}</b>: ${c.clubs.map(esc).join('; ')}</div>`).join('') : '') +
+    (U.can_start ? `<button type="button" class="go main" data-oeuadm="oeurostart">🌍 Запустить розыгрыш</button>` : `<div class="banner">${esc(U.start_why || F.why || 'Запустить пока нельзя')}</div>`) + `</div>`;
+  if (U.running.length) h += `<div class="card">` + U.running.map(r => `<div class="row"><div><b>${esc(r.title)}</b><div class="sub">клубов ${r.clubs} (с кассой ${r.cash}) · ${esc(r.stage)} · несыгранных матчей ${r.left}${r.final ? ` · последний дедлайн ${esc(r.final)}` : ''}</div></div></div>`).join('') +
+    `<button type="button" class="go danger" data-oeuadm="oeuroreset">🗑 Сбросить розыгрыш</button></div>`;
+  if (U.past && U.past.length) h += `<div class="card">` + U.past.map(p => `<div class="row"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.title)}, розыгрыш №${p.cycle}</span></div>`).join('') + `</div>`;
+  return h;
+}
 function euroAdmin(U) {
   if (!U) return '';
   let h = `<div class="label">🌍 Еврокубки лиг друзей</div><div class="card"><div class="row"><div><b>Следующий цикл: ${esc(U.next)}</b><div class="sub">раз в ${U.every} дней; запускает администратор, автозапуска нет · путёвок: ЛЧ ${U.forecast.ucl}, ЛЕ ${U.forecast.uel}</div></div></div>` +
@@ -2740,6 +2878,10 @@ function panelAdmin(m, P) {
   const U = A.euro;
   if (U) h += admSec('euro', '🌍 Еврокубки', `следующий цикл ${esc(U.next)} · идёт турниров: ${(U.running || []).length}`, U.can_start ? '!' : 0,
     euroAdmin(U), false);      // app/euro.py admin_act, этап Е1
+  const OU = OEU_ADM.data;      // этап О5: app/official_euro.py admin_act — данные по запросу «oeuroadmin»
+  if (!OU && admOpen('oeuro', false) && !OEU_ADM.wait && !OEU_ADM.err) setTimeout(oeuAdmLoad, 0);
+  h += admSec('oeuro', '🌍 Еврокубки официальных лиг', OU ? `идёт турниров: ${OU.running.length}${OU.can_start ? ' · можно запускать' : ''}` : 'откройте раздел — данные загрузятся',
+    OU && OU.can_start ? '!' : 0, oeuAdmin(OU), false);
   h += admSec('shop', '🛍 Магазин: эмблемы и форма', `эмблемы — ${A.crest_editor ? 'продажа открыта' : 'закрыто'} · форма — ${A.kit_editor ? 'продажа открыта' : 'закрыто'}`, 0,
     `<div class="card"><b>🎨 Конструктор эмблем</b><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
@@ -2813,7 +2955,7 @@ function ecoAdmFail(note) {
   clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = note || 'Не удалось загрузить';
   if (PANEL && PANEL.k === 'admin') renderPanel();
 }
-document.addEventListener('toggle', e => { const k = e.target && e.target.dataset && e.target.dataset.adm; if (k) { ADM_OPEN[k] = e.target.open; if (k === 'eco' && e.target.open) ecoAdmLoad(); } }, true);
+document.addEventListener('toggle', e => { const k = e.target && e.target.dataset && e.target.dataset.adm; if (k) { ADM_OPEN[k] = e.target.open; if (k === 'eco' && e.target.open) ecoAdmLoad(); if (k === 'oeuro' && e.target.open && !OEU_ADM.data) oeuAdmLoad(); } }, true);
 function panelNewClub(m, P) {
   const C = H().create, O = H().official || {};
   if (!C) return panelHead('⚽ Новый клуб') + `<div class="card note">Свой клуб у вас уже есть.</div>`;
@@ -3163,7 +3305,7 @@ function renderHome() {
   }
   const cap = S.players && S.captain ? player(S.captain) : null;      // крупная футболка в шапке — с номером капитана
   const pat = (((hb.kit_edit || {}).design || {}).home || {}).p, num = cap ? cap.number : 10;
-  let x = THEME === 'glass' ? glassHome(h) : `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
+  let x = glassLike() ? glassHome(h) : `<div class="hero"${HERO_PATS.includes(pat) ? ` data-pat="${pat}"` : ''}><div class="crest">${h.crest ? crestSvg(h.crest, 'crbig') : `<div class="badge" style="background:linear-gradient(180deg,${h.kit[0]} 0 58%,${h.kit[1]} 58%)">${esc(initials(h.club))}</div>`}` +
     `<h1>${esc(h.club)}${h.star ? ' ⭐' : ''}<small>${h.league ? 'Лига «' + esc(h.league) + '»' : 'Вне лиги'} · болельщиков ${h.fans}${h.stadium ? ` · 🏟 ${h.stadium.cap} мест${h.stadium.next ? ` (с нового сезона — ${h.stadium.next})` : ''}` : ''}</small></h1></div>` +
     (Array.isArray(h.kit) && h.kit.length > 1 ? `<button type="button" class="hshirt kflip${HERO_BACK ? ' bk' : ''}" data-heroflip aria-label="Перевернуть футболку"><div class="kfi">` +
       `<div class="kff">${shirtSvg(h.kit, num)}</div><div class="kfb">${shirtBackSvg(h.kit, cap ? shortName(cap) : '', num)}</div></div></button>` : '') + heroDay(h.next) + `</div>`;
@@ -3198,7 +3340,7 @@ function renderHome() {
   x += `<div class="card${ready ? '' : ' warnc'}"><h3>Состав</h3><div>${ready ? '✅ Готов к матчу' : '⚠️ ' + esc(h.problems.join('; '))}</div>` + (h.tips || []).map(t => `<div class="sub">💡 ${esc(t)}</div>`).join('') +
     (h.tired || h.hurt ? `<div class="sub">${h.tired ? 'устали: ' + h.tired : ''}${h.tired && h.hurt ? ' · ' : ''}${h.hurt ? 'травмы: ' + h.hurt : ''}</div>` : '') +
     `<button type="button" class="go${ready ? '' : ' main'}" data-go="squad">📋 Открыть состав</button></div>`;
-  if ((h.can_train || h.growth.length) && THEME !== 'glass') x += `<div class="card"><h3>Сегодня</h3>` +
+  if ((h.can_train || h.growth.length) && !glassLike()) x += `<div class="card"><h3>Сегодня</h3>` +
     (h.can_train ? `<button type="button" class="go" data-panel="training">🏋️ Тренировка — сегодня ещё не было</button>` : '') +
     (h.growth.length ? `<button type="button" class="go" data-panel="growth">📈 Вложить очки роста: ${esc(h.growth.join(', '))}</button>` : '') + `</div>`;
   if (hb.star) x += `<div class="card note">${esc(hb.star)}</div>`;
@@ -3225,12 +3367,28 @@ function euroRows(ms) {        // матчи еврокубка — те же с
   return ms.map(m => `<div class="row cupm${m.mine ? ' me' : ''}"><div>${m.leg || m.stage ? `<div class="sub">${esc(m.leg || m.stage)}</div>` : ''}<span class="${m.win === 'home' ? 'w' : ''}">${esc(m.home)}</span> — <span class="${m.win === 'away' ? 'w' : ''}">${esc(m.away)}</span>` +
     `${m.pens ? `<div class="sub">пенальти ${esc(m.pens)}</div>` : ''}${m.agg ? `<div class="sub"><b>${esc(m.agg)}</b></div>` : ''}</div><b style="white-space:nowrap">${esc(m.score || m.when || '')}</b></div>`).join('');
 }
-function euroBlock(e) {         // 🌍 еврокубки лиг друзей (этап Е1): участники, группы, плей-офф, призовые — всё считает бот
-  let x = `<div class="card"><h3>🌍 Еврокубки</h3><div class="note">Лига чемпионов и Лига Европы — общий цикл для всех лиг друзей. Путёвки — по местам в последнем законченном сезоне лиги. Группы по 4, из группы выходят двое; плей-офф — два матча, финал — на нейтральном стадионе.</div>` +
+const OEURO = {data: null, wait: false, err: '', t: 0};      // этап О5: ЛЧ/ЛЕ официальных лиг — приходят по запросу «oeuro»
+function oeuroLoad() {
+  if (OEURO.wait) return;
+  OEURO.wait = true; OEURO.err = '';
+  clearTimeout(OEURO.t); OEURO.t = setTimeout(() => { if (OEURO.wait) { OEURO.wait = false; OEURO.err = 'Бот не ответил — проверьте связь.'; renderLeague(); } }, 15000);
+  send({a: 'oeuro'});
+}
+function oeuroBlock() {
+  if (OEURO.data) return euroBlock(OEURO.data);
+  if (OEURO.err) return `<div class="card note">⚠️ Не удалось загрузить: ${esc(OEURO.err)}<button type="button" class="go" data-oeuroload="1">🔄 Ещё раз</button></div>`;
+  if (!OEURO.wait) setTimeout(oeuroLoad, 0);
+  return `<div class="card note fload">⏳ Загружается…</div>`;
+}
+function euroBlock(e) {         // 🌍 еврокубки лиг друзей (этап Е1) и официальных лиг (О5): участники, группы, плей-офф, призовые — всё считает бот
+  const cyc = e.official ? 'розыгрыш' : 'цикл';
+  let x = `<div class="card"><h3>${esc(e.title || '🌍 Еврокубки')}</h3><div class="note">${e.official
+    ? 'Лига чемпионов и Лига Европы официальных лиг — по 16 клубов, один розыгрыш на сезон. Путёвки — места в последнем законченном сезоне каждой из пяти лиг, и у клубов бота. Группы по 4, выходят двое; 1/4 и полуфинал — два матча, финал — на нейтральном стадионе.'
+    : 'Лига чемпионов и Лига Европы — общий цикл для всех лиг друзей. Путёвки — по местам в последнем законченном сезоне лиги. Группы по 4, из группы выходят двое; плей-офф — два матча, финал — на нейтральном стадионе.'}</div>` +
     (e.next ? `<div class="sub" style="margin-top:6px">Следующий цикл — ${esc(e.next)} (запускает администратор)</div>` : '') + `</div>`;
   if (e.note) x += `<div class="card note">${esc(e.note)}</div>`;
   (e.tournaments || []).forEach(T => {
-    x += `<div class="label">${esc(T.title)}${T.cycle ? ` · цикл №${T.cycle}` : ''}</div><div class="card"><div class="note">${T.active ? (T.mine ? 'Идёт. Ваш клуб участвует.' : 'Идёт.') : T.winner ? `Разыгран. Обладатель — «${esc(T.winner)}» 🏆` : 'Завершён.'}</div>` +
+    x += `<div class="label">${esc(T.title)}${T.cycle ? ` · ${cyc} №${T.cycle}` : ''}</div><div class="card"><div class="note">${T.active ? (T.mine ? 'Идёт. Ваш клуб участвует.' : 'Идёт.') : T.winner ? `Разыгран. Обладатель — «${esc(T.winner)}» 🏆` : 'Завершён.'}</div>` +
       `<div class="sub" style="margin-top:6px">Участники (${T.clubs.length}): ${T.clubs.map(c => `${c.mine ? '<b>' : ''}${esc(c.name)}${c.mine ? '</b>' : ''}${c.league ? ` (${esc(c.league)}${c.place ? `, ${c.place[0]}-е из ${c.place[1]}` : ''})` : ''}`).join(', ')}</div></div>`;
     (T.groups || []).forEach(G => {
       x += `<div class="label">${esc(G.name)}</div><div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
@@ -3238,26 +3396,27 @@ function euroBlock(e) {         // 🌍 еврокубки лиг друзей (
         `</table>${G.matches.length ? `<div style="margin-top:6px">${euroRows(G.matches)}</div>` : ''}</div>`;
     });
     (T.stages || []).forEach(st => { x += `<div class="label">${esc(st.title)}</div><div class="card" style="padding:4px 10px">${euroRows(st.matches)}</div>`; });
-    x += `<div class="card"><div class="row"><div><b>💶 Призовые за стадию</b><div class="sub">${T.eco ? 'ваш клуб получает: в лиге работает экономика' : 'только клубам лиг с экономикой; с каждого дохода 30% — на содержание'}</div></div></div>` +
+    x += `<div class="card"><div class="row"><div><b>💶 Призовые за стадию</b><div class="sub">${e.official ? (T.eco ? 'ваш клуб получает: суммы × класс клуба, с каждого дохода 30% — на содержание' : 'только клубам менеджеров с кассой (лига с экономикой): суммы × класс клуба') : T.eco ? 'ваш клуб получает: в лиге работает экономика' : 'только клубам лиг с экономикой; с каждого дохода 30% — на содержание'}</div></div></div>` +
       T.prizes.map(p => `<div class="row"><div>${esc(p.t)}</div><b style="white-space:nowrap">${esc(p.v)}</b></div>`).join('') + `</div>`;
   });
   if (e.rules) x += `<button type="button" class="go" data-rules="euro">📜 Правила еврокубков</button>`;
   if (e.past && e.past.length) x += `<div class="label">Обладатели</div><div class="card">` + e.past.map(p =>
-    `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.title)}, цикл №${p.cycle}</span></div>`).join('') + `</div>`;
+    `<div class="row${p.mine ? ' me' : ''}"><div>🏆 ${esc(p.name)}</div><span class="sub">${esc(p.title)}, ${cyc} №${p.cycle}</span></div>`).join('') + `</div>`;
   return x;
 }
 function renderLeague() {
   const hb = H(), t = hb.table;
   if (!t) { $('t-league').innerHTML = ''; return; }
   if (SEG === 'cup' && !hb.cup) SEG = 'table';
-  if (SEG === 'euro' && !hb.euro) SEG = 'table';
-  const nseg = 2 + (hb.cup ? 1 : 0) + (hb.euro ? 1 : 0);
+  const eu = hb.euro || hb.oeuro;      // этап О5: у клуба официальной лиги — ЛЧ/ЛЕ официальных лиг (по запросу)
+  if (SEG === 'euro' && !eu) SEG = 'table';
+  const nseg = 2 + (hb.cup ? 1 : 0) + (eu ? 1 : 0);
   let x = tipBlock('league') + `<div class="lrow"><div class="label">${esc(t.title || 'Лига')}</div><button type="button" class="qbtn" data-tourq="league" aria-label="Подсказки по лиге">?</button></div><div class="seg" style="grid-template-columns:repeat(${nseg},1fr)"><button type="button" data-seg="table" class="${SEG === 'table' ? 'on' : ''}">📊 Таблица</button>` +
     `<button type="button" data-seg="matches" class="${SEG === 'matches' ? 'on' : ''}">📅 Матчи</button>` +
     (hb.cup ? `<button type="button" data-seg="cup" class="${SEG === 'cup' ? 'on' : ''}">🏆 Кубок</button>` : '') +
-    (hb.euro ? `<button type="button" data-seg="euro" class="${SEG === 'euro' ? 'on' : ''}">🌍 Евро</button>` : '') + `</div>`;
+    (eu ? `<button type="button" data-seg="euro" class="${SEG === 'euro' ? 'on' : ''}">🌍 Евро</button>` : '') + `</div>`;
   if (SEG === 'cup') x += cupBlock(hb.cup);
-  else if (SEG === 'euro') x += euroBlock(hb.euro);
+  else if (SEG === 'euro') x += hb.euro ? euroBlock(hb.euro) : oeuroBlock();
   else if (SEG === 'table') {
     if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
     if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
@@ -3288,7 +3447,7 @@ function renderMore() {
   if (hb.community) x += `<div class="label">Сообщество</div><div class="menu app"><button type="button" data-community>💬 Сообщество игры<span>общение, поиск соперника, вопросы администраторам</span></button></div>`;
   x += `<div class="label">Помощь</div><div class="menu app"><button type="button" data-tab="learn">🎓 Обучение<span>подсказки прямо на экранах: что нажать и что ввести; учебный матч</span></button>` +      // «Обучение» — не в нижнем меню (там «💶 Финансы»)
     (hb.help && hb.help.length ? `<button type="button" data-panel="help">📖 Помощь<span>правила игры, быстрый старт, частые вопросы</span></button>` : '') + `</div>`;
-  const TN = {glass: 'стекло в цвете клуба', club: 'светлое в цветах клуба', dark: 'тёмное (как раньше)'}, nextT = THEMES[(THEMES.indexOf(THEME) + 1) % THEMES.length];
+  const TN = {glass: 'стекло в цвете клуба', club: 'светлое в цветах клуба', dark: 'тёмное (как раньше)', manga: 'спортивная манга', retro80: 'ретро 80-х'}, nextT = THEMES[(THEMES.indexOf(THEME) + 1) % THEMES.length];
   const themeBtn = `<button type="button" data-theme-set="${nextT}">🎨 Оформление: ${TN[THEME]}<span>нажмите — ${TN[nextT]}</span></button>` +
     `<button type="button" data-music>🎵 Музыка в меню: ${MUSIC.on ? 'вкл' : 'выкл'}<span>${MUSIC_CREDIT} · только на этом телефоне</span></button>`;
   if (hb.manage) { const on = hb.nudges !== false;     // умные напоминания (app/nudges.py): о матчах приходят всегда
@@ -4927,7 +5086,8 @@ document.addEventListener('click', e => {
   if (b.dataset.tipok) { haptic(); const k = b.dataset.tipok; send({a: 'hint', key: k}); if (S.hub.hints) delete S.hub.hints[k]; render(); return; }
   if (b.dataset.wnok) { haptic(); const id = b.dataset.wnok; send({a: 'newsseen', key: id}); S.hub.whatsnew = (S.hub.whatsnew || []).filter(n => n.id !== id); if (S.hub.whatsnew_n) S.hub.whatsnew_n--; renderHome(); return; }
   if (b.dataset.wnhelp) { haptic(); const k = b.dataset.wnhelp; openPanel('help'); if (!HELPS[k]) send({a: 'help', key: k}); panelSub({sec: k}); return; }
-  if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); renderLeague(); return; }
+  if (b.dataset.seg) { SEG = b.dataset.seg; haptic(); if (SEG === 'euro' && !H().euro && H().oeuro && OEURO.data) oeuroLoad(); renderLeague(); return; }
+  if (b.dataset.oeuroload) { haptic(); OEURO.err = ''; oeuroLoad(); renderLeague(); return; }
   if (b.dataset.sec) { send({a: 'section', key: b.dataset.sec}); return; }
   if (b.hasAttribute('data-community')) { haptic(); const u = H().community || (H().community_card || {}).link; if (TG && TG.openTelegramLink) TG.openTelegramLink(u); else window.open(u, '_blank'); return; }
   if (b.hasAttribute('data-seekmenu')) { haptic(); openMatchSheet({seek: true}); return; }
@@ -4987,6 +5147,11 @@ function ecoAdminClick(b, d, P) {      // 💶 экономика лиг дру�
   if (d.ecodef !== undefined) { const on = d.ecodef === '1'; haptic(); ask(on ? 'Новые лиги друзей будут создаваться сразу с экономикой (с первого сезона). Включить?' : 'Новые лиги друзей будут создаваться без экономики. Уже созданные не меняются. Выключить?', () => send({a: 'ecodefault', on})); return true; }
   if (d.ecoon) { const id = +d.ecoon, on = d.v === '1'; haptic(); ask(on ? `Включить экономику в лиге «${L(id).name}»? Она начнётся со следующего сезона лиги — идущий сезон доиграется без неё.` : `Выключить экономику в лиге «${L(id).name}»? Кассы клубов сохранятся (сбросить — отдельной кнопкой).`, () => send({a: 'ecoon', league: id, on})); return true; }
   if (d.ecotest) { haptic(); send({a: 'ecotest', league: +d.ecotest, on: d.v === '1'}); return true; }
+  if (d.oeuadmload) { haptic(); OEU_ADM.err = ''; oeuAdmLoad(); renderPanel(); return true; }
+  if (d.oeuadm) { const a = d.oeuadm; haptic();     // ЛЧ/ЛЕ официальных лиг (этап О5)
+    ask({oeurostart: 'Запустить Лигу чемпионов и Лигу Европы официальных лиг? Жеребьёвка по путёвкам из прогноза, всем клубам придёт уведомление.',
+      oeuroreset: 'Сбросить розыгрыш еврокубков официальных лиг? Матчи стираются, обладателя не будет, призовые и билеты турнира возвращаются. Путёвки снова свободны.'}[a] || 'Подтвердить?',
+    () => send({a, sure: true})); return true; }
   if (d.euroadm) { const a = d.euroadm; haptic();     // еврокубки (этап Е1): права и правила проверяет бот
     ask({eurostart: 'Запустить цикл еврокубков? Жеребьёвка по путёвкам из прогноза, всем клубам придёт уведомление. Отменить нельзя.',
       eurotest: 'Запустить тестовый цикл из клубов тестовых лиг? Его можно сбросить.',
@@ -5167,6 +5332,9 @@ function onAck(m) {
   if (act && act.a === 'ecoadmin') { if (m.ok && m.economy) { clearTimeout(ECO_ADM_T.t); ECO_ADM.wait = false; ECO_ADM.err = ''; } else ecoAdmFail(m.note || 'Не удалось загрузить'); }
   if (m.ok && m.economy && act && (ECO_ADMIN.includes(act.a) || act.a === 'fcupreset') && H().admin) { H().admin.economy = m.economy; if (PANEL && PANEL.k === 'admin') { PANEL.ecoreset = null; renderPanel(); } }
   if (m.euro && act && ['eurostart', 'eurotest', 'euroreset'].includes(act.a) && H().admin) { H().admin.euro = m.euro; if (PANEL && PANEL.k === 'admin') renderPanel(); }
+  if (act && act.a === 'oeuro') { clearTimeout(OEURO.t); OEURO.wait = false; if (m.ok && m.oeuro) { OEURO.data = m.oeuro; OEURO.err = ''; } else OEURO.err = m.note || 'Не удалось загрузить'; if (S && S.hub) renderLeague(); }
+  if (act && OEU_ACTS.includes(act.a)) { clearTimeout(OEU_ADM.t); OEU_ADM.wait = false; if (m.oeuro) { OEU_ADM.data = m.oeuro; OEU_ADM.err = ''; } else if (act.a === 'oeuroadmin') OEU_ADM.err = m.note || 'Не удалось загрузить';
+    if (m.ok && act.a !== 'oeuroadmin') OEURO.data = null; if (PANEL && PANEL.k === 'admin') renderPanel(); }
   if (m.ok && m.watch && act && act.a === 'tutorial') { location.href = m.watch; return; }   // учебный матч — экран матча
   if (m.ok && m.close && TG) setTimeout(() => TG.close(), 500);   // раздел открыт в чате
   if (m.ok && act && act.a === 'stats' && open === act.slot) draft = act.v.slice();
