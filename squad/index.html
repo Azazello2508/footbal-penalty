@@ -4177,7 +4177,7 @@ function ecoOfficial(h, st) {     // официальный клуб, в лиг�
     (H().create ? `<button type="button" class="go${h.other ? '' : ' main'}" data-panel="newclub">➕ Создать свой клуб</button>` : '');
 }
 function ecoOfficialOn(st) {      // официальный клуб с кассой (этап О1, app/official_economy.py view): касса, класс, контракты; О2 — окно, решения, агенты (при рынке)
-  const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct), P = st.place || {};
+  const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct), P = st.place || {}, O = st.outlook || {};
   const SRC = {now: 'сейчас', last: 'в прошлом сезоне', expected: 'ожидаемое по силе'};
   let x = ecoHead('официальный клуб');
   x += `<div class="card fin"><div class="row"><span>Касса${ecoQ('cash')}</span></div><div class="cash">${esc(st.cash_text || ecoMoney(st.cash))}</div>` +
@@ -4195,10 +4195,14 @@ function ecoOfficialOn(st) {      // официальный клуб с касс
   x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70', 'surplus', 'reserve']);
   x += `<div class="lrow"><div class="label">Класс клуба</div>${ecoQ('klass')}</div><div class="card fin">` +
     `<div class="row"><span>Класс — множитель дохода</span><b>${esc(st.klass_text || '')}</b></div>` +
+    (O.status ? `<div class="sub">${esc(O.status)}</div>` : '') +
     (P.pos ? `<div class="row"><span>Место ${esc(SRC[P.src] || '')}</span><b>${P.pos}-е из ${P.of}</b></div>` : '') +
     (P.klass != null ? `<div class="row"><span>Класс этого места</span><b>×${String(P.klass).replace('.', ',')}</b></div>` +
-      `<div class="sub">После сезона класс сдвинется на ${ecoPct(ecoRules().drift)} к классу занятого места: сейчас — к ≈×${String(P.after).replace('.', ',')}</div>` : '') +
-    `<div class="sub">Доход за тур сейчас: ${ecoMoney(st.income_tour)} — класс × доход клуба лиги друзей на этом месте</div></div>`;
+      `<div class="sub">${O.forecast ? '🔮 ' + esc(O.forecast) + ' ' : ''}После сезона класс сдвигается на ${ecoPct(ecoRules().drift)} к классу занятого места.</div>` : '') +
+    `<div class="sub">Доход за тур сейчас: ${ecoMoney(st.income_tour)} — класс × доход клуба лиги друзей на этом месте</div>` +
+    ((O.history || []).length ? `<div class="label">История сезонов</div>` + O.history.map(h =>
+      `<div class="row"><span>Сезон ${h.season}: ${h.place}-е из ${h.of}${h.climb ? ` · 📈 премия ${ecoMoney(h.climb, true)}` : ''}</span><b>×${String(h.k_old).replace('.', ',')} → ×${String(h.k_new).replace('.', ',')}</b></div>`).join('') : '') +
+    `</div>`;
   x += ecoWhat(['klass']);
   const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
   x += ecoWindow(st.window || {}, qt);
@@ -4902,8 +4906,10 @@ function ecoMine(st, T, wopen) {
   let x = '';
   if (wopen) {
     const can = (st.players || []).filter(p => p.sell);
-    x += `<div class="card"><div class="row"><div><b>Выставить игрока</b><div class="sub">цена — от 50% до 200% его стоимости; объявление висит ${T.official ? 'до конца общего окна (не продан — остаётся в клубе)' : 'до следующего окна вашей лиги'}</div></div></div>`;
-    if (!can.length) x += `<div class="note">Сейчас выставить некого: у игроков кончился контракт или они уже на продаже.</div>`;
+    const pc = T.pct || [50, 200];
+    x += `<div class="card"><div class="row"><div><b>Выставить игрока</b><div class="sub">цена — от ${pc[0]}% до ${pc[1]}% его стоимости; объявление висит ${T.official ? 'до конца общего окна (не продан — остаётся в клубе)' : 'до следующего окна вашей лиги'}</div></div></div>`;
+    if (st.sell_block) x += `<div class="note">⏳ ${esc(st.sell_block)}</div>`;
+    else if (!can.length) x += `<div class="note">Сейчас выставить некого: у игроков кончился контракт или они уже на продаже.</div>`;
     else x += `<div class="fouts">${can.map(p => `<button type="button" class="${ECO_L && ECO_L.pid === p.pid ? 'on' : ''}" data-ecolp="${p.pid}"><b>№${p.number} ${esc(p.name)}</b><span>${years(p.age)} · стоит ${ecoMoney(p.sell.value)}${p.junior ? ' · 🐣 новичок' : ''}</span></button>`).join('')}</div>`;
     const p = ECO_L && can.find(c => c.pid === ECO_L.pid);
     if (p) {
