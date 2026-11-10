@@ -126,6 +126,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .shsub{color:var(--muted);font-size:12.5px;line-height:1.4}
 .shjump{display:flex;gap:6px;overflow-x:auto;margin:10px -16px 4px;padding:0 16px 4px;scrollbar-width:none}.shjump::-webkit-scrollbar{display:none}
 .shjump button{flex:none;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:6px 11px;font-size:12.5px}
+.shtabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin:12px 0 4px}
+.shtabs button{min-width:0;background:transparent;padding:6px 2px;border-radius:9px;font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shtabs button i{display:block;font-style:normal;font-size:17px;margin-bottom:2px}
+.shtabs button.on{background:var(--card2);color:var(--text);font-weight:700}
+html[data-theme="club"] .shtabs button.on{background:var(--accent);color:var(--on-acc)}html[data-theme="glass"] .shtabs button.on{background:var(--club,#c81e2a);color:#fff}
 .shclosed{background:var(--shclosed);border:1px solid var(--shclosedb);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;margin:8px 0}
 .shblk{margin:16px 0 6px;padding:10px;border-radius:18px;border:1px solid var(--line);background:var(--card2);scroll-margin-top:10px}
 .shblk.off{border-color:var(--warnl);background:linear-gradient(180deg,rgba(234,179,8,.12),var(--card2) 140px)}
@@ -3174,12 +3179,31 @@ function shopPack(it, title) {      // набор «все уровни сраз
   return row('🎁', `уровни 2–5 сразу: ${sum} ⭐ → <b>${all} ⭐</b>`, gain > 0 ? `<span class="shbadge">ВЫГОДНО · −${gain} ⭐</span>` : '') +
     `<button type="button" class="kbuy l5 shpk" data-shpack="${it.k}"><span class="pr">${all} ⭐</span></button></div>`;
 }
+/* разделы магазина (решение владельца 10.11): «👕 Клуб» — форма и эмблема; «🎁 Друзья», «✈️ Telegram», «👤 Профиль» — по мере появления
+   товаров. html(its) — содержимое раздела, '' — товаров нет, раздел не показывается. Один раздел — без переключателя */
+const SHOP_SECS = [
+  {id: 'club', i: '👕', t: 'Клуб', html: its => shopClubHtml(its)},
+  {id: 'friends', i: '🎁', t: 'Друзья', html: () => ''},      // подарки, именной кубок лиги, открытки
+  {id: 'tg', i: '✈️', t: 'Telegram', html: () => ''},         // стикеры клуба, эмблема у имени, обои, постер сезона
+  {id: 'me', i: '👤', t: 'Профиль', html: () => ''},          // обложка менеджера, темы, значок
+];
+let SHOP_SEC = 'club';
 function shopHtml(its) {
+  let x = `<div class="shtop"><h1>🛍 Магазин</h1><span class="shnew">НОВИНКА</span></div>` +
+    `<div class="shsub">Только внешний вид — на силу команды и исход матчей не влияет. Оплата — звёздами Telegram.</div>`;
+  if (!shopBlocks(its).length) return x + `<div class="card note">Сначала создайте клуб — тогда здесь появятся его форма и эмблема.</div>`;
+  const secs = SHOP_SECS.map(s => ({...s, h: s.html(its)})).filter(s => s.h);
+  if (!secs.length) return x;
+  const cur = secs.find(s => s.id === SHOP_SEC) || secs[0];
+  if (secs.length > 1) x += `<div class="shtabs" role="tablist">` + secs.map(s => `<button type="button" role="tab" aria-selected="${s === cur}"${s === cur ? ' class="on"' : ''} data-shsec="${s.id}"><i>${s.i}</i>${s.t}</button>`).join('') + `</div>`;
+  else x += `<div class="shsec">${cur.i} ${cur.t}</div>`;
+  return x + cur.h;
+}
+function shopClubHtml(its) {      // раздел «👕 Клуб»: форма и эмблема своего и официального клуба, «не продаётся»
   const hb = H(), h = hb.home || {}, list = Object.values(its), act = list.filter(it => !it.away), blocks = shopBlocks(its);
   const closed = act.length && act.every(it => it.P && !Object.keys(it.P).length) && act.some(it => it.lv < 5);      // продажа закрыта — только примерка
-  let x = `<div class="shtop"><h1>🛍 Магазин</h1><span class="shnew">НОВИНКА</span></div>` +
-    `<div class="shsub">Внешний вид клуба: форма и эмблема. Оплата — звёздами Telegram, менять в пределах купленного уровня — бесплатно.</div>`;
-  if (!blocks.length) return x + `<div class="card note">Сначала создайте клуб — тогда здесь появятся его форма и эмблема.</div>`;
+  if (!blocks.length) return '';
+  let x = `<div class="shsub">Форма и эмблема: 5 уровней, менять в пределах купленного уровня — бесплатно.</div>`;
   if (closed) x += `<div class="shclosed">🔜 <b>Магазин скоро откроется — уже можно примерить.</b> Нажмите «👁 Примерить» — посмотрите, как будет выглядеть ваш клуб на любом уровне.</div>`;
   if (blocks.length > 1) x += `<div class="shjump">` + blocks.map(b => `<button type="button" data-shjump="s-${b.id}">${b.id === 'off' ? '🏆 Официальный клуб' : '⚽ Свой клуб'}</button>`).join('') +
     `<button type="button" data-shjump="s-free">Не продаётся</button></div>`;
@@ -3201,7 +3225,7 @@ function renderShop(force) {
   if (SHOP_PREV) { const it = its[SHOP_PREV.k];      // пришёл купленный уровень — распаковка, один раз
     if (it && !it.away && it.lv > SHOP_PREV.lv) { SHOP_UB = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; SHOP_PREV = null; } }
   if (!its[SHOP_OPEN]) { const f = Object.values(its).find(i => !i.away); SHOP_OPEN = f ? f.k : Object.keys(its)[0] || ''; }      // раскрыта — форма активного клуба
-  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN]);
+  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN, SHOP_SEC]);
   if (sig === SHOP_SIG && !force) return;
   SHOP_SIG = sig; el.innerHTML = shopHtml(its); shopAfter(its);
 }
@@ -3219,6 +3243,7 @@ function shopClick(b) {      // нажатия во вкладке «Магаз�
   const d = b.dataset;
   if (b.hasAttribute('data-shflip')) { SHOP_BACK = !SHOP_BACK; b.classList.toggle('bk', SHOP_BACK); shopPause(b); haptic(); return true; }
   if (b.hasAttribute('data-kitub') || b.hasAttribute('data-crub')) { if (SHOP_UB && SHOP_UB.fin) SHOP_UB.fin(); return true; }      // тап — пропустить
+  if (d.shsec) { if (SHOP_SEC !== d.shsec) { SHOP_SEC = d.shsec; haptic(); renderShop(true); } return true; }
   if (d.shjump) { const t = $(d.shjump); if (t && t.scrollIntoView) t.scrollIntoView({behavior: 'smooth', block: 'start'}); return true; }
   if (d.shopen) { SHOP_OPEN = d.shopen; SHOP_TRY = false; SHOP_BACK = false; haptic(); renderShop(true); return true; }
   if (d.shtry) { const k = d.shtry; SHOP_TRY = !(SHOP_OPEN === k && SHOP_TRY); if (SHOP_OPEN !== k) SHOP_BACK = false; SHOP_OPEN = k; haptic(); renderShop(true);
