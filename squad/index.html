@@ -148,6 +148,7 @@ html[data-theme="club"] .shtabs button.on{background:var(--accent);color:var(--o
 .shcap{display:flex;justify-content:space-between;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-top:3px}
 .shwhat{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.4}.shwhat b{color:var(--text);font-weight:600}
 .shbig{margin-top:8px}.shmax{font-size:12.5px;color:var(--okt2);margin-top:8px}
+.shgb{display:grid;gap:8px;margin-top:8px}.shgift .shhd small{overflow-wrap:anywhere}
 .shsoon,.shsw{display:flex;align-items:center;justify-content:center;border-radius:16px;padding:10px;background:var(--card2);color:var(--muted);font-weight:700;font-size:13.5px;border:1px dashed var(--line);text-align:center}
 .shsw{color:var(--text);border-style:solid}.shwarn{font-size:12.5px;margin:0 0 4px}
 .shpack{display:flex;align-items:center;gap:10px}.shpack .ic{font-size:26px}.shpack .tx{flex:1;min-width:0;font-size:13px}.shpack .tx small{display:block;color:var(--muted);font-size:11.5px;line-height:1.35}.shpack .tx b{white-space:nowrap}
@@ -3183,7 +3184,7 @@ function shopPack(it, title) {      // набор «все уровни сраз
    товаров. html(its) — содержимое раздела, '' — товаров нет, раздел не показывается. Один раздел — без переключателя */
 const SHOP_SECS = [
   {id: 'club', i: '👕', t: 'Клуб', html: its => shopClubHtml(its)},
-  {id: 'friends', i: '🎁', t: 'Друзья', html: () => ''},      // подарки, именной кубок лиги, открытки
+  {id: 'friends', i: '🎁', t: 'Друзья', html: () => shopFriendsHtml()},      // подарки (дальше — именной кубок лиги, открытки)
   {id: 'tg', i: '✈️', t: 'Telegram', html: () => ''},         // стикеры клуба, эмблема у имени, обои, постер сезона
   {id: 'me', i: '👤', t: 'Профиль', html: () => ''},          // обложка менеджера, темы, значок
 ];
@@ -3198,6 +3199,25 @@ function shopHtml(its) {
   if (secs.length > 1) x += `<div class="shtabs" role="tablist">` + secs.map(s => `<button type="button" role="tab" aria-selected="${s === cur}"${s === cur ? ' class="on"' : ''} data-shsec="${s.id}"><i>${s.i}</i>${s.t}</button>`).join('') + `</div>`;
   else x += `<div class="shsec">${cur.i} ${cur.t}</div>`;
   return x + cur.h;
+}
+function shopFriendsHtml() {      // раздел «🎁 Друзья»: подарок соседу по лиге друзей — следующий уровень формы или эмблемы его
+  // своего клуба (сервер: app/level_shop.py gift_state — соседи-люди, их уровни и цены; кому можно дарить, решает сервер)
+  const G = H().gifts, S = (G && G.sale) || {};
+  if (!G || !(G.friends || []).length) return '';
+  const btn = (f, k) => { const x = f[k] || {}, kit = k === 'kit', nm = kit ? 'Форма' : 'Эмблема', N = (kit ? KIT_EDITOR : CREST_EDITOR).level_names;
+    if (!x.to) return `<div class="shsoon">✅ ${nm}: у друга всё открыто</div>`;
+    if (!S[k]) return `<div class="shsoon">🔜 ${nm} — скоро в продаже</div>`;
+    return `<button type="button" class="kbuy l${x.to}" data-gift="${k}" data-gto="${f.id}"><span>🎁 ${nm} → ур. ${x.to}<small>«${esc(N[x.to])}» — навсегда у клуба друга</small></span><span class="pr">${x.price} ⭐</span></button>`; };
+  return `<div class="shsub">Подарите соседу по лиге друзей следующий уровень формы или эмблемы его клуба. <b>Платите вы, уровень получает клуб друга навсегда.</b></div>` +
+    G.friends.map(f => `<div class="shit shgift"><div class="shhd"><div><b>${esc(f.club)}</b><small>👤 ${esc(f.manager)} · форма ур. ${(f.kit || {}).lv || 1} · эмблема ур. ${(f.crest || {}).lv || 1}</small></div></div>` +
+      `<div class="shgb">${btn(f, 'kit')}${btn(f, 'crest')}</div></div>`).join('');
+}
+function giftPay(link) {       // счёт подарка: уровень у клуба друга поднимает бот, когда придёт оплата
+  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  TG.openInvoice(link, st => {
+    if (st === 'paid') { haptic('ok'); chime('buy'); toast('🎁 Оплачено — дарим уровень другу'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'gift', check: true}), ms)); }
+    else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+  });
 }
 function shopClubHtml(its) {      // раздел «👕 Клуб»: форма и эмблема своего и официального клуба, «не продаётся»
   const hb = H(), h = hb.home || {}, list = Object.values(its), act = list.filter(it => !it.away), blocks = shopBlocks(its);
@@ -3225,7 +3245,7 @@ function renderShop(force) {
   if (SHOP_PREV) { const it = its[SHOP_PREV.k];      // пришёл купленный уровень — распаковка, один раз
     if (it && !it.away && it.lv > SHOP_PREV.lv) { SHOP_UB = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; SHOP_PREV = null; } }
   if (!its[SHOP_OPEN]) { const f = Object.values(its).find(i => !i.away); SHOP_OPEN = f ? f.k : Object.keys(its)[0] || ''; }      // раскрыта — форма активного клуба
-  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN, SHOP_SEC]);
+  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), H().gifts || null, SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN, SHOP_SEC]);
   if (sig === SHOP_SIG && !force) return;
   SHOP_SIG = sig; el.innerHTML = shopHtml(its); shopAfter(its);
 }
@@ -3244,6 +3264,12 @@ function shopClick(b) {      // нажатия во вкладке «Магаз�
   if (b.hasAttribute('data-shflip')) { SHOP_BACK = !SHOP_BACK; b.classList.toggle('bk', SHOP_BACK); shopPause(b); haptic(); return true; }
   if (b.hasAttribute('data-kitub') || b.hasAttribute('data-crub')) { if (SHOP_UB && SHOP_UB.fin) SHOP_UB.fin(); return true; }      // тап — пропустить
   if (d.shsec) { if (SHOP_SEC !== d.shsec) { SHOP_SEC = d.shsec; haptic(); renderShop(true); } return true; }
+  if (d.gift) { const G = H().gifts || {}, f = (G.friends || []).find(x => String(x.id) === d.gto), x = f && f[d.gift], kit = d.gift === 'kit';
+    if (!x || !x.to || !(G.sale || {})[d.gift]) return true;      // у друга всё открыто или продажа закрыта — счёта нет
+    const N = (kit ? KIT_EDITOR : CREST_EDITOR).level_names; haptic();
+    ask(`🎁 Подарить клубу «${f.club}» уровень ${x.to} «${N[x.to]}» ${kit ? 'формы' : 'эмблемы'} за ${x.price} ⭐? Платите вы, уровень получает клуб друга навсегда.`,
+      () => send({a: 'gift', item: d.gift, to: f.id, buy: 'next'}));
+    return true; }
   if (d.shjump) { const t = $(d.shjump); if (t && t.scrollIntoView) t.scrollIntoView({behavior: 'smooth', block: 'start'}); return true; }
   if (d.shopen) { SHOP_OPEN = d.shopen; SHOP_TRY = false; SHOP_BACK = false; haptic(); renderShop(true); return true; }
   if (d.shtry) { const k = d.shtry; SHOP_TRY = !(SHOP_OPEN === k && SHOP_TRY); if (SHOP_OPEN !== k) SHOP_BACK = false; SHOP_OPEN = k; haptic(); renderShop(true);
@@ -3459,6 +3485,7 @@ function renderLeague() {
       `</table></div>`;
     if (t.rows.some(r => r.cid)) x += `<div class="hint">Неприличное название или имя у соперника? Нажмите на его строку — ⚠️ жалоба администратору.</div>`;
     if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
+    if (hb.gifts && Object.values(hb.gifts.sale || {}).some(Boolean)) x += `<button type="button" class="go" data-gogift>🎁 Подарить соседу уровень формы или эмблемы</button>`;
     if (hb.home && hb.home.league) x += `<div class="mrow2"><button type="button" class="go" data-panel="pred">🔮 Прогнозы</button><button type="button" class="go" data-panel="awards">🏅 Награды сезона</button></div>`;
     x += `<button type="button" class="go" data-panel="top">🌍 Лучшие менеджеры всех лиг</button>`;
     if (!hb.home || !hb.home.official) x += `<button type="button" class="go" data-panel="friends">👥 Лига друзей: создать, вступить, позвать</button>`;
@@ -5132,6 +5159,7 @@ document.addEventListener('click', e => {
   if (b.dataset.gfresh) { haptic(); tourStart(b.dataset.gfresh, true); return; }
   if (b.dataset.tourq) { haptic(); tourStart(b.dataset.tourq); return; }
   if (b.hasAttribute('data-tutorial')) { haptic(); send({a: 'tutorial'}); return; }
+  if (b.hasAttribute('data-gogift')) { haptic(); SHOP_SEC = 'friends'; SHOP_SIG = ''; showTab('shop'); return; }      // «🎁 Подарить» из таблицы лиги
   if (b.dataset.tab) { haptic(); showTab(b.dataset.tab); return; }
   if (b.dataset.ecoq) { haptic(); ECO_Q = ECO_Q === b.dataset.ecoq ? null : b.dataset.ecoq; renderMoney(); return; }      // «Финансы»: блок «Что такое…»
   if (b.dataset.ecoblockretry) { haptic(); delete ECO_BL[((ECO || {}).key || '') + ':' + b.dataset.ecoblockretry]; renderMoney(); return; }      // О4-2: «Ещё раз»
@@ -5422,6 +5450,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'player' && PANEL) panelBack();
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (!m.ok && act && act.buy) SHOP_PREV = null;      // счёт не выставлен — распаковки в магазине не будет
+  if (m.ok && act && act.a === 'gift' && m.invoice) giftPay(m.invoice);      // 🎁 подарок другу — счёт дарителю
   if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
   if (m.ok && act && act.a === 'kits' && m.invoice) kitPay(m.invoice);
   else if (m.ok && act && act.a === 'kits' && act.design) KIT_DRAFT = null;      // дальше — то, что сохранил сервер
