@@ -549,6 +549,8 @@ body.touring #sheet{max-height:calc(var(--sheet-h,88vh) / .88)}   /* вся ви
 .fbar{position:relative;height:9px;border-radius:5px;background:var(--bar0);overflow:hidden;margin:6px 0 2px}.fbar i{display:block;height:100%;background:var(--ok)}.fbar.over i{background:var(--bad)}
 .fbar u{position:absolute;top:0;bottom:0;width:2px;background:var(--strong);opacity:.55}
 .fplus{color:var(--okt)}.fminus{color:var(--badt)}
+.fsum{border-left:4px solid var(--okt2)}.fsum.yellow{border-left-color:var(--warnl)}.fsum.red{border-left-color:var(--bad)}.fsum .row b{font-size:17px;white-space:nowrap}
+.fsig{margin-top:8px;padding:8px 10px;border-radius:12px;background:var(--card2);font-size:13.5px;line-height:1.35;overflow-wrap:anywhere}.fsum.red .fsig{color:var(--badt)}.fsum.yellow .fsig{color:var(--warnt)}.fsig .fqt{margin:6px 0 0}
 .fwhat{border-color:var(--accent);background:linear-gradient(135deg,var(--acc-soft),var(--card))}.fwhat h3{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .fwhat ul{margin:6px 0 6px 18px;padding:0;font-size:13.5px;line-height:1.4}.fwhat .now{font-size:13.5px;font-weight:700;color:var(--acc-text)}
 .fsoon{display:flex;align-items:center;gap:10px;opacity:.8}.fsoon .ic{font-size:22px}
@@ -3942,7 +3944,7 @@ function tourLeagueSteps() {
         '<b>Создать лигу</b>: напишите название и нажмите OK — вы станете создателем: начинаете и сбрасываете сезоны. Потом позовёте друзей ссылкой.'; }},
     {t: () => (L.league ? 'Сезон' : 'Вступить по коду'), go: () => { if (!(PANEL && PANEL.k === 'friends')) openPanel('friends'); },
       at: () => { const lg = (H().leagues || {}).league; return lg ? TQ('#sheetin [data-lgseason]') || TQ('#sheetin .card') : [TQ('#lgcode'), TQ('#sheetin [data-lgcode]')]; },
-      x: () => (H().leagues || {}).league ? `В лиге до <b>${L.max || 8} клубов</b>. Сезон начинает создатель лиги — «🏁 Начать сезон», когда в лиге хотя бы 2 клуба и у всех выбрана форма: каждый с каждым, на тур — 2 дня, время матча договариваетесь сами.` :
+      x: () => (H().leagues || {}).league ? `В лиге до <b>${L.max || 8} клубов</b>. Сезон начинает создатель лиги — «🏁 Начать сезон», когда в лиге хотя бы 2 клуба и у всех выбрана форма: каждый с каждым дома и в гостях (в лиге из 2–4 клубов круги повторяются — сезон не короче 12 туров), на тур — 2 дня, время матча договариваетесь сами.` :
         '<b>Вступить по коду</b>: код из 6 букв и цифр даёт создатель лиги. А по ссылке-приглашению друг попадает в лигу сам.'});
   else st.push({t: 'Лига друзей — для своего клуба', icon: '👥',
     x: 'Официальный клуб играет только в своей официальной лиге. Чтобы играть с друзьями, нужен свой клуб — его можно завести вторым: «🧭 Создание клуба» → ⚡ или ✍️.',
@@ -4262,26 +4264,43 @@ function ecoOfficial(h, st) {     // официальный клуб, в лиг�
     (h.other && !h.other_star ? `<button type="button" class="go main" data-switch>🔁 Переключиться на свой клуб «${esc(h.other)}»</button>` : '') +
     (H().create ? `<button type="button" class="go${h.other ? '' : ' main'}" data-panel="newclub">➕ Создать свой клуб</button>` : '');
 }
+function ecoAvgRow(st) {         // П.13: вместо итога последнего тура — в среднем за тур сезона (считает бот; последний тур — в журнале)
+  const A = st.avg_tour;
+  if (!A) return '';
+  return `<div class="row"><span>В среднем за тур ${A.now ? 'в этом сезоне' : 'в прошлом сезоне'}${ecoQ('upkeep')}</span>` +
+    (A.amount == null ? `<b>туров ещё не было</b></div>` : `<b class="${A.amount > 0 ? 'fplus' : A.amount < 0 ? 'fminus' : ''}">${ecoMoney(A.amount, true)}</b></div>` +
+    `<div class="sub">${A.tours} ${A.tours % 10 === 1 && A.tours % 100 !== 11 ? 'тур' : A.tours % 10 >= 2 && A.tours % 10 <= 4 && (A.tours % 100 < 12 || A.tours % 100 > 14) ? 'тура' : 'туров'}: доход, зарплаты, содержание и остальное по журналу; траты окна не входят</div>`);
+}
+function ecoSummary(st) {         // П.13: сводка-светофор наверху «Финансов» — числа и состояние считает бот (app/economy.py summary)
+  const S = st.summary; if (!S) return '';
+  const O = st.official ? (st.outlook || {}) : {};
+  return `<div class="card fin fsum ${esc(S.state)}">` +
+    `<div class="row"><span>💶 Можно потратить сейчас</span><b>${ecoMoney(S.spend)}</b></div>` +
+    `<div class="sub">касса без замороженного, запаса и обязательств${S.when ? ' · ' + esc(S.when) : ''}</div>` +
+    `<div class="row"><span>👥 На зарплаты есть место</span><b>+${ecoMoney(S.room_tour)} за тур</b></div>` +
+    `<div class="sub">до ${ecoPct(S.cap)} дохода${S.rush ? ' — 🚀 рывок' : ''} · ${ecoMoney(S.room_tour * ecoNS())} ${ecoTS(true)}</div>` +
+    `<div class="fsig">${esc(S.text)}${S.state === 'yellow' && st.invest ? `<br><button type="button" class="fqt" data-ecogo="ecoinvest">💡 Куда вложить ↓</button>` : ''}</div>` +
+    (O.status ? `<div class="sub">${esc(O.status)}</div>` : '') + `</div>`;
+}
 function ecoOfficialOn(st) {      // официальный клуб с кассой (этап О1, app/official_economy.py view): касса, класс, контракты; О2 — окно, решения, агенты (при рынке)
   const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct), P = st.place || {}, O = st.outlook || {};
   const SRC = {now: 'сейчас', last: 'в прошлом сезоне', expected: 'ожидаемое по силе'};
-  let x = ecoHead('официальный клуб');
+  let x = ecoHead('официальный клуб') + ecoSummary(st);
   x += `<div class="card fin"><div class="row"><span>Касса${ecoQ('cash')}</span></div><div class="cash">${esc(st.cash_text || ecoMoney(st.cash))}</div>` +
     `<div class="row"><span>Доход за последний тур${ecoQ('klass')}</span><b class="${st.income_last_tour > 0 ? 'fplus' : ''}">${ecoMoney(st.income_last_tour, true)}</b></div>` +
     `<div class="row"><span>Зарплаты за тур${ecoQ('salary')}</span><b class="${st.salary_per_tour ? 'fminus' : ''}">${ecoMoney(-st.salary_per_tour)}</b></div>` +
-    `<div class="row"><span>Итог последнего тура${ecoQ('upkeep')}</span><b class="${st.net_last_tour > 0 ? 'fplus' : st.net_last_tour < 0 ? 'fminus' : ''}">${ecoMoney(st.net_last_tour, true)}</b></div>` +
+    ecoAvgRow(st) +
     `<div class="row"><span>Затраты на состав${ecoQ('rule70')}</span><b class="${st.over70 ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
     `<div class="fbar${st.over70 ? ' over' : ''}"><i style="width:${(pct * 100 / top).toFixed(1)}%"></i><u style="left:${(cap * 100 / top).toFixed(1)}%"></u></div>` +
-    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход за ${ecoT14()} на нынешнем месте: ${ecoMoney(st.income14)} · зарплаты за сезон лиги (${ecoTours(st.season_tours || 19)}): ${ecoMoney(st.payroll_per_season)}</div>` +
+    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход ${ecoTS(true)} на нынешнем месте: ${ecoMoney(ecoSeas(st.income14))} · зарплаты за сезон: ${ecoMoney(st.payroll_per_season)}</div>` +
     (st.surplus ? `<div class="row"><span>Налог на излишек${ecoQ('surplus')}</span><b class="${st.surplus.tax ? 'fminus' : ''}">${st.surplus.excess ? '≈' + ecoMoney(-st.surplus.tax) + ' за тур' : 'нет'}</b></div>` +
       `<div class="sub">${st.surplus.excess ? `Излишек ${ecoMoney(st.surplus.excess)} сверх порога ${ecoMoney(st.surplus.free)}` : `Порог — ${ecoMoney(st.surplus.free)} в кассе`}</div>` : '') +
     (st.reserve != null ? `<div class="row"><span>Запас${ecoQ('reserve')}</span><b>не меньше ${ecoMoney(st.reserve)}</b></div>` +
-      `<div class="sub">${ecoPct(st.reserve_share)} дохода за ${ecoT14()} остаётся в кассе после подписания агента · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
+      `<div class="sub">${ecoPctS(st.reserve_share)} дохода ${ecoTS(true)} остаётся в кассе после подписания агента · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
       (st.hold && st.hold.total ? `<div class="sub">В запасе — и обязательства клуба ${ecoMoney(st.hold.total)}: ${esc(st.hold.text)}</div>` : '') : '') + `</div>`;
   x += ecoWhat(['cash', 'salary', 'upkeep', 'rule70', 'surplus', 'reserve']);
   x += `<div class="lrow"><div class="label">Класс клуба</div>${ecoQ('klass')}</div><div class="card fin">` +
     `<div class="row"><span>Класс — множитель дохода</span><b>${esc(st.klass_text || '')}</b></div>` +
-    (O.status ? `<div class="sub">${esc(O.status)}</div>` : '') +
     (P.pos ? `<div class="row"><span>Место ${esc(SRC[P.src] || '')}</span><b>${P.pos}-е из ${P.of}</b></div>` : '') +
     (P.klass != null ? `<div class="row"><span>Класс этого места</span><b>×${String(P.klass).replace('.', ',')}</b></div>` +
       `<div class="sub">${O.forecast ? '🔮 ' + esc(O.forecast) + ' ' : ''}После сезона класс сдвигается на ${ecoPct(ecoRules().drift)} к классу занятого места.</div>` : '') +
@@ -4329,23 +4348,30 @@ function ecoNotYet(st, h) {       // свой клуб, где экономик�
       h.league ? 'Экономику лиги включает администратор игры — со следующего сезона, посреди сезона она не включается.' : 'Экономика работает в лигах друзей: вступите в лигу или создайте свою.'}</div>` +
     (!soon && !h.league ? `<button type="button" class="go" data-panel="friends">👥 Лига друзей</button>` : '');
 }
+const ecoCapQ = (q, cap) => q && q.cap ? Math.round(q.cap * 100) : cap;     // П.8: предел этой сделки (при рывке — 80%) — с сервера
+function ecoInvest(I) {           // П.8: блок «💡 Куда вложить» — тексты и цифры считает сервер (app/economy.py invest_hint)
+  return I ? `<div class="label" id="ecoinvest">${esc(I.title)}</div><div class="card fpl"><div class="sub">${esc(I.lead)}</div>` +
+    (I.lines || []).map(l => `<div class="row"><div class="sub">${esc(l)}</div></div>`).join('') + `</div>` : '';
+}
 function ecoOn(st) {
   const pct = Math.round(st.share70 * 100), cap = Math.round(st.cap70 * 100), top = Math.max(cap * 1.3, pct);
-  let x = ecoHead('свой клуб');
+  let x = ecoHead('свой клуб') + ecoSummary(st);
   x += `<div class="card fin"><div class="row"><span>Касса${ecoQ('cash')}</span></div><div class="cash">${esc(st.cash_text || ecoMoney(st.cash))}</div>` +
     `<div class="row"><span>Доход за последний тур${ecoQ('tour')}</span><b class="${st.income_last_tour > 0 ? 'fplus' : ''}">${ecoMoney(st.income_last_tour, true)}</b></div>` +
     `<div class="row"><span>Зарплаты за тур${ecoQ('salary')}</span><b class="${st.salary_per_tour ? 'fminus' : ''}">${ecoMoney(-st.salary_per_tour)}</b></div>` +
-    `<div class="row"><span>Итог последнего тура${ecoQ('upkeep')}</span><b class="${st.net_last_tour > 0 ? 'fplus' : st.net_last_tour < 0 ? 'fminus' : ''}">${ecoMoney(st.net_last_tour, true)}</b></div>` +
+    ecoAvgRow(st) +
     `<div class="row"><span>Затраты на состав${ecoQ('rule70')}</span><b class="${st.over70 ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
     `<div class="fbar${st.over70 ? ' over' : ''}"><i style="width:${(pct * 100 / top).toFixed(1)}%"></i><u style="left:${(cap * 100 / top).toFixed(1)}%"></u></div>` +
-    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход за ${ecoT14()} (последний сезон лиги в пересчёте на ${ecoT14()}): ${ecoMoney(st.income14)} · зарплаты за сезон лиги (${ecoTours(st.season_tours || 14)}): ${ecoMoney(st.payroll_per_season != null ? st.payroll_per_season : st.payroll_season)}</div>` +
+    `<div class="sub">${st.over70 ? `⚠️ Затраты на состав выше ${cap}% дохода. ` : ''}Доход ${ecoTS(true)} — по последнему сезону лиги: ${ecoMoney(ecoSeas(st.income14))} · зарплаты за сезон: ${ecoMoney(st.payroll_per_season != null ? st.payroll_per_season : st.payroll_season)}</div>` +
+    (st.rush && st.rush.on ? `<div class="sub">🚀 Рывок действует: сейчас новые зарплаты — до ${ecoPct(st.rush.cap)} дохода (касса для рывка ${ecoMoney(st.rush.free)} ≥ ${ecoMoney(st.rush.need)}), места на зарплаты — ${ecoMoney(ecoSeas(st.rush.room))} ${ecoTS()}</div>` : '') +
     (st.brand != null ? `<div class="row"><span>Бренд${ecoQ('brand')}</span><b>${ecoBrand(st.brand)}</b></div>` : '') +
     (st.surplus ? `<div class="row"><span>Налог на излишек${ecoQ('surplus')}</span><b class="${st.surplus.tax ? 'fminus' : ''}">${st.surplus.excess ? '≈' + ecoMoney(-st.surplus.tax) + ' за тур' : 'нет'}</b></div>` +
       `<div class="sub">${st.surplus.market === false ? 'В вашей лиге не работает рынок (окна нет, тратить деньги некуда) — налога нет.' : st.surplus.excess ? `Излишек ${ecoMoney(st.surplus.excess)} сверх порога ${ecoMoney(st.surplus.free)} (касса без замороженного и обязательств)` : `Порог — ${ecoMoney(st.surplus.free)} в кассе (без замороженного и обязательств)`}</div>` : '') +
     (st.reserve != null ? `<div class="row"><span>Запас${ecoQ('reserve')}</span><b>не меньше ${ecoMoney(st.reserve)}</b></div>` +
-      `<div class="sub">${ecoPct(st.reserve_share)} дохода за ${ecoT14()} плюс обязательства остаётся в кассе после любой траты в окно${ecoRules().youth_reserve != null ? ` (после покупки юниора чужой академии — ${ecoPct(ecoRules().youth_reserve)})` : ''} · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
+      `<div class="sub">${ecoPctS(st.reserve_share)} дохода ${ecoTS(true)} плюс обязательства остаётся в кассе после любой траты в окно${ecoRules().youth_reserve != null ? ` (после покупки юниора чужой академии — ${ecoPctS(ecoRules().youth_reserve)})` : ''} · свободно для трат: ${ecoMoney(Math.max(0, (st.cash_free != null ? st.cash_free : st.cash) - st.reserve))}</div>` +
       (st.hold && st.hold.total ? `<div class="sub">В запасе — и обязательства клуба ${ecoMoney(st.hold.total)}: ${esc(st.hold.text)}</div>` : '') : '') + `</div>`;
   x += ecoWhat(ECO_S || ECO_B ? ['cash', 'salary', 'upkeep', 'tour', 'rule70', 'brand', 'surplus'] : ['cash', 'salary', 'upkeep', 'tour', 'rule70', 'brand', 'surplus', 'reserve']);
+  x += ecoInvest(st.invest);      // П.8: касса больше 2,5 дохода — «Куда вложить» (строки и числа — с сервера)
   const qt = (k, t) => ECO.st.blocks && ECO.st.blocks[k] ? `<button type="button" class="fqt${ECO_Q === k ? ' on' : ''}" data-ecoq="${k}">${t} ?</button>` : '';
   x += ecoWindow(st.window || {}, qt);
   x += ecoWhat(st.agents ? ['window'] : ['window', 'agent']);     // в окне «агент?» раскрывается у списка агентов
@@ -4440,7 +4466,7 @@ function ecoInvestor(I) {
   if (o) x += `<div class="row"><div><b>Предложение: ${ecoMoney(o.amount)} сейчас</b><div class="sub">повод — ${esc(o.reason)} · ответить до ${esc(o.until)}, потом сгорит</div></div></div>` +
     `<div class="row"><span>Забирает каждый тур</span><b>${ecoPct(o.share)} спонсора и магазина</b></div>` +
     `<div class="row"><span>Срок</span><b>${ecoTours(o.tours)}</b></div>` +
-    `<div class="row"><span>При нынешних доходах</span><b class="fminus">≈${ecoMoney(-o.per_season)} за ${ecoT14()}</b></div>` +
+    `<div class="row"><span>При нынешних доходах</span><b class="fminus">≈${ecoMoney(-ecoSeas(o.per_season))} ${ecoTS()}</b></div>` +
     `<div class="row"><span>Всего заберёт, не больше</span><b class="fminus">${ecoMoney(-o.cap)} (+${ecoPct(o.extra)})</b></div>` +
     `<div class="row"><span>Касса после принятия</span><b>${ecoMoney(o.cash_after)}</b></div>` +
     `<div class="sub">Деньги инвестора — не доход в правиле 70%. Доля списывается каждый тур, даже если касса уйдёт в минус; доля за ближайшие ${ecoT14()} остаётся в запасе после трат.</div>` +
@@ -4452,12 +4478,12 @@ function ecoInvestor(I) {
 function ecoLoan(L) {
   let x = `<div class="lrow"><div class="label">🏦 Кредит</div>${ecoQ('loan')}</div>` + ecoWhat(['loan']) + `<div class="card fpl">`;
   const a = L.active, dis = L.busy ? ' disabled' : '';
-  if (a) x += `<div class="row"><div><b>Кредит ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(L.rate)} за ${ecoTours(L.tours)} · оплачено туров ${a.paid_tours} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.next)}</b>платёж за тур</div></div>` +
+  if (a) x += `<div class="row"><div><b>Кредит ${ecoMoney(a.amount)}</b><div class="sub">${ecoPct(L.rate)} за весь срок (${ecoTours(L.tours)}) · оплачено туров ${a.paid_tours} из ${a.tours}</div></div><div class="r"><b>${ecoMoney(a.next)}</b>платёж за тур</div></div>` +
     `<div class="row"><span>Осталось вернуть</span><b class="fminus">${ecoMoney(-(a.rest + a.rest_interest))}</b></div>` +
     `<div class="sub">Основной долг ${ecoMoney(a.rest)}, проценты ${ecoMoney(a.rest_interest)}. Досрочно — остаток основного долга и проценты минимум за первые ${ecoTours(ecoRules().loan_hold || 7)}${a.early ? ` (${ecoMoney(a.early)})` : ''}: проценты за остальные туры не берутся.</div>` +
     `<button type="button" class="go" data-ecoloanx${dis}>🏦 Погасить досрочно — ${ecoMoney(a.rest + (a.early || 0))}</button>`;
   else x += `<div class="row"><span>Можно взять</span><b>до ${ecoMoney(L.limit)}</b></div>` +
-    `<div class="sub">${ecoPct(L.share)} дохода за ${ecoTours(L.tours)} (${ecoMoney(L.income14)}) · на ${ecoTours(L.tours)} под ${ecoPct(L.rate)} за ${ecoTours(L.tours)} · гасится каждый тур: при ${ecoMoney(L.limit)} — ≈${ecoMoney(L.per_tour_max)} за тур, проценты ${ecoMoney(L.interest_max)}</div>` +
+    `<div class="sub">${ecoPctS(L.share)} дохода ${ecoTS(true)} (${ecoMoney(ecoSeas(L.income14))}) · на ${ecoTours(L.tours)} под ${ecoPct(L.rate)} за весь срок · гасится каждый тур: при ${ecoMoney(L.limit)} — ≈${ecoMoney(L.per_tour_max)} за тур, проценты ${ecoMoney(L.interest_max)}</div>` +
     (L.limit > 0 ? `<div class="own"><input id="ecoloan" type="number" inputmode="numeric" min="1" max="${L.limit}" value="${L.limit}" aria-label="Сумма кредита в тысячах евро" placeholder="в тысячах евро"><button type="button" data-ecoloan${dis}>🏦 Взять</button></div>` +
       `<div class="sub">Сумма — в тысячах евро (${L.limit} = ${ecoMoney(L.limit)}). Кредит — не доход в правиле 70%, проценты входят в затраты на состав. После траты в окно в кассе должны остаться платежи на ближайшие ${ecoTours(ecoRules().loan_hold || 7)}.</div>` : '');
   if (L.busy) x += `<div class="sub">⏳ У клуба идёт матч — кредит после него.</div>`;
@@ -4547,7 +4573,7 @@ function ecoScouts(st) {
   const S = (st.academy || {}).scouts; if (!S) return '';
   const cap = Math.round((st.cap70 || 0.7) * 100), pct = Math.round((S.share_after || 0) * 100);
   let x = `<div class="lrow"><div class="label">🔭 Селекционеры</div>${ecoQ('scouts')}</div>` + ecoWhat(['scouts']);
-  x += `<div class="card fpl"><div class="row"><div><b>${S.n} из ${S.max}</b><div class="sub">${ecoMoney(S.salary)} за тур каждому · за ${ecoT14()} — ${ecoMoney(S.season)} каждому</div></div>` +
+  x += `<div class="card fpl"><div class="row"><div><b>${S.n} из ${S.max}</b><div class="sub">${ecoMoney(S.salary)} за тур каждому · ${ecoTS()} — ${ecoMoney(ecoSeas(S.season))} каждому</div></div>` +
     `<div class="r">${S.n ? `<b>${ecoMoney(S.n * S.salary)}</b>за тур` : '—'}</div></div>` +
     `<div class="sub">Каждый за тур раскрывает потенциал одного юниора: сначала своих, потом клубов вашей лиги, потом ${S.official ? 'клубов менеджеров других официальных лиг' : 'других лиг друзей'}. Раскрыто в этом сезоне: ${S.seen_season} · известно сейчас: ${S.seen_now}</div>`;
   if (S.n < S.max) x += `<div class="row"><span>С ещё одним затраты на состав станут</span><b class="${S.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
@@ -4595,10 +4621,10 @@ function ecoYDealCard(y, st) {    // карточка предложения з�
       `<div class="sub">из цены сгорят комиссия 10% (${ecoMoney(q.commission)}) и налог продавца 10% (${ecoMoney(q.tax)}); продавцу — ${ecoMoney(q.seller_get)}</div>` +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       `<div class="row"><span>Заморозится до ответа</span><b>${ecoMoney(q.price + q.comp)}</b></div>` +
-      `<div class="row"><span>Зарплата (как у новичка)</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+      `<div class="row"><span>Зарплата (как у новичка)</span><b>${ecoMoney(q.per_tour)} за тур · ${ecoSal(q.salary)}</b></div>` +
       ecoLeft(q) +
       (q.frozen ? `<div class="sub">уже заморожено другими предложениями: ${ecoMoney(q.frozen)}</div>` : '') +
-      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > ecoCapQ(q, cap) ? 'fminus' : ''}">${pct}% из ${ecoCapQ(q, cap)}%${ecoCapQ(q, cap) > cap ? ' 🚀 рывок' : ''}</b></div>` +
       `<div class="sub">Покупка ${q.buys_used + 1} из ${q.buys_max} в этом окне · продавец ответит за 24 ч (не дольше вашего окна) · в основе — 100 очков + запас роста по потенциалу, контракт новичка</div>` +
       (q.note ? `<div class="sub">ℹ️ ${esc(q.note)}</div>` : '') + (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
   }
@@ -4703,8 +4729,8 @@ function ecoDecide(p) {           // окно: «Продлить» (срок и
     `<button type="button" class="go danger" data-ecorel="${p.pid}">👋 Отпустить</button></div></div>`;
   const n = ECO_R.seasons;
   return `<div class="fdec"><div class="sub">Срок продления, сезонов:</div><div class="fterms">${[1, 2, 3, 4, 5].map(k => `<button type="button" class="${k === n ? 'on' : ''}" data-ecoterm="${k}">${k}</button>`).join('')}</div>` +
-    `<div class="row"><span>Новая зарплата</span><b>${ecoMoney(r.salary)} за ${ecoT14()} · ${ecoMoney(r.per_tour)} за тур</b></div>` +
-    `<div class="row"><span>Затраты на состав станут</span><b class="${r.ok ? '' : 'fminus'}">${pct}% из ${cap}%</b></div>` +
+    `<div class="row"><span>Новая зарплата</span><b>${ecoMoney(r.per_tour)} за тур · ${ecoSal(r.salary)}</b></div>` +
+    `<div class="row"><span>Затраты на состав станут</span><b class="${r.ok ? '' : 'fminus'}">${pct}% из ${ecoCapQ(r, cap)}%${ecoCapQ(r, cap) > cap ? ' 🚀 рывок' : ''}</b></div>` +
     `<div class="fbar${r.ok ? '' : ' over'}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
     (r.note ? `<div class="sub">ℹ️ ${esc(r.note)}</div>` : '') + (r.ok ? '' : `<div class="banner warn">⛔ ${esc(r.why)}</div>`) +
     `<div class="mrow2"><button type="button" class="go main" data-ecodo="${p.pid}"${r.ok ? '' : ' disabled'}>✅ Продлить на ${ECO_SEASONS(n)}</button><button type="button" class="go" data-ecorx>Отмена</button></div></div>`;
@@ -4712,6 +4738,12 @@ function ecoDecide(p) {           // окно: «Продлить» (срок и
 /* 🆓 свободные агенты (этап Г2, app/economy.py agents_view / sign_quote / sign): список — от бота, прогноз сделки
    («затраты станут X%», подписные, компенсация, касса после) — тоже от бота запросом wquote; страница только показывает */
 let ECO_S = null;          // открыто подписание: {agent, out: кого заменит, seasons, q: прогноз бота, wait, err}
+// П.13: суммы «за 14 туров» (внутренняя единица бота) на экране — «за сезон вашей лиги (N туров)», ×N/14; N — с сервера (season_len)
+const ecoNS = () => (((ECO || {}).st || {}).season_tours) || 14;
+const ecoSeas = v => Math.round((v || 0) * ecoNS() / (((((ECO || {}).st || {}).rules || {}).tours14) || 14));
+const ecoTS = long => { const n = ecoNS(); return `за сезон ${long ? 'вашей лиги ' : ''}(${n} ${n % 10 === 1 && n % 100 !== 11 ? 'тур' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'тура' : 'туров'})`; };
+const ecoSal = v => ecoMoney(ecoSeas(v)) + ' ' + ecoTS();          // зарплата игрока — за сезон лиги
+const ecoPctS = v => Math.round((v || 0) * (((((ECO || {}).st || {}).rules || {}).tours14) || 14) / ecoNS() * 100) + '%';     // доля дохода за 14 туров → за сезон
 let ECO_ST = 0;            // прогноз не пришёл за 10 секунд — ошибка с «Повторить»
 let ECO_AF = {league: 0, pos: 'все', sort: 'str'};     // ревью 09.11: фильтры агентов (официальные лиги и лиги друзей; считает бот)
 let ECO_OA = null;         // ревью 09.11: агенты по запросу oagents (вне S; у лиг друзей — тоже): {key, f, list, total, leagues, wait, err}
@@ -4746,7 +4778,7 @@ function ecoAgents(st) {
   x += `<div class="card fpl">` + L.map(a => `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}` +
       `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
       `<div class="sub">${a.origin === 'left' ? `ушёл из «${esc(a.from || '?')}» · ` : ''}на рынке ${esc(a.until)}</div></div>` +
-      `<div class="r"><b>${ecoMoney(a.fee)}</b>подписные<div class="sub">${ecoMoney(a.salary)} за ${ecoT14()}</div></div></div>` +
+      `<div class="r"><b>${ecoMoney(a.fee)}</b>подписные<div class="sub">${ecoSal(a.salary)}</div></div></div>` +
       (ECO_S && ECO_S.agent === a.pid ? ecoSignCard(a, st)
         : `<div class="fdec"><button type="button" class="go${full ? '' : ' main'}" data-ecosign="${a.pid}"${full ? ' disabled' : ''}>✍️ Подписать</button></div>`)).join('') + `</div>`;
   if (O && O.total > L.length) x += `<div class="hint">Показаны ${L.length} из ${O.total} — уточните фильтр.</div>`;
@@ -4757,7 +4789,7 @@ function ecoOutCost(p) {           // во что обойдётся замен�
   if (p.decision === 'release') return 'уже отпущен — бесплатно';
   if (p.status === 'expired') return 'контракт кончился — бесплатно';
   if (p.release_comp != null) return 'компенсация ' + ecoMoney(p.release_comp);
-  return p.salary ? ecoMoney(p.salary) + ' за ' + ecoT14() : '';
+  return p.salary ? ecoSal(p.salary) : '';
 }
 function ecoSignCard(a, st) {
   const s = ECO_S, n = s.seasons, cap = Math.round((st.cap70 || 0.7) * 100);
@@ -4772,11 +4804,11 @@ function ecoSignCard(a, st) {
   else if (q && q.salary == null) x += `<div class="banner warn">⛔ ${esc(q.why || 'Подписать нельзя')}</div>`;
   else if (q) {
     const pct = Math.round(q.share_after * 100);
-    x += `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+    x += `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.per_tour)} за тур · ${ecoSal(q.salary)}</b></div>` +
       `<div class="row"><span>Подписные</span><b class="fminus">${ecoMoney(-q.fee)}</b></div>` +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       ecoLeft(q) +
-      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > ecoCapQ(q, cap) ? 'fminus' : ''}">${pct}% из ${ecoCapQ(q, cap)}%${ecoCapQ(q, cap) > cap ? ' 🚀 рывок' : ''}</b></div>` +
       `<div class="fbar${pct > cap ? ' over' : ''}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
       `<div class="sub">Подписание ${q.buys_used + 1} из ${q.buys_max} в этом окне</div>` +
       (q.note ? `<div class="sub">ℹ️ ${esc(q.note)}</div>` : '') + (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
@@ -4789,7 +4821,7 @@ function ecoLeft(q, what = true) {   // прогноз «останется в �
   const bad = q.cash_after < q.reserve, exact = ecoMoney(q.cash_after) === ecoMoney(q.reserve);     // «1,38 млн» = «1,38 млн» — точно, в тысячах
   const M = k => exact ? (k < 0 ? '−' : '') + String(Math.abs(Math.round(k))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' тыс. €' : ecoMoney(k);
   return `<div class="row"><span>Останется в кассе${what ? ecoQ('reserve') : ''}</span><b class="${bad ? 'fminus' : ''}">${M(q.cash_after)}</b></div>` +
-    `<div class="sub${bad ? ' fminus' : ''}">${bad ? '⛔ ' : ''}нужно не меньше ${M(q.reserve)} — запас ${Math.round((q.reserve_share || ((ECO || {}).st || {}).reserve_share || 0.4) * 100)}% дохода за ${ecoT14()}${bad ? '' : ' · сверх запаса ' + ecoMoney(q.cash_after - q.reserve)}</div>` +
+    `<div class="sub${bad ? ' fminus' : ''}">${bad ? '⛔ ' : ''}нужно не меньше ${M(q.reserve)} — запас ${ecoPctS(q.reserve_share || ((ECO || {}).st || {}).reserve_share || 0.4)} дохода ${ecoTS(true)}${bad ? '' : ' · сверх запаса ' + ecoMoney(q.cash_after - q.reserve)}</div>` +
     (what ? ecoWhat(['reserve']) : '');
 }
 function ecoQuote() {
@@ -4910,7 +4942,7 @@ function ecoOMLoad() {             // этап О3: список рынка оф
 function ecoBuyRow(a, st, T, full) {     // строка игрока на продажу: объявление менеджера или игрок клуба бота (этап О3)
   return `<div class="row"><div><b>${esc(a.name)}</b>${a.gk ? ' <span class="ftag">🧤 вратарь</span>' : ''}${a.bot ? ' <span class="ftag">🤖 клуб бота</span>' : ''}${ecoRetire(a.retire)}` +
     `<div class="sub">${years(a.age)} · сила ${num(a.strength)} · стоит ${ecoMoney(a.value)}</div>` +
-    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoMoney(a.salary)} за ${ecoT14()}</div>` +
+    `<div class="sub">«${esc(a.club)}» · ${esc(a.league)} · зарплата ${ecoSal(a.salary)}</div>` +
     (a.kept ? `<div class="sub">💼 менеджера сняли, клубом играет бот: деньги — в кассу клуба (минус налог), на место — новичок</div>` : '') + `</div>` +
     `<div class="r"><b>${ecoMoney(a.price)}</b>${a.bot ? 'с комиссией' : 'цена'}</div></div>` +
     (ECO_B && ECO_B.listing === a.id ? ecoDealCard(a, st)
@@ -4972,10 +5004,10 @@ function ecoDealCard(a, st) {
       (q.bot ? `<div class="sub fburn">стоимость ${ecoMoney(q.value)} + комиссия ${ecoMoney(q.commission)} — ${q.kept ? `клубу в кассу ${ecoMoney(q.seller_get)} (менеджера сняли, касса клуба сохранена), налог и комиссия сгорают` : 'у клуба бота кассы нет, деньги сгорают'}</div>` : '') +
       (q.comp ? `<div class="row"><span>Компенсация уходящему</span><b class="fminus">${ecoMoney(-q.comp)}</b></div>` : '') +
       (offer ? `<div class="row"><span>Заморозится до ответа</span><b>${ecoMoney(q.price + q.comp)}</b></div>` : '') +
-      `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.salary)} за ${ecoT14()} · ${ecoMoney(q.per_tour)} за тур</b></div>` +
+      `<div class="row"><span>Зарплата</span><b>${ecoMoney(q.per_tour)} за тур · ${ecoSal(q.salary)}</b></div>` +
       ecoLeft(q) +
       (q.frozen ? `<div class="sub">уже заморожено другими предложениями: ${ecoMoney(q.frozen)}</div>` : '') +
-      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > cap ? 'fminus' : ''}">${pct}% из ${cap}%</b></div>` +
+      `<div class="row"><span>Затраты на состав станут</span><b class="${pct > ecoCapQ(q, cap) ? 'fminus' : ''}">${pct}% из ${ecoCapQ(q, cap)}%${ecoCapQ(q, cap) > cap ? ' 🚀 рывок' : ''}</b></div>` +
       `<div class="fbar${pct > cap ? ' over' : ''}"><i style="width:${Math.min(100, pct * 100 / (cap * 1.3)).toFixed(1)}%"></i><u style="left:${(100 / 1.3).toFixed(1)}%"></u></div>` +
       `<div class="sub">Покупка ${q.buys_used + 1} из ${q.buys_max} в этом окне${offer ? ' · продавец ответит за 24 ч (не дольше вашего окна)' : ''}</div>` +
       (q.note ? `<div class="sub">ℹ️ ${esc(q.note)}</div>` : '') + (q.ok ? '' : `<div class="banner warn">⛔ ${esc(q.why)}</div>`);
@@ -5198,6 +5230,7 @@ document.addEventListener('click', e => {
   if (b.dataset.ecoq) { haptic(); ECO_Q = ECO_Q === b.dataset.ecoq ? null : b.dataset.ecoq; renderMoney(); return; }      // «Финансы»: блок «Что такое…»
   if (b.dataset.ecoblockretry) { haptic(); delete ECO_BL[((ECO || {}).key || '') + ':' + b.dataset.ecoblockretry]; renderMoney(); return; }      // О4-2: «Ещё раз»
   if (b.hasAttribute('data-ecoall')) { haptic(); ECO_ALL = !ECO_ALL; renderMoney(); return; }
+  if (b.dataset.ecogo) { haptic(); const t = document.getElementById(b.dataset.ecogo); if (t) t.scrollIntoView({behavior: 'smooth', block: 'start'}); return; }      // П.13: «💡 Куда вложить ↓» из сводки
   if (b.hasAttribute('data-ecoload')) { haptic(); ecoLoad(true); renderMoney(); return; }
   if (TAB === 'money' && !PANEL && ecoWinClick(b, b.dataset)) return;      // трансферное окно: продлить / отпустить / имя
   if (b.hasAttribute('data-heroflip')) { HERO_BACK = !HERO_BACK; b.classList.toggle('bk', HERO_BACK); haptic('soft'); return; }      // футболка в шапке — без перерисовки
@@ -6035,6 +6068,14 @@ function demoSwitch() {      // демо: свой клуб ⇄ официаль
   KIT_DRAFT = null; KIT_SLOT = 'home'; CREST_DRAFT = null; CREST_READY_HTML = null; KIT_TILES = KIT_PTILES = null;
   return {ok: true, note: `🔁 Теперь активен «${nx.club}» (демо)`};
 }
+const DEMO_N = +(Q.get('tours') || 14);      // демо: ?tours=12 — сезон лиги из 2–4 клубов (П.10)
+function demoSummary(cash, fz, inc, payroll, win) {      // демо П.13: как app/economy.py summary (в игре всё считает бот)
+  const hold = demoHold().total, free = cash - fz, debt = -0.15 * inc, room = Math.max(0, Math.floor(0.7 * inc - payroll));
+  const [state, text] = free < debt ? ['red', `🔴 Касса ниже ${ecoMoney(debt)} (15% дохода в минус): продления и сделки закрыты, пока она не поднимется.`]
+    : free < 0 ? ['red', `🔴 Касса в минусе: тратить нечего. Ниже ${ecoMoney(debt)} закроются продления и сделки.`]
+    : cash > 2.5 * inc ? ['yellow', '🟡 Излишек: деньги можно вложить.'] : ['green', '🟢 Всё хорошо: касса в порядке.'];
+  return {spend: Math.max(0, free - Math.round(0.4 * inc) - hold), room_tour: Math.floor(room / 14), cap: 0.7, rush: false, state, text, when: win ? '' : 'тратить — в трансферное окно', season: DEMO_N};
+}
 function demoEconomy() {         // демо: касса — те же поля, что присылает бот (app/economy.py view); ?eco=off / ?eco=soon — другие экраны
   if (S.hub.home.star) return {status: 'official', note: 'Экономику вашей официальной лиги пока не включил администратор (демо).'};
   if (Q.get('eco') === 'off') return {status: 'off', note: 'В вашей лиге экономика выключена: деньги, зарплаты и контракты не считаются.'};
@@ -6044,7 +6085,7 @@ function demoEconomy() {         // демо: касса — те же поля,
     value: sal[i] * 10, tours_left: 9 + (ss[i] - 1) * st, seasons_left: ss[i], status: ss[i] <= 1 ? 'expiring' : ss[i] <= 2 ? 'last' : 'ok'}));
   const payroll = sal.reduce((a, b) => a + b, 0), inc = 3323, share = payroll / inc, kinds = [['tv', '📺 Телеправа', 93], ['brand', '🤝 Спонсор', 71], ['shop', '🛍 Магазин', 3], ['ticket', '🎟 Билеты', 22], ['upkeep', '🏟 Содержание клуба', -57], ['salary', '💼 Зарплаты', -Math.round(payroll / st)]];
   const journal = [5, 4, 3].flatMap(t => kinds.map(([kind, title, amount]) => ({kind, title, amount, note: 'тур ' + t, at: ''}))).concat([{kind: 'start', title: '💶 Стартовая касса', amount: 1754, note: 'касса открыта', at: ''}]);
-  const cash = 1754 + 3 * kinds.reduce((a, k) => a + k[2], 0) - DEMO_SPENT, M = k => ecoMoney(k);
+  const cash = (Q.get('ecocash') != null ? +Q.get('ecocash') : 1754 + 3 * kinds.reduce((a, k) => a + k[2], 0)) - DEMO_SPENT, M = k => ecoMoney(k);      // ?ecocash=N — касса для проверки сводки
   const win = Q.get('eco') === 'window';      // ?eco=window — открытое трансферное окно (решения хранятся в DEMO_WIN)
   if (win) players.forEach((p, i) => { if (![2, 6].includes(i)) { p.status = 'ok'; p.tours_left = 28; p.seasons_left = 2;
       const g = DEMO_SIGN[p.pid], ag = g && DEMO_AGENTS.find(a => a.pid === g.agent);
@@ -6063,7 +6104,7 @@ function demoEconomy() {         // демо: касса — те же поля,
   const trade = win ? demoTrade(players) : null, fz = trade ? trade.frozen : 0;      // этап Г3: рынок игроков (демо)
   const agents = win ? {list: DEMO_AGENTS.filter(a => !taken.includes(a.pid)), buys_used: taken.length + (trade ? trade.bought : 0), buys_max: 3, seasons: [1, 2, 3, 4, 5]} : null;
   return {status: 'on', window: wnd, market: true, agents, trade, frozen: fz, cash_free: cash - fz, reserve: Math.round(0.4 * inc), reserve_share: 0.4, cash, cash_text: M(cash), brand: 1, tours: 3, income_last_tour: 189, net_last_tour: 189 - 57 - Math.round(payroll / st), salary_per_tour: Math.round(payroll / st),
-    payroll_season: payroll, payroll_per_season: payroll, season_tours: 14, surplus: {free: Math.round(3 * inc), excess: 0, tax: 0, market: true},
+    payroll_season: payroll, payroll_per_season: Math.round(payroll * DEMO_N / 14), season_tours: DEMO_N, summary: demoSummary(cash, fz, inc, payroll, win), avg_tour: {amount: 189 - 57 - Math.round(payroll / st), tours: 3, now: true}, surplus: {free: Math.round(3 * inc), excess: 0, tax: 0, market: true},
     rules: {tours14: 14, reserve: 0.4, youth_reserve: 0.2, loan_hold: 7, investor_gap_tours: 28, bonus_max: 0.8, brand_max: 3,      // демо: как R на сервере
       sponsor: {safe: {fixed: 1, step: 0, seasons: 1}, ambitious: {fixed: 0.7, step: 0, seasons: 1}, long: {fixed: 0.9, step: 0.05, seasons: 3}}},
     income14: inc, share70: Math.round(share * 1000) / 1000, cap70: 0.7, over70: share > 0.7, upkeep_season: 171, journal, players,
@@ -6083,10 +6124,10 @@ let DEMO_FIN = {choice: null, loan: null, inv: 'offer'};
 const DEMO_BLOCKS = {       // тексты «Что такое…» — как их отдаёт сервер (app/economy.py _blocks, app/finance.py blocks); «У вас сейчас» демо подставляет само
   cash: {"title": "💶 Что такое касса?", "lead": "Деньги вашего клуба в евро. Они принадлежат клубу, а не вам.", "points": ["Приходят за каждый сыгранный тур: телеправа, спонсор, билеты, магазин; в конце сезона — призовые. В свой выходной тур (при нечётном числе клубов) клуб тоже получает доходы и платит зарплаты.", "30% каждого дохода сразу уходит на содержание клуба.", "Касса (без замороженного предложениями и обязательств клуба) больше 3 доходов за 14 туров — с излишка каждый тур уходит 2%; в лиге без рынка налога нет («🏛 Что такое налог на излишек?»).", "Товарищеские матчи и мини-игры денег не дают."], "now": "У вас сейчас: касса 0 тыс. €, доход за тур 189 тыс. €."},
   salary: {"title": "💼 Что такое зарплата?", "lead": "Каждый игрок получает деньги за каждый сыгранный тур лиги — и в выходной тур клуба.", "points": ["Зарплата зависит от силы: за 14 туров — 10% стоимости игрока такой силы без поправки на возраст; за тур платится 1/14 этой суммы.", "Стоимость и зарплата считаются от силы относительно средней силы вашей лиги: средний игрок вашей лиги стоит 2 млн €, его зарплата — 200 тыс. € за 14 туров. В каждой лиге уровень свой.", "Показанная стоимость игрока учитывает возраст (до 27 лет — дороже, с 30 — дешевле) и последний сезон контракта (−20%). Поэтому зарплата бывает от ~8% показанной стоимости (молодые) до ~42% (самые старшие в последний сезон контракта).", "Зарплата фиксируется при подписании или продлении: игрок вырос — зарплата не меняется до следующего продления.", "Сезон вашей лиги — 14 туров: за сезон игрок получает 14 зарплат за тур.", "Пока лига стоит, зарплата не идёт — как и доход."], "now": "У вас сейчас: 144 тыс. € за тур, 2,02 млн € за сезон (14 туров), самый дорогой — Марк Жуков."},
-  rule70: {"title": "📊 Что такое правило 70%?", "lead": "Затраты на состав — не больше 70% дохода, так же, как в УЕФА.", "points": ["Затраты (за 14 туров) — зарплаты игроков, зарплаты селекционеров, содержание построек (стадион, тренировочная база, академия — и заказанных в окне) и проценты по кредиту.", "Доход за 14 туров — доход за последний сезон вашей лиги, пересчитанный на 14 туров: в лиге из 7–8 клубов это последние 14 туров, из 5–6 — последние 10 туров × 1,4 (у нового клуба недостающие туры — по ожидаемому доходу). Кредит, деньги инвестора и продажа игроков — не доход; налог на излишек — не затрата.", "Если после продления, подписания агента или покупки затраты станут выше 70%, действие разрешено, только когда оно не увеличивает зарплаты клуба: продлить с той же или меньшей зарплатой, заменить дорогого игрока более дешёвым. Иначе — отказ; прогноз «затраты станут X%» виден до сделки.", "Выше 70% можно только не увеличивая зарплаты — так клуб сам выходит из перерасхода.", "Касса ниже −15% дохода за последние 14 туров — сделки и продления закрыты, пока она не поднимется (об этом придёт сообщение в чат).", "70% затрат на состав + 30% содержания = клуб живёт в ноль."], "now": "У вас сейчас: 61% из 70%."},
+  rule70: {"title": "📊 Что такое правило 70%?", "lead": "Затраты на состав — не больше 70% дохода, так же, как в УЕФА.", "points": ["Затраты (за 14 туров) — зарплаты игроков, зарплаты селекционеров, содержание построек (стадион, тренировочная база, академия — и заказанных в окне) и проценты по кредиту.", "Доход за 14 туров — доход за последний сезон вашей лиги, пересчитанный на 14 туров: в лиге из 7–8 клубов это последние 14 туров, из 5–6 — последние 10 туров × 1,4, из 2–4 — последние 12 × 1,17 (у нового клуба недостающие туры — по ожидаемому доходу). Кредит, деньги инвестора и продажа игроков — не доход; налог на излишек — не затрата.", "Если после продления, подписания агента или покупки затраты станут выше 70%, действие разрешено, только когда оно не увеличивает зарплаты клуба: продлить с той же или меньшей зарплатой, заменить дорогого игрока более дешёвым. Иначе — отказ; прогноз «затраты станут X%» виден до сделки.", "Выше 70% можно только не увеличивая зарплаты — так клуб сам выходит из перерасхода.", "Касса ниже −15% дохода за последние 14 туров — сделки и продления закрыты, пока она не поднимется (об этом придёт сообщение в чат).", "70% затрат на состав + 30% содержания = клуб живёт в ноль."], "now": "У вас сейчас: 61% из 70%."},
   tour: {"title": "🧾 Почему тур бывает в минусе?", "lead": "В итоге одного тура зарплаты могут съедать больше 70% дохода — это не нарушение правила.", "points": ["Билеты приходят только с домашних матчей — в гостевом туре их нет.", "Телеправа за место и посещаемость и призовые лиги приходят в конце сезона — почти треть дохода.", "Поэтому правило 70% смотрит на доход за последние 14 туров, а не за один: внутри сезона касса понемногу тает, а в конце её пополняют призовые."], "now": "У вас сейчас: доход за последний тур 189 тыс. €, зарплаты за тур 144 тыс. €."},
   reserve: {"title": "🛟 Что такое запас?", "lead": "Запас после траты: после любой траты в трансферное окно в кассе должно остаться не меньше 40% дохода за последние 14 туров плюс обязательства клуба.", "points": ["Касается каждой траты в окне: подписание свободного агента, покупка по цене, отправка предложения цены и его принятие продавцом, стройка.", "Исключение — покупка юниора чужой академии: после неё достаточно 20% дохода за последние 14 туров.", "Замороженные предложениями деньги считаются уже потраченными; когда продавец принимает предложение, запас проверяется заново.", "Обязательства — деньги, которые клуб скоро отдаст: платежи по кредиту на ближайшие 7 туров, доля инвестора за ближайшие 14 туров и сколько спонсор следующего сезона заплатит меньше 100% бренда («Амбициозный», «Долгий»). Потратить можно только то, что останется после запаса и обязательств.", "Зачем: внутри сезона касса тает (зарплаты каждый тур, призовые — в конце). Запас не даёт клубу уйти ниже −15% и попасть под запрет сделок.", "Карточка сделки заранее показывает, сколько останется в кассе и сколько нужно."], "now": "У вас сейчас: доход за последние 14 туров 3,32 млн € → запас 1,33 млн €; свободно для трат 425 тыс. €."},
-  contract: {"title": "📝 Что такое контракт?", "lead": "Срок, на который игрок остаётся в клубе: от 1 до 5 сезонов вашей лиги.", "points": ["Сезон — это сезон вашей лиги: двойной круг, в лиге из 5–6 клубов — 10 туров, из 7–8 — 14 (у вас — 14). При нечётном числе клубов у каждого клуба есть выходной тур: в него клуб тоже получает доходы и платит зарплаты.", "Контракт кончается в конце сезона, перед трансферным окном. Так — если в лиге работает рынок (его включает администратор). Без рынка контракты не кончаются и не уменьшаются, окна нет, спонсор — «Надёжный».", "В окне решаете сами: продлить на 1–5 сезонов (новая зарплата — по нынешней силе: 10% стоимости игрока такой силы без поправки на возраст за 14 туров) или отпустить.", "Не продлили до закрытия окна — игрок уходит свободным агентом бесплатно, на его место приходит новичок 18 лет.", "Отпустить игрока, у которого контракт ещё идёт, тоже можно (в окне): ему положена компенсация — 50% зарплаты, которую он получил бы за оставшиеся сезоны контракта (сезон — 14 туров).", "В последний сезон контракта игрок стоит на 20% дешевле.", "Стартовые контракты при открытии кассы — на 2, 3 или 4 сезона по месту в составе (чтобы они не кончались все в одно окно); стартовые зарплаты в сумме не больше 60% ожидаемого дохода за 14 туров."], "now": "У вас сейчас: у 2 игр. контракт кончается после этого сезона."},
+  contract: {"title": "📝 Что такое контракт?", "lead": "Срок, на который игрок остаётся в клубе: от 1 до 5 сезонов вашей лиги.", "points": ["Сезон — это сезон вашей лиги: двойной круг (в лиге из 2–4 клубов круги повторяются), из 2–4 клубов — 12 туров, из 5–6 — 10, из 7–8 — 14 (у вас — 14). При нечётном числе клубов у каждого клуба есть выходной тур: в него клуб тоже получает доходы и платит зарплаты.", "Контракт кончается в конце сезона, перед трансферным окном. Так — если в лиге работает рынок (его включает администратор). Без рынка контракты не кончаются и не уменьшаются, окна нет, спонсор — «Надёжный».", "В окне решаете сами: продлить на 1–5 сезонов (новая зарплата — по нынешней силе: 10% стоимости игрока такой силы без поправки на возраст за 14 туров) или отпустить.", "Не продлили до закрытия окна — игрок уходит свободным агентом бесплатно, на его место приходит новичок 18 лет.", "Отпустить игрока, у которого контракт ещё идёт, тоже можно (в окне): ему положена компенсация — 50% зарплаты, которую он получил бы за оставшиеся сезоны контракта (сезон — 14 туров).", "В последний сезон контракта игрок стоит на 20% дешевле.", "Стартовые контракты при открытии кассы — на 2, 3 или 4 сезона по месту в составе (чтобы они не кончались все в одно окно); стартовые зарплаты в сумме не больше 60% ожидаемого дохода за 14 туров."], "now": "У вас сейчас: у 2 игр. контракт кончается после этого сезона."},
   window: {"title": "🔄 Что такое трансферное окно?", "lead": "4 дня после последнего матча сезона: продлить или отпустить игроков, подписать свободных агентов, выбрать спонсора — если в лиге работает рынок (его включает администратор).", "points": ["Открывается само после последнего тура вашей лиги; новый сезон начинается только после закрытия окна.", "В клубе всегда 10 игроков: место ушедшего занимает новичок 18 лет с маленькой зарплатой (как у всех — 10% стоимости по силе) — имя ему даёте вы.", "До 3 покупок за окно (свободные агенты, покупки по цене, принятые предложения и покупка чужого юниора — каждая считается одной): новый игрок встаёт на место того, кого вы выберете.", "В окно своей лиги можно выставить игроков на продажу и купить игроков других клубов («🏷 Рынок»).", "Игроки от 34 лет могут завершить карьеру — при закрытии окна или сразу, когда их заменили подписанным агентом или купленным игроком; на их места тоже придут новички.", "Без рынка окна нет: контракты не кончаются и не уменьшаются, спонсор — «Надёжный»."], "now": "У вас сейчас: окно закроется позже."},
   agent: {"title": "🆓 Кто такой свободный агент?", "lead": "Игрок без клуба: за него не нужно платить другому клубу.", "points": ["В каждое окно лиги появляются новые агенты — по одному на клуб, 22–32 лет, сила около средней в лиге. Подписные — 50% его зарплаты за 14 туров.", "Игрок, ушедший из клуба (не продлён, отпущен, заменён), тоже становится агентом; за него подписные — 50% его стоимости.", "Агент ждёт до следующего окна лиги, где появился; потом уходит с рынка.", "Пока игрок на рынке без клуба, он не стареет: стареют только игроки клубов (на год за 57 сыгранных туров клуба).", "Подписать можно только в окно вашей лиги: выберите, кого он заменит (в клубе всегда 10), и срок 1–5 сезонов. Зарплата — как при продлении (10% стоимости по силе за 14 туров), правило 70% — тоже; после подписных в кассе остаётся запас — не меньше 40% дохода за последние 14 туров плюс обязательства.", "Заменить игрока с идущим контрактом можно за компенсацию — 50% зарплаты за оставшиеся сезоны контракта."], "now": "У вас сейчас: агентов можно подписать в окно."},
   market: {"title": "🏷 Что такое рынок игроков?", "lead": "Здесь клубы продают и покупают игроков друг у друга.", "points": ["Выставить игрока можно в окно своей лиги, цена — от 50% до 200% его нынешней стоимости. Объявление висит до следующего окна вашей лиги; снять можно в любой момент.", "Купить можно у клуба любой лиги друзей (тестовые лиги торгуют только между собой), но только в окно своей лиги. Своего игрока купить нельзя.", "«Купить по цене» — сразу. Или «Предложить цену» — продавец решит.", "Покупатель выбирает, кого заменит новый игрок (в клубе всегда 10), и срок 1–5 сезонов; правило 70%, запас 40% дохода в кассе после покупки и до 3 покупок за окно (покупка чужого юниора тоже считается) — как у агентов.", "На место проданного игрока сразу приходит новичок 18 лет — имя ему можно дать самим.", "Если у одного из клубов идёт матч, сделка ждёт его конца."], "now": "У вас сейчас: ваших объявлений — 0; открытых предложений — 0 из 3."},
@@ -6100,7 +6141,7 @@ const DEMO_BLOCKS = {       // тексты «Что такое…» — как 
   surplus: {"title": "🏛 Что такое налог на излишек?", "lead": "Если в кассе больше 3 доходов за 14 туров, каждый сыгранный тур клуб платит 2% от излишка.", "points": ["Порог — 3 × доход за 14 туров; излишек — всё, что в кассе сверх порога. Касса не выше порога — налога нет.", "Касса для налога — без денег, замороженных предложениями, и без обязательств клуба (платежи по кредиту на 7 туров, доля инвестора, недостача спонсора): эти деньги уже чьи-то, налог с них не берётся.", "Если в лиге не работает рынок (окна нет, тратить деньги некуда) — налога нет.", "Списывается каждый сыгранный тур клуба отдельной строкой «🏛 Налог на излишек».", "Налог — не затрата правила 70% и не обязательство в запасе.", "Зачем: деньги, которые лежат без дела, понемногу уходят — их выгоднее вложить в постройки, академию и игроков."], "now": "У вас сейчас: касса (без замороженного и обязательств) ниже порога 9,97 млн € — налога нет."},
   brand: {"title": "⭐ Что такое бренд?", "lead": "Известность клуба в звёздах — от 1 до 3. От неё зависит, сколько платит спонсор (строка «🤝 Спонсор» за тур).", "points": ["За 14 туров при 100% договора: 1 ★ — 1 млн €, 2 ★ — 1,7 млн €, 3 ★ — 2,7 млн € (между звёздами — пропорционально).", "В конце сезона чемпион лиги получает +0,5 звезды, остальные теряют 0,25. Кубок и еврокубки от падения не спасают.", "Сезон короче 14 туров — пропорционально: в лиге из 10 туров +0,36 и −0,18.", "Множитель зрителей: до ×1,2 — при 2500 зрителях в среднем за тур сезона, считая и выездные туры (в них зрителей у вас нет). То есть нужно ≈5000 на домашний матч; считаются только поместившиеся на стадион.", "«⏳ Долгий» спонсор замораживает звёзды на весь срок договора."], "now": "У вас сейчас: 1 ★ — 1 млн € за 14 туров до множителя зрителей."},
   scouts: {"title": "🔭 Что такое селекционеры?", "lead": "Сотрудники клуба, которые смотрят юниоров и раскрывают их потенциал ★, ★★ или ★★★ — для вашего клуба.", "points": ["В штате — от 0 до 3; зарплата 8 тыс. € за тур каждому (112 тыс. € за 14 туров). Она входит в правило 70%: нанять нельзя, если затраты станут выше — прогноз виден заранее. Нельзя нанять и тогда, когда в лиге не работает рынок (без окна юниора в основу не взять), или касса ниже −15% дохода за 14 туров; уволить можно всегда.", "Нанять или уволить можно в любой момент, кроме матча клуба; увольнение — без компенсации.", "За каждый сыгранный тур каждый селекционер смотрит одного юниора: сначала своих, потом юниоров клубов вашей лиги, потом — других лиг друзей.", "Раскрытый потенциал знает только ваш клуб: он виден в «🎓 Академии» у своих юниоров и в списке «Юниоры других клубов». Он остаётся у клуба при смене менеджера.", "Чужого юниора можно купить в трансферное окно вашей лиги — предложением цены; продавец принимает или отклоняет. Комиссия, налог, запас и заморозка — как у игроков. Купленный встаёт в основу, как свой юниор: 100 очков + запас роста (★ +5, ★★ +10, ★★★ +20), контракт новичка. Покупка считается одной из 3 покупок окна. Купить можно и вслепую, не раскрыв потенциал.", "Цену называете вы: от 50% до 200% стоимости новичка его возраста."], "now": "У вас сейчас: селекционеров нет."},
-  sponsor: {"title": "🤝 Что такое титульный спонсор?", "lead": "Компания на форме клуба: платит каждый сыгранный тур по бренду клуба (строка «🤝 Спонсор»).", "points": ["Если в лиге работает рынок (его включает администратор), раз в межсезонье, в трансферное окно, приходят 3 предложения — выбираете одно: «🛡 Надёжный» — 100% бренда на 1 сезон; «🚀 Амбициозный» — 70% и бонус до 80% бренда за цели; «⏳ Долгий» — 90% на 3 сезона, +5% каждый год (90% / 95% / 100%). Без рынка окна нет — каждый сезон «Надёжный».", "«Долгий» замораживает звёзды бренда на весь срок: защищает от падения бренда, но и рост за титул не даёт. Клубу с 1 звездой (ниже бренд не падает) он в сумме меньше «Надёжного».", "«Амбициозный» и «Долгий» в первый год платят меньше «Надёжного» (недостача — 40% и 10% бренда сезона). Выбрать их можно, только если касса переживёт эту недостачу: свободных денег (касса минус замороженное предложениями) должно быть не меньше запаса 40% дохода за последние 14 туров плюс обязательства клуба и сама недостача. Иначе доступен «Надёжный»; причина написана на карточке.", "Сезон — сезон вашей лиги (5–6 клубов — 10 туров, 7–8 — 14): суммы предложений — за столько туров.", "Цели «Амбициозного» (в конце сезона, одной строкой): верхняя половина таблицы +20%, чемпион ещё +20%, финал кубка лиги +20%, путёвка в еврокубки по месту +20%. Если кубка или путёвок в сезоне нет, их доля поровну добавляется к целям по месту.", "Моральная оговорка: каждая драка (зачинщик — ваш игрок) или массовое удаление (2+ красные у клуба в одном матче) в матчах лиги, кубка лиги и еврокубков — −3% выплаты сезона.", "Не выбрали до закрытия окна — «Надёжный». Пока идёт «Долгий», новых предложений нет.", "Бренд — звёзды известности клуба: 1 млн € за 14 туров при 1 ★; +0,5 звезды только чемпиону лиги, остальным −0,25 (кубок и еврокубок не спасают), в сезоне короче 14 туров — пропорционально. Множитель зрителей — до ×1,2 при 2500 зрителях в среднем за тур сезона, считая выездные (≈5000 на домашний матч). Подробнее — «⭐ Что такое бренд?»."], "now": "У вас сейчас: демо."},
+  sponsor: {"title": "🤝 Что такое титульный спонсор?", "lead": "Компания на форме клуба: платит каждый сыгранный тур по бренду клуба (строка «🤝 Спонсор»).", "points": ["Если в лиге работает рынок (его включает администратор), раз в межсезонье, в трансферное окно, приходят 3 предложения — выбираете одно: «🛡 Надёжный» — 100% бренда на 1 сезон; «🚀 Амбициозный» — 70% и бонус до 80% бренда за цели; «⏳ Долгий» — 90% на 3 сезона, +5% каждый год (90% / 95% / 100%). Без рынка окна нет — каждый сезон «Надёжный».", "«Долгий» замораживает звёзды бренда на весь срок: защищает от падения бренда, но и рост за титул не даёт. Клубу с 1 звездой (ниже бренд не падает) он в сумме меньше «Надёжного».", "«Амбициозный» и «Долгий» в первый год платят меньше «Надёжного» (недостача — 40% и 10% бренда сезона). Выбрать их можно, только если касса переживёт эту недостачу: свободных денег (касса минус замороженное предложениями) должно быть не меньше запаса 40% дохода за последние 14 туров плюс обязательства клуба и сама недостача. Иначе доступен «Надёжный»; причина написана на карточке.", "Сезон — сезон вашей лиги (2–4 клуба — 12 туров, 5–6 — 10, 7–8 — 14): суммы предложений — за столько туров.", "Цели «Амбициозного» (в конце сезона, одной строкой): верхняя половина таблицы +20%, чемпион ещё +20%, финал кубка лиги +20%, путёвка в еврокубки по месту +20%. Если кубка или путёвок в сезоне нет, их доля поровну добавляется к целям по месту.", "Моральная оговорка: каждая драка (зачинщик — ваш игрок) или массовое удаление (2+ красные у клуба в одном матче) в матчах лиги, кубка лиги и еврокубков — −3% выплаты сезона.", "Не выбрали до закрытия окна — «Надёжный». Пока идёт «Долгий», новых предложений нет.", "Бренд — звёзды известности клуба: 1 млн € за 14 туров при 1 ★; +0,5 звезды только чемпиону лиги, остальным −0,25 (кубок и еврокубок не спасают), в сезоне короче 14 туров — пропорционально. Множитель зрителей — до ×1,2 при 2500 зрителях в среднем за тур сезона, считая выездные (≈5000 на домашний матч). Подробнее — «⭐ Что такое бренд?»."], "now": "У вас сейчас: демо."},
   loan: {"title": "🏦 Что такое кредит?", "lead": "Деньги банка сейчас — с возвратом и процентами каждый тур.", "points": ["До 20% дохода за последние 14 туров, на 14 туров под 8% за 14 туров. Гасится каждый сыгранный тур клуба равными долями (14 платежей).", "Кредит — не доход в правиле 70%: обойти его кредитом нельзя. Проценты — затраты на состав (правило 70%).", "В кассе после траты в окно должны остаться платежи по кредиту на ближайшие 7 туров (это часть обязательств в запасе).", "Одновременно — один кредит. Погасить досрочно можно в любой момент вне матча: остаток основного долга и проценты минимум за первые 7 туров (если вы уже заплатили больше — доплаты нет); проценты за остальные туры не берутся. Взять кредит и сразу вернуть его без процентов нельзя.", "Касса ниже −15% дохода — банк кредит не даёт. Уйти из клуба (удалить его, выйти из лиги) с кредитом нельзя."], "now": "У вас сейчас: демо."},
   investor: {"title": "💼 Что такое инвестор?", "lead": "Инвесторы помогают догнать, а не уйти в отрыв: приходят только к клубам нижней половины лиги по доходу, когда есть повод.", "points": ["Повод — рост посещаемости на 15% к прошлому сезону, финал кубка лиги или сильный сезон (верхняя половина таблицы — в лиге от 4 клубов — или +2 места). Предложение приходит в конце сезона и ждёт ответа 24 ч; следующее — не раньше чем через 28 сыгранных туров.", "Условия: 20%–40% дохода за последние 14 туров сейчас — в обмен на 10%–25% коммерческих доходов (спонсор и магазин) на 28–56 сыгранных туров. Всего инвестор заберёт на 10%–30% больше, чем дал, — не больше этой суммы.", "Деньги инвестора — не доход в правиле 70%, его доля — не расход (как погашение кредита); доля за ближайшие 14 туров остаётся в кассе вместе с запасом. Если касса уйдёт в минус — по общим правилам долга.", "Уйти из клуба, пока договор идёт, нельзя."], "now": "У вас сейчас: демо."}};
 function demoFinance(win, cash, inc) {
