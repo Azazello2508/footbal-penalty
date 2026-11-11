@@ -130,6 +130,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:10px;ma
 .shtabs button{min-width:0;background:transparent;padding:6px 2px;border-radius:9px;font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shtabs button i{display:block;font-style:normal;font-size:17px;margin-bottom:2px}
 .shtabs button.on{background:var(--card2);color:var(--text);font-weight:700}
+.sup{font-size:.78em;margin-left:3px;vertical-align:1px;font-style:normal}
+.shsupv{display:flex;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border-radius:12px;background:var(--card2);font-size:13px;min-width:0}
+.shsupv .pl{color:var(--muted);flex:none}.shsupv b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.shsupv .pt{margin-left:auto;font-weight:700;flex:none}
+.shsupi{font-size:30px;line-height:1;flex:none}
 html[data-theme="club"] .shtabs button.on{background:var(--accent);color:var(--on-acc)}html[data-theme="glass"] .shtabs button.on{background:var(--club,#c81e2a);color:#fff}
 .shclosed{background:var(--shclosed);border:1px solid var(--shclosedb);border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.4;margin:8px 0}
 .shblk{margin:16px 0 6px;padding:10px;border-radius:18px;border:1px solid var(--line);background:var(--card2);scroll-margin-top:10px}
@@ -2121,7 +2125,7 @@ function panelTrophies(m, P) {   // полка трофеев клуба — с�
 function panelTop(m, P) {        // лучшие менеджеры всех лиг — считает бот, ваша строка подсвечена
   const d = TOPM;
   if (!d) return panelHead('🌍 Лучшие менеджеры') + `<div class="note">Загружаю…</div>`;
-  const row = r => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}<small>${esc(r.clubs || 'без клуба')}</small></td>` +
+  const row = r => `<tr class="${r.me ? 'me' : ''}"><td>${r.place}</td><td class="n">${esc(r.name)}${supMark(r)}<small>${esc(r.clubs || 'без клуба')}</small></td>` +
     `<td>${r.trophies}</td><td>${r.games}</td><td>${r.pct == null ? '—' : r.pct + '%'}</td><td>${r.fans}</td></tr>`;
   let h = panelHead('🌍 Лучшие менеджеры', 'Все лиги, только люди — клубы бота не считаются');
   h += d.rows.length ? `<div class="card" style="padding:6px 8px"><table class="tb top"><tr><th>#</th><th style="text-align:left">Менеджер</th><th>🏆</th><th>И</th><th>%П</th><th>📣</th></tr>` +
@@ -2894,13 +2898,16 @@ function panelAdmin(m, P) {
   if (!OU && admOpen('oeuro', false) && !OEU_ADM.wait && !OEU_ADM.err) setTimeout(oeuAdmLoad, 0);
   h += admSec('oeuro', '🌍 Еврокубки официальных лиг', OU ? `идёт турниров: ${OU.running.length}${OU.can_start ? ' · можно запускать' : ''}` : 'откройте раздел — данные загрузятся',
     OU && OU.can_start ? '!' : 0, oeuAdmin(OU), false);
-  h += admSec('shop', '🛍 Магазин: эмблемы и форма', `эмблемы — ${A.crest_editor ? 'продажа открыта' : 'закрыто'} · форма — ${A.kit_editor ? 'продажа открыта' : 'закрыто'}`, 0,
+  h += admSec('shop', '🛍 Магазин: эмблемы, форма, значок', `эмблемы — ${A.crest_editor ? 'продажа открыта' : 'закрыто'} · форма — ${A.kit_editor ? 'продажа открыта' : 'закрыто'} · значок — ${A.sup_shop ? 'продажа открыта' : 'закрыто'}`, 0,
     `<div class="card"><b>🎨 Конструктор эмблем</b><div class="note">${A.crest_editor ? 'Продажа открыта: менеджеры своих клубов покупают уровни эмблемы за звёзды (по порядку или набором), а меняют эмблему в пределах уровня бесплатно.' : 'Продажа закрыта: у менеджеров кнопка «Эмблема клуба» серая, пользоваться могут только администраторы (все уровни, бесплатно).'}</div>` +
     `<button type="button" class="go${A.crest_editor ? ' danger' : ' main'}" data-crestopen="${A.crest_editor ? 0 : 1}">${A.crest_editor ? '🔒 Закрыть продажу' : '🔓 Открыть продажу'}</button>` +
     `<details class="admin2" data-adm="crp"${admOpen('crp', false) ? ' open' : ''}><summary>⭐ Цены уровней эмблемы ▾</summary>${admPrices('crprice', 'data-crprice', A.crest_prices || {}, CREST_EDITOR.level_names)}</details></div>` +
     `<div class="card"><b>👕 Уровни формы</b><div class="note">${A.kit_editor ? 'Продажа открыта: менеджеры покупают уровни формы за звёзды (по порядку или набором), а меняют форму в пределах уровня бесплатно.' : 'Продажа закрыта: у всех — базовая форма (9 цветов) и уже купленные уровни; купить новый уровень нельзя. У администраторов — все уровни бесплатно.'}</div>` +
     `<button type="button" class="go${A.kit_editor ? ' danger' : ' main'}" data-kitopen="${A.kit_editor ? 0 : 1}">${A.kit_editor ? '🔒 Закрыть продажу формы' : '🔓 Открыть продажу формы'}</button>` +
-    `<details class="admin2" data-adm="kitp"${admOpen('kitp', false) ? ' open' : ''}><summary>⭐ Цены уровней формы ▾</summary>${admPrices('kitprice', 'data-kitprice', A.kit_prices || {}, KIT_EDITOR.level_names)}</details></div>`, false);
+    `<details class="admin2" data-adm="kitp"${admOpen('kitp', false) ? ' open' : ''}><summary>⭐ Цены уровней формы ▾</summary>${admPrices('kitprice', 'data-kitprice', A.kit_prices || {}, KIT_EDITOR.level_names)}</details></div>` +
+    `<div class="card"><b>⭐ Значок «Поддержал игру»</b><div class="note">${A.sup_shop ? 'Продажа открыта: менеджер покупает значок один раз — он навсегда у менеджера и виден у всех его клубов в таблицах. На игру не влияет.' : 'Продажа закрыта: в магазине, раздел «Профиль», — «Скоро в продаже». Купленные значки остаются. Администраторам значок сам не выдаётся.'}</div>` +
+    `<button type="button" class="go${A.sup_shop ? ' danger' : ' main'}" data-supopen="${A.sup_shop ? 0 : 1}">${A.sup_shop ? '🔒 Закрыть продажу значка' : '🔓 Открыть продажу значка'}</button>` +
+    `<div class="admp"><span>Цена значка</span><input id="supprice" inputmode="numeric" maxlength="5" value="${A.sup_price || ''}" aria-label="Цена, звёзд"><button type="button" data-supprice="1">💾</button></div></div>`, false);
   const DS = A.disputes || {n: 0, when: ''};
   h += admSec('disp', '🔥 Спорные вопросы', `в очереди ${DS.n} · следующий опрос ${esc(DS.when)}`, 0, dispAdmin(), false);
   return h;
@@ -3186,8 +3193,30 @@ const SHOP_SECS = [
   {id: 'club', i: '👕', t: 'Клуб', html: its => shopClubHtml(its)},
   {id: 'friends', i: '🎁', t: 'Друзья', html: () => shopFriendsHtml()},      // подарки (дальше — именной кубок лиги, открытки)
   {id: 'tg', i: '✈️', t: 'Telegram', html: () => ''},         // стикеры клуба, эмблема у имени, обои, постер сезона
-  {id: 'me', i: '👤', t: 'Профиль', html: () => ''},          // обложка менеджера, темы, значок
+  {id: 'me', i: '👤', t: 'Профиль', html: () => shopMeHtml()},      // значок «⭐ Поддержал игру» (дальше — обложка менеджера, темы)
 ];
+// ⭐ значок «Поддержал игру» (app/level_shop.py SUPPORTER): у менеджера, виден у всех его клубов; пометку sup в строках таблиц ставит сервер
+const SUP_MARK = '<i class="sup" title="Поддержал игру" aria-label="Поддержал игру">⭐</i>';
+const supMark = r => r && r.sup === true ? SUP_MARK : '';
+function shopMeHtml() {      // раздел «👤 Профиль»: витрина значка; купить можно один раз — проверяет сервер (H().supporter)
+  const U = H().supporter, h = H().home || {};
+  if (!U) return '';
+  const demo = `<div class="shsupv"><span class="pl">1</span><b>${esc(h.club || 'Ваш клуб')}</b>${SUP_MARK}<span class="pt">12</span></div>`;
+  const pay = U.since ? `<div class="shmax">✅ У вас есть значок с ${esc(U.since)}, спасибо!</div>` :
+    U.sale ? `<button type="button" class="kbuy" data-supbuy><span>Купить значок<small>один раз — навсегда</small></span><span class="pr">${+U.price || 0} ⭐</span></button>` :
+    `<div class="shsoon">🔜 Скоро в продаже</div>`;
+  return `<div class="shsub">Личный знак менеджера — не клуба: остаётся у вас навсегда, при смене клуба тоже.</div>` +
+    `<div class="shit"><div class="shhd"><div><b>Значок «Поддержал игру»</b><small>Знак того, что вы помогли игре расти</small></div><span class="shsupi">⭐</span></div>` +
+    `<div class="shwhat">Где виден: <b>⭐ у названия ваших клубов</b> (своего и официального) в таблице лиги и в «Лучших менеджерах». На силу команды и исход матчей не влияет.</div>` +
+    demo + `<div class="kacts">${pay}</div></div>`;
+}
+function supPay(link) {       // счёт значка: значок выдаёт бот, когда придёт оплата
+  if (!TG || !TG.openInvoice) { toast('Оплата работает только в Telegram', true); return; }
+  TG.openInvoice(link, st => {
+    if (st === 'paid') { haptic('ok'); chime('buy'); toast('⭐ Оплачено — спасибо за поддержку!'); [1500, 4000].forEach(ms => setTimeout(() => send({a: 'supporter', check: true}), ms)); }
+    else if (st === 'failed') toast('Оплата не прошла — звёзды не списаны', true);
+  });
+}
 let SHOP_SEC = 'club';
 function shopHtml(its) {
   let x = `<div class="shtop"><h1>🛍 Магазин</h1><span class="shnew">НОВИНКА</span></div>` +
@@ -3245,7 +3274,7 @@ function renderShop(force) {
   if (SHOP_PREV) { const it = its[SHOP_PREV.k];      // пришёл купленный уровень — распаковка, один раз
     if (it && !it.away && it.lv > SHOP_PREV.lv) { SHOP_UB = {k: it.k, lv: it.lv}; SHOP_OPEN = it.k; SHOP_TRY = false; SHOP_PREV = null; } }
   if (!its[SHOP_OPEN]) { const f = Object.values(its).find(i => !i.away); SHOP_OPEN = f ? f.k : Object.keys(its)[0] || ''; }      // раскрыта — форма активного клуба
-  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), H().gifts || null, SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN, SHOP_SEC]);
+  const sig = JSON.stringify([its, (H().home || {}).crest, ((H().kit_edit || {}).patches || []), H().gifts || null, H().supporter || null, SHOP_OPEN, SHOP_TRY, !!SHOP_UB, SHOP_SEEN, SHOP_SEC]);
   if (sig === SHOP_SIG && !force) return;
   SHOP_SIG = sig; el.innerHTML = shopHtml(its); shopAfter(its);
 }
@@ -3269,6 +3298,11 @@ function shopClick(b) {      // нажатия во вкладке «Магаз�
     const N = (kit ? KIT_EDITOR : CREST_EDITOR).level_names; haptic();
     ask(`🎁 Подарить клубу «${f.club}» уровень ${x.to} «${N[x.to]}» ${kit ? 'формы' : 'эмблемы'} за ${x.price} ⭐? Платите вы, уровень получает клуб друга навсегда.`,
       () => send({a: 'gift', item: d.gift, to: f.id, buy: 'next'}));
+    return true; }
+  if (b.hasAttribute('data-supbuy')) { const U = H().supporter;
+    if (!U || U.since || !U.sale) return true;      // уже есть или продажа закрыта — счёта нет
+    haptic(); ask(`⭐ Купить значок «Поддержал игру» за ${+U.price || 0} ⭐? Он останется у вас навсегда и виден у всех ваших клубов. На игру не влияет.`,
+      () => send({a: 'supporter', buy: true}));
     return true; }
   if (d.shjump) { const t = $(d.shjump); if (t && t.scrollIntoView) t.scrollIntoView({behavior: 'smooth', block: 'start'}); return true; }
   if (d.shopen) { SHOP_OPEN = d.shopen; SHOP_TRY = false; SHOP_BACK = false; haptic(); renderShop(true); return true; }
@@ -3481,7 +3515,7 @@ function renderLeague() {
   else if (SEG === 'table') {
     if (t.note) x += `<div class="card note">${esc(t.note)}</div>`;
     if (t.rows.length) x += `<div class="card" style="padding:6px 8px"><table class="tb"><tr><th>#</th><th style="text-align:left">Клуб</th><th>И</th><th>В-Н-П</th><th>Мячи</th><th>О</th></tr>` +
-      t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"${r.cid ? ` data-rep="${r.cid}"` : ''}><td>${r.place}</td><td class="n">${crestSvg(crestOf(r))}${esc(r.name)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
+      t.rows.map(r => `<tr class="${r.mine ? 'me' : ''}"${r.cid ? ` data-rep="${r.cid}"` : ''}><td>${r.place}</td><td class="n">${crestSvg(crestOf(r))}${esc(r.name)}${supMark(r)}</td><td>${r.pl}</td><td>${r.w}-${r.d}-${r.l}</td><td>${r.gf}:${r.ga}</td><td class="pts">${r.pts}</td></tr>`).join('') +
       `</table></div>`;
     if (t.rows.some(r => r.cid)) x += `<div class="hint">Неприличное название или имя у соперника? Нажмите на его строку — ⚠️ жалоба администратору.</div>`;
     if (t.rules) x += `<button type="button" class="go" data-rules="league">📜 Правила лиги</button>`;
@@ -5293,6 +5327,9 @@ function panelClick(b) {      // нажатия в окнах раздела «�
   if (P.k === 'kit' && kitClick(b)) return true;
   if (d.kitprice) { const k = d.kitprice === 'all' ? 'all' : +d.kitprice, v = +val('kitprice' + d.kitprice);
     if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'kitprice', level: k, price: v}); return true; }
+  if (d.supprice) { const v = +val('supprice');
+    if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'supprice', price: v}); return true; }
+  if (d.supopen !== undefined) { const on = d.supopen === '1'; ask(on ? 'Открыть продажу значка «Поддержал игру»? Менеджеры смогут купить его за звёзды один раз.' : 'Закрыть продажу значка? Купленные значки останутся у менеджеров.', () => send({a: 'supopen', open: on})); return true; }
   if (d.kitopen !== undefined) { const on = d.kitopen === '1'; ask(on ? 'Открыть продажу уровней формы? Менеджеры смогут покупать уровни формы за звёзды.' : 'Закрыть продажу уровней формы? Купленные уровни и формы останутся.', () => send({a: 'kitopen', open: on})); return true; }
   if (d.crprice) { const k = d.crprice === 'all' ? 'all' : +d.crprice, v = +val('crprice' + d.crprice);
     if (!Number.isInteger(v) || v < 1 || v > 10000) toast('Цена — целое число звёзд от 1 до 10000', true); else send({a: 'crestprice', level: k, price: v}); return true; }
@@ -5451,6 +5488,7 @@ function onAck(m) {
   if (m.ok && act && act.a === 'delclub') closeSheet();
   if (!m.ok && act && act.buy) SHOP_PREV = null;      // счёт не выставлен — распаковки в магазине не будет
   if (m.ok && act && act.a === 'gift' && m.invoice) giftPay(m.invoice);      // 🎁 подарок другу — счёт дарителю
+  if (m.ok && act && act.a === 'supporter' && m.invoice) supPay(m.invoice);      // ⭐ значок «Поддержал игру»
   if (m.ok && act && act.a === 'crest' && m.invoice) crestPay(m.invoice);
   if (m.ok && act && act.a === 'kits' && m.invoice) kitPay(m.invoice);
   else if (m.ok && act && act.a === 'kits' && act.design) KIT_DRAFT = null;      // дальше — то, что сохранил сервер
