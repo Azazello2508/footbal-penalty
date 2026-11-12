@@ -2947,7 +2947,7 @@ function panelAdmin(m, P) {
     `<div class="card"><b>📲 Обои на телефон</b><div class="note">${A.wall_shop ? 'Продажа открыта: менеджер покупает обои один раз и получает их файлом в чат сколько угодно — по нынешней эмблеме и форме.' : 'Продажа закрыта: в магазине, раздел «Telegram», — примерка и «Скоро в продаже». Купленные обои остаются.'}</div>` +
     `<button type="button" class="go${A.wall_shop ? ' danger' : ' main'}" data-wallopen="${A.wall_shop ? 0 : 1}">${A.wall_shop ? '🔒 Закрыть продажу обоев' : '🔓 Открыть продажу обоев'}</button>` +
     `<div class="admp"><span>Цена обоев</span><input id="wallprice" inputmode="numeric" maxlength="5" value="${A.wall_price || ''}" aria-label="Цена, звёзд"><button type="button" data-wallprice="1">💾</button></div></div>` +
-    `<div class="card"><b>😎 Стикеры клуба</b><div class="note">${A.sticker_shop ? 'Продажа открыта: менеджер покупает набор из 10 стикеров один раз — бот создаёт его в Telegram; смена стиля и перерисовка после смены эмблемы, формы или клуба — бесплатно.' : 'Продажа закрыта: в магазине, раздел «Telegram», — примерка и «Скоро в продаже». Купленные наборы остаются.'}</div>` +
+    `<div class="card"><b>😎 Стикеры клуба</b><div class="note">${A.sticker_shop ? 'Продажа открыта: менеджер покупает набор из 20 стикеров один раз — бот создаёт его в Telegram; смена стиля и перерисовка после смены эмблемы, формы или клуба — бесплатно.' : 'Продажа закрыта: в магазине, раздел «Telegram», — примерка и «Скоро в продаже». Купленные наборы остаются.'}</div>` +
     `<button type="button" class="go${A.sticker_shop ? ' danger' : ' main'}" data-stickeropen="${A.sticker_shop ? 0 : 1}">${A.sticker_shop ? '🔒 Закрыть продажу стикеров' : '🔓 Открыть продажу стикеров'}</button>` +
     `<div class="admp"><span>Цена набора</span><input id="stickerprice" inputmode="numeric" maxlength="5" value="${A.sticker_price || ''}" aria-label="Цена, звёзд"><button type="button" data-stickerprice="1">💾</button></div></div>`, false);
   const DS = A.disputes || {n: 0, when: ''};
@@ -3284,7 +3284,7 @@ function tgAck(m, act) {      // ответ на примерку: картин�
   if (TGS.zoom) tgZoomDraw();
 }
 function tgView(kind, alt) {
-  const k = tgKey(kind, {...TGS, kstyle: tgKs()}), img = TGS.img[k], ph = kind === 'wall', ar = kind === 'sticker' ? '1080/1470' : ph ? '1080/2340' : TGS.story ? '1080/1920' : '1080/1350';
+  const k = tgKey(kind, {...TGS, kstyle: tgKs()}), img = TGS.img[k], ph = kind === 'wall', ar = kind === 'sticker' ? '1080/1376' : ph ? '1080/2340' : TGS.story ? '1080/1920' : '1080/1350';
   const inner = img ? `<img src="${img}" alt="${alt}">` : TGS.err[k] ? `<div class="tgph" style="aspect-ratio:${ar};animation:none">⚠️ ${esc(TGS.err[k])}<br>Нажмите «👁 Примерить»</div>` :
     `<div class="tgph" style="aspect-ratio:${ar}">✨ Рисуем образец…</div>`;
   return `<div class="tgv${ph ? ' ph' : kind === 'sticker' ? ' st' : ''}">${inner}</div>`;
@@ -3340,9 +3340,9 @@ function tgStickerHtml() {      // 😎 стикеры клуба (сервер:
   } else if (K.has) {
     act = `<div class="shsoon">✅ Куплено</div>`;
     note = redraw('🔄 Создать набор', 'набор ещё не в Telegram — создадим бесплатно');
-  } else if (K.sale) act = `<button type="button" class="kbuy l2" data-tgbuy="sticker"><span>Купить стикеры<small>10 стикеров — навсегда</small></span><span class="pr">${+K.price || 0} ⭐</span></button>`;
+  } else if (K.sale) act = `<button type="button" class="kbuy l2" data-tgbuy="sticker"><span>Купить стикеры<small>20 стикеров — навсегда</small></span><span class="pr">${+K.price || 0} ⭐</span></button>`;
   else act = `<div class="shsoon">🔜 Скоро в продаже</div>`;
-  return `<div class="tgc k" id="tg-sticker"><div class="tgh"><div><b>😎 Стикеры клуба</b><small>10 стикеров с эмблемой и формой клуба: «ГОЛ!», «ДЕРБИ», «ВЫЗОВ ПРИНЯТ!»… Новая эмблема, форма или стиль — перерисуем бесплатно</small></div>` +
+  return `<div class="tgc k" id="tg-sticker"><div class="tgh"><div><b>😎 Стикеры клуба</b><small>20 стикеров с эмблемой и формой клуба: «ГОЛ!», «ДЕРБИ», «СЕЙВ!», «ВЫЗОВ ПРИНЯТ!»… Новая эмблема, форма или стиль — перерисуем бесплатно</small></div>` +
     `<div class="tgp">${+K.price || 0} ⭐<small>навсегда</small></div></div>` + tgView('sticker', 'Образец стикеров клуба') +
     `<div class="tgrow"><span>Стиль</span>${chips}</div>` +
     `<div class="kacts"><button type="button" class="ktry" data-tgtry="sticker">👁 Примерить</button>${act}</div>${note}</div>`;
@@ -3362,7 +3362,7 @@ function tgClick(b) {      // нажатия в разделе «Telegram»; tru
   const re = () => { haptic(); renderShop(true); };
   if (K && d.tgk) { if (K.styles.some(r => r[0] === d.tgk)) { TGS.kstyle = d.tgk; re(); } return true; }
   if (K && d.tgbuy === 'sticker') { if (K.has || !K.sale) return true; const ks = tgKs();
-    haptic(); ask(`😎 Купить стикеры клуба за ${+K.price || 0} ⭐? 10 стикеров — ваши навсегда. Сразу создадим набор в стиле «${(K.styles.find(r => r[0] === ks) || [0, ''])[1]}»; сменить стиль или перерисовать после смены эмблемы и формы — бесплатно.`,
+    haptic(); ask(`😎 Купить стикеры клуба за ${+K.price || 0} ⭐? 20 стикеров — ваши навсегда. Сразу создадим набор в стиле «${(K.styles.find(r => r[0] === ks) || [0, ''])[1]}»; сменить стиль или перерисовать после смены эмблемы и формы — бесплатно.`,
       () => send({a: 'sticker', do: 'buy', style: ks}));
     return true; }
   if (K && d.stkopen) { if (!K.link) return true; haptic(); if (TG && TG.openTelegramLink) TG.openTelegramLink(K.link); else window.open(K.link, '_blank'); return true; }
