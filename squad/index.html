@@ -3291,7 +3291,7 @@ function shopTgHtml() {      // раздел «✈️ Telegram»: карточк
   const P = H().posters;
   if (!P || !P.poster || !P.wall) return '';
   const PO = P.poster, W = P.wall, ss = PO.seasons || [], cur = tgSeason(P), place = s => s.place <= 3 ? ['🥇', '🥈', '🥉'][s.place - 1] + ` ${s.place}-е` : `${s.place}-е`;
-  const chips = (rows, on, attr) => rows.map(([v, t], i) => `<button type="button" class="tgo${String(v) === String(on) ? ' on' : ''}" ${attr}="${esc(v)}">${attr === 'data-tgs' ? 'АБВ'[i] + ' · ' : ''}${esc(t)}</button>`).join('');
+  const chips = (rows, on, attr) => rows.map(([v, t], i) => `<button type="button" class="tgo${String(v) === String(on) ? ' on' : ''}" ${attr}="${esc(v)}">${attr === 'data-tgs' ? 'АБВГ'[i] + ' · ' : ''}${esc(t)}</button>`).join('');
   let pAct;
   if (!cur) pAct = `<div class="shsoon">🗓 Появится после первого сезона</div>`;
   else if (cur.bought) pAct = `<button type="button" class="kbuy tgget" data-tgget="poster"><span>📲 Получить постер<small>сезон ${+cur.no} · файлом в чат, без сжатия</small></span><span class="pr">✅</span></button>`;
