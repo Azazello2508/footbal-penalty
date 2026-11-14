@@ -382,7 +382,7 @@ function kitPaint(k, w, h, view, face) {
   }
   const mir = view === 'back' ? -1 : 1;                   // со спины левое и правое меняются местами
   g.fillStyle = k.c2;
-  if (p === 'stripes') { for (const i of [-3, -1, 1, 3]) g.fillRect(i * 2.6 - 1.3, 0, 2.6, h); }
+  if (p === 'stripes') { for (const i of [-3, -1, 1, 3]) g.fillRect((i - .5) * w / 5, 0, w / 5, h); }   // полосы — пятые доли ширины
   else if (p === 'hoops') { for (let y = 2.6; y < h; y += 5.2) g.fillRect(-w / 2, y, w, 2.6); }
   else if (p === 'halves' || p === 'quarters') {
     if (view === 'side') {                                  // в профиль видна одна половина — та, что к нам
@@ -414,11 +414,10 @@ const KIT_FADE = new Map();
 // пятна камуфляжа: x — доля полуширины, y — доля высоты, радиусы — доли ширины и высоты, 1 — второй цвет, 0 — тёмный
 const KIT_CAMO = [[-.6, .12, .26, .13, 1], [.45, .22, .3, .12, 0], [-.1, .42, .28, .14, 1], [.7, .55, .22, .13, 1], [-.65, .66, .24, .12, 0], [.15, .8, .3, .12, 0], [-.35, .95, .2, .1, 1]];
 function hexA(h, a) { return `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`; }
-// свечение формы вечером (gl): окантовка корпуса и номер в режиме сложения — без размытия, кадр не тяжелеет
-function kitGlow(k, x, y, w, h) {
-  g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = hexA(k.co, .7); g.lineWidth = 1.4;
-  g.beginPath(); g.roundRect(x - .6, y - .6, w + 1.2, h + 1.2, [4.5, 4.5, 2.5, 2.5]); g.stroke();
-  g.strokeStyle = hexA(k.co, .22); g.lineWidth = 3.2; g.stroke(); g.restore();
+// свечение формы вечером (gl): окантовка корпуса (путь tp) и номер в режиме сложения — без размытия, кадр не тяжелеет
+function kitGlow(k, tp) {
+  g.save(); g.globalCompositeOperation = 'lighter'; g.beginPath(); ftrace(tp); g.strokeStyle = hexA(k.co, .7); g.lineWidth = 1.2; g.stroke();
+  g.strokeStyle = hexA(k.co, .22); g.lineWidth = 2.8; g.stroke(); g.restore();
 }
 // объём футболки поверх узора: светлая середина, тёмные края (градиенты в своих координатах — общие для всех фигурок)
 const TORSO_SH = {};
@@ -430,20 +429,6 @@ function torsoShade(w) {
     TORSO_SH[w] = gr;
   }
   return gr;
-}
-// футболка лёжа / в полёте: овал основного цвета с узором вдоль тела. (cx, cy) — центр, rx — полдлины тела, ry — полширины,
-// dir: +1 — голова справа (x растёт к голове), -1 — слева
-function kitLying(k, cx, cy, rx, ry, dir) {
-  shaded(cx, cy, rx, ry, k.c1);
-  if (k.p === 'plain') return;
-  g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 7); g.clip();
-  g.translate(cx + dir * rx, cy); g.rotate(dir * Math.PI / 2);   // ось y узора — от плеч к поясу вдоль тела
-  if (k.p === 'sleeves') { g.fillStyle = k.c2; g.fillRect(-ry, 0, ry * 2, 3.2); }
-  else kitPaint(k, ry * 2, rx * 2, 'back', 1);
-  g.restore();
-  g.save(); g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 7); g.clip();
-  blob(cx, cy + ry * .75, rx * 1.1, ry * .55, 'rgba(0,0,0,.22)'); blob(cx - rx * .3, cy - ry * .45, rx * .5, ry * .25, 'rgba(255,255,255,.18)');
-  g.restore();
 }
 function dist(a, b) {
   const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -4391,20 +4376,6 @@ function drawGrade() {                              // поверх кадра: 
 function looks(p) { const h = (p.t * 7 + p.s * 13 + (p.n || 0) * 3) % 30; return {skin: SKIN[h % SKIN.length], hair: HAIR[(h * 7) % HAIR.length], bald: h % 11 === 0}; }
 function turn(a, b, k) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; }
 function blob(x, y, rx, ry, col) { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); }
-const SHADE = new Map();                          // градиенты объёма: в своих координатах фигурки одинаковы из кадра в кадр
-function shaded(x, y, rx, ry, col) {            // овал с объёмом: свет сверху-слева, тень к краю, блик
-  x = Math.round(x * 2) / 2; y = Math.round(y * 2) / 2;
-  const id = col + x + ',' + y + ',' + rx + ',' + ry;
-  let gr = SHADE.get(id);
-  if (!gr) {
-    if (SHADE.size > 4000) SHADE.clear();
-    gr = g.createRadialGradient(x - rx * .35, y - ry * .4, Math.min(rx, ry) * .1, x, y, Math.max(rx, ry) * 1.05);
-    gr.addColorStop(0, mix(col, .42)); gr.addColorStop(.45, col); gr.addColorStop(1, mix(col, -.5));
-    SHADE.set(id, gr);
-  }
-  g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill();
-  blob(x - rx * .32, y - ry * .38, rx * .28, ry * .2, 'rgba(255,255,255,.28)');
-}
 function drawPlayer(p, now) {
   // фигурка сверху: четыре тени от прожекторов, ноги в беге, шорты, руки, футболка с объёмом, голова с причёской
   const tm = S.teams[p.t];
@@ -4475,8 +4446,129 @@ function gait(p, v, now) {
   const da = p.gAng === undefined ? 0 : Math.atan2(Math.sin(p.ang - p.gAng), Math.cos(p.ang - p.gAng)); p.gAng = p.ang;
   if (dt > 0) p.gTr = (p.gTr || 0) * .85 + da / dt * .15;
 }
+/* ---------------- вид фигур «А3 — стройный футболист» ----------------
+   Поджарые пропорции (~7 голов), длинные ноги, узкие плечи; руки и ноги — капсулы, плавно сужающиеся к суставам (без шаров),
+   округлые кисти, вратарские перчатки, бутсы со скруглённым носком и полосой подошвы. Тонкий тёмный контур силуэта
+   (≈1,5 px при росте 96 px, не тоньше 0,8 px экрана) и светотень ступенями: тень — узкая копия детали, сдвинутая к теневой
+   стороне (свет слева-сверху), блик — на голове и корпусе. Скелет и позы — прежние: figure считает суставы как раньше,
+   а детали копит в список (дальние — раньше); figDraw рисует контур всех деталей одним проходом, потом заливки по порядку.
+   Мелко (рост до ~95 точек экрана) тени на руках и ногах, блики и полоски не рисуем — их не видно; облегчённый режим
+   (perf.lite) — ещё и без контура. Дешевле: рука с кистью, шорты со штанинами, голова с шеей — одной деталью. */
+const FIG = {q: [], n: 0, ow: .6, lx: 1, det: true, out: true}, FIG_OUT = '#0c101c', FIGC = new Map();
+function fcol(h, k) {                              // темнее/светлее в виде #rrggbb (запоминаем); не #rrggbb — как есть
+  if (typeof h !== 'string' || h.length !== 7 || h[0] !== '#') return h;
+  const id = h + k; let v = FIGC.get(id);
+  if (!v) { if (FIGC.size > 3000) FIGC.clear(); v = hexMix(h, k); FIGC.set(id, v); }
+  return v;
+}
+/* Контур детали — список фигур числами (Path2D на каждую деталь каждого кадра дороже всего рисования): [0, капсула],
+   [1, эллипс], [2, скруглённый прямоугольник], [3, корпус], [4, дуга эллипса с хордой], [5, дуга круга с хордой].
+   ftrace обводит список в текущий путь холста. */
+const capAdd = (p, ax, ay, ra, bx, by, rb) => (p.push([0, ax, ay, ra, bx, by, rb]), p);   // капсула: круг ra в a, круг rb в b и касательные — деталь, сужающаяся к суставу
+const capP = (ax, ay, ra, bx, by, rb) => [[0, ax, ay, ra, bx, by, rb]];
+const ellAdd = (p, x, y, rx, ry) => (p.push([1, x, y, rx, ry]), p);
+const ellP = (x, y, rx, ry) => [[1, x, y, rx, ry]];
+function shAdd(p, ax, ay, ra, bx, by, rb) {        // тень капсулы: узкая копия, сдвинутая к теневой стороне (свет слева-сверху)
+  const dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy) || 1;
+  let nx = -dy / d, ny = dx / d; if (nx * FIG.lx * .94 + ny * .34 < 0) { nx = -nx; ny = -ny; }
+  return capAdd(p, ax + nx * ra * .42, ay + ny * ra * .42, ra * .58, bx + nx * rb * .42, by + ny * rb * .42, rb * .58);
+}
+function ftrace(p) {
+  for (let i = 0; i < p.length; i++) {
+    const s = p[i], k = s[0];
+    if (k === 0) {
+      const ax = s[1], ay = s[2], ra = s[3], bx = s[4], by = s[5], rb = s[6], dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy);
+      if (d <= Math.abs(ra - rb) + .01) { const x = ra >= rb ? ax : bx, y = ra >= rb ? ay : by, r = Math.max(ra, rb); g.moveTo(x + r, y); g.arc(x, y, r, 0, 2 * Math.PI); continue; }
+      const th = Math.atan2(dy, dx), al = Math.acos((ra - rb) / d), a0 = th + al;
+      g.moveTo(ax + ra * Math.cos(a0), ay + ra * Math.sin(a0));
+      g.arc(ax, ay, ra, a0, th + 2 * Math.PI - al); g.arc(bx, by, rb, th - al, th + al); g.closePath();
+    } else if (k === 1) { g.moveTo(s[1] + s[3], s[2]); g.ellipse(s[1], s[2], s[3], s[4], 0, 0, 2 * Math.PI); }
+    else if (k === 2) { g.moveTo(s[1] + s[5], s[2]); g.roundRect(s[1], s[2], s[3], s[4], s[5]); }
+    else if (k === 3) {                            // корпус стоя: от плеч y0 к поясу y1, плечи ws, талия wb; f — в профиль грудь вперёд
+      const y0 = s[1], y1 = s[2], ws = s[3], wb = s[4], f = s[5], h = y1 - y0, a = 1 + .1 * f, b = 1 - .1 * f;
+      g.moveTo(-wb * b, y1); g.lineTo(wb * a, y1);
+      g.quadraticCurveTo(wb * a * 1.04, y0 + h * .45, ws * a, y0 + h * .17);
+      g.quadraticCurveTo(ws * a, y0, ws * a * .45, y0);
+      g.lineTo(-ws * b * .45, y0);
+      g.quadraticCurveTo(-ws * b, y0, -ws * b, y0 + h * .17);
+      g.quadraticCurveTo(-wb * b * 1.04, y0 + h * .45, -wb * b, y1);
+      g.closePath();
+    } else if (k === 4) { g.moveTo(s[1] + s[3] * Math.cos(s[5]), s[2] + s[4] * Math.sin(s[5])); g.ellipse(s[1], s[2], s[3], s[4], 0, s[5], s[6]); g.closePath(); }
+    else { g.moveTo(s[1] + s[3] * Math.cos(s[4]), s[2] + s[3] * Math.sin(s[4])); g.arc(s[1], s[2], s[3], s[4], s[5]); g.closePath(); }
+  }
+}
+function figBegin() {
+  const m = g.getTransform(), px = Math.hypot(m.a, m.b) || 1;      // точек экрана на единицу фигуры
+  FIG.n = 0; FIG.lx = 1; FIG.ow = Math.max(.58, .8 / px);
+  FIG.det = !perf.lite && px >= 2.4;          // крупно (рост от ~95 точек): тени на руках и ногах, блики, полоски — мельче их не видно
+  FIG.out = !perf.lite;
+}
+// деталь: контур p цветом c; s — второй тон (контур) цветом sc (тень или вставка); h — блик; f — рисунок поверх (узор, номер, лицо);
+// o — тонкая линия по краю (рука на фоне корпуса); x — без контура силуэта
+function fpart(p, c, s, sc, h, f, o, x) {
+  const q = FIG.q[FIG.n] || (FIG.q[FIG.n] = {}); FIG.n++;
+  q.p = p; q.c = c; q.s = s; q.sc = sc; q.h = h; q.f = f; q.o = o; q.x = x;
+  return q;
+}
+function flimb(ax, ay, ra, bx, by, rb, c, sh, o) {  // рука/нога: капсула; sh — с тенью ступенью (крупно), o — с линией по краю (крупно)
+  const s = sh && FIG.det ? shAdd([], ax, ay, ra, bx, by, rb) : null;
+  return fpart(capP(ax, ay, ra, bx, by, rb), c, s, s && fcol(c, -.27), null, null, o && FIG.det);
+}
+function fboot(ax, ay, tx, ty, col) {               // бутса: скруглённый носок по ходу стопы (t), светлая полоса подошвы
+  let nx = -ty, ny = tx; if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }   // подошва — к газону
+  const hx = ax - tx * .7 + nx * .55, hy = ay - ty * .7 + ny * .55, ox = ax + tx * 2.3 + nx * .6, oy = ay + ty * 2.3 + ny * .6;
+  fpart(capP(hx, hy, 1.05, ox, oy, .8), col, null, null, null, FIG.det ? () => {
+    g.strokeStyle = 'rgba(226,232,240,.85)'; g.lineWidth = .42; g.beginPath();
+    g.moveTo(hx + tx * .2 + nx * .78, hy + ty * .2 + ny * .78); g.lineTo(ox - tx * .1 + nx * .56, oy - ty * .1 + ny * .56); g.stroke();
+  } : null);
+}
+// голова: тень по краю справа-снизу, светлая середина, блик; nk — шея [x0, y0, x1, y1] тем же тоном, что тень
+function fhead(x, y, rx, ry, skin, f, nk) {
+  const p = ellP(x, y, rx, ry); if (nk) capAdd(p, nk[0], nk[1], 1.05, nk[2], nk[3], .95);
+  fpart(p, fcol(skin, -.22), ellP(x - rx * .13, y - ry * .13, rx * .85, ry * .85), skin,
+        FIG.det ? ellP(x - rx * .38, y - ry * .42, rx * .26, ry * .17) : null, f);
+}
+function figDraw() {
+  const q = FIG.q, n = FIG.n;
+  if (FIG.out) {                                  // контур силуэта: штрих всех деталей под заливками — снаружи остаётся тонкая кромка
+    g.beginPath(); for (let i = 0; i < n; i++) if (!q[i].x) ftrace(q[i].p);
+    g.lineWidth = FIG.ow * 2; g.strokeStyle = FIG_OUT; g.lineJoin = 'round'; g.stroke();
+  }
+  for (let i = 0; i < n; i++) {
+    const e = q[i];
+    g.beginPath(); ftrace(e.p); g.fillStyle = e.c; g.fill();
+    if (e.o) { g.lineWidth = FIG.ow * .8; g.strokeStyle = 'rgba(12,16,28,.5)'; g.stroke(); }
+    if (e.s) { g.beginPath(); ftrace(e.s); g.fillStyle = e.sc; g.fill(); }
+    if (e.h) { g.beginPath(); ftrace(e.h); g.fillStyle = 'rgba(255,255,255,.24)'; g.fill(); }
+    if (e.f) e.f();
+    e.p = e.s = e.h = e.f = null;
+  }
+  FIG.n = 0;
+}
+// корпус стоя: от плеч (y0) к поясу (y1), плечи ws, талия wb (полуширины); f — в профиль, куда грудь (1 / −1), 0 — анфас/спиной
+const torsoP = (y0, y1, ws, wb, f) => [[3, y0, y1, ws, wb, f]];
+// футболка лёжа / в полёте: капсула от пояса к плечам с узором вдоль тела. (cx, cy) — центр, rx — полдлины, ry — полширины,
+// dir: +1 — голова справа (x растёт к голове), −1 — слева
+function kitLying(k, shirt, cx, cy, rx, ry, dir) {
+  const p = capP(cx - dir * rx * .5, cy, ry * .85, cx + dir * rx * .48, cy, ry);
+  fpart(p, k ? k.c1 : shirt, null, null, null, () => {
+    g.save(); g.beginPath(); ftrace(p); g.clip();
+    if (k && k.p !== 'plain') {
+      g.save(); g.translate(cx + dir * rx, cy); g.rotate(dir * Math.PI / 2);   // ось y узора — от плеч к поясу вдоль тела
+      if (k.p === 'sleeves') { g.fillStyle = k.c2; g.fillRect(-ry, 0, ry * 2, 3); }
+      else kitPaint(k, ry * 2, rx * 2, 'back', 1);
+      g.restore();
+    }
+    g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(cx - rx - 4, cy + ry * .3, rx * 2 + 8, ry * 2);   // ступень тени снизу
+    if (!perf.lite) { g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(cx - rx * .55, cy - ry * .78, rx * 1.15, ry * .3); }
+    g.restore();
+  });
+}
+function fhair(x, y, r, a0, a1, col) {              // волосы лёжа: затылок — дугой со стороны спины
+  fpart([[5, x, y, r, a0, a1]], col);
+}
 /* Удар через себя ('bike') и рыбкой головой ('fish') — тело в воздухе, рисуется отдельно (как прыжок вратаря): +x — к воротам
-   на экране, туловище — эллипс вдоль оси, голова на конце, ноги из бёдер под углом. Камера смотрит вдоль ворот (вид сверху) —
+   на экране, туловище — вдоль оси, голова на конце, ноги из бёдер под углом. Камера смотрит вдоль ворот (вид сверху) —
    падает к середине поля. Через себя: толчок, туловище откидывается назад, ноги «ножницами» взлетают выше головы — бьющая
    нога над корпусом в миг касания (доля .3), потом приземление на спину, руки в стороны — гасит падение. Рыбкой: прыжок
    вперёд, тело параллельно газону, руки вдоль тела, мяч — головой (доля .3), приземление на грудь, руки вперёд. */
@@ -4492,31 +4584,67 @@ function airFig(p, now, pz, L, shirt, shorts, sock, boot, kit, face) {
                        kf(k, [[0, Math.PI], [.12, 1.1 * Math.PI], [.3, 1.6 * Math.PI], [.5, 1.2 * Math.PI], [.66, 1.05 * Math.PI]])]
                     : [kf(k, [[0, Math.PI], [.3, 1.05 * Math.PI], [.6, 1.03 * Math.PI]]), kf(k, [[0, Math.PI], [.3, 1.08 * Math.PI], [.6, 1.1 * Math.PI]])];
   const belly = bike ? -1 : 1;              // с какой стороны оси живот: через себя — лицом вверх, рыбкой — вниз
-  g.scale(dir, 1); g.translate(0, -lift); g.rotate(rho);
-  legs.forEach((al, i) => {                 // ноги: бедро (кожа) и голень (гетра) с чуть согнутым коленом, бутса
-    const kx = Math.cos(al) * 7.5, ky = Math.sin(al) * 7.5, b = al + belly * -.22, fx = kx + Math.cos(b) * 7.5, fy = ky + Math.sin(b) * 7.5;
+  g.scale(dir, 1); g.translate(0, -lift); g.rotate(rho); FIG.lx = dir;
+  legs.forEach((al, i) => {                 // ноги: бедро (кожа) и голень (гетра) с чуть согнутым коленом, бутса — носком по ходу ноги
+    const kx = Math.cos(al) * 8.5, ky = Math.sin(al) * 8.5, b = al + belly * -.22, fx = kx + Math.cos(b) * 8.5, fy = ky + Math.sin(b) * 8.5;
     const far = i === 0;
-    g.strokeStyle = far ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3.8; g.beginPath(); g.moveTo(0, i ? 1.5 : -1.5); g.lineTo(kx, ky); g.stroke();
-    g.strokeStyle = far ? mix(sock, -.25) : sock; g.lineWidth = 3.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy); g.stroke();
-    blob(fx + Math.cos(b) * 1.4, fy + Math.sin(b) * 1.4, 3, 2, boot);
+    flimb(0, i ? 1.5 : -1.5, 1.8, kx, ky, 1.2, far ? fcol(L.skin, -.25) : L.skin, 1);
+    flimb(kx + Math.cos(b) * 1.2, ky + Math.sin(b) * 1.2, 1.3, fx, fy, .9, far ? fcol(sock, -.25) : sock, 1);
+    fboot(fx, fy, Math.cos(b), Math.sin(b), boot);
   });
-  shaded(-1, 0, 5, 4.2, shorts);
-  if (kit) kitLying(kit, 8, 0, 8.5, 5.2, 1); else shaded(8, 0, 8.5, 5.2, shirt);
+  fpart(ellP(-1, 0, 4.4, 3.4), shorts, ellP(-.8, .9, 3.6, 2.4), fcol(shorts, -.25));
+  kitLying(kit, shirt, 7.5, 0, 7.2, 3.8, 1);
   // руки: через себя — в стороны (баланс, потом гасит падение); рыбкой — вдоль тела в полёте, вперёд на приземлении
-  const arm = bike ? [[9, -10], [7, 9]] : k < .4 ? [[2, -5.5], [2, 5.5]] : [[24, -4], [24, 4]];
-  g.strokeStyle = kit && kit.p === 'sleeves' ? kit.c2 : shirt; g.lineWidth = 3.2; g.beginPath();
-  for (const [x, y] of arm) { g.moveTo(12, y < 0 ? -3 : 3); g.lineTo(x, y); }
+  const arm = bike ? [[9, -10], [7, 9]] : k < .4 ? [[2, -5.5], [2, 5.5]] : [[22, -4], [22, 4]];
+  const sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
+  for (const [x, y] of arm) {
+    const y0 = y < 0 ? -2.8 : 2.8;
+    flimb(12, y0, 1.1, x, y, .75, L.skin, 1, 1);
+    flimb(12, y0, 1.5, 12 + (x - 12) * .42, y0 + (y - y0) * .42, 1.3, sl, 0, 1);
+    fpart(ellP(x, y, .9, .85), L.skin, null, null, null, null, 0, 1);
+  }
+  fhead(17.2, 0, 2.7, 2.7, L.skin, null, [14.2, 0, 15.6, 0]);
+  if (!L.bald) fhair(17.6, 0, 2.75, belly > 0 ? Math.PI * 1.05 : Math.PI * .05, belly > 0 ? Math.PI * 1.95 : Math.PI * .95, L.hair);   // затылок — со стороны спины
+  figDraw();
+}
+/* Стоит без движения (стюарды, тренеры, запасные, судьи и игроки в паузе — больше половины фигур в кадре): готовая картинка
+   из кэша. Ключ — всё, от чего зависит вид неподвижной фигуры (куда смотрит, цвета, внешность, номер, повязка, одежда,
+   облегчённый режим) и масштаб на экране ступенями ×1,19 (картинка — не мельче экрана, при рисовании чуть уменьшается).
+   Светящаяся форма («Живая») — без кэша: свечение складывается с газоном, а не с пустой картинкой. */
+const FIGS = new Map();
+function figSprite(p, now, tm, shirt, L, v, opt, view, kit, shorts, sock) {
+  const m = g.getTransform(), px = Math.hypot(m.a, m.b) * PS;       // точек экрана на единицу фигуры
+  if (!(px > .3 && px < 10) || opt.flag) return false;              // флажок бокового судьи шире картинки — рисуем напрямую
+  const q = Math.pow(2, Math.ceil(Math.log2(px) * 4) / 4);
+  const id = view + q + (perf.lite ? 'l' : '') + shirt + shorts + sock + L.skin + L.hair + (L.bald ? 'b' : '') + '|' + p.n + (p.gk ? 'g' : '') + (p.c ? 'c' : '')
+    + '|' + (opt.trousers || '') + (opt.vest ? 'v' : '') + (opt.ref ? 'r' : '') + (opt.flag ? 'f' : '')
+    + '|' + (kit ? kit.p + kit.c2 + kit.co + kit.num + kit.numEdge + (kit.plain ? 'p' : '') : tm.shorts);
+  let c = FIGS.get(id);
+  if (!c) {
+    if (FIGS.size > 240) FIGS.delete(FIGS.keys().next().value);       // вытесняем самую старую, а не всё разом — без рывка
+    c = document.createElement('canvas'); c.width = Math.ceil(18 * q); c.height = Math.ceil(45 * q);   // фигура: x −9…9, y −41…4
+    const x = c.getContext('2d'), g0 = g; g = x;
+    x.setTransform(q / PS, 0, 0, q / PS, 9 * q, 41 * q);
+    try { figure({...p, x: 0, y: 0}, now, tm, shirt, L, v, null, false, {...opt, raw: 1}); } finally { g = g0; }
+    FIGS.set(id, c);
+  }
+  g.save(); g.translate(p.x, p.y); g.scale(PS, PS); g.drawImage(c, -9, -41, c.width / q, c.height / q); g.restore();
+  return true;
+}
+function sockStripes(st) {                          // полоска на гетре: поперёк голени на трети от верха (по 4 числа на ногу)
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = .55; g.beginPath();
+  for (let i = 0; i < st.length; i += 4) {
+    const x0 = st[i], y0 = st[i + 1], dx = st[i + 2] - x0, dy = st[i + 3] - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l * 1.1, ny = dx / l * 1.1, x = x0 + dx * .3, y = y0 + dy * .3;
+    g.moveTo(x - nx, y - ny); g.lineTo(x + nx, y + ny);
+  }
   g.stroke();
-  for (const [x, y] of arm) blob(x, y, 1.8, 1.8, L.skin);
-  shaded(19, 0, 4.4, 4.4, L.skin);
-  if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(19.6, 0, 4.4, belly > 0 ? Math.PI * 1.05 : Math.PI * .05, belly > 0 ? Math.PI * 1.95 : Math.PI * .95); g.fill(); }   // затылок — со стороны спины
 }
 function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   opt = opt || {};
   const kit = opt.kit || null;                                          // форма клуба (узор, гетры, окантовка) — только у игроков
   const d = p.ang + cam.r, sx = Math.cos(d), sy = Math.sin(d);          // направление взгляда на экране
   const side = Math.abs(sx) > .62, back = !side && sy < 0, face = sx >= 0 ? 1 : -1;
-  const shorts = kit ? kit.sh : p.gk ? '#1f2937' : tm.shorts, sock = kit ? kit.so : p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : mix(tm.shorts, -.12), boot = '#0b0f19';
+  const shorts = kit ? kit.sh : p.gk ? '#1f2937' : tm.shorts, sock = kit ? kit.so : p.gk ? '#1f2937' : opt.ref || opt.flag ? '#111827' : fcol(tm.shorts, -.12), boot = '#0b0f19';
   const pw = clamp((p.pw === undefined ? 100 : p.pw) / 100, 0, 1), run = v > .12;
   const g0 = p.gA !== undefined ? p.gA : run ? Math.min(1, v / 2.6) : 0;   // размах шага: у игроков — плавный (gait), у остальных — по скорости
   const amp = g0 > .01 && pz !== 'kneel' && pz !== 'flip' ? g0 * (.7 + .3 * pw) : 0, ph = p.stride || 0, sw = Math.sin(ph) * amp;   // на коленях — едет, не шагает
@@ -4525,36 +4653,49 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   const pk = pz && p.pose && (p.pose.at !== undefined || p.pose.t0 !== undefined) ? poseK(p, now) : -1;
   if (pz === 'slide' && !down && pk > .78) pz = 'rise';                  // после подката — встаёт
   if (pz === 'dive' && pk >= 0 && (pk < .08 || pk > .8)) pz = pk < .08 ? 'crouch' : 'rise';   // вратарь: присел и оттолкнулся / встаёт с газона
+  if (!pz && !down && !amp && !opt.raw && !(kit && kit.gl) && figSprite(p, now, tm, shirt, L, v, opt, side ? (face > 0 ? 'R' : 'L') : back ? 'B' : 'F', kit, shorts, sock)) return;
   g.save(); g.translate(p.x, p.y); g.scale(PS, PS); g.lineCap = 'round'; g.lineJoin = 'round';
+  figBegin();
+  const skinD = fcol(L.skin, -.2);
+  // нога лёжа / в подкате: бедро — кожа, голень — гетра, бутса; far — дальняя (темнее); (tx, ty) — куда носок
+  const lieLeg = (x0, y0, x1, y1, far, tx, ty) => {
+    const kx = (x0 + x1) / 2, ky = (y0 + y1) / 2;
+    flimb(x0, y0, 1.8, kx, ky, 1.2, far ? skinD : L.skin, 1);
+    flimb(kx + (x1 - x0) * .07, ky + (y1 - y0) * .07, 1.3, x1, y1, .9, far ? fcol(sock, -.2) : sock, 1);
+    fboot(x1, y1, tx, ty, boot);
+  };
   if (pz === 'slide' && !down) {                                        // подкат: скользит ногами вперёд — ведущая нога вытянута к мячу, вторая подогнута, корпус откинут, рука в газон
     const kk = pk < 0 ? .4 : pk, dir = sx >= 0 ? 1 : -1;
-    g.scale(dir, 1); g.translate(0, -kf(kk, [[0, 3], [.15, 0], [.65, 0], [.78, 2]]));
+    g.scale(dir, 1); FIG.lx = dir; g.translate(0, -kf(kk, [[0, 3], [.15, 0], [.65, 0], [.78, 2]]));
     const reach = kf(kk, [[0, 10], [.15, 16], [.6, 15], [.78, 10]]);
-    g.strokeStyle = mix(L.skin, -.2); g.lineWidth = 3.8; g.beginPath(); g.moveTo(-2, -5); g.lineTo(4, -10); g.stroke();   // подогнутая: колено вверх
-    g.strokeStyle = mix(sock, -.2); g.lineWidth = 3.6; g.beginPath(); g.moveTo(4, -10); g.lineTo(7.5, -5.5); g.stroke(); blob(8.5, -5, 2.8, 2, boot);
-    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-2, -3); g.lineTo(reach, -2.5); g.stroke(); blob(reach + 1.2, -2.5, 3.2, 2.2, boot);
-    shaded(-3, -4, 5, 4, shorts);
+    flimb(-2, -5, 1.8, 4, -10, 1.2, skinD, 1);                           // подогнутая: колено вверх
+    flimb(4.4, -9.4, 1.3, 7.5, -5.5, .9, fcol(sock, -.2), 1); fboot(7.5, -5.5, 1, 0, boot);
+    lieLeg(-2, -3, reach, -2.5, false, .6, -.8);                           // ведущая — к мячу, носок вверх
+    fpart(ellP(-3, -4, 4.2, 3.3), shorts, ellP(-2.8, -3.2, 3.4, 2.4), fcol(shorts, -.25));
+    figDraw();
     g.save(); g.translate(-3, -5); g.rotate(kf(kk, [[0, .75], [.18, .38], [.65, .45], [.78, .8]]));   // корпус откинут над газоном: сначала падает, потом приподнимается
-    g.strokeStyle = mix(L.skin, -.2); g.lineWidth = 3; g.beginPath(); g.moveTo(-12, 3); g.lineTo(-13, 10); g.stroke();   // рука — в газон
-    if (kit) kitLying(kit, -8, 0, 8.5, 5.2, -1); else shaded(-8, 0, 8.5, 5.2, shirt);
-    shaded(-18, -1, 4.6, 4.6, L.skin); if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(-19, -2.2, 4.4, Math.PI * .9, Math.PI * 1.9); g.fill(); }
-    g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(-12, -3); g.lineTo(-7, -11); g.stroke();             // вторая — вверх, для равновесия
+    flimb(-11, 2, 1.05, -12.5, 9.5, .75, skinD, 1); fpart(ellP(-12.6, 10, .9, .85), skinD);           // рука — в газон
+    kitLying(kit, shirt, -7.5, 0, 7.2, 3.8, -1);
+    fhead(-17.4, -.8, 2.7, 2.7, L.skin, null, [-14.2, -.3, -15.6, -.6]); if (!L.bald) fhair(-17.9, -1.4, 2.65, Math.PI * .9, Math.PI * 1.9, L.hair);
+    flimb(-11, -2.5, 1.05, -7, -10.5, .75, L.skin, 1, 1); fpart(ellP(-6.8, -11, .9, .85), L.skin);   // вторая — вверх, для равновесия
+    figDraw();
     g.restore(); g.restore(); return;
   }
   if (down || pz === 'slide') {                                       // лежит / подкат: тело вдоль газона
     const dir = down ? face : (sx >= 0 ? 1 : -1);
-    g.scale(dir, 1);
+    g.scale(dir, 1); FIG.lx = dir;
     const roll = down === 'roll' ? Math.sin(now / 230 + (p.s || 0)) : 0;
     if (roll) { g.translate(0, roll * 1.3); g.rotate(roll * .13); }      // катается по газону
-    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-2, -3); g.lineTo(13, -2); g.moveTo(-2, -5); g.lineTo(12, pz === 'slide' ? -8 : -5); g.stroke();
-    blob(14, -2, 3, 2.2, boot); blob(13, pz === 'slide' ? -8 : -5, 3, 2.2, boot);
-    shaded(-3, -4, 5, 4, shorts);
-    if (kit) kitLying(kit, -11, -5, 8.5, 5.2, -1); else shaded(-11, -5, 8.5, 5.2, shirt);
-    shaded(-21, -6, 4.6, 4.6, L.skin); if (!L.bald) { g.fillStyle = L.hair; g.beginPath(); g.arc(-22, -7.2, 4.4, Math.PI * .9, Math.PI * 1.9); g.fill(); }
-    g.strokeStyle = L.skin; g.lineWidth = 3; g.beginPath();
-    if (down === 'roll') { g.moveTo(-12, -9); g.lineTo(-19, -4); g.moveTo(-9, -2); g.lineTo(-18, -2 + roll); }   // обе руки — к лицу
-    else { g.moveTo(-12, -9); g.lineTo(-17, pz === 'slide' ? -14 : -11); }
-    g.stroke();
+    lieLeg(-2, -5, 12, pz === 'slide' ? -8 : -5, true, .45, -.9);
+    lieLeg(-2, -3, 13, -2, false, .45, -.9);
+    fpart(ellP(-3, -4, 4.2, 3.3), shorts, ellP(-2.8, -3.2, 3.4, 2.4), fcol(shorts, -.25));
+    kitLying(kit, shirt, -10.5, -5, 7.2, 3.8, -1);
+    fhead(-20.4, -6, 2.7, 2.7, L.skin, null, [-17.2, -5.4, -18.6, -5.7]); if (!L.bald) fhair(-20.9, -6.6, 2.65, Math.PI * .9, Math.PI * 1.9, L.hair);
+    if (down === 'roll') {                                               // обе руки — к лицу
+      flimb(-12, -8.5, 1.05, -18.5, -4.5, .75, L.skin, 1, 1); fpart(ellP(-19, -4.3, .9, .85), L.skin);
+      flimb(-9, -2.5, 1.05, -17.5, -2 + roll, .75, L.skin, 1, 1); fpart(ellP(-18, -2 + roll, .9, .85), L.skin);
+    } else { const ay = pz === 'slide' ? -14 : -11; flimb(-12, -8.5, 1.05, -16.5, ay, .75, L.skin, 1, 1); fpart(ellP(-17, ay - .3, .9, .85), L.skin); }
+    figDraw();
     g.restore(); return;
   }
   if (pz === 'dive') {                                                  // вратарь в полёте: вытянут к мячу, над газоном
@@ -4562,14 +4703,18 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     const kk = pk < 0 ? .35 : pk, dir = p.pose.dir || face, hi = clamp((ball.h || 0) / 30, 0, 1);
     const lift = kf(kk, [[.08, 3], [.26, 11 + hi * 5], [.46, 8], [.58, 0]]), rot = kf(kk, [[.08, -.85], [.26, -.25 - hi * .22], [.46, -.08], [.58, .05]]);
     const ln = kf(kk, [[.08, .55], [.24, 1], [.55, 1], [.72, .7]]), sc = Math.sin(kk * 18) * (kk > .2 && kk < .55 ? 1.2 : 0);   // вытянут: в полёте — струной, ноги чуть «ножницами»
-    g.scale(dir, 1); g.translate(0, -lift); g.rotate(rot);
-    g.strokeStyle = sock; g.lineWidth = 4; g.beginPath(); g.moveTo(-6, 0); g.lineTo(-6 - 12 * ln, 3 + sc); g.moveTo(-6, -3); g.lineTo(-5 - 12 * ln, -5 - sc); g.stroke();
-    blob(-7 - 12 * ln, 3 + sc, 3, 2, boot); blob(-6 - 12 * ln, -5 - sc, 3, 2, boot);
-    shaded(-4, -2, 5, 4.2, shorts); if (kit) kitLying(kit, 5, -4, 9, 5.5, 1); else shaded(5, -4, 9, 5.5, shirt);
-    shaded(15, -6, 4.4, 4.4, L.skin);
-    const ax = 9 + 13 * ln, ay0 = -7 - 5 * ln - hi * 4, ay1 = -4 - hi * 3;
-    g.strokeStyle = kit && kit.p === 'sleeves' ? kit.c2 : shirt; g.lineWidth = 3.4; g.beginPath(); g.moveTo(9, -7); g.lineTo(ax, ay0); g.moveTo(9, -3); g.lineTo(ax, ay1); g.stroke();
-    for (const ay of [ay0, ay1]) { g.save(); g.translate(ax + 1, ay); shaded(0, 0, 2.8, 2.6, '#e5e7eb'); g.restore(); }   // перчатки: объём из кэша, хоть руки и двигаются
+    g.scale(dir, 1); FIG.lx = dir; g.translate(0, -lift); g.rotate(rot);
+    lieLeg(-6, -3, -5 - 13 * ln, -5 - sc, true, -1, 0);
+    lieLeg(-6, 0, -6 - 13 * ln, 3 + sc, false, -1, 0);
+    fpart(ellP(-4, -1.5, 4.2, 3.3), shorts, ellP(-3.8, -.7, 3.4, 2.4), fcol(shorts, -.25));
+    kitLying(kit, shirt, 4, -3.5, 7.4, 3.9, 1);
+    fhead(14.4, -5, 2.7, 2.7, L.skin, null, [11, -4.2, 12.4, -4.6]);
+    const ax = 9 + 13 * ln, ay0 = -7 - 5 * ln - hi * 4, ay1 = -4 - hi * 3, sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
+    for (const [y0, ay] of [[-6.5, ay0], [-2.5, ay1]]) {                 // длинные рукава вратаря и перчатки
+      flimb(9, y0, 1.35, ax, ay, 1, sl, 1, 1);
+      fpart(ellP(ax + 1, ay, 1.45, 1.35), '#e5e7eb', FIG.det ? ellP(ax + 1.25, ay + .3, 1.05, .95) : null, '#c3c8d0');
+    }
+    figDraw();
     g.restore(); return;
   }
   if (pz === 'bike' || pz === 'fish') { airFig(p, now, pz, L, shirt, shorts, sock, boot, kit, face); g.restore(); return; }   // через себя, рыбкой
@@ -4598,11 +4743,13 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
   if (celLift) g.translate(0, -celLift);
   g.translate(0, -lift); g.rotate(lean);
   const low = pz === 'poke' ? 3 : pz === 'crouch' ? 3.5 : pz === 'rise' ? 4.5 : pz === 'shoulder' ? 1.5 : pz === 'plant' ? 1 : pz === 'kick' && pk >= 0 && pk < .35 ? 1 : 0;   // присел: выпад, стойка, встаёт
-  const hip = -15 - hop * .5 + (knees ? 1.5 : 0) + (kneel ? 6 : 0) + low, shoulder = hip - (knees || pz === 'rise' ? 10 : 13) + (side ? .4 : 1.2) * amp * amp, neck = shoulder - 1.5, head = neck - 4;   // согнулся — плечи ниже; на рывке наклон — корпус короче
-  // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса
-  for (const i of [-1, 1]) {
+  // длинные ноги (почти половина роста), корпус короче, голова небольшая — рост тот же, что у прежних фигурок
+  const hip = -17.5 - hop * .5 + (knees ? 1.5 : 0) + (kneel ? 7 : 0) + low, shoulder = hip - (knees || pz === 'rise' ? 9.5 : 12) + (side ? .4 : 1.2) * amp * amp, neck = shoulder - 1.5, head = neck - 3.1;   // согнулся — плечи ниже; на рывке наклон — корпус короче
+  // ноги: от бедра к колену (кожа), от колена к стопе (гетра), бутса; сверху — штанина шорт
+  const shP = [], LG = {t: [], s: [], b: [], ts: [], ss: []}, stripes = [];
+  for (const i of (side ? [-face, face] : [-1, 1])) {                    // в профиль сначала дальняя
     const far = side ? (i === face ? 0 : 1) : 0;                       // дальняя нога в профиль — темнее
-    let fx = i * 3.1, fy = 0, kx, ky, bend = 0;                          // bend — колено вперёд (нога согнута)
+    let fx = i * 2.5, fy = 0, kx, ky, bend = 0;                          // bend — колено вперёд (нога согнута)
     if (pz === 'kick' && i === 1) {                                     // удар: нога проходит через мяч → доводка вверх-вперёд → опускается (замах — поза plant)
       if (pk < 0) { if (side) { fx = face * 11; fy = -6; } else { fy = -4; fx = i * 2.4; } }
       else if (side) { fx = face * kf(pk, [[0, 3], [.18, 12], [.5, 10], [1, 3]]); fy = kf(pk, [[0, -3], [.18, -7], [.5, -5], [1, -1]]); bend = kf(pk, [[0, 1], [.2, 0], [1, 1]]); }
@@ -4623,23 +4770,44 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
       fx = i * .8 + face * sw * i * 7; fy = -fl; bend = 1.6 * amp + fl * .55;
     }
     else { fy = -Math.max(0, Math.cos(ph) * i) * (1.5 + 3.5 * amp) * amp; }
-    kx = (i * 3.1 + fx) / 2 + (side ? face * bend : 0); ky = (hip + fy) / 2 + (side ? 0 : -1 - bend * .3);
-    const thigh = opt.trousers || L.skin, shin = opt.trousers || sock;
-    g.strokeStyle = far ? mix(thigh, -.25) : thigh; g.lineWidth = opt.trousers ? 4.2 : 3.8; g.beginPath(); g.moveTo(i * 3, hip + 2); g.lineTo(kx, ky); g.stroke();
-    g.strokeStyle = far ? mix(shin, -.25) : shin; g.lineWidth = opt.trousers ? 4 : 3.6; g.beginPath(); g.moveTo(kx, ky); g.lineTo(fx, fy - 1.5); g.stroke();
-    if (!opt.trousers) { g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(Math.min(kx, fx) - .2, ky + (fy - ky) * .35, 1, 1.4); }   // полоска на гетре
-    blob(fx + (side ? face * 1.4 : 0), fy - .6, side ? 3.2 : 2.3, 1.7, boot);
+    kx = (i * 2.2 + fx) / 2 + (side ? face * bend : 0); ky = (hip + fy) / 2 + (side ? 0 : -1 - bend * .3);
+    const tr = opt.trousers, thigh = tr || L.skin, shin = tr || sock, hx = side ? i * .9 : i * 2.2, ax = fx, ay = fy - 1.5;
+    const s0x = kx + (ax - kx) * (tr ? 0 : .12), s0y = ky + (ay - ky) * (tr ? 0 : .12);
+    const t0 = tr ? 2.05 : 1.85, t1 = tr ? 1.5 : 1.2, k0 = tr ? 1.5 : 1.3, k1 = tr ? 1.1 : .88;
+    if (!tr && FIG.det) stripes.push(s0x, s0y, ax, ay);
+    if (side) {                                                         // в профиль: дальняя нога темнее — каждая деталь своя
+      const tc = far ? fcol(thigh, -.25) : thigh, sc = far ? fcol(shin, -.25) : shin;
+      flimb(hx, hip + 1.5, t0, kx, ky, t1, tc, 1);
+      const sq = flimb(s0x, s0y, k0, ax, ay, k1, sc, 1);
+      if (stripes.length) { const st = stripes.splice(0); sq.f = () => sockStripes(st); }
+      const dx = ax - kx, dy = ay - ky, l = Math.hypot(dx, dy) || 1;         // бутса носком вперёд — поперёк голени
+      fboot(ax, ay, face * dy / l, -face * dx / l, far ? '#1b2130' : boot);
+    } else {                                                            // анфас и спиной: обе ноги — общими деталями (бёдра, гетры, бутсы)
+      capAdd(LG.t, hx, hip + 1.5, t0, kx, ky, t1); capAdd(LG.s, s0x, s0y, k0, ax, ay, k1); capAdd(LG.b, ax, ay + .3, 1.1, ax, ay + 1.3, 1);
+      if (FIG.det) { shAdd(LG.ts, hx, hip + 1.5, t0, kx, ky, t1); shAdd(LG.ss, s0x, s0y, k0, ax, ay, k1); }
+    }
+    // штанина шорт: дальняя в профиль — сразу и темнее, остальные — одной деталью с шортами
+    if (!tr) {
+      const x1 = hx + (kx - hx) * .36, y1 = hip + .4 + (ky - hip - .4) * .36;
+      if (far) fpart(capP(hx, hip + .4, 2.1, x1, y1, 1.95), fcol(shorts, -.25)); else capAdd(shP, hx, hip + .4, 2.1, x1, y1, 1.95);
+    }
+  }
+  if (!side) {
+    const thigh = opt.trousers || L.skin, shin = opt.trousers || sock, d = FIG.det;
+    fpart(LG.t, thigh, d ? LG.ts : null, d && fcol(thigh, -.27));
+    fpart(LG.s, shin, d ? LG.ss : null, d && fcol(shin, -.27), null, stripes.length ? () => sockStripes(stripes) : null);
+    fpart(LG.b, boot);
   }
   // шорты
-  g.fillStyle = opt.trousers || shorts; g.beginPath(); g.roundRect(-6.2, hip - 3, 12.4, 7, 2.5); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-.5, hip, 1, 4);
+  const sw2 = side ? 2.8 : 3.4; shP.push([2, -sw2, hip - 2.6, sw2 * 2, 4.8, 1.3]);
+  fpart(shP, opt.trousers || shorts, null, null, null, () => { g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-.45, hip, .9, 2.6); });
   // руки за корпусом (дальняя) — сначала
   const armSw = -sw * 4.5, up = pz === 'cele' || pz === 'throw' || pz === 'reach', gloves = p.gk;   // reach — вратарь тянется вверх за парашютом
   const oneUp = pz === 'card' || pz === 'flag' || pz === 'up';          // одна рука вверх: карточка / флажок / свисток
   // жест «туда»: направление (угол на поле) — в pose.dir, на экране поворачиваем вместе с камерой
   const gd = p.pose && p.pose.dir !== undefined ? p.pose.dir + cam.r : 0, gx = Math.cos(gd), gy = Math.sin(gd);
   const arm = (i, behind) => {
-    const sh = {x: i * (side ? 1.5 : 6.2), y: shoulder + 1.5};
+    const sh = {x: i * (side ? 1.2 : 4.0), y: shoulder + 1.5};
     // бег: руки в противофазе ногам; та, что идёт вперёд, на рывке сгибается и поднимается (работают руками)
     const fw = Math.max(0, -Math.sin(ph) * i);
     let hx = sh.x + (side ? face * armSw * i * 1.2 : i * 1.5), hy = hip - 1 + (side ? 0 : armSw * i * .5) - amp * amp * (.6 + 2.6 * fw);
@@ -4673,8 +4841,8 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     // живые мелочи: жесты — только положение кисти (и локтя), без нового рисования
     let eo = 1.2;                                                       // локоть наружу
     if (pz === 'arms') { const w = Math.sin(now / 240 + (p.s || 0)) * 1.6; hx = sh.x + i * 9; hy = shoulder + 3 - w; }   // развёл руками: «за что?»
-    if (pz === 'headh') { hx = i * 2.4; hy = head - 1.5; eo = 5; }                                // руки на голове
-    if (pz === 'hips') { hx = i * 5.6; hy = hip - 1.5; eo = 4.5; }                                // руки на поясе
+    if (pz === 'headh') { hx = i * 2.1; hy = head - 1.2; eo = 4.5; }                              // руки на голове
+    if (pz === 'hips') { hx = i * 4.2; hy = hip - 1.5; eo = 4; }                                  // руки на поясе
     if (pz === 'clap') { const w = Math.abs(Math.sin(now / 85 + (p.s || 0))) * 2.4; hx = side ? sh.x + face * (5 + w * .5) : i * (.7 + w); hy = shoulder + (back ? 2.5 : 4); eo = 3.5; }   // хлопает в ладоши перед грудью
     if (pz === 'plane') { hx = sh.x + i * 13; hy = shoulder + 1 + i * 2; }                        // «самолётик»
     if (pz === 'hug') { hx = side ? sh.x + face * 9 : i * 2.5; hy = side ? shoulder + 2 : shoulder + (back ? -2 : 4); }   // обнимает партнёров
@@ -4686,84 +4854,92 @@ function figure(p, now, tm, shirt, L, v, pz, down, opt) {
     if (pz === 'dance') { const w = Math.sin(now / 210) * i; hx = sh.x + i * (w > 0 ? 4 : 7); hy = w > 0 ? shoulder - 13 : hip - 1; eo = w > 0 ? 1 : 4; }   // танец: рука вверх — другая на поясе, по очереди
     if (pz === 'flex') { const w = Math.sin(now / 300) * 1.5; hx = sh.x + i * 10; hy = shoulder - 8 - w; eo = 0; }   // бицепс: плечо в сторону, предплечье вверх
     if (pz === 'heart') { hx = i * 1.6; hy = shoulder - 9; eo = 6; }                              // «сердце» руками над головой
-    if (pz === 'shh') { if (i === 1) { hx = 1.2; hy = head + 2.5; eo = 5; } else { hx = sh.x - 5; hy = hip + 2; } }   // «тише»: палец к губам, другая рука отведена
+    if (pz === 'shh') { if (i === 1) { hx = 1.2; hy = head + 2.3; eo = 5; } else { hx = sh.x - 5; hy = hip + 2; } }   // «тише»: палец к губам, другая рука отведена
     if (pz === 'call' && i === 1) { const w = Math.sin(now / 95 + (p.s || 0)); hx = sh.x + 2 + w * 2.5; hy = shoulder - 11 + Math.abs(w); }   // «дай!» — машет поднятой рукой
     if ((pz === 'point' || pz === 'shout') && i === 1) { hx = sh.x + gx * 11; hy = sh.y + gy * 7 - 1; }   // показывает рукой, куда
-    if (pz === 'shout' && i === -1) { hx = side ? face * 2.6 : 1.4; hy = head + 2; }              // и кричит, ладонь у рта
+    if (pz === 'shout' && i === -1) { hx = side ? face * 2.4 : 1.2; hy = head + 1.8; }            // и кричит, ладонь у рта
     if (pz === 'adv') { hx = sh.x * 1.8 + gx * 12; hy = sh.y + gy * 5 + 2; }                       // «преимущество»: обе руки вперёд по ходу атаки
     if (pz === 'flag' && opt.flag && p.pose && p.pose.dir !== undefined && i === 1) { hx = sh.x + gx * 8; hy = shoulder - 9 + gy * 4; }   // флажок — наискось, в сторону атаки
     let ex = (sh.x + hx) / 2 + i * eo, ey = (sh.y + hy) / 2;
     if (pz === 'flex') { ex = sh.x + i * 10.5; ey = sh.y + .5; }                                          // бицепс: локоть на уровне плеча
-    const sl = kit && kit.p === 'sleeves' ? kit.c2 : shirt;
-    g.strokeStyle = behind ? mix(sl, -.3) : sl; g.lineWidth = 3.6; g.beginPath(); g.moveTo(sh.x, sh.y); g.lineTo(ex, ey); g.stroke();
-    if (kit) {                                                          // манжета рукава — цветом окантовки
-      const cx = sh.x + (ex - sh.x) * .78, cy = sh.y + (ey - sh.y) * .78;
-      g.strokeStyle = behind ? mix(kit.co, -.3) : kit.co; g.lineWidth = 3.7; g.lineCap = 'butt'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke(); g.lineCap = 'round';
+    const sl0 = kit && kit.p === 'sleeves' ? kit.c2 : shirt, sl = behind ? fcol(sl0, -.3) : sl0, sk = behind ? fcol(L.skin, -.25) : L.skin, o = !behind;
+    // рука с кистью — одной деталью; вратарь — в длинных рукавах до перчаток
+    const ac = gloves ? sl : sk, fl = Math.hypot(hx - ex, hy - ey) || 1, kx = hx + (hx - ex) / fl * .4, ky = hy + (hy - ey) / fl * .4;
+    const ap = capP(sh.x, sh.y, 1.12, ex, ey, .92); capAdd(ap, ex, ey, .92, hx, hy, gloves ? .95 : .72);
+    if (!gloves) ellAdd(ap, kx, ky, .95, .9);                          // кисть — округлая, чуть дальше запястья
+    let as = null; if (FIG.det) { as = shAdd([], sh.x, sh.y, 1.12, ex, ey, .92); shAdd(as, ex, ey, .92, hx, hy, .72); }
+    const aq = fpart(ap, ac, as, as && fcol(ac, -.27), null, null, o && FIG.det);
+    const mx = sh.x + (ex - sh.x) * .5, my = sh.y + (ey - sh.y) * .5;
+    if (!gloves) {                                                      // рукав; у формы клуба — с манжетой цветом окантовки (внутри — цвет рукава)
+      if (kit) fpart(capP(sh.x, sh.y, 1.55, sh.x + (ex - sh.x) * .62, sh.y + (ey - sh.y) * .62, 1.32), behind ? fcol(kit.co, -.3) : kit.co, capP(sh.x, sh.y, 1.55, mx, my, 1.34), sl, null, null, o && FIG.det);
+      else fpart(capP(sh.x, sh.y, 1.55, mx, my, 1.35), sl, null, null, null, null, o && FIG.det);
     }
-    g.strokeStyle = behind ? mix(L.skin, -.25) : L.skin; g.lineWidth = 3; g.beginPath(); g.moveTo(ex, ey); g.lineTo(hx, hy); g.stroke();
-    if (pz === 'flex') { blob(hx, hy - .5, 2.4, 2.4, L.skin); blob(ex - i * 1.2, ey - 2.4, 2.2, 1.8, L.skin); }   // кулак и бицепс
-    if (pz === 'heart' && i === 1 && !behind) {                                                  // сердце между ладонями
-      g.fillStyle = '#ef4444'; blob(-1.3, shoulder - 13, 1.6, 1.5, '#ef4444'); blob(1.3, shoulder - 13, 1.6, 1.5, '#ef4444');
-      g.beginPath(); g.moveTo(-2.9, shoulder - 12.6); g.lineTo(0, shoulder - 9.6); g.lineTo(2.9, shoulder - 12.6); g.fill();
-    }
-    if (pz === 'shh' && i === 1) { g.strokeStyle = L.skin; g.lineWidth = 1.3; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx, hy - 3.5); g.stroke(); }   // палец у губ
-    if (gloves) blob(hx, hy, 2.2, 2.2, '#e5e7eb');
-    if (i === 1 && !behind && opt.ref && pz === 'card') { g.fillStyle = p.card === 'red' ? '#dc2626' : '#facc15'; g.fillRect(hx - 2.2, hy - 7, 4.4, 6); }
-    if (i === 1 && !behind && opt.flag) {                              // флажок: древко и клетчатое полотнище
-      const fy = oneUp ? hy - 9 : hy + 7;
-      g.strokeStyle = '#e5e7eb'; g.lineWidth = .9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx, fy); g.stroke();
-      g.fillStyle = '#ef4444'; g.fillRect(hx, fy - (oneUp ? 0 : 5), 5, 5); g.fillStyle = '#facc15'; g.fillRect(hx, fy - (oneUp ? 0 : 5), 2.5, 2.5); g.fillRect(hx + 2.5, fy - (oneUp ? 0 : 5) + 2.5, 2.5, 2.5);
-    }
-    if (p.c && i === -1 && !p.gk && !behind) { g.strokeStyle = '#facc15'; g.lineWidth = 3.8; g.beginPath(); g.moveTo(sh.x + (ex - sh.x) * .3, sh.y + (ey - sh.y) * .3); g.lineTo(sh.x + (ex - sh.x) * .55, sh.y + (ey - sh.y) * .55); g.stroke(); }
+    if (p.c && i === -1 && !p.gk && !behind) flimb(sh.x + (ex - sh.x) * .2, sh.y + (ey - sh.y) * .2, 1.6, mx, my, 1.42, '#facc15', 0);   // повязка капитана
+    const deco = () => {
+      if (pz === 'flex') { blob(ex - i * .9, ey - 1.6, 1.4, 1.1, sk); }                       // бицепс
+      if (pz === 'heart' && i === 1 && !behind) {                                              // сердце между ладонями
+        g.fillStyle = '#ef4444'; blob(-1.3, shoulder - 13, 1.6, 1.5, '#ef4444'); blob(1.3, shoulder - 13, 1.6, 1.5, '#ef4444');
+        g.beginPath(); g.moveTo(-2.9, shoulder - 12.6); g.lineTo(0, shoulder - 9.6); g.lineTo(2.9, shoulder - 12.6); g.fill();
+      }
+      if (pz === 'shh' && i === 1) { g.strokeStyle = L.skin; g.lineWidth = .9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx, hy - 2.6); g.stroke(); }   // палец у губ
+      if (i === 1 && !behind && opt.ref && pz === 'card') { g.fillStyle = p.card === 'red' ? '#dc2626' : '#facc15'; g.fillRect(hx - 2.2, hy - 7, 4.4, 6); }
+      if (i === 1 && !behind && opt.flag) {                              // флажок: древко и клетчатое полотнище
+        const fy = oneUp ? hy - 9 : hy + 7;
+        g.strokeStyle = '#e5e7eb'; g.lineWidth = .9; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx, fy); g.stroke();
+        g.fillStyle = '#ef4444'; g.fillRect(hx, fy - (oneUp ? 0 : 5), 5, 5); g.fillStyle = '#facc15'; g.fillRect(hx, fy - (oneUp ? 0 : 5), 2.5, 2.5); g.fillRect(hx + 2.5, fy - (oneUp ? 0 : 5) + 2.5, 2.5, 2.5);
+      }
+    };
+    const dz = pz === 'flex' || pz === 'heart' || pz === 'shh' || (i === 1 && !behind && (opt.flag || (opt.ref && pz === 'card')));
+    if (gloves) fpart(ellP(kx, ky, 1.45, 1.4), behind ? '#c3c8d0' : '#e5e7eb', FIG.det ? ellP(kx + .3, ky + .3, 1.05, 1) : null, '#c3c8d0', null, dz ? deco : null);
+    else if (dz) aq.f = deco;
   };
   if (side) arm(-face, true);
-  // корпус: футболка с объёмом и полосами клуба
-  const tw = side ? 9 : 13, th = hip - shoulder + 1.5;
-  g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, th, [4, 4, 2, 2]);
-  g.fillStyle = shirt; g.fill();
-  if (kit) {                                                            // узор клуба по контуру корпуса, сверху — общий объём
-    g.save(); g.clip(); g.translate(0, shoulder);
-    kitPaint(kit, tw, th, side ? 'side' : back ? 'back' : 'front', face);
-    if (kit.plain && !p.gk) { g.fillStyle = mix(kit.sh, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 2, 0, 1.6, 15); g.fillRect(tw / 2 - 3.6, 0, 1.6, 15); g.globalAlpha = 1; }
+  // корпус: футболка с узором клуба, объём и тень ступенью, сверху — номер или воротник
+  const ws = side ? 3.0 : 4.4, wb = side ? 2.4 : 3.3, tw = ws * 2, th = hip - shoulder + 1.5, view = side ? 'side' : back ? 'back' : 'front';
+  const tp = torsoP(shoulder, hip + 1.5, ws, wb, side ? face : 0);
+  fpart(tp, shirt, null, null, null, () => {
+    g.save(); g.beginPath(); ftrace(tp); g.clip(); g.translate(0, shoulder);
+    if (kit) {                                                          // узор клуба по контуру корпуса
+      kitPaint(kit, tw, th, view, face);
+      if (kit.plain && !p.gk) { g.fillStyle = mix(kit.sh, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 1.4, 0, 1.2, 15); g.fillRect(tw / 2 - 2.6, 0, 1.2, 15); g.globalAlpha = 1; }
+    } else if (!p.gk && !opt.ref && !opt.flag) { g.fillStyle = mix(tm.shorts, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 1.4, 0, 1.2, 15); g.fillRect(tw / 2 - 2.6, 0, 1.2, 15); g.globalAlpha = 1; }
+    if (opt.vest) { g.fillStyle = 'rgba(226,232,240,.95)'; g.fillRect(-tw / 2, 5, tw, 1.2); g.fillRect(-tw / 2, 8.5, tw, 1.2); }   // жилет: светоотражающие полосы
     g.fillStyle = torsoShade(tw); g.fillRect(-tw / 2, 0, tw, th);
-    g.fillStyle = kit.co; g.fillRect(-tw / 2, th - 1.1, tw, 1.1);       // кромка низа
+    g.fillStyle = 'rgba(0,0,0,.17)'; g.fillRect(tw * .17, 0, tw, th);                         // ступень тени — справа
+    if (!perf.lite) { g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(-tw / 2 + .55, 1, .9, th - 3.5); }   // блик — слева
+    if (kit) { g.fillStyle = kit.co; g.fillRect(-tw / 2, th - 1, tw, 1); }                   // кромка низа
     g.restore();
-    if (kit.gl) kitGlow(kit, -tw / 2, shoulder, tw, th);
-  } else {
-    g.fillStyle = torsoShade(tw); g.fill();
-  }
-  if (!kit && !p.gk && !opt.ref && !opt.flag) { g.save(); g.beginPath(); g.roundRect(-tw / 2, shoulder, tw, hip - shoulder + 1.5, [4, 4, 2, 2]); g.clip();
-    g.fillStyle = mix(tm.shorts, .05); g.globalAlpha = .45; g.fillRect(-tw / 2 + 2, shoulder, 1.6, 15); g.fillRect(tw / 2 - 3.6, shoulder, 1.6, 15); g.restore(); g.globalAlpha = 1; }
-  if (opt.vest) {                                                        // жилет: светоотражающие полосы
-    g.fillStyle = 'rgba(226,232,240,.95)'; g.fillRect(-tw / 2, shoulder + 5, tw, 1.3); g.fillRect(-tw / 2, shoulder + 8.5, tw, 1.3);
-    if (back) { g.font = 'bold 3.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#111827'; g.fillText('STEWARD', 0, shoulder + 3.2); }
-  } else if (back && p.n !== undefined) {                               // номер на спине: крупный, с обводкой — читается на любом узоре
-    if (kit) { g.fillStyle = kit.co; g.fillRect(-2.6, shoulder, 5.2, 1.2); }   // воротник сзади
-    g.font = 'bold 7.6px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    if (kit) { g.strokeStyle = kit.numEdge; g.lineWidth = 1.5; g.strokeText(p.n, 0, shoulder + 7); }
-    g.fillStyle = kit ? kit.num : ink(shirt); g.fillText(p.n, 0, shoulder + 7);
-    if (kit && kit.gl) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = hexA(kit.co, .45); g.fillText(p.n, 0, shoulder + 7); g.restore(); }
-  } else if (!side) {                                                   // спереди — воротник
-    if (kit) { g.strokeStyle = kit.co; g.lineWidth = 1.3; g.beginPath(); g.moveTo(-2.8, shoulder + .3); g.lineTo(0, shoulder + 3); g.lineTo(2.8, shoulder + .3); g.stroke(); }
-    else { g.fillStyle = mix(shirt, -.4); g.beginPath(); g.moveTo(-2.2, shoulder); g.lineTo(0, shoulder + 2.6); g.lineTo(2.2, shoulder); g.fill(); }
-  } else if (kit) { g.fillStyle = kit.co; g.fillRect(-1.6, shoulder, 3.2, 1.2); }
-  arm(side ? face : -1, false); if (!side) arm(1, false);
-  // шея и голова: лицо — по направлению взгляда
-  g.fillStyle = mix(L.skin, -.12); g.fillRect(-1.4, neck - 1, 2.8, 2.6);
-  const hx0 = side ? face * .8 : 0;
-  shaded(hx0, head, 3.8, 4.1, L.skin);                                 // голова — в пропорции к телу
-  if (!L.bald) {
-    g.fillStyle = L.hair; g.beginPath();
-    if (back) g.ellipse(hx0, head + .2, 4, 4.3, 0, 0, 7);
-    else if (side) g.ellipse(hx0 - face * 1, head - 1, 3.7, 3.1, 0, Math.PI * (face > 0 ? .55 : -.45), Math.PI * (face > 0 ? 1.95 : .95));
-    else g.ellipse(hx0, head - 1.9, 3.9, 2.4, 0, Math.PI, 0);
-    g.fill();
-  }
-  if (!back) {                                                          // глаза: спереди — оба, в профиль — один
+    if (kit && kit.gl) kitGlow(kit, tp);
+    if (opt.vest) {
+      if (back) { g.font = 'bold 1.5px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.fillStyle = '#111827'; g.fillText('STEWARD', 0, shoulder + 3.2); }
+    } else if (back && p.n !== undefined) {                             // номер на спине: крупный, с обводкой — читается на любом узоре
+      if (kit) { g.fillStyle = kit.co; g.fillRect(-2.2, shoulder, 4.4, 1.1); }   // воротник сзади
+      g.font = 'bold 7px "Trebuchet MS",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      if (kit) { g.strokeStyle = kit.numEdge; g.lineWidth = 1.4; g.strokeText(p.n, 0, shoulder + 6.3); }
+      g.fillStyle = kit ? kit.num : ink(shirt); g.fillText(p.n, 0, shoulder + 6.3);
+      if (kit && kit.gl) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = hexA(kit.co, .45); g.fillText(p.n, 0, shoulder + 6.3); g.restore(); }
+    } else if (!side) {                                                 // спереди — воротник
+      if (kit) { g.strokeStyle = kit.co; g.lineWidth = 1.1; g.beginPath(); g.moveTo(-2.2, shoulder + .3); g.lineTo(0, shoulder + 2.6); g.lineTo(2.2, shoulder + .3); g.stroke(); }
+      else { g.fillStyle = mix(shirt, -.4); g.beginPath(); g.moveTo(-1.8, shoulder); g.lineTo(0, shoulder + 2.3); g.lineTo(1.8, shoulder); g.fill(); }
+    } else if (kit) { g.fillStyle = kit.co; g.fillRect(-1.3 + face * .3, shoulder, 2.6, 1.1); }
+  });
+  if (side) arm(face, false); else { arm(-1, false); arm(1, false); }
+  // шея и голова: лицо — по направлению взгляда; голова небольшая (рост ≈ 7 голов)
+  const hx0 = side ? face * .55 : 0;
+  fhead(hx0, head, 2.55, 2.75, L.skin, back ? null : () => {           // глаза: спереди — оба, в профиль — один, и нос
     g.fillStyle = '#1c1917';
-    if (side) g.fillRect(hx0 + face * 2.1 - .5, head - .6, 1, 1);
-    else { g.fillRect(hx0 - 1.6, head - .5, 1, 1); g.fillRect(hx0 + .7, head - .5, 1, 1); }
+    if (side) {
+      g.fillRect(hx0 + face * 1.45 - .35, head - .45, .7, .7);
+      g.fillStyle = L.skin; g.beginPath(); g.moveTo(hx0 + face * 2.4, head - .3); g.lineTo(hx0 + face * 3.05, head + .55); g.lineTo(hx0 + face * 2.35, head + .8); g.fill();
+    } else { g.fillRect(hx0 - 1.2, head - .45, .7, .7); g.fillRect(hx0 + .5, head - .45, .7, .7); }
+  }, [0, neck + 2, hx0 * .5, head + 1.4]);
+  if (!L.bald) {
+    const hp = back ? ellP(hx0, head + .15, 2.62, 2.85)
+      : side ? [[4, hx0 - face * .6, head - .75, 2.45, 2.2, Math.PI * (face > 0 ? .55 : -.95), Math.PI * (face > 0 ? 1.95 : .45)]]
+      : [[4, hx0, head - 1.1, 2.62, 1.75, Math.PI, 2 * Math.PI]];
+    fpart(hp, L.hair, null, null, null, back ? () => { const ec = fcol(L.skin, -.12); blob(hx0 - 2.55, head + .3, .4, .6, ec); blob(hx0 + 2.55, head + .3, .4, .6, ec); } : null);   // со спины — уши
   }
+  figDraw();
   g.restore();
 }
 const lblSt = {};                                                       // плашки имён: плавное смещение от мяча и соседей, ключ — игрок
